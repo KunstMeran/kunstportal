@@ -4152,8 +4152,22 @@ const App = {
         uploadContent.style.display = 'none';
         preview.style.display = 'block';
 
-        // File-Liste rendern
-        fileList.innerHTML = this.pendingInvoiceFiles.map((item, index) => {
+        // Clear search input
+        document.getElementById('invoice-mass-search').value = '';
+
+        // Render file list
+        this.renderMassUploadFileList();
+    },
+
+    renderMassUploadFileList: function(filterText = '') {
+        const fileList = document.getElementById('invoice-mass-file-list');
+        const lowerFilter = filterText.toLowerCase();
+
+        const filteredFiles = this.pendingInvoiceFiles
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => !filterText || item.file.name.toLowerCase().includes(lowerFilter));
+
+        fileList.innerHTML = filteredFiles.map(({ item, index }) => {
             const sizeKB = (item.file.size / 1024).toFixed(1);
             const statusClass = item.parsed.valid ? '' : 'warning';
 
@@ -4173,7 +4187,7 @@ const App = {
             return `
                 <div class="file-list-item">
                     <div class="file-list-item-info">
-                        <span class="file-list-item-icon">📄</span>
+                        <span class="file-list-item-icon" style="cursor: pointer;" onclick="App.previewPendingPdf(${index})" title="PDF öffnen">📄</span>
                         <div class="file-list-item-details">
                             <div class="file-list-item-name">${item.file.name}</div>
                             <div class="file-list-item-meta ${statusClass}">${statusText} • ${sizeKB} KB</div>
@@ -4183,6 +4197,29 @@ const App = {
                 </div>
             `;
         }).join('');
+
+        if (filteredFiles.length === 0 && filterText) {
+            fileList.innerHTML = '<div style="text-align: center; color: #666; padding: 1rem;">Keine Dateien gefunden</div>';
+        }
+    },
+
+    filterMassUploadList: function() {
+        const searchInput = document.getElementById('invoice-mass-search');
+        this.renderMassUploadFileList(searchInput.value);
+    },
+
+    previewPendingPdf: function(index) {
+        const item = this.pendingInvoiceFiles[index];
+        if (!item) return;
+
+        // Create blob URL from file
+        const blobUrl = URL.createObjectURL(item.file);
+
+        // Open in new tab
+        window.open(blobUrl, '_blank');
+
+        // Clean up blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
     },
 
     removePendingFile: function(index) {
@@ -4191,7 +4228,9 @@ const App = {
         if (this.pendingInvoiceFiles.length === 0) {
             this.cancelMassUpload();
         } else {
-            this.showMassUploadPreview();
+            // Re-render with current filter
+            const searchInput = document.getElementById('invoice-mass-search');
+            this.renderMassUploadFileList(searchInput.value);
         }
     },
 

@@ -503,6 +503,14 @@
                                 <small style="color: #666;">Mehrere Dateien gleichzeitig möglich • Format: PartitaIVA_Rechnungsnummer.pdf</small>
                             </div>
                             <div id="invoice-mass-preview" style="display: none;">
+                                <div style="margin-bottom: 0.75rem;">
+                                    <input type="text"
+                                           id="invoice-mass-search"
+                                           class="form-control"
+                                           placeholder="Dateinamen filtern..."
+                                           oninput="App.filterMassUploadList()"
+                                           style="font-size: 0.85rem; padding: 0.5rem;">
+                                </div>
                                 <div id="invoice-mass-file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
                                 <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
                                     <button class="btn btn-outline" onclick="App.cancelMassUpload()">Abbrechen</button>
