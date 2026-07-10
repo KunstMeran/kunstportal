@@ -30,6 +30,9 @@ const App = {
         // File Upload Setup
         this.setupFileUpload();
 
+        // Mass Upload Setup
+        this.setupMassUpload();
+
         // DATEV-Daten laden
         await this.loadDatevData();
 
@@ -3428,6 +3431,199 @@ const App = {
         filePreview.style.display = 'none';
 
         document.getElementById('invoice-file-input').value = '';
+    },
+
+    // ==========================================
+    // MASSEN-UPLOAD FÜR RECHNUNGEN
+    // ==========================================
+
+    pendingInvoiceFiles: [],
+
+    setupMassUpload: function() {
+        const uploadZone = document.getElementById('invoice-mass-upload-zone');
+        const fileInput = document.getElementById('invoice-mass-file-input');
+        const uploadContent = uploadZone.querySelector('.upload-content');
+
+        // Admin-Bereich anzeigen
+        if (DataManager.isAdmin()) {
+            document.getElementById('invoice-mass-upload-section').style.display = 'block';
+        }
+
+        // Click zum Datei-Auswahl
+        uploadContent.addEventListener('click', () => fileInput.click());
+
+        // Dateien ausgewählt
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleMassFiles(Array.from(e.target.files));
+            }
+        });
+
+        // Drag & Drop Events
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+
+            if (e.dataTransfer.files.length > 0) {
+                this.handleMassFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+    },
+
+    handleMassFiles: function(files) {
+        // Nur PDFs
+        const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+
+        if (pdfFiles.length === 0) {
+            alert('Bitte nur PDF-Dateien hochladen.');
+            return;
+        }
+
+        // Zu pendingInvoiceFiles hinzufügen
+        this.pendingInvoiceFiles = pdfFiles.map(file => ({
+            file: file,
+            status: 'pending',
+            parsed: this.parseInvoiceFilename(file.name)
+        }));
+
+        // Preview anzeigen
+        this.showMassUploadPreview();
+    },
+
+    parseInvoiceFilename: function(filename) {
+        // Format: PartitaIVA_Rechnungsnummer.pdf
+        // Beispiel: 12345678901_RG2023001.pdf
+        const nameWithoutExt = filename.replace('.pdf', '');
+        const parts = nameWithoutExt.split('_');
+
+        if (parts.length >= 2) {
+            return {
+                partitaIva: parts[0],
+                invoiceNumber: parts.slice(1).join('_'),
+                valid: true
+            };
+        }
+
+        return {
+            partitaIva: null,
+            invoiceNumber: null,
+            valid: false
+        };
+    },
+
+    showMassUploadPreview: function() {
+        const uploadContent = document.querySelector('#invoice-mass-upload-zone .upload-content');
+        const preview = document.getElementById('invoice-mass-preview');
+        const fileList = document.getElementById('invoice-mass-file-list');
+
+        uploadContent.style.display = 'none';
+        preview.style.display = 'block';
+
+        // File-Liste rendern
+        fileList.innerHTML = this.pendingInvoiceFiles.map((item, index) => {
+            const sizeKB = (item.file.size / 1024).toFixed(1);
+            const statusClass = item.parsed.valid ? '' : 'warning';
+            const statusText = item.parsed.valid
+                ? `Partita IVA: ${item.parsed.partitaIva} • Rechnung: ${item.parsed.invoiceNumber}`
+                : 'Warnung: Dateiname nicht im Format PartitaIVA_RechnungsNr';
+
+            return `
+                <div class="file-list-item">
+                    <div class="file-list-item-info">
+                        <span class="file-list-item-icon">📄</span>
+                        <div class="file-list-item-details">
+                            <div class="file-list-item-name">${item.file.name}</div>
+                            <div class="file-list-item-meta ${statusClass}">${statusText} • ${sizeKB} KB</div>
+                        </div>
+                    </div>
+                    <button class="file-list-item-remove" onclick="App.removePendingFile(${index})" title="Entfernen">✕</button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    removePendingFile: function(index) {
+        this.pendingInvoiceFiles.splice(index, 1);
+
+        if (this.pendingInvoiceFiles.length === 0) {
+            this.cancelMassUpload();
+        } else {
+            this.showMassUploadPreview();
+        }
+    },
+
+    cancelMassUpload: function() {
+        this.pendingInvoiceFiles = [];
+
+        const uploadContent = document.querySelector('#invoice-mass-upload-zone .upload-content');
+        const preview = document.getElementById('invoice-mass-preview');
+
+        uploadContent.style.display = 'flex';
+        preview.style.display = 'none';
+
+        document.getElementById('invoice-mass-file-input').value = '';
+    },
+
+    startMassUpload: async function() {
+        const btn = document.getElementById('start-upload-btn');
+        const btnText = document.getElementById('upload-btn-text');
+        const progress = document.getElementById('upload-progress');
+
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        progress.style.display = 'inline';
+
+        let uploaded = 0;
+        const total = this.pendingInvoiceFiles.length;
+
+        for (let i = 0; i < this.pendingInvoiceFiles.length; i++) {
+            const item = this.pendingInvoiceFiles[i];
+            progress.textContent = `${uploaded + 1}/${total}...`;
+
+            try {
+                // Upload zu Supabase Storage
+                const uploadResult = await StorageService.uploadFile(
+                    item.file,
+                    'invoices', // Ordner
+                    null
+                );
+
+                // In Datenbank speichern
+                await DataManager.addInvoice({
+                    fileName: item.file.name,
+                    filePath: uploadResult.path,
+                    fileSize: item.file.size,
+                    partitaIva: item.parsed.partitaIva,
+                    invoiceNumber: item.parsed.invoiceNumber,
+                    status: 'uploaded'
+                });
+
+                uploaded++;
+                console.log(`✅ ${item.file.name} hochgeladen`);
+
+            } catch (error) {
+                console.error(`❌ Fehler bei ${item.file.name}:`, error);
+            }
+        }
+
+        // Fertig
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        progress.style.display = 'none';
+
+        alert(`Upload abgeschlossen: ${uploaded}/${total} Dateien erfolgreich hochgeladen`);
+
+        this.cancelMassUpload();
+        this.loadRechnungen(); // Liste neu laden
     }
 };
 

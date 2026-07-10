@@ -48,6 +48,9 @@ const SupabaseDataAdapter = {
         DataManager._deleteCostOriginal = DataManager.deleteCost;
         DataManager.deleteCost = this.deleteCost.bind(this);
 
+        // Rechnungs-Funktionen überschreiben
+        DataManager.addInvoice = this.addInvoice.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -341,6 +344,37 @@ const SupabaseDataAdapter = {
 
     mapCategoryFromSupabase(category) {
         return category?.toLowerCase() || 'sonstiges';
+    },
+
+    /**
+     * RECHNUNGS-FUNKTIONEN
+     */
+
+    async addInvoice(invoiceData) {
+        try {
+            const supabaseInvoice = {
+                file_name: invoiceData.fileName,
+                file_path: invoiceData.filePath,
+                file_size: invoiceData.fileSize,
+                partita_iva: invoiceData.partitaIva,
+                invoice_number: invoiceData.invoiceNumber,
+                status: invoiceData.status || 'uploaded',
+                uploaded_by: (await SupabaseService.client.auth.getUser()).data.user?.id
+            };
+
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .insert([supabaseInvoice])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Erstellen der Rechnung:', error);
+            throw error;
+        }
     }
 };
 

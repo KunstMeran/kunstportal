@@ -482,6 +482,37 @@
                     </div>
                 </div>
 
+                <!-- Massen-Upload für PDFs (nur Admin) -->
+                <div id="invoice-mass-upload-section" class="card" style="margin-bottom: 1.5rem; display: none;">
+                    <div class="card-header">
+                        <h3 style="margin: 0; font-size: 1rem;">Rechnungs-PDFs hochladen</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="invoice-mass-upload-zone" class="upload-zone" style="min-height: 200px;">
+                            <input type="file" id="invoice-mass-file-input" accept=".pdf,application/pdf" multiple style="display: none;">
+                            <div class="upload-content">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p style="font-size: 1.1rem; margin: 1rem 0 0.5rem;">PDFs hier ablegen oder <span class="upload-link">klicken zum Auswählen</span></p>
+                                <small style="color: #666;">Mehrere Dateien gleichzeitig möglich • Format: PartitaIVA_Rechnungsnummer.pdf</small>
+                            </div>
+                            <div id="invoice-mass-preview" style="display: none;">
+                                <div id="invoice-mass-file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                    <button class="btn btn-outline" onclick="App.cancelMassUpload()">Abbrechen</button>
+                                    <button class="btn btn-primary" onclick="App.startMassUpload()" id="start-upload-btn">
+                                        <span id="upload-btn-text">Hochladen</span>
+                                        <span id="upload-progress" style="display: none;"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Status-Karten -->
                 <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
                     <div class="stat-card">
