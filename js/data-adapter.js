@@ -98,7 +98,8 @@ const SupabaseDataAdapter = {
                 location: projectData.location || '',
                 start_date: projectData.startDate || null,
                 end_date: projectData.endDate || null,
-                status: this.mapStatusToSupabase(projectData.status)
+                status: this.mapStatusToSupabase(projectData.status),
+                datev_id: projectData.datevId || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -124,7 +125,8 @@ const SupabaseDataAdapter = {
                 location: updates.location,
                 start_date: updates.startDate,
                 end_date: updates.endDate,
-                status: this.mapStatusToSupabase(updates.status)
+                status: this.mapStatusToSupabase(updates.status),
+                datev_id: updates.datevId || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -281,6 +283,7 @@ const SupabaseDataAdapter = {
             startDate: supabaseProject.start_date,
             endDate: supabaseProject.end_date,
             status: this.mapStatusFromSupabase(supabaseProject.status),
+            datevId: supabaseProject.datev_id || '',
             budget: 0, // Wird später berechnet
             createdBy: supabaseProject.created_by,
             createdAt: supabaseProject.created_at

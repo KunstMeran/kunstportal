@@ -319,28 +319,23 @@ const App = {
         const container = document.getElementById('projects-table-body');
         container.innerHTML = '';
 
+        // Zeige erstmal Basis-Infos (Summary später nachladen)
         projects.forEach(project => {
-            const summary = DataManager.getProjectSummary(project.id);
             const statusBadge = this.getStatusBadge(project.status);
-            const budgetStatus = this.getBudgetStatusClass(summary.prozentGeplant);
 
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${project.name}</strong></td>
                 <td>${project.location}</td>
                 <td>${statusBadge}</td>
-                <td>${this.formatCurrency(summary.budget)}</td>
-                <td>${this.formatCurrency(summary.ist)}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
                 <td>
-                    <span class="badge badge-${budgetStatus}">
-                        ${this.formatCurrency(summary.verfuegbar)}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage(${project.id})">Details</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage('${project.id}')">Details</button>
                     ${Auth.isAdmin() ? `
-                        <button class="btn btn-sm btn-primary" onclick="App.editProject(${project.id})">Bearbeiten</button>
-                        <button class="btn btn-sm btn-danger" onclick="App.deleteProject(${project.id})">Löschen</button>
+                        <button class="btn btn-sm btn-primary" onclick="App.editProject('${project.id}')">Bearbeiten</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteProject('${project.id}')">Löschen</button>
                     ` : ''}
                 </td>
             `;
