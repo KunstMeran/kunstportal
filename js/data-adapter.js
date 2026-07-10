@@ -177,7 +177,8 @@ const SupabaseDataAdapter = {
             return data.map(c => this.convertCostFromSupabase(c));
         } catch (error) {
             console.error('Fehler beim Laden der Kosten:', error);
-            return DataManager._getCostsOriginal();
+            // Erstmal leeres Array (Kosten noch nicht migriert)
+            return [];
         }
     },
 
@@ -194,7 +195,8 @@ const SupabaseDataAdapter = {
             return data.map(c => this.convertCostFromSupabase(c));
         } catch (error) {
             console.error('Fehler beim Laden der Kosten:', error);
-            return DataManager._getCostsByProjectOriginal(projectId);
+            // Erstmal leeres Array zurückgeben (Kosten sind noch nicht migriert)
+            return [];
         }
     },
 
