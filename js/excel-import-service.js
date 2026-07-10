@@ -42,6 +42,12 @@ const ExcelImportService = {
             const newBookings = data
                 .map(row => this.mapRowToDatevBooking(row, year, file.name))
                 .filter(booking => {
+                    // Überspringe Zeilen ohne Datum (NOT NULL Constraint)
+                    if (!booking.datum) {
+                        console.warn('⚠️ Zeile übersprungen: Kein Datum', booking);
+                        return false;
+                    }
+
                     const key = `${booking.partita_iva || ''}_${booking.dokument_nr}_${booking.datum}_${booking.betrag}`;
                     return !existingKeys.has(key);
                 });
@@ -263,11 +269,29 @@ const ExcelImportService = {
             return `${year}-${month}-${day}`;
         }
 
+        // Excel Datum (serielle Nummer seit 1900-01-01)
+        if (typeof value === 'number' && value > 0) {
+            const excelEpoch = new Date(1900, 0, 1);
+            const days = value - 2; // Excel hat einen Off-by-2 Fehler
+            const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Fallback: Date-Objekt erstellen
         const date = new Date(value);
-        if (isNaN(date.getTime())) return null;
+        if (isNaN(date.getTime())) {
+            console.warn('⚠️ Datum konnte nicht geparst werden:', value);
+            return null;
+        }
 
-        return date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     },
 
     /**

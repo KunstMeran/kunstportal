@@ -57,6 +57,10 @@ const SupabaseDataAdapter = {
         DataManager._getRechnungenMitStatusOriginal = DataManager.getRechnungenMitStatus;
         DataManager.getRechnungenMitStatus = this.getRechnungenMitStatus.bind(this);
 
+        // Lieferanten-Funktionen überschreiben
+        DataManager._getDatevLieferantenOriginal = DataManager.getDatevLieferanten;
+        DataManager.getDatevLieferanten = this.getSuppliers.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -546,6 +550,36 @@ const SupabaseDataAdapter = {
 
         // 3-Teile Format (Timestamp_PartitaIVA_RechnungsNr) oder 2-Teile: kein Lieferant
         return 'Unbekannt';
+    },
+
+    /**
+     * LIEFERANTEN-FUNKTIONEN
+     */
+    async getSuppliers() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('suppliers')
+                .select('*')
+                .order('fornitore_name', { ascending: true });
+
+            if (error) throw error;
+
+            // Format anpassen an bisheriges Format (für Kompatibilität)
+            return (data || []).map(s => ({
+                partitaIva: s.partita_iva,
+                name: s.fornitore_name,
+                fornitoreNr: s.fornitore_nr,
+                address: s.address,
+                city: s.city,
+                country: s.country
+            }));
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Lieferanten:', error);
+            // Fallback auf alte Funktion
+            return DataManager._getDatevLieferantenOriginal ?
+                DataManager._getDatevLieferantenOriginal() : [];
+        }
     }
 };
 

@@ -4265,6 +4265,13 @@ const App = {
                 // Statistik aktualisieren
                 await this.loadImportStatistics();
 
+                // Automatische Verknüpfung mit hochgeladenen PDFs
+                const linkResult = await this.autoLinkInvoicesAfterImport();
+                if (linkResult.linked > 0) {
+                    this.showToast('success', 'Verknüpfungen erstellt',
+                        `${linkResult.linked} PDFs automatisch verknüpft`);
+                }
+
                 // Datev-Buchungen neu laden (wenn auf Rechnungen-View)
                 if (document.querySelector('.nav-item.active')?.getAttribute('data-view') === 'rechnungen') {
                     await this.loadRechnungen();
@@ -4372,6 +4379,78 @@ const App = {
         } catch (error) {
             console.error('❌ Fehler beim Laden der Statistik:', error);
             this.showToast('error', 'Fehler', 'Statistik konnte nicht geladen werden');
+        }
+    },
+
+    /**
+     * Automatische Verknüpfung nach DATEV-Import
+     * Sucht nach hochgeladenen PDFs, die zu importierten Buchungen passen
+     */
+    autoLinkInvoicesAfterImport: async function() {
+        try {
+            console.log('🔗 Suche nach verknüpfbaren PDFs...');
+
+            // 1. Alle DATEV-Buchungen mit Partita IVA holen
+            const { data: datevBookings, error: datevError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('id, partita_iva, dokument_nr')
+                .not('partita_iva', 'is', null);
+
+            if (datevError) throw datevError;
+
+            // 2. Alle unverknüpften Invoices holen
+            const { data: unlinkedInvoices, error: invoiceError } = await SupabaseService.client
+                .from('invoices')
+                .select('id, file_name, partita_iva, invoice_number')
+                .is('partita_iva', null)
+                .is('invoice_number', null);
+
+            if (invoiceError) throw invoiceError;
+
+            console.log(`📊 ${datevBookings.length} DATEV-Buchungen, ${unlinkedInvoices.length} unverknüpfte PDFs`);
+
+            // 3. Matching durchführen
+            let linked = 0;
+            for (const invoice of unlinkedInvoices) {
+                // Versuche aus Dateinamen zu extrahieren
+                const filename = invoice.file_name || '';
+                const parts = filename.replace(/\.pdf$/i, '').split('_');
+
+                // Format: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum
+                if (parts.length >= 4) {
+                    const partitaIva = parts[1];
+                    const dokumentNr = parts[3];
+
+                    // Suche passende DATEV-Buchung
+                    const matching = datevBookings.find(b =>
+                        b.partita_iva === partitaIva &&
+                        b.dokument_nr === dokumentNr
+                    );
+
+                    if (matching) {
+                        // Verknüpfung erstellen
+                        const { error: updateError } = await SupabaseService.client
+                            .from('invoices')
+                            .update({
+                                partita_iva: partitaIva,
+                                invoice_number: dokumentNr
+                            })
+                            .eq('id', invoice.id);
+
+                        if (!updateError) {
+                            linked++;
+                            console.log(`✅ Verknüpft: ${filename} → ${partitaIva}_${dokumentNr}`);
+                        }
+                    }
+                }
+            }
+
+            console.log(`🔗 ${linked} PDFs automatisch verknüpft`);
+            return { linked, total: unlinkedInvoices.length };
+
+        } catch (error) {
+            console.error('❌ Fehler bei automatischer Verknüpfung:', error);
+            return { linked: 0, total: 0 };
         }
     },
 
