@@ -261,7 +261,7 @@ const App = {
                 await this.loadProjects();
                 break;
             case 'rechnungen':
-                this.loadRechnungen();
+                await this.loadRechnungen();
                 break;
             case 'lieferanten':
                 this.loadLieferanten();
@@ -1575,9 +1575,9 @@ const App = {
     // RECHNUNGEN (DATEV)
     // ==========================================
 
-    loadRechnungen: function() {
+    loadRechnungen: async function() {
         // Statistiken aktualisieren
-        const rechnungen = DataManager.getRechnungenMitStatus();
+        const rechnungen = await DataManager.getRechnungenMitStatus();
         const neuCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.NEU).length;
         const kontrolliertCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.KONTROLLIERT).length;
         const bezahltCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.BEZAHLT).length;
@@ -1595,10 +1595,10 @@ const App = {
         }
 
         // Filter-Dropdowns befüllen
-        this.populateRechnungenFilters();
+        await this.populateRechnungenFilters();
 
         // Rechnungen anzeigen
-        this.filterRechnungen();
+        await this.filterRechnungen();
     },
 
     populateRechnungenFilters: async function() {
