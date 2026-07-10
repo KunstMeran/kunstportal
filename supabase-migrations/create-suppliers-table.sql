@@ -10,11 +10,12 @@ CREATE TABLE IF NOT EXISTS suppliers (
     partita_iva TEXT UNIQUE NOT NULL,
     fornitore_nr TEXT,
     fornitore_name TEXT NOT NULL,
+    codice_fiscale TEXT,
 
     -- Additional info (can be extended)
     address TEXT,
     city TEXT,
-    country TEXT,
+    country TEXT DEFAULT 'IT',
     email TEXT,
     phone TEXT,
 

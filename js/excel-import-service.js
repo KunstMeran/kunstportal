@@ -208,13 +208,35 @@ const ExcelImportService = {
      * Excel-Zeile zu Lieferant mappen
      */
     mapRowToSupplier(row, fileName) {
+        // Partita IVA mit IT-Prefix versehen wenn nicht vorhanden
+        let partitaIva = row['Partita IVA'] || null;
+        if (partitaIva && !partitaIva.startsWith('IT') && !partitaIva.startsWith('DE') && !partitaIva.startsWith('AT')) {
+            partitaIva = 'IT' + partitaIva;
+        }
+
+        // Für ausländische Lieferanten: Partita IVA Estera + IDISO
+        const partitaIvaEstera = row['Partita IVA estera'];
+        const idIso = row['IDISO'];
+        if (partitaIvaEstera && idIso) {
+            partitaIva = idIso + partitaIvaEstera;
+        }
+
+        // Codice Fiscale (für Künstler ohne Partita IVA)
+        const codiceFiscale = row['Codice fiscale'] || row['C.F.'];
+
+        // Falls keine Partita IVA, aber Codice Fiscale vorhanden
+        if (!partitaIva && codiceFiscale) {
+            partitaIva = 'CF:' + codiceFiscale; // CF: Prefix für Codice Fiscale
+        }
+
         return {
-            partita_iva: row['Partita IVA'] || null,
-            fornitore_nr: row['Numero'] || row['Conto'] || null,
-            fornitore_name: row['Nome'] || row['Denominazione'] || 'Unbekannt',
+            partita_iva: partitaIva,
+            fornitore_nr: row['Numero'] || row['DATEV-ID'] || row['Conto'] || null,
+            fornitore_name: row['Nominativo'] || row['Nome'] || row['Denominazione'] || 'Unbekannt',
+            codice_fiscale: codiceFiscale || null,
             address: row['Indirizzo'] || row['Via'] || null,
             city: row['Località'] || row['Citta'] || null,
-            country: row['Paese'] || 'IT',
+            country: idIso || row['Paese'] || 'IT',
             email: row['Email'] || null,
             phone: row['Telefono'] || null,
             import_file_name: fileName
