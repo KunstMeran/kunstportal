@@ -347,10 +347,15 @@ const App = {
     // FULLPAGE PROJECT VIEW
     // ==========================================
 
-    openProjectFullpage: function(projectId) {
+    openProjectFullpage: async function(projectId) {
         this.currentProjectId = projectId;
-        const summary = DataManager.getProjectSummary(projectId);
-        const project = summary.project;
+
+        // Projekt direkt laden
+        const project = await DataManager.getProjectById(projectId);
+        if (!project) {
+            alert('Projekt nicht gefunden');
+            return;
+        }
 
         // Header
         document.getElementById('fullpage-project-name').textContent = project.name;
@@ -360,39 +365,23 @@ const App = {
         document.getElementById('fp-period').textContent = `${this.formatDate(project.startDate)} - ${this.formatDate(project.endDate)}`;
         document.getElementById('fp-status').innerHTML = this.getStatusBadge(project.status);
         document.getElementById('fp-description').textContent = project.description || '-';
-        document.getElementById('fp-hours').textContent = summary.totalHours + ' Std.';
+        document.getElementById('fp-hours').textContent = '- Std.'; // TODO: Später berechnen
 
-        // Budget-Übersicht
-        document.getElementById('fp-budget-total').textContent = this.formatCurrency(summary.budget);
-        document.getElementById('fp-ist-total').textContent = this.formatCurrency(summary.ist);
-        document.getElementById('fp-prov-total').textContent = this.formatCurrency(summary.provisorisch);
-        document.getElementById('fp-available').textContent = this.formatCurrency(summary.verfuegbar);
+        // Budget-Übersicht (Platzhalter)
+        document.getElementById('fp-budget-total').textContent = '-';
+        document.getElementById('fp-ist-total').textContent = '-';
+        document.getElementById('fp-prov-total').textContent = '-';
+        document.getElementById('fp-available').textContent = '-';
 
-        // Planvergleich
-        document.getElementById('fp-planned-original').textContent = this.formatCurrency(summary.geplantOriginal);
-        const deviation = summary.abweichungPlanung;
-        const deviationEl = document.getElementById('fp-planned-deviation');
-        deviationEl.textContent = (deviation >= 0 ? '+' : '') + this.formatCurrency(deviation);
-        deviationEl.style.color = deviation > 0 ? '#e74c3c' : (deviation < 0 ? '#27ae60' : '#666');
+        // Planvergleich (Platzhalter)
+        document.getElementById('fp-planned-original').textContent = '-';
+        document.getElementById('fp-planned-deviation').textContent = '-';
 
-        // Personalkosten (Admin only)
-        document.getElementById('fp-labor-cost').textContent = this.formatCurrency(summary.laborCost);
+        // Personalkosten (Platzhalter)
+        document.getElementById('fp-labor-cost').textContent = '-';
 
-        // Budget-Balken
-        const budgetBar = document.getElementById('fp-budget-bar');
-        budgetBar.innerHTML = `
-            <div class="budget-segment spent" style="width: ${Math.min(summary.prozentVerbraucht, 100)}%" title="IST-Kosten"></div>
-            <div class="budget-segment provisional" style="width: ${Math.min(summary.prozentGeplant - summary.prozentVerbraucht, 100 - summary.prozentVerbraucht)}%" title="Provisorisch"></div>
-        `;
-
-        // Filter-Dropdowns befüllen
-        this.populateProjectFilters();
-
-        // Kosten laden
-        this.filterProjectCosts();
-
-        // Kategorie-Aufschlüsselung
-        this.loadCategoryBreakdown(projectId);
+        // Budget-Balken (Platzhalter)
+        document.getElementById('fp-budget-bar').innerHTML = '';
 
         // Admin-Buttons aktualisieren
         document.querySelectorAll('#project-fullpage .admin-only').forEach(el => {
@@ -401,6 +390,27 @@ const App = {
 
         // Fullpage anzeigen
         document.getElementById('project-fullpage').classList.add('show');
+
+        // Kosten und Details asynchron nachladen
+        this.loadProjectDetails(projectId);
+    },
+
+    async loadProjectDetails(projectId) {
+        try {
+            // Kosten laden
+            const costs = await DataManager.getCostsByProject(projectId);
+
+            // TODO: Summary berechnen und anzeigen
+            // Erstmal nur Kosten-Liste anzeigen
+            this.displayProjectCosts(costs);
+        } catch (error) {
+            console.error('Fehler beim Laden der Projekt-Details:', error);
+        }
+    },
+
+    displayProjectCosts(costs) {
+        // TODO: Kosten in der Fullpage-View anzeigen
+        console.log('Geladene Kosten:', costs);
     },
 
     closeProjectFullpage: function() {
