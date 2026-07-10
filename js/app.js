@@ -3739,9 +3739,10 @@ const App = {
     },
 
     parseInvoiceFilename: function(filename) {
-        // Neues Format: Jahr_PartitaIVA_Fornitore_Rechnungsnummer_Datum.pdf
-        // Beispiel: 2024_12345678901_MusterFirma_RG001_20240115.pdf
-        // Altes Format: PartitaIVA_Rechnungsnummer.pdf
+        // Formate:
+        // 1. Neues: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum.pdf (5 Teile)
+        // 2. Timestamp: Timestamp_PartitaIVA_RechnungsNr.pdf (3 Teile, erster ist Zahl >1000000000)
+        // 3. Alt: PartitaIVA_RechnungsNr.pdf (2 Teile)
         const nameWithoutExt = filename.replace(/\.pdf$/i, '');
         const parts = nameWithoutExt.split('_');
 
@@ -3753,6 +3754,18 @@ const App = {
                 fornitore: parts[2],
                 invoiceNumber: parts[3],
                 date: parts[4],
+                valid: true
+            };
+        }
+
+        // Timestamp Format: 1783676713299_IT00882800212_9774600117.pdf
+        if (parts.length === 3 && /^\d{10,}$/.test(parts[0])) {
+            return {
+                partitaIva: parts[1],
+                invoiceNumber: parts[2],
+                fornitore: null,
+                year: null,
+                date: null,
                 valid: true
             };
         }
