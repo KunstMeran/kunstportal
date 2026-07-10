@@ -4217,11 +4217,13 @@ const App = {
         progress.style.display = 'inline';
 
         let uploaded = 0;
+        let alreadyExists = 0;
+        let errors = 0;
         const total = this.pendingInvoiceFiles.length;
 
         for (let i = 0; i < this.pendingInvoiceFiles.length; i++) {
             const item = this.pendingInvoiceFiles[i];
-            progress.textContent = `${uploaded + 1}/${total}...`;
+            progress.textContent = `${i + 1}/${total}...`;
 
             try {
                 // Upload zu Supabase Storage
@@ -4252,7 +4254,14 @@ const App = {
                 console.log(`✅ ${item.file.name} hochgeladen${datevBuchungId ? ' (DATEV verknüpft)' : ''}`);
 
             } catch (error) {
-                console.error(`❌ Fehler bei ${item.file.name}:`, error);
+                // Prüfe ob Datei bereits existiert
+                if (error.message && error.message.includes('already exists')) {
+                    alreadyExists++;
+                    console.log(`ℹ️ ${item.file.name} bereits vorhanden`);
+                } else {
+                    errors++;
+                    console.error(`❌ Fehler bei ${item.file.name}:`, error);
+                }
             }
         }
 
@@ -4261,10 +4270,15 @@ const App = {
         btnText.style.display = 'inline';
         progress.style.display = 'none';
 
+        // Detaillierte Rückmeldung
+        let message = `${uploaded} neu hochgeladen`;
+        if (alreadyExists > 0) message += `, ${alreadyExists} bereits vorhanden`;
+        if (errors > 0) message += `, ${errors} Fehler`;
+
         this.showToast(
             'success',
-            'Upload erfolgreich!',
-            `${uploaded} von ${total} Dateien wurden hochgeladen`
+            'Upload abgeschlossen',
+            message
         );
 
         this.cancelMassUpload();
