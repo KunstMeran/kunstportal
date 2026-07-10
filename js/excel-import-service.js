@@ -209,14 +209,14 @@ const ExcelImportService = {
      */
     mapRowToSupplier(row, fileName) {
         return {
-            partita_iva: row['Partita IVA'] || row['partitaIva'] || null,
-            fornitore_nr: row['Fornitore Nr'] || row['fornitoreNr'] || null,
-            fornitore_name: row['Fornitore Name'] || row['fornitoreName'] || row['Name'] || 'Unbekannt',
-            address: row['Adresse'] || row['address'] || null,
-            city: row['Stadt'] || row['city'] || null,
-            country: row['Land'] || row['country'] || null,
-            email: row['Email'] || row['email'] || null,
-            phone: row['Telefon'] || row['phone'] || null,
+            partita_iva: row['Partita IVA'] || null,
+            fornitore_nr: row['Numero'] || row['Conto'] || null,
+            fornitore_name: row['Nome'] || row['Denominazione'] || 'Unbekannt',
+            address: row['Indirizzo'] || row['Via'] || null,
+            city: row['Località'] || row['Citta'] || null,
+            country: row['Paese'] || 'IT',
+            email: row['Email'] || null,
+            phone: row['Telefono'] || null,
             import_file_name: fileName
         };
     },
