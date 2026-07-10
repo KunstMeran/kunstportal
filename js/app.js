@@ -1614,20 +1614,46 @@ const App = {
         // Sortieren nach Datum (neueste zuerst)
         rechnungen.sort((a, b) => new Date(b.datum) - new Date(a.datum));
 
-        // Tabelle befüllen
+        // Filtered results speichern und zur ersten Seite zurück
+        this.filteredRechnungen = rechnungen;
+        this.currentRechnungenPage = 1;
+
+        // Seite rendern
+        this.renderRechnungenPage();
+    },
+
+    renderRechnungenPage: function() {
         const tbody = document.getElementById('rechnungen-table-body');
         tbody.innerHTML = '';
 
         // "Alle auswählen" Checkbox zurücksetzen
         document.getElementById('rechnungen-select-all').checked = false;
 
-        if (rechnungen.length === 0) {
+        const totalCount = this.filteredRechnungen.length;
+        const totalPages = Math.ceil(totalCount / this.rechnungenPerPage);
+        const startIndex = (this.currentRechnungenPage - 1) * this.rechnungenPerPage;
+        const endIndex = Math.min(startIndex + this.rechnungenPerPage, totalCount);
+
+        if (totalCount === 0) {
             tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; color: #666; padding: 2rem;">Keine Rechnungen gefunden. Bitte Import-Skript ausführen.</td></tr>';
+            document.getElementById('rechnungen-pagination').style.display = 'none';
             this.updateMassActionsBar();
             return;
         }
 
-        rechnungen.forEach(r => {
+        // Pagination anzeigen wenn mehr als 20 Rechnungen
+        const paginationDiv = document.getElementById('rechnungen-pagination');
+        if (totalCount > this.rechnungenPerPage) {
+            paginationDiv.style.display = 'flex';
+            document.getElementById('page-info').textContent = `Seite ${this.currentRechnungenPage} von ${totalPages} (${totalCount} Rechnungen)`;
+        } else {
+            paginationDiv.style.display = 'none';
+        }
+
+        // Nur die aktuelle Seite rendern
+        const pageRechnungen = this.filteredRechnungen.slice(startIndex, endIndex);
+
+        pageRechnungen.forEach(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             // Nutze direkt die Werte aus JSON falls vorhanden, sonst berechnen
             const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
@@ -1696,6 +1722,22 @@ const App = {
         });
 
         this.updateMassActionsBar();
+    },
+
+    goToRechnungenPage: function(page) {
+        const totalPages = Math.ceil(this.filteredRechnungen.length / this.rechnungenPerPage);
+
+        if (page === 'prev') {
+            this.currentRechnungenPage = Math.max(1, this.currentRechnungenPage - 1);
+        } else if (page === 'next') {
+            this.currentRechnungenPage = Math.min(totalPages, this.currentRechnungenPage + 1);
+        } else if (page === 'last') {
+            this.currentRechnungenPage = totalPages;
+        } else if (typeof page === 'number') {
+            this.currentRechnungenPage = Math.max(1, Math.min(totalPages, page));
+        }
+
+        this.renderRechnungenPage();
     },
 
     // ==========================================
