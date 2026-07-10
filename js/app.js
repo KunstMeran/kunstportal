@@ -3620,10 +3620,47 @@ const App = {
         btnText.style.display = 'inline';
         progress.style.display = 'none';
 
-        alert(`Upload abgeschlossen: ${uploaded}/${total} Dateien erfolgreich hochgeladen`);
+        this.showToast(
+            'success',
+            'Upload erfolgreich!',
+            `${uploaded} von ${total} Dateien wurden hochgeladen`
+        );
 
         this.cancelMassUpload();
         this.loadRechnungen(); // Liste neu laden
+    },
+
+    // ==========================================
+    // TOAST NOTIFICATIONS
+    // ==========================================
+
+    showToast: function(type, title, message) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type] || icons.info}</span>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                ${message ? `<div class="toast-message">${message}</div>` : ''}
+            </div>
+        `;
+
+        container.appendChild(toast);
+
+        // Auto-remove nach 4 Sekunden
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 };
 
