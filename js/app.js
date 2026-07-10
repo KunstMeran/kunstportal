@@ -290,6 +290,9 @@ const App = {
             case 'einnahmen':
                 this.loadEinnahmen();
                 break;
+            case 'import':
+                await this.loadImportStatistics();
+                break;
             case 'konfiguration':
                 this.loadConfiguration();
                 break;
@@ -4222,6 +4225,153 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Ändern des Status:', error);
             this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
+    },
+
+    // ==========================================
+    // DATEV IMPORT
+    // ==========================================
+
+    /**
+     * Import DATEV Buchungen von Excel
+     */
+    importDatevBookings: async function() {
+        const fileInput = document.getElementById('datev-file-input');
+        const yearSelect = document.getElementById('import-year');
+        const resultDiv = document.getElementById('datev-import-result');
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            this.showToast('error', 'Fehler', 'Bitte wählen Sie eine Excel-Datei aus');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const year = parseInt(yearSelect.value);
+
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div style="color: #666;">⏳ Import läuft...</div>';
+
+        try {
+            const result = await ExcelImportService.importDatevBookings(file, year);
+
+            if (result.success) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
+                        <strong>✅ Import erfolgreich</strong><br>
+                        ${result.message}
+                    </div>`;
+                this.showToast('success', 'Import erfolgreich', result.message);
+
+                // Statistik aktualisieren
+                await this.loadImportStatistics();
+
+                // Datev-Buchungen neu laden (wenn auf Rechnungen-View)
+                if (document.querySelector('.nav-item.active')?.getAttribute('data-view') === 'rechnungen') {
+                    await this.loadRechnungen();
+                }
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Import-Fehler:', error);
+            resultDiv.innerHTML = `
+                <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
+                    <strong>❌ Import fehlgeschlagen</strong><br>
+                    ${error.message}
+                </div>`;
+            this.showToast('error', 'Import fehlgeschlagen', error.message);
+        } finally {
+            // Input zurücksetzen
+            fileInput.value = '';
+        }
+    },
+
+    /**
+     * Import Lieferanten von Excel
+     */
+    importSuppliers: async function() {
+        const fileInput = document.getElementById('supplier-file-input');
+        const resultDiv = document.getElementById('supplier-import-result');
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            this.showToast('error', 'Fehler', 'Bitte wählen Sie eine Excel-Datei aus');
+            return;
+        }
+
+        const file = fileInput.files[0];
+
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div style="color: #666;">⏳ Import läuft...</div>';
+
+        try {
+            const result = await ExcelImportService.importSuppliers(file);
+
+            if (result.success) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
+                        <strong>✅ Import erfolgreich</strong><br>
+                        ${result.message}
+                    </div>`;
+                this.showToast('success', 'Import erfolgreich', result.message);
+
+                // Statistik aktualisieren
+                await this.loadImportStatistics();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Import-Fehler:', error);
+            resultDiv.innerHTML = `
+                <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
+                    <strong>❌ Import fehlgeschlagen</strong><br>
+                    ${error.message}
+                </div>`;
+            this.showToast('error', 'Import fehlgeschlagen', error.message);
+        } finally {
+            // Input zurücksetzen
+            fileInput.value = '';
+        }
+    },
+
+    /**
+     * Lade Import-Statistik
+     */
+    loadImportStatistics: async function() {
+        try {
+            // 1. Anzahl DATEV-Buchungen
+            const { count: totalBookings, error: bookingsError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('*', { count: 'exact', head: true });
+
+            if (bookingsError) throw bookingsError;
+
+            // 2. Anzahl verknüpfte Invoices
+            const { count: linkedInvoices, error: linkedError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('*', { count: 'exact', head: true })
+                .not('linked_invoice_id', 'is', null);
+
+            if (linkedError) throw linkedError;
+
+            // 3. Anzahl Lieferanten
+            const { count: suppliers, error: suppliersError } = await SupabaseService.client
+                .from('suppliers')
+                .select('*', { count: 'exact', head: true });
+
+            if (suppliersError) throw suppliersError;
+
+            // 4. Verfügbare Jahre
+            const years = await ExcelImportService.getAvailableYears();
+
+            // Update UI
+            document.getElementById('stat-total-bookings').textContent = totalBookings || 0;
+            document.getElementById('stat-linked-invoices').textContent = linkedInvoices || 0;
+            document.getElementById('stat-suppliers').textContent = suppliers || 0;
+            document.getElementById('stat-import-years').textContent = years.length;
+
+        } catch (error) {
+            console.error('❌ Fehler beim Laden der Statistik:', error);
+            this.showToast('error', 'Fehler', 'Statistik konnte nicht geladen werden');
         }
     },
 

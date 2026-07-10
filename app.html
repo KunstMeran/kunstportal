@@ -357,6 +357,9 @@
                 <a href="#" class="nav-item" data-view="einnahmen">
                     <span>Einnahmenplanung</span>
                 </a>
+                <a href="#" class="nav-item admin-only" data-view="import">
+                    <span>DATEV Import</span>
+                </a>
                 <a href="#" class="nav-item admin-only" data-view="konfiguration">
                     <span>Konfiguration</span>
                 </a>
@@ -1265,6 +1268,115 @@
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== DATEV IMPORT ==================== -->
+            <div id="view-import" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">DATEV Import</h1>
+                    <p style="color: #666; margin-top: 0.5rem;">Importieren Sie monatliche DATEV-Exporte und Lieferanten</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <!-- DATEV Buchungen Import -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">📊 DATEV-Buchungen importieren</h3>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: #666; margin-bottom: 1rem;">
+                                Laden Sie Ihren monatlichen DATEV-Export als Excel-Datei hoch.
+                                Das System prüft automatisch, welche Buchungen bereits existieren.
+                            </p>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label">Jahr auswählen</label>
+                                <select id="import-year" class="form-control">
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                </select>
+                            </div>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label">Excel-Datei</label>
+                                <input type="file"
+                                       id="datev-file-input"
+                                       class="form-control"
+                                       accept=".xls,.xlsx"
+                                       style="padding: 0.5rem;">
+                            </div>
+
+                            <button class="btn btn-primary btn-block" onclick="App.importDatevBookings()">
+                                📤 DATEV-Buchungen importieren
+                            </button>
+
+                            <div id="datev-import-result" style="margin-top: 1rem; display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Lieferanten Import -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">🏢 Lieferanten importieren</h3>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: #666; margin-bottom: 1rem;">
+                                Laden Sie Ihre Lieferanten-Liste als Excel-Datei hoch.
+                                Bestehende Lieferanten werden automatisch aktualisiert.
+                            </p>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label">Excel-Datei</label>
+                                <input type="file"
+                                       id="supplier-file-input"
+                                       class="form-control"
+                                       accept=".xls,.xlsx"
+                                       style="padding: 0.5rem;">
+                            </div>
+
+                            <button class="btn btn-primary btn-block" onclick="App.importSuppliers()">
+                                📤 Lieferanten importieren
+                            </button>
+
+                            <div id="supplier-import-result" style="margin-top: 1rem; display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Import-Statistik -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">📈 Import-Statistik</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #007bff;" id="stat-total-bookings">-</div>
+                                <div style="color: #666; margin-top: 0.25rem;">Buchungen gesamt</div>
+                            </div>
+                            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #28a745;" id="stat-linked-invoices">-</div>
+                                <div style="color: #666; margin-top: 0.25rem;">Verknüpfte PDFs</div>
+                            </div>
+                            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #ffc107;" id="stat-suppliers">-</div>
+                                <div style="color: #666; margin-top: 0.25rem;">Lieferanten</div>
+                            </div>
+                            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #6c757d;" id="stat-import-years">-</div>
+                                <div style="color: #666; margin-top: 0.25rem;">Jahre importiert</div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-outline"
+                                onclick="App.loadImportStatistics()"
+                                style="margin-top: 1rem;">
+                            🔄 Statistik aktualisieren
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2482,10 +2594,14 @@
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- SheetJS for Excel parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="js/supabase-client.js"></script>
     <script src="js/storage-service.js"></script>
+    <script src="js/excel-import-service.js"></script>
     <script src="js/data.js"></script>
     <script src="js/data-adapter.js"></script>
     <script src="js/auth.js"></script>
