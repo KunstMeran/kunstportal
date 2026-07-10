@@ -165,32 +165,36 @@ const ExcelImportService = {
 
     /**
      * Excel-Zeile zu DATEV-Buchung mappen
-     * Anpassen an tatsächliche Excel-Spalten!
+     * Mapping für DATEV-Export Spalten
      */
     mapRowToDatevBooking(row, year, fileName) {
-        // TODO: Spalten-Namen an echte DATEV-Export-Struktur anpassen
         return {
             import_year: year,
             import_file_name: fileName,
 
-            partita_iva: row['Partita IVA'] || row['partitaIva'] || null,
-            partita_iva_cliente: row['Partita IVA Cliente'] || null,
-            fornitore_nr: row['Fornitore Nr'] || row['fornitoreNr'] || null,
-            fornitore_name: row['Fornitore Name'] || row['fornitoreName'] || row['Fornitore'] || 'Unbekannt',
-            dokument_nr: row['Dokument Nr'] || row['dokumentNr'] || row['Rechnungsnummer'] || '',
-            dokument_typ: row['Dokument Typ'] || row['dokumentTyp'] || 'F',
-            ist_gutschrift: this.parseBoolean(row['Gutschrift'] || row['istGutschrift']),
+            // DATEV-Spalten-Mapping
+            partita_iva: null, // Wird später von Barbara hinzugefügt
+            partita_iva_cliente: null,
+            fornitore_nr: row['Conto'] || null,
+            fornitore_name: row['Denominazione'] || row['Descrizione conto'] || 'Unbekannt',
+            dokument_nr: row['Numero documento'] || '',
+            dokument_typ: 'F', // Standard: Fattura
 
-            betrag: this.parseDecimal(row['Betrag'] || row['betrag']),
-            betrag_netto: this.parseDecimal(row['Betrag Netto'] || row['betragNetto']),
-            betrag_mwst: this.parseDecimal(row['Betrag MwSt'] || row['betragMwst']),
-            betrag_gesamt: this.parseDecimal(row['Betrag Gesamt'] || row['betragGesamt']),
-            mwst_typ: row['MwSt Typ'] || row['mwstTyp'] || null,
+            // Gutschrift erkennen (negatives Importo)
+            ist_gutschrift: this.parseDecimal(row['Importo']) < 0,
 
-            datum: this.parseDate(row['Datum'] || row['datum']),
-            projekt_id: row['Projekt ID'] || row['projektId'] || null,
-            beschreibung: row['Beschreibung'] || row['beschreibung'] || null,
-            kategorie: row['Kategorie'] || row['kategorie'] || null
+            // Beträge
+            betrag: Math.abs(this.parseDecimal(row['Importo'])),
+            betrag_netto: Math.abs(this.parseDecimal(row['Importo'])), // Vereinfachung
+            betrag_mwst: null, // Nicht im Export enthalten
+            betrag_gesamt: Math.abs(this.parseDecimal(row['Importo'])),
+            mwst_typ: null,
+
+            // Daten
+            datum: this.parseDate(row['Data documento']) || this.parseDate(row['Data registrazione']),
+            projekt_id: row['Centro di costo'] || null,
+            beschreibung: row['Descrizione movimento'] || null,
+            kategorie: row['Descrizione conto'] || null
         };
     },
 
