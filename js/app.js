@@ -1601,7 +1601,7 @@ const App = {
         this.filterRechnungen();
     },
 
-    populateRechnungenFilters: function() {
+    populateRechnungenFilters: async function() {
         // Projekt-Filter
         const projektSelect = document.getElementById('rechnung-filter-projekt');
         projektSelect.innerHTML = '<option value="">Alle Projekte</option>';
@@ -1617,6 +1617,23 @@ const App = {
         lieferanten.forEach(l => {
             lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
         });
+
+        // Jahr-Filter dynamisch befüllen
+        const jahrSelect = document.getElementById('rechnung-filter-jahr');
+        jahrSelect.innerHTML = '<option value="">Alle Jahre</option>';
+        const rechnungen = await DataManager.getRechnungenMitStatus();
+        const jahre = new Set();
+        rechnungen.forEach(r => {
+            const datum = r.belegdatum || r.uploadedAt;
+            if (datum) {
+                const jahr = new Date(datum).getFullYear();
+                if (!isNaN(jahr)) jahre.add(jahr);
+            }
+        });
+        // Sortiert absteigend
+        Array.from(jahre).sort((a, b) => b - a).forEach(jahr => {
+            jahrSelect.innerHTML += `<option value="${jahr}">${jahr}</option>`;
+        });
     },
 
     // Ausgewählte Rechnungen (für Massenaktionen)
@@ -1628,6 +1645,8 @@ const App = {
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
         const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
+        const jahrFilter = document.getElementById('rechnung-filter-jahr').value;
+        const monatFilter = document.getElementById('rechnung-filter-monat').value;
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
 
@@ -1650,6 +1669,22 @@ const App = {
         }
         if (abgabestelleFilter) {
             rechnungen = rechnungen.filter(r => r.abgabestelle === abgabestelleFilter);
+        }
+        if (jahrFilter) {
+            rechnungen = rechnungen.filter(r => {
+                const datum = r.belegdatum || r.uploadedAt;
+                if (!datum) return false;
+                const jahr = new Date(datum).getFullYear();
+                return String(jahr) === jahrFilter;
+            });
+        }
+        if (monatFilter) {
+            rechnungen = rechnungen.filter(r => {
+                const datum = r.belegdatum || r.uploadedAt;
+                if (!datum) return false;
+                const monat = new Date(datum).getMonth() + 1; // 1-12
+                return String(monat) === monatFilter;
+            });
         }
 
         // Sortieren nach Datum (neueste zuerst)
@@ -2271,7 +2306,7 @@ const App = {
             this.showModal('pdf-preview-modal');
 
             // Wenn filePath bereits übergeben wurde, direkt nutzen
-            if (!filePath) {
+            if (!filePath || filePath === '') {
                 // Sonst: Hole Invoice aus Supabase
                 const { data: invoices, error } = await SupabaseService.client
                     .from('invoices')
