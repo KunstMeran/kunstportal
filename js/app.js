@@ -2637,6 +2637,7 @@ const App = {
             }
 
             // Hole signierte URL von Supabase Storage
+            console.log('Lade PDF von Pfad:', filePath);
             const signedUrl = await StorageService.getSignedUrl(filePath);
 
             this.currentPdfPath = signedUrl;
@@ -2651,9 +2652,10 @@ const App = {
 
         } catch (error) {
             console.error('PDF Preview Fehler:', error);
+            console.error('Problematischer Pfad:', filePath);
             document.getElementById('pdf-preview-frame').style.display = 'none';
             document.getElementById('pdf-preview-error').style.display = '';
-            document.getElementById('pdf-preview-error').textContent = `Fehler beim Laden: ${error.message}`;
+            document.getElementById('pdf-preview-error').textContent = `Fehler beim Laden: ${error.message} (Pfad: ${filePath})`;
         }
     },
 
