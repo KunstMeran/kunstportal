@@ -22,15 +22,13 @@ const Auth = {
                 // Username als E-Mail formatieren (falls noch nicht)
                 const email = username.includes('@') ? username : `${username}@kunstmeran.local`;
 
-                const { data, error } = await SupabaseService.signIn(email, password);
-
-                if (error) throw error;
+                const result = await SupabaseService.signIn(email, password);
 
                 // Session erstellen
                 DataManager.setSession({
-                    id: data.user.id,
-                    email: data.user.email,
-                    username: data.user.email.split('@')[0],
+                    id: result.user.id,
+                    email: result.user.email,
+                    username: result.user.email.split('@')[0],
                     role: 'Admin' // TODO: Von user_metadata oder users-Tabelle laden
                 });
 
