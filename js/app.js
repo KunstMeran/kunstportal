@@ -1769,23 +1769,17 @@ const App = {
             // Geteilt-Badge
             const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
 
-            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Input generieren
+            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Dropdown generieren
             let projektCell = '';
             if (r.isSupabaseOnly || (!r.projektId && r.invoiceId)) {
-                // Suchbares Input-Feld mit Datalist statt Dropdown
-                const datalistId = `datev-options-${r.invoiceId}`;
+                // Select mit Suchfunktion
                 projektCell = `
-                    <div style="position: relative;">
-                        <input type="text"
-                               class="form-control"
-                               style="font-size: 0.75rem; padding: 0.25rem;"
-                               placeholder="DATEV-Bewegung suchen..."
-                               list="${datalistId}"
-                               onchange="App.linkInvoiceToDatevFromInput('${r.invoiceId}', this.value)">
-                        <datalist id="${datalistId}">
-                            ${this.getUnlinkedDatevOptions()}
-                        </datalist>
-                    </div>`;
+                    <select class="form-control datev-movement-select"
+                            style="font-size: 0.75rem; padding: 0.25rem; max-width: 200px;"
+                            onchange="App.linkInvoiceToDatev('${r.invoiceId}', this.value)">
+                        <option value="">-- Bewegung wählen --</option>
+                        ${this.getUnlinkedDatevOptionsAsSelect()}
+                    </select>`;
             } else {
                 projektCell = projekt ? projekt.name : r.projektId;
             }
@@ -1837,9 +1831,9 @@ const App = {
     },
 
     /**
-     * Generiert Optionen für DATEV-Bewegungen ohne PDF
+     * Generiert Optionen für DATEV-Bewegungen ohne PDF (als Select Options)
      */
-    getUnlinkedDatevOptions: function() {
+    getUnlinkedDatevOptionsAsSelect: function() {
         // Alle DATEV-Buchungen ohne pdfExists
         const allRechnungen = this.filteredRechnungen || [];
         const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
@@ -1848,9 +1842,15 @@ const App = {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projekt?.name || r.projektId} - ${this.formatCurrency(r.betrag)}`;
             const key = `${r.partitaIva}_${r.dokumentNr}`;
-            // data-value für einfaches Extrahieren
-            return `<option value="${label}" data-key="${key}"></option>`;
+            return `<option value="${key}">${label}</option>`;
         }).join('');
+    },
+
+    /**
+     * Generiert Optionen für DATEV-Bewegungen ohne PDF (für Datalist - deprecated)
+     */
+    getUnlinkedDatevOptions: function() {
+        return this.getUnlinkedDatevOptionsAsSelect();
     },
 
     /**
