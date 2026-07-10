@@ -1912,8 +1912,8 @@ const App = {
         if (!selectedLabel) return;
 
         try {
-            // Scroll-Position speichern
-            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+            // Aktuelle Seite speichern
+            const currentPage = this.currentRechnungenPage;
 
             // Finde Invoice-ID aus Label
             const allRechnungen = this.filteredRechnungen || [];
@@ -1942,12 +1942,10 @@ const App = {
             if (error) throw error;
 
             this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
-            await this.filterRechnungen();
 
-            // Scroll-Position wiederherstellen
-            setTimeout(() => {
-                window.scrollTo(0, scrollPosition);
-            }, 100);
+            // Seite wiederherstellen vor dem Reload
+            this.currentRechnungenPage = currentPage;
+            await this.filterRechnungen();
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -2005,8 +2003,8 @@ const App = {
         }
 
         try {
-            // Scroll-Position speichern
-            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+            // Aktuelle Seite speichern
+            const currentPage = this.currentRechnungenPage;
 
             // Split nur am ersten Unterstrich (dokumentNr kann selbst _ enthalten)
             const firstUnderscoreIndex = datevKey.indexOf('_');
@@ -2036,13 +2034,9 @@ const App = {
             console.log('Verknüpfung erfolgreich:', data);
             this.showToast('success', 'Verknüpft', 'Rechnung wurde mit DATEV-Bewegung verknüpft');
 
-            // Tabelle neu laden
+            // Seite wiederherstellen vor dem Reload
+            this.currentRechnungenPage = currentPage;
             await this.filterRechnungen();
-
-            // Scroll-Position wiederherstellen
-            setTimeout(() => {
-                window.scrollTo(0, scrollPosition);
-            }, 100);
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -2061,8 +2055,8 @@ const App = {
         }
 
         try {
-            // Scroll-Position speichern
-            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+            // Aktuelle Seite speichern
+            const currentPage = this.currentRechnungenPage;
 
             console.log('Trenne Verknüpfung für Invoice:', invoiceId);
 
@@ -2083,13 +2077,9 @@ const App = {
             console.log('Verknüpfung getrennt:', data);
             this.showToast('success', 'Getrennt', 'Verknüpfung wurde entfernt');
 
-            // Tabelle neu laden
+            // Seite wiederherstellen vor dem Reload
+            this.currentRechnungenPage = currentPage;
             await this.filterRechnungen();
-
-            // Scroll-Position wiederherstellen
-            setTimeout(() => {
-                window.scrollTo(0, scrollPosition);
-            }, 100);
 
         } catch (error) {
             console.error('Fehler beim Trennen:', error);
