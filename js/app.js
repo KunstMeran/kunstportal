@@ -1648,6 +1648,7 @@ const App = {
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
         const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
+        const pdfStatusFilter = document.getElementById('rechnung-filter-pdf-status')?.value || '';
         const jahrFilter = document.getElementById('rechnung-filter-jahr').value;
         const monatFilter = document.getElementById('rechnung-filter-monat').value;
 
@@ -1672,6 +1673,13 @@ const App = {
         }
         if (abgabestelleFilter) {
             rechnungen = rechnungen.filter(r => r.abgabestelle === abgabestelleFilter);
+        }
+        if (pdfStatusFilter === 'zugewiesen') {
+            // DATEV-Buchungen mit PDF
+            rechnungen = rechnungen.filter(r => r.pdfExists && !r.isSupabaseOnly);
+        } else if (pdfStatusFilter === 'nicht-zugewiesen') {
+            // DATEV-Buchungen ohne PDF ODER Supabase-only PDFs ohne DATEV
+            rechnungen = rechnungen.filter(r => !r.pdfExists || r.isSupabaseOnly);
         }
         if (jahrFilter) {
             rechnungen = rechnungen.filter(r => {
@@ -1782,7 +1790,7 @@ const App = {
                     <input type="text"
                            list="${datalistId}"
                            class="form-control"
-                           style="font-size: 0.75rem; padding: 0.25rem; max-width: 250px;"
+                           style="font-size: 0.75rem; padding: 0.25rem; min-width: 400px;"
                            placeholder="DATEV-Bewegung suchen..."
                            onchange="App.linkInvoiceToDatevFromInput('${r.invoiceId}', this.value)">
                     <datalist id="${datalistId}">
@@ -1864,7 +1872,10 @@ const App = {
 
         return unlinked.map(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
-            const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projekt?.name || r.projektId} - ${this.formatCurrency(r.betrag)}`;
+            const projektName = projekt?.name || r.projektId || 'N/A';
+            // Kürzer formatiert: Lieferant (max 30 Zeichen), Dokument-Nr, Betrag, Projekt
+            const shortName = r.fornitoreName.length > 30 ? r.fornitoreName.substring(0, 30) + '...' : r.fornitoreName;
+            const label = `${shortName} | ${r.dokumentNr} | ${this.formatCurrency(r.betrag)} | ${projektName}`;
             return `<option value="${label}"></option>`;
         }).join('');
     },

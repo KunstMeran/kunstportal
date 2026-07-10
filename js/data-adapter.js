@@ -449,7 +449,24 @@ const SupabaseDataAdapter = {
             // 2. Supabase Invoices holen
             const supabaseInvoices = await this.getInvoices();
 
-            // 3. Zusammenführen: Supabase Invoices zu DATEV-Buchungen matchen
+            // 3. Suppliers laden für Namen-Anreicherung
+            const { data: suppliers, error: supplierError } = await SupabaseService.client
+                .from('suppliers')
+                .select('partita_iva, fornitore_name');
+
+            if (supplierError) {
+                console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+            }
+
+            const supplierMap = new Map();
+            if (suppliers) {
+                suppliers.forEach(s => {
+                    supplierMap.set(s.partita_iva, s.fornitore_name);
+                });
+            }
+            console.log(`📇 ${supplierMap.size} Lieferanten für Namen-Anreicherung geladen`);
+
+            // 4. Zusammenführen: Supabase Invoices zu DATEV-Buchungen matchen
             const datevBuchungenMap = new Map();
             datevBuchungen.forEach(buchung => {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
@@ -467,10 +484,15 @@ const SupabaseDataAdapter = {
                     inv.invoice_number === buchung.dokumentNr
                 );
 
+                // Lieferantenname aus suppliers-Tabelle holen
+                const supplierName = supplierMap.get(buchung.partitaIva);
+                const enrichedFornitoreName = supplierName || buchung.fornitoreName;
+
                 if (matchingInvoice) {
                     matchedInvoiceIds.add(matchingInvoice.id);
                     return {
                         ...buchung,
+                        fornitoreName: enrichedFornitoreName,
                         invoiceId: matchingInvoice.id,
                         filePath: matchingInvoice.file_path,
                         fileName: matchingInvoice.file_name,
@@ -481,36 +503,45 @@ const SupabaseDataAdapter = {
                     };
                 }
 
-                return buchung;
+                return {
+                    ...buchung,
+                    fornitoreName: enrichedFornitoreName
+                };
             });
 
             // 4. Nicht-gematchte Supabase Invoices als eigene Zeilen hinzufügen
             const unmatchedInvoices = supabaseInvoices
                 .filter(inv => !matchedInvoiceIds.has(inv.id))
-                .map(inv => ({
-                    // Basis-Daten aus Invoice
-                    invoiceId: inv.id,
-                    partitaIva: inv.partita_iva,
-                    dokumentNr: inv.invoice_number,
-                    filePath: inv.file_path,
-                    fileName: inv.file_name,
-                    uploadedAt: inv.created_at,
-                    pdfExists: true,
-                    status: inv.status,
-                    notes: inv.notes,
+                .map(inv => {
+                    // Lieferantenname aus suppliers-Tabelle holen, falls Partita IVA vorhanden
+                    const supplierName = inv.partita_iva ? supplierMap.get(inv.partita_iva) : null;
+                    const fornitoreName = supplierName || this.extractSupplierFromFilename(inv.file_name);
 
-                    // Fehlende DATEV-Daten als null
-                    projektId: null,
-                    projektName: '(Kein DATEV-Projekt)',
-                    fornitoreName: this.extractSupplierFromFilename(inv.file_name),
-                    buchungsdatum: null,
-                    belegdatum: null,
-                    betrag: 0,
-                    konto: null,
+                    return {
+                        // Basis-Daten aus Invoice
+                        invoiceId: inv.id,
+                        partitaIva: inv.partita_iva,
+                        dokumentNr: inv.invoice_number,
+                        filePath: inv.file_path,
+                        fileName: inv.file_name,
+                        uploadedAt: inv.created_at,
+                        pdfExists: true,
+                        status: inv.status,
+                        notes: inv.notes,
 
-                    // UI-Flags
-                    isSupabaseOnly: true
-                }));
+                        // Fehlende DATEV-Daten als null
+                        projektId: null,
+                        projektName: '(Kein DATEV-Projekt)',
+                        fornitoreName: fornitoreName,
+                        buchungsdatum: null,
+                        belegdatum: null,
+                        betrag: 0,
+                        konto: null,
+
+                        // UI-Flags
+                        isSupabaseOnly: true
+                    };
+                });
 
             // 5. Kombinieren und sortieren
             const combined = [...enrichedDatevBuchungen, ...unmatchedInvoices];
