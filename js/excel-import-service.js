@@ -22,6 +22,28 @@ const ExcelImportService = {
 
             console.log(`📊 ${data.length} Zeilen gefunden`);
 
+            // Lieferanten-Liste laden für Partita IVA Lookup
+            const { data: suppliers, error: supplierError } = await SupabaseService.client
+                .from('suppliers')
+                .select('fornitore_name, partita_iva, fornitore_nr');
+
+            if (supplierError) {
+                console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+            }
+
+            const supplierMap = new Map();
+            if (suppliers) {
+                suppliers.forEach(s => {
+                    // Map by name (case-insensitive)
+                    const key = s.fornitore_name.toLowerCase().trim();
+                    supplierMap.set(key, {
+                        partita_iva: s.partita_iva,
+                        fornitore_nr: s.fornitore_nr
+                    });
+                });
+            }
+            console.log(`📇 ${supplierMap.size} Lieferanten für Matching geladen`);
+
             // 1. Prüfe, welche Buchungen bereits existieren
             const { data: existingBookings, error: fetchError } = await SupabaseService.client
                 .from('datev_bookings')
@@ -40,7 +62,7 @@ const ExcelImportService = {
 
             // 2. Filter neue Buchungen
             const newBookings = data
-                .map(row => this.mapRowToDatevBooking(row, year, file.name))
+                .map(row => this.mapRowToDatevBooking(row, year, file.name, supplierMap))
                 .filter(booking => {
                     // Überspringe Zeilen ohne Datum (NOT NULL Constraint)
                     if (!booking.datum) {
@@ -173,16 +195,33 @@ const ExcelImportService = {
      * Excel-Zeile zu DATEV-Buchung mappen
      * Mapping für DATEV-Export Spalten
      */
-    mapRowToDatevBooking(row, year, fileName) {
+    mapRowToDatevBooking(row, year, fileName, supplierMap) {
+        const fornitoreName = row['Denominazione'] || row['Descrizione conto'] || 'Unbekannt';
+
+        // Lookup Partita IVA und Fornitore Nr aus Lieferanten-Tabelle
+        let partitaIva = null;
+        let fornitoreNr = null;
+
+        if (supplierMap && fornitoreName !== 'Unbekannt') {
+            const key = fornitoreName.toLowerCase().trim();
+            const supplier = supplierMap.get(key);
+            if (supplier) {
+                partitaIva = supplier.partita_iva;
+                fornitoreNr = supplier.fornitore_nr;
+                console.log(`✅ Matched: "${fornitoreName}" → ${partitaIva}`);
+            }
+        }
+
         return {
             import_year: year,
             import_file_name: fileName,
 
             // DATEV-Spalten-Mapping
-            partita_iva: null, // Wird später von Barbara hinzugefügt
+            partita_iva: partitaIva, // Aus Lieferanten-Tabelle via Name
             partita_iva_cliente: null,
-            fornitore_nr: row['Conto'] || null,
-            fornitore_name: row['Denominazione'] || row['Descrizione conto'] || 'Unbekannt',
+            konto_nr: row['Conto'] || null, // Buchhaltungs-Kontonummer
+            fornitore_nr: fornitoreNr, // Lieferanten-Nummer aus suppliers Tabelle
+            fornitore_name: fornitoreName,
             dokument_nr: row['Numero documento'] || '',
             dokument_typ: 'F', // Standard: Fattura
 
