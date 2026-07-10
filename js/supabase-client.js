@@ -3,12 +3,8 @@
  * Projektsoftware Kunst Meran
  */
 
-// Supabase CDN laden
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Wird durch Vercel Environment Variable ersetzt
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Wird durch Vercel Environment Variable ersetzt
-
-// Supabase Client initialisieren
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase Client initialisieren mit Config
+const supabaseClient = supabase.createClient(Config.supabase.url, Config.supabase.anonKey);
 
 /**
  * Supabase Service Layer
