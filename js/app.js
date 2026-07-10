@@ -1912,6 +1912,9 @@ const App = {
         if (!selectedLabel) return;
 
         try {
+            // Scroll-Position speichern
+            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
             // Finde Invoice-ID aus Label
             const allRechnungen = this.filteredRechnungen || [];
             const unlinkedPdfs = allRechnungen.filter(r => r.isSupabaseOnly || (r.invoiceId && !r.partitaIva));
@@ -1940,6 +1943,11 @@ const App = {
 
             this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
             await this.filterRechnungen();
+
+            // Scroll-Position wiederherstellen
+            setTimeout(() => {
+                window.scrollTo(0, scrollPosition);
+            }, 100);
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -1997,6 +2005,9 @@ const App = {
         }
 
         try {
+            // Scroll-Position speichern
+            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
             // Split nur am ersten Unterstrich (dokumentNr kann selbst _ enthalten)
             const firstUnderscoreIndex = datevKey.indexOf('_');
             if (firstUnderscoreIndex === -1) {
@@ -2028,6 +2039,11 @@ const App = {
             // Tabelle neu laden
             await this.filterRechnungen();
 
+            // Scroll-Position wiederherstellen
+            setTimeout(() => {
+                window.scrollTo(0, scrollPosition);
+            }, 100);
+
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
             console.error('Error Message:', error.message);
@@ -2045,6 +2061,9 @@ const App = {
         }
 
         try {
+            // Scroll-Position speichern
+            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
             console.log('Trenne Verknüpfung für Invoice:', invoiceId);
 
             // Setze partita_iva und invoice_number auf null
@@ -2066,6 +2085,11 @@ const App = {
 
             // Tabelle neu laden
             await this.filterRechnungen();
+
+            // Scroll-Position wiederherstellen
+            setTimeout(() => {
+                window.scrollTo(0, scrollPosition);
+            }, 100);
 
         } catch (error) {
             console.error('Fehler beim Trennen:', error);
