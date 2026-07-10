@@ -1834,10 +1834,19 @@ const App = {
                 <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
                 <td>${r.pdfExists ?
                     `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>` :
-                    `<select class="form-control" style="font-size: 0.75rem; padding: 0.25rem; max-width: 150px;" onchange="App.linkPdfToDatev('${r.partitaIva}', '${r.dokumentNr}', this.value)">
-                        <option value="">-- PDF wählen --</option>
-                        ${this.getUnlinkedPdfOptionsAsSelect()}
-                    </select>`}</td>
+                    (() => {
+                        const pdfDatalistId = `pdf-options-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
+                        return `<input type="text"
+                                       list="${pdfDatalistId}"
+                                       class="form-control"
+                                       style="font-size: 0.75rem; padding: 0.25rem; min-width: 250px;"
+                                       placeholder="PDF suchen..."
+                                       onchange="App.linkPdfToDatevFromInput('${r.partitaIva}', '${r.dokumentNr}', this.value)">
+                                <datalist id="${pdfDatalistId}">
+                                    ${this.getUnlinkedPdfOptionsAsDatalist()}
+                                </datalist>`;
+                    })()
+                }</td>
                 <td>
                     <input type="text"
                            class="form-control"
@@ -1881,32 +1890,51 @@ const App = {
     },
 
     /**
-     * Generiert Optionen für unverknüpfte PDFs (Supabase-only Invoices)
+     * Generiert Optionen für unverknüpfte PDFs (Supabase-only Invoices) - für Datalist
      */
-    getUnlinkedPdfOptionsAsSelect: function() {
+    getUnlinkedPdfOptionsAsDatalist: function() {
         const allRechnungen = this.filteredRechnungen || [];
         const unlinkedPdfs = allRechnungen.filter(r => r.isSupabaseOnly || (r.invoiceId && !r.partitaIva));
 
         return unlinkedPdfs.map(r => {
             const fileName = r.fileName || 'Unbekannt';
-            return `<option value="${r.invoiceId}">${fileName}</option>`;
+            const shortFileName = fileName.length > 50 ? fileName.substring(0, 50) + '...' : fileName;
+            const uploadDate = r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('de-DE') : '';
+            const label = `${shortFileName} | ${uploadDate}`;
+            return `<option value="${label}" data-invoice-id="${r.invoiceId}"></option>`;
         }).join('');
     },
 
     /**
-     * Verknüpft ein PDF mit einer DATEV-Buchung
+     * Verknüpft PDF aus Input-Feld (mit Datalist)
      */
-    linkPdfToDatev: async function(partitaIva, dokumentNr, invoiceId) {
-        if (!invoiceId) return;
+    linkPdfToDatevFromInput: async function(partitaIva, dokumentNr, selectedLabel) {
+        if (!selectedLabel) return;
 
         try {
+            // Finde Invoice-ID aus Label
+            const allRechnungen = this.filteredRechnungen || [];
+            const unlinkedPdfs = allRechnungen.filter(r => r.isSupabaseOnly || (r.invoiceId && !r.partitaIva));
+
+            const matchedPdf = unlinkedPdfs.find(r => {
+                const fileName = r.fileName || 'Unbekannt';
+                const shortFileName = fileName.length > 50 ? fileName.substring(0, 50) + '...' : fileName;
+                const uploadDate = r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('de-DE') : '';
+                const label = `${shortFileName} | ${uploadDate}`;
+                return label === selectedLabel;
+            });
+
+            if (!matchedPdf) {
+                throw new Error('PDF nicht gefunden');
+            }
+
             const { data, error } = await SupabaseService.client
                 .from('invoices')
                 .update({
                     partita_iva: partitaIva,
                     invoice_number: dokumentNr
                 })
-                .eq('id', invoiceId);
+                .eq('id', matchedPdf.invoiceId);
 
             if (error) throw error;
 
@@ -1915,7 +1943,7 @@ const App = {
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
-            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen');
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen: ' + error.message);
         }
     },
 
