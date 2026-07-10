@@ -1639,7 +1639,11 @@ const App = {
             rechnungen = rechnungen.filter(r => String(r.projektId) === projektFilter);
         }
         if (lieferantFilter) {
-            rechnungen = rechnungen.filter(r => r.partitaIva === lieferantFilter);
+            const searchTerm = lieferantFilter.toLowerCase();
+            rechnungen = rechnungen.filter(r =>
+                r.fornitoreName?.toLowerCase().includes(searchTerm) ||
+                r.partitaIva?.toLowerCase().includes(searchTerm)
+            );
         }
         if (kostentypFilter) {
             rechnungen = rechnungen.filter(r => r.kostentyp === kostentypFilter);
@@ -3735,15 +3739,32 @@ const App = {
     },
 
     parseInvoiceFilename: function(filename) {
-        // Format: PartitaIVA_Rechnungsnummer.pdf
-        // Beispiel: 12345678901_RG2023001.pdf
-        const nameWithoutExt = filename.replace('.pdf', '');
+        // Neues Format: Jahr_PartitaIVA_Fornitore_Rechnungsnummer_Datum.pdf
+        // Beispiel: 2024_12345678901_MusterFirma_RG001_20240115.pdf
+        // Altes Format: PartitaIVA_Rechnungsnummer.pdf
+        const nameWithoutExt = filename.replace(/\.pdf$/i, '');
         const parts = nameWithoutExt.split('_');
 
+        // Neues Format mit 5 Teilen: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum
+        if (parts.length >= 5) {
+            return {
+                year: parts[0],
+                partitaIva: parts[1],
+                fornitore: parts[2],
+                invoiceNumber: parts[3],
+                date: parts[4],
+                valid: true
+            };
+        }
+
+        // Altes Format mit 2+ Teilen: PartitaIVA_RechnungsNr
         if (parts.length >= 2) {
             return {
                 partitaIva: parts[0],
                 invoiceNumber: parts.slice(1).join('_'),
+                fornitore: null,
+                year: null,
+                date: null,
                 valid: true
             };
         }
@@ -3751,6 +3772,9 @@ const App = {
         return {
             partitaIva: null,
             invoiceNumber: null,
+            fornitore: null,
+            year: null,
+            date: null,
             valid: false
         };
     },
@@ -3767,9 +3791,19 @@ const App = {
         fileList.innerHTML = this.pendingInvoiceFiles.map((item, index) => {
             const sizeKB = (item.file.size / 1024).toFixed(1);
             const statusClass = item.parsed.valid ? '' : 'warning';
-            const statusText = item.parsed.valid
-                ? `Partita IVA: ${item.parsed.partitaIva} • Rechnung: ${item.parsed.invoiceNumber}`
-                : 'Warnung: Dateiname nicht im Format PartitaIVA_RechnungsNr';
+
+            let statusText = '';
+            if (item.parsed.valid) {
+                if (item.parsed.fornitore) {
+                    // Neues Format
+                    statusText = `${item.parsed.fornitore} • PIva: ${item.parsed.partitaIva} • Nr: ${item.parsed.invoiceNumber}`;
+                } else {
+                    // Altes Format
+                    statusText = `Partita IVA: ${item.parsed.partitaIva} • Rechnung: ${item.parsed.invoiceNumber}`;
+                }
+            } else {
+                statusText = 'Warnung: Dateiname nicht erkannt';
+            }
 
             return `
                 <div class="file-list-item">

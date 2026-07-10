@@ -556,9 +556,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Lieferant</label>
-                            <select id="rechnung-filter-lieferant" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle Lieferanten</option>
-                            </select>
+                            <input type="text" id="rechnung-filter-lieferant" class="form-control" placeholder="Lieferant suchen..." oninput="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Kostentyp/Konto</label>
