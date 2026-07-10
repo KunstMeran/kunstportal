@@ -1754,7 +1754,7 @@ const App = {
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
                 <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
                 <td>${r.pdfExists ?
-                    `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}')">PDF</a>` :
+                    `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>` :
                     `<a class="pdf-link" style="color: #999; cursor: pointer;" onclick="App.openPdfFolder()" title="PDF nicht gefunden - Ordner öffnen">Suchen</a>`}</td>
                 <td>
                     <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
@@ -2258,7 +2258,7 @@ const App = {
     // PDF PREVIEW
     // ==========================================
 
-    showPdfPreview: async function(partitaIva, dokumentNr) {
+    showPdfPreview: async function(partitaIva, dokumentNr, filePath = null) {
         try {
             document.getElementById('pdf-preview-title').textContent = `${partitaIva} - ${dokumentNr}`;
             document.getElementById('pdf-preview-frame').style.display = 'none';
@@ -2270,21 +2270,24 @@ const App = {
 
             this.showModal('pdf-preview-modal');
 
-            // Hole Invoice aus Supabase
-            const { data: invoices, error } = await SupabaseService.client
-                .from('invoices')
-                .select('file_path')
-                .eq('partita_iva', partitaIva)
-                .eq('invoice_number', dokumentNr)
-                .limit(1);
+            // Wenn filePath bereits übergeben wurde, direkt nutzen
+            if (!filePath) {
+                // Sonst: Hole Invoice aus Supabase
+                const { data: invoices, error } = await SupabaseService.client
+                    .from('invoices')
+                    .select('file_path')
+                    .eq('partita_iva', partitaIva)
+                    .eq('invoice_number', dokumentNr)
+                    .limit(1);
 
-            if (error) throw error;
+                if (error) throw error;
 
-            if (!invoices || invoices.length === 0) {
-                throw new Error('PDF nicht in Datenbank gefunden');
+                if (!invoices || invoices.length === 0) {
+                    throw new Error('PDF nicht in Datenbank gefunden');
+                }
+
+                filePath = invoices[0].file_path;
             }
-
-            const filePath = invoices[0].file_path;
 
             // Hole signierte URL von Supabase Storage
             const signedUrl = await StorageService.getSignedUrl(filePath);
