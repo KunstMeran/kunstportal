@@ -471,7 +471,7 @@ const SupabaseDataAdapter = {
                         filePath: matchingInvoice.file_path,
                         fileName: matchingInvoice.file_name,
                         uploadedAt: matchingInvoice.created_at,
-                        hasPdf: true,
+                        pdfExists: true,
                         status: matchingInvoice.status
                     };
                 }
@@ -490,7 +490,7 @@ const SupabaseDataAdapter = {
                     filePath: inv.file_path,
                     fileName: inv.file_name,
                     uploadedAt: inv.created_at,
-                    hasPdf: true,
+                    pdfExists: true,
                     status: inv.status,
 
                     // Fehlende DATEV-Daten als null
