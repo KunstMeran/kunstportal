@@ -45,8 +45,9 @@ const App = {
         // DATEV-Daten laden
         await this.loadDatevData();
 
-        // Dashboard laden
-        this.showView('dashboard');
+        // Letzte View wiederherstellen oder Dashboard laden
+        const lastView = localStorage.getItem('lastView') || 'dashboard';
+        this.showView(lastView);
     },
 
     /**
@@ -218,6 +219,9 @@ const App = {
         }
 
         this.currentView = viewName;
+
+        // View in localStorage speichern
+        localStorage.setItem('lastView', viewName);
 
         // View-spezifische Initialisierung
         switch(viewName) {
