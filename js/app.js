@@ -692,7 +692,7 @@ const App = {
         this.showModal('project-form-modal');
     },
 
-    saveProject: function(event) {
+    saveProject: async function(event) {
         event.preventDefault();
 
         const id = document.getElementById('project-form-id').value;
@@ -708,17 +708,18 @@ const App = {
         };
 
         if (id) {
-            DataManager.updateProject(parseInt(id), projectData);
+            // ID direkt verwenden (UUID für Supabase, Nummer für localStorage)
+            await DataManager.updateProject(id, projectData);
         } else {
-            DataManager.addProject(projectData);
+            await DataManager.addProject(projectData);
         }
 
         this.hideModal('project-form-modal');
-        this.loadProjects();
+        await this.loadProjects();
 
         // Fullpage aktualisieren falls offen
-        if (this.currentProjectId && id && parseInt(id) === this.currentProjectId) {
-            this.openProjectFullpage(this.currentProjectId);
+        if (this.currentProjectId && id && id === this.currentProjectId) {
+            await this.openProjectFullpage(this.currentProjectId);
         }
     },
 
