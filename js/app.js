@@ -674,8 +674,8 @@ const App = {
         this.showModal('project-form-modal');
     },
 
-    editProject: function(projectId) {
-        const project = DataManager.getProjectById(projectId);
+    editProject: async function(projectId) {
+        const project = await DataManager.getProjectById(projectId);
         if (!project) return;
 
         document.getElementById('project-form-id').value = project.id;
