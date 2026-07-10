@@ -2097,22 +2097,53 @@ const App = {
     // PDF PREVIEW
     // ==========================================
 
-    showPdfPreview: function(partitaIva, dokumentNr) {
-        const pdfPath = DataManager.getPdfPath(partitaIva, dokumentNr);
-        this.currentPdfPath = pdfPath;
+    showPdfPreview: async function(partitaIva, dokumentNr) {
+        try {
+            document.getElementById('pdf-preview-title').textContent = `${partitaIva} - ${dokumentNr}`;
+            document.getElementById('pdf-preview-frame').style.display = 'none';
+            document.getElementById('pdf-preview-error').style.display = 'none';
 
-        document.getElementById('pdf-preview-title').textContent = `${partitaIva} - ${dokumentNr}`;
-        document.getElementById('pdf-preview-frame').src = pdfPath;
-        document.getElementById('pdf-preview-frame').style.display = '';
-        document.getElementById('pdf-preview-error').style.display = 'none';
+            // Zeige Loading State
+            const iframe = document.getElementById('pdf-preview-frame');
+            iframe.src = 'about:blank';
 
-        // Fehlerbehandlung für fehlende PDFs
-        document.getElementById('pdf-preview-frame').onerror = () => {
+            this.showModal('pdf-preview-modal');
+
+            // Hole Invoice aus Supabase
+            const { data: invoices, error } = await SupabaseService.client
+                .from('invoices')
+                .select('file_path')
+                .eq('partita_iva', partitaIva)
+                .eq('invoice_number', dokumentNr)
+                .limit(1);
+
+            if (error) throw error;
+
+            if (!invoices || invoices.length === 0) {
+                throw new Error('PDF nicht in Datenbank gefunden');
+            }
+
+            const filePath = invoices[0].file_path;
+
+            // Hole signierte URL von Supabase Storage
+            const signedUrl = await StorageService.getSignedUrl(filePath);
+
+            this.currentPdfPath = signedUrl;
+            iframe.src = signedUrl;
+            iframe.style.display = '';
+
+            // Fehlerbehandlung für Ladefehler
+            iframe.onerror = () => {
+                iframe.style.display = 'none';
+                document.getElementById('pdf-preview-error').style.display = '';
+            };
+
+        } catch (error) {
+            console.error('PDF Preview Fehler:', error);
             document.getElementById('pdf-preview-frame').style.display = 'none';
             document.getElementById('pdf-preview-error').style.display = '';
-        };
-
-        this.showModal('pdf-preview-modal');
+            document.getElementById('pdf-preview-error').textContent = `Fehler beim Laden: ${error.message}`;
+        }
     },
 
     openPdfInNewTab: function() {
