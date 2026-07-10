@@ -1769,6 +1769,19 @@ const App = {
             // Geteilt-Badge
             const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
 
+            // Für Supabase-only: Verknüpfungs-Dropdown generieren
+            let projektCell = '';
+            if (r.isSupabaseOnly) {
+                projektCell = `
+                    <select class="form-control" style="font-size: 0.75rem; padding: 0.25rem;"
+                            onchange="App.linkInvoiceToDatev('${r.invoiceId}', this.value)">
+                        <option value="">-- DATEV-Bewegung wählen --</option>
+                        ${this.getUnlinkedDatevOptions()}
+                    </select>`;
+            } else {
+                projektCell = projekt ? projekt.name : r.projektId;
+            }
+
             row.innerHTML = `
                 <td>
                     <input type="checkbox" class="rechnung-checkbox"
@@ -1779,7 +1792,7 @@ const App = {
                 <td>${this.formatDate(r.datum)}</td>
                 <td>${r.fornitoreName}${r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : ''}</td>
                 <td>${r.dokumentNr}${typBadge}${geteiltBadge}</td>
-                <td>${projekt ? projekt.name : r.projektId}</td>
+                <td>${projektCell}</td>
                 <td>${kostentypLabel}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(netto)}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(mwst)}</td>
@@ -1805,6 +1818,53 @@ const App = {
         });
 
         this.updateMassActionsBar();
+    },
+
+    /**
+     * Generiert Optionen für DATEV-Bewegungen ohne PDF
+     */
+    getUnlinkedDatevOptions: function() {
+        // Alle DATEV-Buchungen ohne pdfExists
+        const allRechnungen = this.filteredRechnungen || [];
+        const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
+
+        return unlinked.map(r => {
+            const projekt = DataManager.getKunstMeranProjekt(r.projektId);
+            const label = `${r.fornitoreName} - ${r.dokumentNr} (${projekt?.name || r.projektId}) - ${this.formatCurrency(r.betrag)}`;
+            const key = `${r.partitaIva}_${r.dokumentNr}`;
+            return `<option value="${key}">${label}</option>`;
+        }).join('');
+    },
+
+    /**
+     * Verknüpft eine Supabase-Invoice mit einer DATEV-Bewegung
+     */
+    linkInvoiceToDatev: async function(invoiceId, datevKey) {
+        if (!datevKey) return;
+
+        try {
+            const [partitaIva, dokumentNr] = datevKey.split('_');
+
+            // Update in Supabase: setze partita_iva und invoice_number
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    partita_iva: partitaIva,
+                    invoice_number: dokumentNr
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Verknüpft', 'Rechnung wurde mit DATEV-Bewegung verknüpft');
+
+            // Tabelle neu laden
+            await this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Verknüpfen:', error);
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen');
+        }
     },
 
     goToRechnungenPage: function(page) {
