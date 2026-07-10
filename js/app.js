@@ -1732,7 +1732,8 @@ const App = {
         // Sortier-Pfeile aktualisieren
         this.updateSortArrows();
 
-        pageRechnungen.forEach(r => {
+        pageRechnungen.forEach((r, index) => {
+            const rowNumber = startIndex + index + 1; // Globale Zeilennummer
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             // Nutze direkt die Werte aus JSON falls vorhanden, sonst berechnen
             const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
@@ -1785,7 +1786,8 @@ const App = {
             }
 
             row.innerHTML = `
-                <td>
+                <td style="position: sticky; left: 0; background: ${istGutschrift ? '#e8f5e9' : 'white'}; z-index: 5; font-weight: 500; text-align: center; border-right: 1px solid #ddd;">${rowNumber}</td>
+                <td style="position: sticky; left: 50px; background: ${istGutschrift ? '#e8f5e9' : 'white'}; z-index: 5; border-right: 1px solid #ddd;">
                     <input type="checkbox" class="rechnung-checkbox"
                            data-rechnung-id="${r.rechnungId}"
                            ${isSelected ? 'checked' : ''}
