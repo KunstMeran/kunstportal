@@ -48,6 +48,35 @@ const App = {
         // Letzte View wiederherstellen oder Dashboard laden
         const lastView = localStorage.getItem('lastView') || 'dashboard';
         this.showView(lastView);
+
+        // Click-Effekte aktivieren
+        this.setupClickEffects();
+    },
+
+    /**
+     * Click-Effekte Setup
+     */
+    setupClickEffects: function() {
+        const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+
+        document.addEventListener('click', (e) => {
+            const container = document.getElementById('click-effect-container');
+            const ripple = document.createElement('div');
+            ripple.className = 'click-ripple';
+
+            // Zufällige Farbe
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            ripple.style.background = color;
+            ripple.style.width = '20px';
+            ripple.style.height = '20px';
+            ripple.style.left = e.clientX + 'px';
+            ripple.style.top = e.clientY + 'px';
+
+            container.appendChild(ripple);
+
+            // Nach Animation entfernen
+            setTimeout(() => ripple.remove(), 600);
+        });
     },
 
     /**
