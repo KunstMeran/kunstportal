@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projektsoftware Kunst Meran</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Poppins Font Override */
+        body, button, input, select, textarea {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        /* Zusätzliche Styles für App-spezifische Elemente */
+        .project-row {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .project-row:hover {
+            background-color: #f5f5f5;
+        }
+        .project-row:last-child {
+            border-bottom: none;
+        }
+        .project-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+        .detail-section h4 {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .detail-item label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        .detail-item span {
+            font-weight: 500;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .summary-item .value {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .summary-item .label {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        .summary-item.success .value { color: #27ae60; }
+        .summary-item.danger .value { color: #e74c3c; }
+        .summary-item.warning .value { color: #f39c12; }
+
+        /* Config Table */
+        .config-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .config-item:last-child {
+            border-bottom: none;
+        }
+        .config-item-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .color-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+        .config-item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Fullpage View */
+        .fullpage-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #f5f5f5;
+            z-index: 100;
+            display: none;
+            overflow-y: auto;
+        }
+        .fullpage-view.show {
+            display: block;
+        }
+        .fullpage-header {
+            background: #1a1a1a;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .fullpage-header h1 {
+            margin: 0;
+            color: white;
+            font-size: 1.5rem;
+        }
+        .fullpage-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .fullpage-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+        @media (max-width: 1024px) {
+            .fullpage-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Time entry card */
+        .time-entry {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        .time-entry-info {
+            flex: 1;
+        }
+        .time-entry-hours {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #3498db;
+            margin-right: 1rem;
+        }
+
+        /* Convert button */
+        .btn-convert {
+            background-color: #27ae60;
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .btn-convert:hover {
+            background-color: #1e8449;
+        }
+
+        /* Filter row */
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .filter-row .form-group {
+            flex: 1;
+            min-width: 150px;
+            margin-bottom: 0;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 1rem;
+        }
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .tab:hover {
+            background: #f5f5f5;
+        }
+        .tab.active {
+            border-bottom-color: #3498db;
+            color: #3498db;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .status-badge.neu {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-badge.kontrolliert {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-badge.bezahlt {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        /* PDF Link */
+        .pdf-link {
+            color: #e74c3c;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .pdf-link:hover {
+            text-decoration: underline;
+        }
+        .pdf-link.missing {
+            color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Abgabestelle Badge */
+        .abgabestelle-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+        .abgabestelle-badge.gemeinde {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .abgabestelle-badge.region {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .abgabestelle-badge.provinz {
+            background: #fff8e1;
+            color: #f57f17;
+        }
+
+        /* Button-Gruppe für Aktionen */
+        .action-btn-group {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .action-btn-group .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* Ausgewählte Zeile */
+        tr.selected-row {
+            background-color: #e3f2fd !important;
+        }
+        tr.selected-row:hover {
+            background-color: #bbdefb !important;
+        }
+
+        /* Checkbox Styling */
+        .rechnung-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        #rechnungen-select-all {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">KUNST MERAN</div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard">
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-view="projekte">
+                    <span>Projekte</span>
+                </a>
+                <a href="#" class="nav-item" data-view="rechnungen">
+                    <span>Rechnungen</span>
+                </a>
+                <a href="#" class="nav-item" data-view="lieferanten">
+                    <span>Lieferanten</span>
+                </a>
+                <a href="#" class="nav-item" data-view="kosten">
+                    <span>Kosten</span>
+                </a>
+                <a href="#" class="nav-item" data-view="zeiterfassung">
+                    <span>Zeiterfassung</span>
+                </a>
+                <a href="#" class="nav-item" data-view="sitzungen">
+                    <span>Sitzungen</span>
+                </a>
+                <a href="#" class="nav-item" data-view="kuenstler">
+                    <span>Künstler</span>
+                </a>
+                <a href="#" class="nav-item" data-view="inventar">
+                    <span>Inventar</span>
+                </a>
+                <a href="#" class="nav-item" data-view="adressen">
+                    <span>Adressen</span>
+                </a>
+                <a href="#" class="nav-item" data-view="reporting">
+                    <span>Reporting</span>
+                </a>
+                <a href="#" class="nav-item" data-view="einnahmen">
+                    <span>Einnahmenplanung</span>
+                </a>
+                <a href="#" class="nav-item admin-only" data-view="konfiguration">
+                    <span>Konfiguration</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar">A</div>
+                    <div>
+                        <div class="user-name" id="user-name">Admin</div>
+                        <div class="user-role" id="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn btn-outline btn-block" onclick="App.logout()" style="color: white; border-color: #666;">
+                    Abmelden
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- ==================== DASHBOARD ==================== -->
+            <div id="view-dashboard" class="view-content">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard</h1>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-projects">0</div>
+                        <div class="stat-label">Aktive Projekte</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="stat-budget">0 EUR</div>
+                        <div class="stat-label">Gesamtbudget</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-value" id="stat-spent">0 EUR</div>
+                        <div class="stat-label">Ausgegeben (IST)</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="stat-available">0 EUR</div>
+                        <div class="stat-label">Verfügbar</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Projektübersicht</h3>
+                    </div>
+                    <div id="dashboard-projects">
+                        <!-- Wird dynamisch geladen -->
+                    </div>
+                    <div class="budget-legend" style="padding: 1rem;">
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #e74c3c;"></div>
+                            <span>IST-Kosten</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #f39c12;"></div>
+                            <span>Provisorisch</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #e0e0e0;"></div>
+                            <span>Verfügbar</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== PROJEKTE ==================== -->
+            <div id="view-projekte" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Projekte</h1>
+                    <button class="btn btn-primary admin-only" onclick="App.showNewProjectForm()">
+                        + Neues Projekt
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projektname</th>
+                                    <th>Standort</th>
+                                    <th>Status</th>
+                                    <th>Budget</th>
+                                    <th>IST-Kosten</th>
+                                    <th>Verfügbar</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== RECHNUNGEN (DATEV) ==================== -->
+            <div id="view-rechnungen" class="view-content hidden">
+                <!-- Archiv-Hinweis -->
+                <div id="archive-notice" class="alert alert-info" style="display: none; margin-bottom: 1rem; background: #fff3cd; border: 1px solid #ffc107; padding: 0.75rem 1rem; border-radius: 6px; color: #856404;">
+                </div>
+
+                <div class="page-header">
+                    <h1 class="page-title">EK-Rechnungen</h1>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <!-- Jahr-Auswahl -->
+                        <select id="year-selector" class="form-control" style="width: auto; display: none;">
+                            <option value="">Aktuell</option>
+                        </select>
+                        <span id="year-loading" style="display: none; font-size: 0.75rem; color: #666;">Lade...</span>
+                        <span id="datev-last-update" style="font-size: 0.75rem; color: #666;"></span>
+                        <button class="btn btn-outline btn-sm" onclick="App.refreshDatevData()">
+                            Aktualisieren
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="App.exportRechnungenCSV()">
+                            CSV Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status-Karten -->
+                <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-rechnungen-total">0</div>
+                        <div class="stat-label">Rechnungen gesamt</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="stat-rechnungen-neu">0</div>
+                        <div class="stat-label">Neu (zu kontrollieren)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-rechnungen-kontrolliert">0</div>
+                        <div class="stat-label">Kontrolliert</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="stat-rechnungen-bezahlt">0</div>
+                        <div class="stat-label">Bezahlt</div>
+                    </div>
+                </div>
+
+                <!-- Filter -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Filter</h3>
+                    </div>
+                    <div class="filter-row">
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select id="rechnung-filter-status" class="form-control" onchange="App.filterRechnungen()">
+                                <option value="">Alle Status</option>
+                                <option value="neu">Neu</option>
+                                <option value="kontrolliert">Kontrolliert</option>
+                                <option value="bezahlt">Bezahlt</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Projekt</label>
+                            <select id="rechnung-filter-projekt" class="form-control" onchange="App.filterRechnungen()">
+                                <option value="">Alle Projekte</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lieferant</label>
+                            <select id="rechnung-filter-lieferant" class="form-control" onchange="App.filterRechnungen()">
+                                <option value="">Alle Lieferanten</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kostentyp/Konto</label>
+                            <select id="rechnung-filter-kostentyp" class="form-control" onchange="App.filterRechnungen()">
+                                <option value="">Alle Konten</option>
+                                <option value="kuration">Kuration</option>
+                                <option value="kuenstlerausgabe">Künstlerausgabe</option>
+                                <option value="transport">Transport</option>
+                                <option value="produktion">Produktion</option>
+                                <option value="vermittlung">Vermittlung</option>
+                                <option value="dokumentation">Dokumentation</option>
+                                <option value="kommunikation">Kommunikation</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Abgabestelle</label>
+                            <select id="rechnung-filter-abgabestelle" class="form-control" onchange="App.filterRechnungen()">
+                                <option value="">Alle</option>
+                                <option value="gemeinde">Gemeinde</option>
+                                <option value="region">Region</option>
+                                <option value="provinz">Provinz</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- IVA-Hinweis -->
+                    <div style="padding: 0.5rem 1rem; background: #fff3cd; border-radius: 0 0 8px 8px; font-size: 0.8rem; color: #856404;">
+                        <strong>Hinweis:</strong> Alle Projektbeträge werden ohne IVA (Netto) ausgewiesen. Die IVA wird separat in der Spalte "MwSt" angezeigt.
+                    </div>
+                </div>
+
+                <!-- Rechnungsliste -->
+                <div class="card">
+                    <!-- Massenaktions-Leiste -->
+                    <div id="rechnungen-mass-actions" style="display: none; padding: 0.75rem 1rem; background: #e3f2fd; border-bottom: 1px solid #90caf9;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span id="rechnungen-selected-count" style="font-weight: 500;">0 ausgewählt</span>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-sm btn-primary" onclick="App.massMarkKontrolliert()" title="Ausgewählte als kontrolliert markieren">
+                                    Als kontrolliert
+                                </button>
+                                <button class="btn btn-sm btn-success" onclick="App.massMarkBezahlt()" title="Ausgewählte als bezahlt markieren">
+                                    Als bezahlt
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('gemeinde')">
+                                    Gemeinde
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('region')">
+                                    Region
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('provinz')">
+                                    Provinz
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="App.clearSelection()" style="border-color: #e74c3c; color: #e74c3c;">
+                                    Auswahl aufheben
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="rechnungen-select-all" onchange="App.toggleSelectAll(this)" title="Alle auswählen/abwählen">
+                                    </th>
+                                    <th>Datum</th>
+                                    <th>Lieferant</th>
+                                    <th>Rechnungsnr.</th>
+                                    <th>Projekt</th>
+                                    <th>Kostentyp</th>
+                                    <th style="text-align: right;">Netto</th>
+                                    <th style="text-align: right;">MwSt</th>
+                                    <th style="text-align: right;">Brutto</th>
+                                    <th>Status</th>
+                                    <th>Kontrolliert</th>
+                                    <th>Bezahlt</th>
+                                    <th>Abgabestelle</th>
+                                    <th>PDF</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rechnungen-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== LIEFERANTEN ==================== -->
+            <div id="view-lieferanten" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Lieferanten</h1>
+                    <button class="btn btn-primary" onclick="App.showNewSupplierForm()">
+                        + Neuer Lieferant
+                    </button>
+                </div>
+
+                <!-- Lieferanten-Statistik -->
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-lieferanten-total">0</div>
+                        <div class="stat-label">Lieferanten gesamt</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="stat-lieferanten-aktiv">0</div>
+                        <div class="stat-label">Mit Rechnungen</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-lieferanten-summe">0 EUR</div>
+                        <div class="stat-label">Gesamtvolumen</div>
+                    </div>
+                </div>
+
+                <!-- Lieferantenliste -->
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Lieferant</th>
+                                    <th>Partita IVA</th>
+                                    <th>Nummer</th>
+                                    <th style="text-align: right;">Rechnungen</th>
+                                    <th style="text-align: right;">Gesamtbetrag</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lieferanten-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== KOSTEN ==================== -->
+            <div id="view-kosten" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Kosten</h1>
+                    <button class="btn btn-primary" onclick="App.showNewCostForm()">
+                        + Kosten erfassen
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Filter</h3>
+                    </div>
+                    <div class="filter-row">
+                        <div class="form-group">
+                            <label class="form-label">Projekt</label>
+                            <select id="cost-filter-project" class="form-control" onchange="App.filterCosts()">
+                                <option value="">Alle Projekte</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Typ</label>
+                            <select id="cost-filter-type" class="form-control" onchange="App.filterCosts()">
+                                <option value="">Alle</option>
+                                <option value="ist">IST-Kosten</option>
+                                <option value="provisorisch">Provisorisch</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kategorie</label>
+                            <select id="cost-filter-category" class="form-control" onchange="App.filterCosts()">
+                                <option value="">Alle Kategorien</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lieferant</label>
+                            <select id="cost-filter-supplier" class="form-control" onchange="App.filterCosts()">
+                                <option value="">Alle Lieferanten</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Projekt</th>
+                                    <th>Typ</th>
+                                    <th>Kategorie</th>
+                                    <th>Lieferant</th>
+                                    <th>Beschreibung</th>
+                                    <th>Rechnung</th>
+                                    <th>Betrag</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="costs-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== ZEITERFASSUNG ==================== -->
+            <div id="view-zeiterfassung" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Zeiterfassung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewTimeEntryForm()">
+                        + Zeit erfassen
+                    </button>
+                </div>
+
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total-hours">0</div>
+                        <div class="stat-label">Stunden diese Woche</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="stat-total-hours-month">0</div>
+                        <div class="stat-label">Stunden diesen Monat</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Meine Zeiteinträge</h3>
+                    </div>
+                    <div id="time-entries-list">
+                        <!-- Wird dynamisch geladen -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== SITZUNGEN ==================== -->
+            <div id="view-sitzungen" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Sitzungen & Besprechungen</h1>
+                    <button class="btn btn-primary" onclick="App.showNewSitzungForm()">+ Neue Sitzung</button>
+                </div>
+
+                <!-- Tabs für Sitzungstypen -->
+                <div class="tabs" style="margin-bottom: 1rem;">
+                    <div class="tab active" data-tab="alle-sitzungen" onclick="App.filterSitzungen('alle')">Alle</div>
+                    <div class="tab" data-tab="intern" onclick="App.filterSitzungen('intern')">Interne Besprechungen</div>
+                    <div class="tab" data-tab="extern" onclick="App.filterSitzungen('extern')">Externe Meetings</div>
+                    <div class="tab" data-tab="vorstand" onclick="App.filterSitzungen('vorstand')">Vorstandssitzungen</div>
+                </div>
+
+                <!-- Anstehende Deadlines -->
+                <div class="card" style="margin-bottom: 1rem; background: #fff3cd; border-left: 4px solid #f39c12;">
+                    <div class="card-header" style="background: transparent;">
+                        <h3 class="card-title" style="color: #856404;">Anstehende Deadlines</h3>
+                    </div>
+                    <div id="deadlines-liste" style="padding: 0 1rem 1rem;">
+                        <!-- Wird dynamisch geladen -->
+                        <p style="color: #666; font-style: italic;">Keine anstehenden Deadlines</p>
+                    </div>
+                </div>
+
+                <!-- Sitzungsliste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Sitzungen</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Titel</th>
+                                    <th>Typ</th>
+                                    <th>Teilnehmer</th>
+                                    <th>Offene Tasks</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sitzungen-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== KÜNSTLER ==================== -->
+            <div id="view-kuenstler" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Künstlerverwaltung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewKuenstlerForm()">+ Neuer Künstler</button>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="filter-row" style="padding: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Projekt/Event</label>
+                            <select id="kuenstler-filter-projekt" class="form-control" onchange="App.filterKuenstler()">
+                                <option value="">Alle Projekte</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Suche</label>
+                            <input type="text" id="kuenstler-suche" class="form-control" placeholder="Name suchen..." oninput="App.filterKuenstler()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Künstlerliste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Künstler</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Land</th>
+                                    <th>Technik/Medium</th>
+                                    <th>Verknüpfte Events</th>
+                                    <th>Kontakt</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kuenstler-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== INVENTAR (Kunstgüter/Attrezzi) ==================== -->
+            <div id="view-inventar" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Inventar - Kunstgüter</h1>
+                    <button class="btn btn-primary" onclick="App.showNewInventarForm()">+ Neuer Gegenstand</button>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="filter-row" style="padding: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Kategorie</label>
+                            <select id="inventar-filter-kategorie" class="form-control" onchange="App.filterInventar()">
+                                <option value="">Alle Kategorien</option>
+                                <option value="technik">Technik (Beamer, Audio, etc.)</option>
+                                <option value="moebel">Möbel & Aufbau</option>
+                                <option value="kunst">Kunstwerke</option>
+                                <option value="transport">Transportmittel</option>
+                                <option value="sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Standort</label>
+                            <select id="inventar-filter-standort" class="form-control" onchange="App.filterInventar()">
+                                <option value="">Alle Standorte</option>
+                                <option value="kunsthaus">Kunsthaus Meran</option>
+                                <option value="lager">Lager</option>
+                                <option value="extern">Extern/Verliehen</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Suche</label>
+                            <input type="text" id="inventar-suche" class="form-control" placeholder="Bezeichnung suchen..." oninput="App.filterInventar()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventarliste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Inventar</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportInventarCSV()">CSV Export</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Inv.-Nr.</th>
+                                    <th>Bezeichnung</th>
+                                    <th>Kategorie</th>
+                                    <th>Standort</th>
+                                    <th>Zustand</th>
+                                    <th>Anschaffung</th>
+                                    <th>Wert (EUR)</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventar-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== ADRESSEN ==================== -->
+            <div id="view-adressen" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Adressverwaltung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewAdresseForm()">+ Neuer Kontakt</button>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="filter-row" style="padding: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Kategorie</label>
+                            <select id="adresse-filter-kategorie" class="form-control" onchange="App.filterAdressen()">
+                                <option value="">Alle Kategorien</option>
+                                <option value="kuenstler">Künstler</option>
+                                <option value="kurator">Kuratoren</option>
+                                <option value="presse">Presse & Medien</option>
+                                <option value="sponsor">Sponsoren</option>
+                                <option value="lieferant">Lieferanten</option>
+                                <option value="institution">Institutionen</option>
+                                <option value="sonstige">Sonstige</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Suche</label>
+                            <input type="text" id="adresse-suche" class="form-control" placeholder="Name, Email, Organisation..." oninput="App.filterAdressen()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Adressliste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Kontakte</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportAdressenCSV()">CSV Export</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Organisation</th>
+                                    <th>Kategorie</th>
+                                    <th>Email</th>
+                                    <th>Telefon</th>
+                                    <th>Stadt/Land</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adressen-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== REPORTING ==================== -->
+            <div id="view-reporting" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Reporting & Deckungsbeiträge</h1>
+                    <div>
+                        <select id="reporting-jahr" class="form-control" onchange="App.loadReporting()" style="display: inline-block; width: auto;">
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Projektübersicht -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Projektübersicht</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projekt</th>
+                                    <th>DATEV-ID</th>
+                                    <th style="text-align: right;">Budget</th>
+                                    <th style="text-align: right;">IST-Kosten</th>
+                                    <th style="text-align: right;">davon Personal</th>
+                                    <th style="text-align: right;">Verfügbar</th>
+                                    <th>Auslastung</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reporting-projekte-table">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                            <tfoot id="reporting-projekte-footer">
+                                <!-- Summenzeile -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Deckungsbeitragsrechnung -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Deckungsbeitragsrechnung</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="db-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50%;">Position</th>
+                                    <th>Konto</th>
+                                    <th style="text-align: right;">IST</th>
+                                    <th style="text-align: right;">Plan</th>
+                                    <th style="text-align: right;">Abweichung</th>
+                                </tr>
+                            </thead>
+                            <tbody id="db-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Kosten nach Kategorie -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Kosten nach Kategorie</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Kategorie</th>
+                                    <th>Konto-Bereich</th>
+                                    <th style="text-align: right;">Betrag</th>
+                                    <th style="text-align: right;">Anteil</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reporting-kategorien-table">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== EINNAHMENPLANUNG ==================== -->
+            <div id="view-einnahmen" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Einnahmenplanung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewEinnahmeForm()">+ Neue Einnahme</button>
+                </div>
+
+                <!-- Zusammenfassung -->
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card success">
+                        <div class="stat-value" id="einnahmen-bestaetigt">0 EUR</div>
+                        <div class="stat-label">Bestätigt</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="einnahmen-erwartet">0 EUR</div>
+                        <div class="stat-label">Erwartet</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="einnahmen-unsicher">0 EUR</div>
+                        <div class="stat-label">Unsicher</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="einnahmen-gesamt">0 EUR</div>
+                        <div class="stat-label">Geplant Gesamt</div>
+                    </div>
+                </div>
+
+                <!-- Hinweis für Vorstand -->
+                <div class="card" style="background: #e8f4fd; border-left: 4px solid #3498db; margin-bottom: 1.5rem;">
+                    <div style="padding: 1rem;">
+                        <strong>Hinweis für Vorstand:</strong> Einnahmen mit Status "Bestätigt" haben ein hinterlegtes Dokument (E-Mail, Zusage, Vertrag).
+                        Klicken Sie auf das Dokument-Symbol, um die Bestätigung einzusehen.
+                    </div>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="filter-row" style="padding: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Jahr</label>
+                            <select id="einnahmen-filter-jahr" class="form-control" onchange="App.loadEinnahmen()">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Typ</label>
+                            <select id="einnahmen-filter-typ" class="form-control" onchange="App.filterEinnahmen()">
+                                <option value="">Alle Typen</option>
+                                <option value="zuschuss_provinz">Zuschuss Provinz</option>
+                                <option value="zuschuss_gemeinde">Zuschuss Gemeinde</option>
+                                <option value="zuschuss_region">Zuschuss Region</option>
+                                <option value="zuschuss_stiftung">Zuschuss Stiftung</option>
+                                <option value="sponsoring">Sponsoring</option>
+                                <option value="spende">Spende</option>
+                                <option value="mitgliedsbeitrag">Mitgliedsbeitrag</option>
+                                <option value="erloese">Erlöse (Shop, Ausstellungen)</option>
+                                <option value="sonstige">Sonstige</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select id="einnahmen-filter-status" class="form-control" onchange="App.filterEinnahmen()">
+                                <option value="">Alle Status</option>
+                                <option value="bestaetigt">Bestätigt (Dokument vorhanden)</option>
+                                <option value="erwartet">Erwartet</option>
+                                <option value="unsicher">Unsicher</option>
+                                <option value="abgesagt">Abgesagt</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Einnahmen-Liste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Geplante Einnahmen</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportEinnahmenCSV()">CSV Export</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Quelle</th>
+                                    <th>Typ</th>
+                                    <th style="text-align: right;">Betrag (Plan)</th>
+                                    <th style="text-align: right;">Betrag (IST)</th>
+                                    <th>Status</th>
+                                    <th>Dokument</th>
+                                    <th>Fällig am</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="einnahmen-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                            <tfoot>
+                                <tr style="font-weight: bold; background: #f5f5f5;">
+                                    <td colspan="2">Summe</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-plan">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-ist">0,00 EUR</td>
+                                    <td colspan="4"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== KONFIGURATION (Admin Only) ==================== -->
+            <div id="view-konfiguration" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Konfiguration</h1>
+                </div>
+
+                <div class="tabs">
+                    <div class="tab active" data-tab="kostentypen">Kostentypen</div>
+                    <div class="tab" data-tab="lieferanten">Lieferanten</div>
+                    <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
+                    <div class="tab" data-tab="export">Datenexport</div>
+                </div>
+
+                <!-- Kostentypen Tab -->
+                <div id="tab-kostentypen" class="tab-content active">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Kostentypen verwalten</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewCostTypeForm()">
+                                + Neuer Kostentyp
+                            </button>
+                        </div>
+                        <div id="cost-types-list">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lieferanten Tab -->
+                <div id="tab-lieferanten" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Lieferanten verwalten</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewSupplierForm()">
+                                + Neuer Lieferant
+                            </button>
+                        </div>
+                        <div id="suppliers-list">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mitarbeiter Tab -->
+                <div id="tab-mitarbeiter" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Mitarbeiter-Stundensätze</h3>
+                        </div>
+                        <p style="padding: 0 1rem; color: #666; font-size: 0.875rem;">
+                            Hier können Sie die Stundensätze für die Personalkosten-Kalkulation festlegen.
+                        </p>
+                        <div id="users-list">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Datenexport Tab -->
+                <div id="tab-export" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Excel-Export</h3>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <p style="margin-bottom: 1rem; color: #666;">
+                                Exportieren Sie Projektdaten als CSV-Datei (kompatibel mit Excel).
+                            </p>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <h4 style="margin-bottom: 0.5rem;">Gesamtexport</h4>
+                                <p style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">
+                                    Alle Projekte, Kosten, Lieferanten und Zeiterfassung in einer Datei.
+                                </p>
+                                <button class="btn btn-primary" onclick="App.exportAllToExcel()">
+                                    Alle Daten exportieren
+                                </button>
+                            </div>
+
+                            <div>
+                                <h4 style="margin-bottom: 0.5rem;">Projekt-Export</h4>
+                                <p style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">
+                                    Wählen Sie ein Projekt für den Export:
+                                </p>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <select id="export-project-select" class="form-control" style="max-width: 300px;">
+                                        <!-- Wird dynamisch geladen -->
+                                    </select>
+                                    <button class="btn btn-outline" onclick="App.exportProjectToExcel()">
+                                        Projekt exportieren
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== FULLPAGE PROJECT VIEW ==================== -->
+    <div id="project-fullpage" class="fullpage-view">
+        <div class="fullpage-header">
+            <h1 id="fullpage-project-name">Projektdetails</h1>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-outline admin-only" onclick="App.exportCurrentProjectToExcel()" style="color: white; border-color: white;">
+                    Excel Export
+                </button>
+                <button class="btn btn-outline" onclick="App.closeProjectFullpage()" style="color: white; border-color: white;">
+                    Schließen
+                </button>
+            </div>
+        </div>
+        <div class="fullpage-content">
+            <div class="fullpage-grid">
+                <div class="fullpage-main">
+                    <!-- Projekt-Info Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Projektinformationen</h3>
+                            <button class="btn btn-primary btn-sm admin-only" onclick="App.editCurrentProject()">
+                                Bearbeiten
+                            </button>
+                        </div>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Standort</label>
+                                <span id="fp-location">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Zeitraum</label>
+                                <span id="fp-period">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Status</label>
+                                <span id="fp-status">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Arbeitsstunden</label>
+                                <span id="fp-hours">0 Std.</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <label style="font-size: 0.75rem; color: #666; text-transform: uppercase;">Beschreibung</label>
+                            <p id="fp-description" style="margin: 0.25rem 0 0 0;">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Kosten-Filter und Liste -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Kosten</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewCostFormForProject()">
+                                + Kosten hinzufügen
+                            </button>
+                        </div>
+                        <div class="filter-row">
+                            <div class="form-group">
+                                <label class="form-label">Kategorie</label>
+                                <select id="fp-filter-category" class="form-control" onchange="App.filterProjectCosts()">
+                                    <option value="">Alle Kategorien</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Lieferant</label>
+                                <select id="fp-filter-supplier" class="form-control" onchange="App.filterProjectCosts()">
+                                    <option value="">Alle Lieferanten</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Typ</label>
+                                <select id="fp-filter-type" class="form-control" onchange="App.filterProjectCosts()">
+                                    <option value="">Alle</option>
+                                    <option value="ist">IST-Kosten</option>
+                                    <option value="provisorisch">Provisorisch</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Kategorie</th>
+                                        <th>Lieferant</th>
+                                        <th>Beschreibung</th>
+                                        <th>Typ</th>
+                                        <th style="text-align: right;">Betrag</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fp-costs-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar mit Budget-Übersicht -->
+                <div class="fullpage-sidebar">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Budget-Übersicht</h3>
+                        </div>
+                        <div style="text-align: center; padding: 1rem 0;">
+                            <div style="font-size: 2rem; font-weight: 700;" id="fp-budget-total">0 EUR</div>
+                            <div style="font-size: 0.875rem; color: #666;">Gesamtbudget</div>
+                        </div>
+                        <div class="budget-bar" id="fp-budget-bar" style="height: 30px; margin-bottom: 1rem;">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; text-align: center;">
+                            <div style="padding: 0.75rem; background: rgba(231, 76, 60, 0.1); border-radius: 8px;">
+                                <div style="font-weight: 600; color: #e74c3c;" id="fp-ist-total">0 EUR</div>
+                                <div style="font-size: 0.75rem; color: #666;">IST</div>
+                            </div>
+                            <div style="padding: 0.75rem; background: rgba(243, 156, 18, 0.1); border-radius: 8px;">
+                                <div style="font-weight: 600; color: #f39c12;" id="fp-prov-total">0 EUR</div>
+                                <div style="font-size: 0.75rem; color: #666;">Geplant</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 1rem; padding: 1rem; background: rgba(39, 174, 96, 0.1); border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #27ae60;" id="fp-available">0 EUR</div>
+                            <div style="font-size: 0.875rem; color: #666;">Verfügbar</div>
+                        </div>
+
+                        <!-- Originalplanung vs Aktuell -->
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;">
+                                Planvergleich
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span style="color: #666;">Originalplanung:</span>
+                                <span id="fp-planned-original" style="font-weight: 500;">0 EUR</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #666;">Abweichung:</span>
+                                <span id="fp-planned-deviation" style="font-weight: 600;">0 EUR</span>
+                            </div>
+                        </div>
+
+                        <!-- Personalkosten (Admin only) -->
+                        <div class="admin-only" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;">
+                                Personalkosten (kalkuliert)
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #666;">Basierend auf Stundensätzen:</span>
+                                <span id="fp-labor-cost" style="font-weight: 600; color: #3498db;">0 EUR</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aufschlüsselung nach Kategorie -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Nach Kategorie</h3>
+                        </div>
+                        <div id="fp-category-breakdown">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Projekt-Detail Modal (Legacy - wird ersetzt durch Fullpage) -->
+    <div id="project-detail-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="detail-project-name">Projektdetails</h2>
+                <button class="modal-close" onclick="App.hideModal('project-detail-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Bitte nutzen Sie die erweiterte Projektansicht.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="App.hideModal('project-detail-modal')">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projekt-Formular Modal -->
+    <div id="project-form-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="project-modal-title">Neues Projekt</h2>
+                <button class="modal-close" onclick="App.hideModal('project-form-modal')">&times;</button>
+            </div>
+            <form id="project-form" onsubmit="App.saveProject(event)">
+                <input type="hidden" id="project-form-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Projektname *</label>
+                        <input type="text" id="project-name" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">DATEV Kostenstellen-ID</label>
+                            <input type="text" id="project-datev-id" class="form-control" placeholder="z.B. 2601">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select id="project-status" class="form-control">
+                                <option value="planung">Planung</option>
+                                <option value="laufend">Laufend</option>
+                                <option value="abgeschlossen">Abgeschlossen</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Standort</label>
+                            <select id="project-location" class="form-control">
+                                <option value="Kunst Meran">Kunst Meran</option>
+                                <option value="Venedig">Venedig</option>
+                                <option value="Andere">Andere</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Budget (EUR)</label>
+                            <input type="number" id="project-budget" class="form-control" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <!-- Verantwortlichkeiten -->
+                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #1565c0;">Verantwortlichkeiten</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">PL1 - Kostenverantwortung</label>
+                                <select id="project-pl1" class="form-control">
+                                    <option value="">-- Nicht zugewiesen --</option>
+                                    <!-- Wird dynamisch mit Mitarbeitern gefüllt -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">PL2 - Kommunikation</label>
+                                <select id="project-pl2" class="form-control">
+                                    <option value="">-- Nicht zugewiesen --</option>
+                                    <!-- Wird dynamisch mit Mitarbeitern gefüllt -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="project-description" class="form-control"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Startdatum *</label>
+                            <input type="date" id="project-start" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Enddatum *</label>
+                            <input type="date" id="project-end" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dropbox-Link</label>
+                        <input type="url" id="project-dropbox" class="form-control" placeholder="https://www.dropbox.com/...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('project-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kosten-Formular Modal -->
+    <div id="cost-form-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="cost-modal-title">Kosten erfassen</h2>
+                <button class="modal-close" onclick="App.hideModal('cost-form-modal')">&times;</button>
+            </div>
+            <form id="cost-form" onsubmit="App.saveCost(event)">
+                <input type="hidden" id="cost-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Projekt *</label>
+                            <select id="cost-project" class="form-control" required>
+                                <option value="">Bitte wählen...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Typ *</label>
+                            <select id="cost-type" class="form-control" required>
+                                <option value="ist">IST-Kosten</option>
+                                <option value="provisorisch">Provisorisch</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Kategorie *</label>
+                            <select id="cost-category" class="form-control" required>
+                                <!-- Wird dynamisch aus Config geladen -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lieferant</label>
+                            <select id="cost-supplier" class="form-control">
+                                <option value="">-- Kein Lieferant --</option>
+                                <!-- Wird dynamisch geladen -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="cost-date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">MwSt-Behandlung *</label>
+                            <select id="cost-mwst-type" class="form-control" required onchange="App.updateMwstPreview()">
+                                <option value="brutto_it">Brutto inkl. 22% MwSt (Italien)</option>
+                                <option value="netto_reverse">Netto + Reverse Charge (EU-Ausland)</option>
+                                <option value="netto_import">Netto + Import-MwSt (Drittland)</option>
+                                <option value="netto_befreit">Netto MwSt-befreit</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Rechnungsbetrag (EUR) *</label>
+                            <input type="number" id="cost-amount" class="form-control" step="0.01" min="0" required oninput="App.updateMwstPreview()" onkeyup="App.updateMwstPreview()" onchange="App.updateMwstPreview()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Berechnete Werte</label>
+                            <div id="cost-mwst-preview" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; font-size: 0.85rem;">
+                                <div>Netto: <strong id="preview-netto">0,00 €</strong></div>
+                                <div>MwSt: <strong id="preview-mwst">0,00 €</strong></div>
+                                <div>Gesamt: <strong id="preview-gesamt">0,00 €</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung *</label>
+                        <input type="text" id="cost-description" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rechnungsnummer</label>
+                        <input type="text" id="cost-invoice" class="form-control" placeholder="z.B. RG-2026-0123">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('cost-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Zeiterfassung-Formular Modal -->
+    <div id="time-form-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="time-modal-title">Zeit erfassen</h2>
+                <button class="modal-close" onclick="App.hideModal('time-form-modal')">&times;</button>
+            </div>
+            <form id="time-form" onsubmit="App.saveTimeEntry(event)">
+                <input type="hidden" id="time-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Projekt *</label>
+                            <select id="time-project" class="form-control" required>
+                                <option value="">Bitte wählen...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="time-date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stunden *</label>
+                        <input type="number" id="time-hours" class="form-control" step="0.5" min="0.5" max="24" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung *</label>
+                        <textarea id="time-description" class="form-control" required placeholder="Was haben Sie gemacht?"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('time-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kostentyp-Formular Modal -->
+    <div id="costtype-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="costtype-modal-title">Neuer Kostentyp</h2>
+                <button class="modal-close" onclick="App.hideModal('costtype-form-modal')">&times;</button>
+            </div>
+            <form id="costtype-form" onsubmit="App.saveCostType(event)">
+                <input type="hidden" id="costtype-form-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Name *</label>
+                        <input type="text" id="costtype-name" class="form-control" required placeholder="z.B. Honorare">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Farbe</label>
+                        <input type="color" id="costtype-color" class="form-control" value="#3498db" style="height: 40px; padding: 4px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('costtype-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lieferant-Formular Modal -->
+    <div id="supplier-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="supplier-modal-title">Neuer Lieferant</h2>
+                <button class="modal-close" onclick="App.hideModal('supplier-form-modal')">&times;</button>
+            </div>
+            <form id="supplier-form" onsubmit="App.saveSupplier(event)">
+                <input type="hidden" id="supplier-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Name *</label>
+                            <input type="text" id="supplier-name" class="form-control" required placeholder="z.B. Musterfirma GmbH">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Externe ID</label>
+                            <input type="text" id="supplier-external-id" class="form-control" placeholder="z.B. LF-005 (auto)">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Typ/Kategorie</label>
+                            <select id="supplier-type" class="form-control">
+                                <!-- Wird dynamisch geladen -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Steuernummer/MwSt-Nr.</label>
+                            <input type="text" id="supplier-taxid" class="form-control" placeholder="z.B. IT01234567890">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Adresse</label>
+                        <input type="text" id="supplier-address" class="form-control" placeholder="Straße, PLZ Ort">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="supplier-notes" class="form-control" rows="2" placeholder="Interne Notizen..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('supplier-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stundensatz-Formular Modal -->
+    <div id="hourlyrate-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Stundensatz bearbeiten</h2>
+                <button class="modal-close" onclick="App.hideModal('hourlyrate-form-modal')">&times;</button>
+            </div>
+            <form id="hourlyrate-form" onsubmit="App.saveHourlyRate(event)">
+                <input type="hidden" id="hourlyrate-user-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Mitarbeiter</label>
+                        <input type="text" id="hourlyrate-user-name" class="form-control" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stundensatz (EUR) *</label>
+                        <input type="number" id="hourlyrate-value" class="form-control" step="0.01" min="0" required placeholder="z.B. 25.00">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('hourlyrate-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Umwandlung Modal -->
+    <div id="convert-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">In IST-Kosten umwandeln</h2>
+                <button class="modal-close" onclick="App.hideModal('convert-form-modal')">&times;</button>
+            </div>
+            <form id="convert-form" onsubmit="App.confirmConvert(event)">
+                <input type="hidden" id="convert-cost-id">
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem;">Möchten Sie diese provisorischen Kosten in effektive IST-Kosten umwandeln?</p>
+                    <div class="form-group">
+                        <label class="form-label">Rechnungsnummer (optional)</label>
+                        <input type="text" id="convert-invoice" class="form-control" placeholder="z.B. RG-2026-0123">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('convert-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Umwandeln</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal -->
+    <div id="pdf-preview-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 900px; height: 90vh;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="pdf-preview-title">PDF-Vorschau</h2>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary btn-sm" onclick="App.openPdfInNewTab()" title="In neuem Tab öffnen">
+                        Öffnen
+                    </button>
+                    <button class="modal-close" onclick="App.hideModal('pdf-preview-modal')">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 0; height: calc(100% - 60px);">
+                <iframe id="pdf-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
+                <div id="pdf-preview-error" style="display: none; padding: 2rem; text-align: center; color: #e74c3c;">
+                    <p style="font-size: 1.25rem; margin-bottom: 0.5rem;">PDF nicht gefunden</p>
+                    <p style="color: #666;">Die Datei existiert nicht oder ist nicht zugänglich.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rechnungs-Detail Modal -->
+    <div id="rechnung-detail-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Rechnungsdetails</h2>
+                <button class="modal-close" onclick="App.hideModal('rechnung-detail-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-grid" style="margin-bottom: 1rem;">
+                    <div class="detail-item">
+                        <label>Lieferant</label>
+                        <span id="rd-lieferant">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Partita IVA</label>
+                        <span id="rd-partita-iva">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Rechnungsnummer</label>
+                        <span id="rd-rechnungsnr">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Datum</label>
+                        <span id="rd-datum">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Projekt</label>
+                        <select id="rd-projekt" class="form-control" style="font-size: 0.9rem; padding: 0.25rem 0.5rem;" onchange="App.updateRechnungProjekt()">
+                            <option value="">-- Nicht zugeordnet --</option>
+                            <option value="2601">2601 - Complice</option>
+                            <option value="2602">2602 - Animacies</option>
+                            <option value="2603">2603 - Stadtraum Meran</option>
+                            <option value="2604">2604 - Wanderausstellung</option>
+                            <option value="2605">2605 - Konzertreihe</option>
+                            <option value="2606">2606 - Menschenbilder</option>
+                            <option value="2607">2607 - Rahmenprogramm</option>
+                        </select>
+                        <small style="color: #666; font-size: 0.7rem;">Projektzuordnung kann vom PL oder Barbara geändert werden</small>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status</label>
+                        <span id="rd-status">-</span>
+                    </div>
+                </div>
+
+                <!-- Beträge -->
+                <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
+                        <div>
+                            <div style="font-size: 1.25rem; font-weight: 600;" id="rd-brutto">0,00 EUR</div>
+                            <div style="font-size: 0.75rem; color: #666;">Brutto</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 1.25rem; font-weight: 600;" id="rd-netto">0,00 EUR</div>
+                            <div style="font-size: 0.75rem; color: #666;">Netto</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #e74c3c;" id="rd-mwst">0,00 EUR</div>
+                            <div style="font-size: 0.75rem; color: #666;">MwSt (22%)</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed #ccc;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Absetzbare MwSt (85%):</span>
+                            <span id="rd-mwst-absetzbar" style="font-weight: 500;">0,00 EUR</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Nicht absetzbar (Pro-Rata):</span>
+                            <span id="rd-mwst-nicht-absetzbar" style="font-weight: 500; color: #e74c3c;">0,00 EUR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status-Daten mit Datum -->
+                <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #1565c0;">Status-Verlauf</h4>
+
+                    <!-- Kontrolliert -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="rd-kontrolliert-check" onchange="App.toggleKontrolliert(this)">
+                        <label style="min-width: 80px; font-weight: 500;">Kontrolliert</label>
+                        <input type="date" id="rd-kontrolliert-datum" class="form-control" style="flex: 1; padding: 0.25rem 0.5rem;" onchange="App.updateKontrolliertDatum()">
+                    </div>
+
+                    <!-- Bezahlt -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="rd-bezahlt-check" onchange="App.toggleBezahlt(this)">
+                        <label style="min-width: 80px; font-weight: 500;">Bezahlt</label>
+                        <input type="date" id="rd-bezahlt-datum" class="form-control" style="flex: 1; padding: 0.25rem 0.5rem;" onchange="App.updateBezahltDatum()">
+                    </div>
+                </div>
+
+                <!-- Kostentyp mit Datum -->
+                <div class="form-group">
+                    <label class="form-label">Kostentyp</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="rd-kostentyp" class="form-control" style="flex: 2;" onchange="App.updateRechnungKostentyp()">
+                            <option value="">-- Nicht zugeordnet --</option>
+                            <option value="kuration">Kuration</option>
+                            <option value="kuenstlerausgabe">Künstlerausgabe</option>
+                            <option value="transport">Transport</option>
+                            <option value="produktion">Produktion</option>
+                            <option value="vermittlung">Vermittlung</option>
+                            <option value="dokumentation">Dokumentation</option>
+                            <option value="kommunikation">Kommunikation</option>
+                        </select>
+                        <input type="date" id="rd-kostentyp-datum" class="form-control" style="flex: 1;" onchange="App.updateKostentypDatum()" title="Datum der Zuordnung">
+                    </div>
+                </div>
+
+                <!-- Abgabestelle mit Datum -->
+                <div class="form-group">
+                    <label class="form-label">Abgabestelle</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="rd-abgabestelle" class="form-control" style="flex: 2;" onchange="App.updateRechnungAbgabestelle()">
+                            <option value="">-- Nicht zugeordnet --</option>
+                            <option value="gemeinde">Gemeinde</option>
+                            <option value="region">Region</option>
+                            <option value="provinz">Provinz</option>
+                        </select>
+                        <input type="date" id="rd-abgabestelle-datum" class="form-control" style="flex: 1;" onchange="App.updateAbgabestelleDatum()" title="Datum der Zuordnung">
+                    </div>
+                </div>
+
+                <!-- Geteilte Rechnung -->
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="rd-geteilt" onchange="App.updateRechnungGeteilt()" style="width: 18px; height: 18px;">
+                        <span class="form-label" style="margin: 0;">Geteilte Rechnung</span>
+                    </label>
+                    <small style="color: #666; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
+                        Markieren, wenn diese Rechnung auf mehrere Projekte aufgeteilt wird
+                    </small>
+                </div>
+
+                <!-- Notizen -->
+                <div class="form-group">
+                    <label class="form-label">Notizen</label>
+                    <textarea id="rd-notizen" class="form-control" rows="2" placeholder="Interne Notizen..." onchange="App.updateRechnungNotizen()"></textarea>
+                </div>
+
+                <input type="hidden" id="rd-rechnung-id">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="App.hideModal('rechnung-detail-modal')">Schließen</button>
+                <button id="rd-btn-kontrollieren" class="btn btn-primary" onclick="App.markRechnungKontrolliert()" style="display: none;">
+                    Als kontrolliert markieren
+                </button>
+                <button id="rd-btn-bezahlt" class="btn btn-success" onclick="App.markRechnungBezahlt()" style="display: none;">
+                    Als bezahlt markieren
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Neue Sitzung ==================== -->
+    <div id="sitzung-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="sitzung-modal-title">Neue Sitzung</h2>
+                <button class="modal-close" onclick="App.hideModal('sitzung-form-modal')">&times;</button>
+            </div>
+            <form id="sitzung-form" onsubmit="App.saveSitzung(event)">
+                <input type="hidden" id="sitzung-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Titel *</label>
+                            <input type="text" id="sitzung-titel" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Typ</label>
+                            <select id="sitzung-typ" class="form-control">
+                                <option value="intern">Interne Besprechung</option>
+                                <option value="extern">Externes Meeting</option>
+                                <option value="vorstand">Vorstandssitzung</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="sitzung-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Uhrzeit</label>
+                            <input type="time" id="sitzung-uhrzeit" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Teilnehmer</label>
+                        <input type="text" id="sitzung-teilnehmer" class="form-control" placeholder="Namen, kommagetrennt">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Agenda / Themen</label>
+                        <textarea id="sitzung-agenda" class="form-control" rows="3" placeholder="Tagesordnungspunkte..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Protokoll / Notizen</label>
+                        <textarea id="sitzung-protokoll" class="form-control" rows="5" placeholder="Mitschrift der Sitzung..."></textarea>
+                    </div>
+                    <!-- Tasks/Aufgaben -->
+                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px;">
+                        <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #1565c0;">Aufgaben aus dieser Sitzung</h4>
+                        <div id="sitzung-tasks-liste">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="App.addSitzungTask()" style="margin-top: 0.5rem;">+ Aufgabe hinzufügen</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('sitzung-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Neuer Künstler ==================== -->
+    <div id="kuenstler-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="kuenstler-modal-title">Neuer Künstler</h2>
+                <button class="modal-close" onclick="App.hideModal('kuenstler-form-modal')">&times;</button>
+            </div>
+            <form id="kuenstler-form" onsubmit="App.saveKuenstler(event)">
+                <input type="hidden" id="kuenstler-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Name *</label>
+                            <input type="text" id="kuenstler-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Land</label>
+                            <input type="text" id="kuenstler-land" class="form-control" placeholder="z.B. Italien">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Technik / Medium</label>
+                        <input type="text" id="kuenstler-technik" class="form-control" placeholder="z.B. Installation, Malerei, Video">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="kuenstler-email" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Telefon</label>
+                            <input type="text" id="kuenstler-telefon" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Website</label>
+                        <input type="url" id="kuenstler-website" class="form-control" placeholder="https://">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Verknüpfte Projekte/Events</label>
+                        <select id="kuenstler-projekte" class="form-control" multiple style="height: 100px;">
+                            <option value="2601">Complice</option>
+                            <option value="2602">Animacies</option>
+                            <option value="2603">Stadtraum Meran</option>
+                            <option value="2604">Wanderausstellung</option>
+                            <option value="2605">Konzertreihe</option>
+                            <option value="2606">Menschenbilder</option>
+                            <option value="2607">Rahmenprogramm</option>
+                        </select>
+                        <small style="color: #666;">Strg+Klick für Mehrfachauswahl</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen / Biografie</label>
+                        <textarea id="kuenstler-notizen" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('kuenstler-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Neuer Inventar-Gegenstand ==================== -->
+    <div id="inventar-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="inventar-modal-title">Neuer Gegenstand</h2>
+                <button class="modal-close" onclick="App.hideModal('inventar-form-modal')">&times;</button>
+            </div>
+            <form id="inventar-form" onsubmit="App.saveInventar(event)">
+                <input type="hidden" id="inventar-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Inventar-Nr.</label>
+                            <input type="text" id="inventar-nr" class="form-control" placeholder="wird automatisch vergeben">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kategorie *</label>
+                            <select id="inventar-kategorie" class="form-control" required>
+                                <option value="">-- Auswählen --</option>
+                                <option value="technik">Technik (Beamer, Audio, etc.)</option>
+                                <option value="moebel">Möbel & Aufbau</option>
+                                <option value="kunst">Kunstwerke</option>
+                                <option value="transport">Transportmittel</option>
+                                <option value="sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bezeichnung *</label>
+                        <input type="text" id="inventar-bezeichnung" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Standort</label>
+                            <select id="inventar-standort" class="form-control">
+                                <option value="kunsthaus">Kunsthaus Meran</option>
+                                <option value="lager">Lager</option>
+                                <option value="extern">Extern/Verliehen</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Zustand</label>
+                            <select id="inventar-zustand" class="form-control">
+                                <option value="gut">Gut</option>
+                                <option value="gebraucht">Gebraucht</option>
+                                <option value="reparatur">Reparaturbedürftig</option>
+                                <option value="defekt">Defekt</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Anschaffungsdatum</label>
+                            <input type="date" id="inventar-anschaffung" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Wert (EUR)</label>
+                            <input type="number" id="inventar-wert" class="form-control" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung / Notizen</label>
+                        <textarea id="inventar-beschreibung" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('inventar-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Neue Adresse ==================== -->
+    <div id="adresse-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="adresse-modal-title">Neuer Kontakt</h2>
+                <button class="modal-close" onclick="App.hideModal('adresse-form-modal')">&times;</button>
+            </div>
+            <form id="adresse-form" onsubmit="App.saveAdresse(event)">
+                <input type="hidden" id="adresse-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Name *</label>
+                            <input type="text" id="adresse-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Organisation</label>
+                            <input type="text" id="adresse-organisation" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kategorie</label>
+                        <select id="adresse-kategorie" class="form-control">
+                            <option value="sonstige">Sonstige</option>
+                            <option value="kuenstler">Künstler</option>
+                            <option value="kurator">Kuratoren</option>
+                            <option value="presse">Presse & Medien</option>
+                            <option value="sponsor">Sponsoren</option>
+                            <option value="lieferant">Lieferanten</option>
+                            <option value="institution">Institutionen</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="adresse-email" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Telefon</label>
+                            <input type="text" id="adresse-telefon" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Straße / Adresse</label>
+                        <input type="text" id="adresse-strasse" class="form-control">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">PLZ</label>
+                            <input type="text" id="adresse-plz" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stadt</label>
+                            <input type="text" id="adresse-stadt" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Land</label>
+                            <input type="text" id="adresse-land" class="form-control" value="Italien">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="adresse-notizen" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('adresse-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Einnahme Modal -->
+    <div id="einnahme-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <form onsubmit="App.saveEinnahme(event)">
+                <div class="modal-header">
+                    <h2 id="einnahme-modal-title">Neue Einnahme</h2>
+                    <button type="button" class="modal-close" onclick="App.hideModal('einnahme-form-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="einnahme-id">
+
+                    <div class="form-group">
+                        <label class="form-label">Quelle / Geber *</label>
+                        <input type="text" id="einnahme-quelle" class="form-control" required placeholder="z.B. Provinz Bozen, Stiftung Sparkasse, Firma XYZ...">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Typ *</label>
+                            <select id="einnahme-typ" class="form-control" required>
+                                <option value="">-- Auswählen --</option>
+                                <option value="zuschuss_provinz">Zuschuss Provinz</option>
+                                <option value="zuschuss_gemeinde">Zuschuss Gemeinde</option>
+                                <option value="zuschuss_region">Zuschuss Region</option>
+                                <option value="zuschuss_stiftung">Zuschuss Stiftung</option>
+                                <option value="sponsoring">Sponsoring</option>
+                                <option value="spende">Spende</option>
+                                <option value="mitgliedsbeitrag">Mitgliedsbeitrag</option>
+                                <option value="erloese">Erlöse (Shop, Ausstellungen)</option>
+                                <option value="sonstige">Sonstige</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Jahr *</label>
+                            <select id="einnahme-jahr" class="form-control" required>
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Betrag (Plan) *</label>
+                            <input type="number" id="einnahme-betrag-plan" class="form-control" step="0.01" required placeholder="0,00">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Betrag (IST/Eingegangen)</label>
+                            <input type="number" id="einnahme-betrag-ist" class="form-control" step="0.01" placeholder="0,00">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Status *</label>
+                            <select id="einnahme-status" class="form-control" required onchange="App.toggleDokumentRequired()">
+                                <option value="unsicher">Unsicher</option>
+                                <option value="erwartet">Erwartet</option>
+                                <option value="bestaetigt">Bestätigt</option>
+                                <option value="eingegangen">Eingegangen</option>
+                                <option value="abgesagt">Abgesagt</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fällig am / Erwartet bis</label>
+                            <input type="date" id="einnahme-faellig" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Konto (DATEV)</label>
+                        <input type="text" id="einnahme-konto" class="form-control" placeholder="z.B. 6401554">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" id="dokument-label">Bestätigungsdokument (E-Mail, Zusage, Vertrag)</label>
+                        <input type="file" id="einnahme-dokument" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.msg,.eml">
+                        <small style="color: #666;">PDF, Bild, Word oder E-Mail-Datei</small>
+                        <div id="einnahme-dokument-vorschau" style="margin-top: 0.5rem;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="einnahme-notizen" class="form-control" rows="2" placeholder="Zusätzliche Informationen..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('einnahme-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dokument-Vorschau Modal -->
+    <div id="dokument-preview-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 900px; max-height: 90vh;">
+            <div class="modal-header">
+                <h2 id="dokument-preview-title">Dokument</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('dokument-preview-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0; height: 70vh;">
+                <iframe id="dokument-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase-client.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

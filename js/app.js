@@ -1,0 +1,3318 @@
+/**
+ * PROJEKTSOFTWARE KUNST MERAN - APP MODULE
+ * Hauptanwendungslogik mit DATEV-Integration
+ * Version: 3.0.0
+ */
+
+const App = {
+    currentView: 'dashboard',
+    currentProjectId: null,
+    currentRechnungId: null,
+    currentPdfPath: null,
+
+    /**
+     * App initialisieren
+     */
+    init: async function() {
+        // Auth prüfen
+        if (!Auth.checkAuth()) return;
+
+        // Benutzerinfo laden
+        this.loadUserInfo();
+
+        // Navigation Setup
+        this.setupNavigation();
+
+        // Tab Setup
+        this.setupTabs();
+
+        // DATEV-Daten laden
+        await this.loadDatevData();
+
+        // Dashboard laden
+        this.showView('dashboard');
+    },
+
+    /**
+     * DATEV-Daten aus buchungen.json laden
+     */
+    loadDatevData: async function() {
+        try {
+            const data = await DataManager.loadBuchungenJSON();
+            if (data) {
+                console.log('DATEV-Daten geladen:', data.buchungen?.length || 0, 'Buchungen');
+            }
+            // Jahr-Auswahl initialisieren
+            await this.initYearSelector();
+        } catch (error) {
+            console.log('Keine DATEV-Daten vorhanden');
+        }
+    },
+
+    /**
+     * Jahr-Auswahl initialisieren
+     */
+    initYearSelector: async function() {
+        const yearSelector = document.getElementById('year-selector');
+        if (!yearSelector) return;
+
+        // Verfügbare Jahre laden
+        const years = await DataManager.getAvailableYears();
+
+        if (years.length <= 1) {
+            // Nur aktuelles Jahr, Auswahl verstecken
+            yearSelector.style.display = 'none';
+            return;
+        }
+
+        // Dropdown befüllen
+        yearSelector.innerHTML = '';
+        years.forEach(y => {
+            const option = document.createElement('option');
+            option.value = y.year === null ? '' : y.year;
+            option.textContent = y.label;
+            if (y.isCurrent && DataManager.getCurrentLoadedYear() === null) {
+                option.selected = true;
+            } else if (y.year === DataManager.getCurrentLoadedYear()) {
+                option.selected = true;
+            }
+            yearSelector.appendChild(option);
+        });
+
+        // Event Listener
+        yearSelector.onchange = async () => {
+            const selectedYear = yearSelector.value ? parseInt(yearSelector.value) : null;
+            await this.switchYear(selectedYear);
+        };
+
+        yearSelector.style.display = '';
+    },
+
+    /**
+     * Jahr wechseln
+     */
+    switchYear: async function(year) {
+        const loadingIndicator = document.getElementById('year-loading');
+        if (loadingIndicator) loadingIndicator.style.display = 'inline';
+
+        try {
+            if (year === null) {
+                await DataManager.loadCurrentYear();
+            } else {
+                await DataManager.loadArchivedYear(year);
+            }
+
+            // Aktuelle Ansicht neu laden
+            this.showView(this.currentView);
+
+            // Hinweis für Archiv-Ansicht
+            const archiveNotice = document.getElementById('archive-notice');
+            if (archiveNotice) {
+                if (year !== null) {
+                    archiveNotice.textContent = 'Archiv ' + year + ' wird angezeigt (nur Ansicht, keine Bearbeitung)';
+                    archiveNotice.style.display = 'block';
+                } else {
+                    archiveNotice.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Fehler beim Jahr-Wechsel:', error);
+            alert('Fehler beim Laden des Jahres: ' + error.message);
+        } finally {
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+        }
+    },
+
+    /**
+     * Benutzerinfo in Sidebar anzeigen
+     */
+    loadUserInfo: function() {
+        const user = Auth.getCurrentUser();
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = user.role === 'admin' ? 'Administrator' : 'Mitarbeiter';
+            document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+
+            // Admin-only Elemente anzeigen/verstecken
+            const adminElements = document.querySelectorAll('.admin-only');
+            adminElements.forEach(el => {
+                el.style.display = Auth.isAdmin() ? '' : 'none';
+            });
+        }
+    },
+
+    /**
+     * Navigation Setup
+     */
+    setupNavigation: function() {
+        const navItems = document.querySelectorAll('.nav-item[data-view]');
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const view = item.getAttribute('data-view');
+                this.showView(view);
+            });
+        });
+    },
+
+    /**
+     * Tab Setup
+     */
+    setupTabs: function() {
+        const tabs = document.querySelectorAll('.tab[data-tab]');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+
+                // Tabs aktualisieren
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Tab-Content aktualisieren
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                document.getElementById('tab-' + tabId).classList.add('active');
+            });
+        });
+    },
+
+    /**
+     * View anzeigen
+     */
+    showView: function(viewName) {
+        // Navigation aktualisieren
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-view') === viewName) {
+                item.classList.add('active');
+            }
+        });
+
+        // Views verstecken
+        document.querySelectorAll('.view-content').forEach(view => {
+            view.classList.add('hidden');
+        });
+
+        // Ausgewählte View anzeigen
+        const viewElement = document.getElementById('view-' + viewName);
+        if (viewElement) {
+            viewElement.classList.remove('hidden');
+        }
+
+        this.currentView = viewName;
+
+        // View-spezifische Initialisierung
+        switch(viewName) {
+            case 'dashboard':
+                this.loadDashboard();
+                break;
+            case 'projekte':
+                this.loadProjects();
+                break;
+            case 'rechnungen':
+                this.loadRechnungen();
+                break;
+            case 'lieferanten':
+                this.loadLieferanten();
+                break;
+            case 'kosten':
+                this.loadCosts();
+                break;
+            case 'zeiterfassung':
+                this.loadTimeTracking();
+                break;
+            case 'sitzungen':
+                this.loadSitzungen();
+                break;
+            case 'kuenstler':
+                this.loadKuenstler();
+                break;
+            case 'inventar':
+                this.loadInventar();
+                break;
+            case 'adressen':
+                this.loadAdressen();
+                break;
+            case 'reporting':
+                this.loadReporting();
+                break;
+            case 'einnahmen':
+                this.loadEinnahmen();
+                break;
+            case 'konfiguration':
+                this.loadConfiguration();
+                break;
+        }
+    },
+
+    // ==========================================
+    // DASHBOARD
+    // ==========================================
+
+    loadDashboard: function() {
+        const summaries = DataManager.getAllProjectsSummary();
+
+        // Statistiken berechnen
+        const activeProjects = summaries.filter(s => s.project.status === 'laufend').length;
+        const totalBudget = summaries.reduce((sum, s) => sum + s.budget, 0);
+        const totalSpent = summaries.reduce((sum, s) => sum + s.ist, 0);
+        const totalPlanned = summaries.reduce((sum, s) => sum + s.provisorisch, 0);
+
+        // Stats aktualisieren
+        document.getElementById('stat-projects').textContent = activeProjects;
+        document.getElementById('stat-budget').textContent = this.formatCurrency(totalBudget);
+        document.getElementById('stat-spent').textContent = this.formatCurrency(totalSpent);
+        document.getElementById('stat-available').textContent = this.formatCurrency(totalBudget - totalSpent - totalPlanned);
+
+        // Projekt-Übersicht laden
+        this.loadDashboardProjects(summaries);
+    },
+
+    loadDashboardProjects: function(summaries) {
+        const container = document.getElementById('dashboard-projects');
+        container.innerHTML = '';
+
+        // Nur laufende und Planungsprojekte
+        const activeProjects = summaries.filter(s =>
+            s.project.status === 'laufend' || s.project.status === 'planung'
+        );
+
+        if (activeProjects.length === 0) {
+            container.innerHTML = '<p style="color: #666; padding: 1rem;">Keine aktiven Projekte</p>';
+            return;
+        }
+
+        activeProjects.forEach(summary => {
+            const html = `
+                <div class="project-row" onclick="App.openProjectFullpage(${summary.project.id})">
+                    <div class="project-info">
+                        <strong>${summary.project.name}</strong>
+                        <span class="badge badge-${summary.project.status === 'laufend' ? 'success' : 'primary'}">
+                            ${summary.project.status}
+                        </span>
+                    </div>
+                    <div class="budget-visual">
+                        <div class="budget-bar">
+                            <div class="budget-segment spent" style="width: ${Math.min(summary.prozentVerbraucht, 100)}%"></div>
+                            <div class="budget-segment provisional" style="width: ${Math.min(summary.prozentGeplant - summary.prozentVerbraucht, 100 - summary.prozentVerbraucht)}%"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem;">
+                            <span>IST: ${this.formatCurrency(summary.ist)}</span>
+                            <span>Budget: ${this.formatCurrency(summary.budget)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += html;
+        });
+    },
+
+    // ==========================================
+    // PROJEKTE
+    // ==========================================
+
+    loadProjects: function() {
+        const projects = DataManager.getProjects();
+        const container = document.getElementById('projects-table-body');
+        container.innerHTML = '';
+
+        projects.forEach(project => {
+            const summary = DataManager.getProjectSummary(project.id);
+            const statusBadge = this.getStatusBadge(project.status);
+            const budgetStatus = this.getBudgetStatusClass(summary.prozentGeplant);
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${project.name}</strong></td>
+                <td>${project.location}</td>
+                <td>${statusBadge}</td>
+                <td>${this.formatCurrency(summary.budget)}</td>
+                <td>${this.formatCurrency(summary.ist)}</td>
+                <td>
+                    <span class="badge badge-${budgetStatus}">
+                        ${this.formatCurrency(summary.verfuegbar)}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage(${project.id})">Details</button>
+                    ${Auth.isAdmin() ? `
+                        <button class="btn btn-sm btn-primary" onclick="App.editProject(${project.id})">Bearbeiten</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteProject(${project.id})">Löschen</button>
+                    ` : ''}
+                </td>
+            `;
+            container.appendChild(row);
+        });
+    },
+
+    // ==========================================
+    // FULLPAGE PROJECT VIEW
+    // ==========================================
+
+    openProjectFullpage: function(projectId) {
+        this.currentProjectId = projectId;
+        const summary = DataManager.getProjectSummary(projectId);
+        const project = summary.project;
+
+        // Header
+        document.getElementById('fullpage-project-name').textContent = project.name;
+
+        // Projekt-Info
+        document.getElementById('fp-location').textContent = project.location;
+        document.getElementById('fp-period').textContent = `${this.formatDate(project.startDate)} - ${this.formatDate(project.endDate)}`;
+        document.getElementById('fp-status').innerHTML = this.getStatusBadge(project.status);
+        document.getElementById('fp-description').textContent = project.description || '-';
+        document.getElementById('fp-hours').textContent = summary.totalHours + ' Std.';
+
+        // Budget-Übersicht
+        document.getElementById('fp-budget-total').textContent = this.formatCurrency(summary.budget);
+        document.getElementById('fp-ist-total').textContent = this.formatCurrency(summary.ist);
+        document.getElementById('fp-prov-total').textContent = this.formatCurrency(summary.provisorisch);
+        document.getElementById('fp-available').textContent = this.formatCurrency(summary.verfuegbar);
+
+        // Planvergleich
+        document.getElementById('fp-planned-original').textContent = this.formatCurrency(summary.geplantOriginal);
+        const deviation = summary.abweichungPlanung;
+        const deviationEl = document.getElementById('fp-planned-deviation');
+        deviationEl.textContent = (deviation >= 0 ? '+' : '') + this.formatCurrency(deviation);
+        deviationEl.style.color = deviation > 0 ? '#e74c3c' : (deviation < 0 ? '#27ae60' : '#666');
+
+        // Personalkosten (Admin only)
+        document.getElementById('fp-labor-cost').textContent = this.formatCurrency(summary.laborCost);
+
+        // Budget-Balken
+        const budgetBar = document.getElementById('fp-budget-bar');
+        budgetBar.innerHTML = `
+            <div class="budget-segment spent" style="width: ${Math.min(summary.prozentVerbraucht, 100)}%" title="IST-Kosten"></div>
+            <div class="budget-segment provisional" style="width: ${Math.min(summary.prozentGeplant - summary.prozentVerbraucht, 100 - summary.prozentVerbraucht)}%" title="Provisorisch"></div>
+        `;
+
+        // Filter-Dropdowns befüllen
+        this.populateProjectFilters();
+
+        // Kosten laden
+        this.filterProjectCosts();
+
+        // Kategorie-Aufschlüsselung
+        this.loadCategoryBreakdown(projectId);
+
+        // Admin-Buttons aktualisieren
+        document.querySelectorAll('#project-fullpage .admin-only').forEach(el => {
+            el.style.display = Auth.isAdmin() ? '' : 'none';
+        });
+
+        // Fullpage anzeigen
+        document.getElementById('project-fullpage').classList.add('show');
+    },
+
+    closeProjectFullpage: function() {
+        document.getElementById('project-fullpage').classList.remove('show');
+        this.currentProjectId = null;
+
+        // View aktualisieren
+        if (this.currentView === 'projekte') {
+            this.loadProjects();
+        } else if (this.currentView === 'dashboard') {
+            this.loadDashboard();
+        }
+    },
+
+    populateProjectFilters: function() {
+        const costTypes = DataManager.getActiveCostTypes();
+        const suppliers = DataManager.getActiveSuppliers();
+
+        // Kategorie-Filter
+        const categorySelect = document.getElementById('fp-filter-category');
+        categorySelect.innerHTML = '<option value="">Alle Kategorien</option>';
+        costTypes.forEach(ct => {
+            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+        });
+
+        // Lieferant-Filter
+        const supplierSelect = document.getElementById('fp-filter-supplier');
+        supplierSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
+        suppliers.forEach(s => {
+            supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+    },
+
+    filterProjectCosts: function() {
+        if (!this.currentProjectId) return;
+
+        const categoryFilter = document.getElementById('fp-filter-category').value;
+        const supplierFilter = document.getElementById('fp-filter-supplier').value;
+        const typeFilter = document.getElementById('fp-filter-type').value;
+
+        // Manuelle Kosten
+        let costs = DataManager.getCostsByProject(this.currentProjectId);
+
+        // DATEV-Buchungen für dieses Projekt holen (mit Status inkl. Kostentyp)
+        const datevBuchungen = DataManager.getRechnungenMitStatus().filter(b =>
+            String(b.projektId) === String(this.currentProjectId)
+        );
+
+        // DATEV-Buchungen in einheitliches Format konvertieren
+        const datevCosts = datevBuchungen.map(b => {
+            // Kostentyp-Name ermitteln
+            const kostentypName = b.kostentyp ? DataManager.getKostentypName(b.kostentyp) : null;
+            return {
+                id: 'datev_' + b.id,
+                date: b.datum,
+                category: kostentypName || 'Nicht zugeordnet',
+                categoryId: b.kostentyp,
+                description: b.beschreibung || b.dokumentNr,
+                amount: b.betrag,
+                type: 'ist',
+                isDatev: true,
+                lieferant: b.fornitoreName || b.partitaIva || '-',
+                dokumentNr: b.dokumentNr,
+                rechnungId: b.rechnungId
+            };
+        });
+
+        // Beide Listen zusammenführen
+        let allCosts = [...costs, ...datevCosts];
+
+        // Filter anwenden
+        if (categoryFilter) {
+            allCosts = allCosts.filter(c => c.category === categoryFilter);
+        }
+        if (supplierFilter && supplierFilter !== '') {
+            // Nur manuelle Kosten filtern (DATEV haben keinen supplierId)
+            allCosts = allCosts.filter(c => c.isDatev || c.supplierId === parseInt(supplierFilter));
+        }
+        if (typeFilter) {
+            allCosts = allCosts.filter(c => c.type === typeFilter);
+        }
+
+        // Sortieren nach Datum
+        allCosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Tabelle befüllen
+        const tbody = document.getElementById('fp-costs-table');
+        tbody.innerHTML = '';
+
+        allCosts.forEach(cost => {
+            const row = document.createElement('tr');
+
+            if (cost.isDatev) {
+                // DATEV-Buchung - Kostentyp oder "Nicht zugeordnet" anzeigen
+                const categoryStyle = cost.categoryId
+                    ? ''
+                    : 'background: #fff3e0; color: #e65100;';
+                row.innerHTML = `
+                    <td>${this.formatDate(cost.date)}</td>
+                    <td>
+                        <span class="badge" style="${categoryStyle || 'background: #e8f5e9; color: #2e7d32;'}">${cost.category}</span>
+                    </td>
+                    <td>${cost.lieferant}</td>
+                    <td>${cost.description} <small style="color: #666;">(${cost.dokumentNr})</small></td>
+                    <td>
+                        <span class="badge badge-danger">IST</span>
+                    </td>
+                    <td style="text-align: right; ${cost.amount < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(cost.amount)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="App.showDatevRechnungDetail('${cost.dokumentNr}')">Details</button>
+                    </td>
+                `;
+            } else {
+                // Manuelle Kosten
+                const supplier = cost.supplierId ? DataManager.getSupplierById(cost.supplierId) : null;
+                row.innerHTML = `
+                    <td>${this.formatDate(cost.date)}</td>
+                    <td>${cost.category}</td>
+                    <td>${supplier ? supplier.name : '-'}</td>
+                    <td>${cost.description}</td>
+                    <td>
+                        <span class="badge badge-${cost.type === 'ist' ? 'danger' : 'warning'}">
+                            ${cost.type === 'ist' ? 'IST' : 'Geplant'}
+                        </span>
+                    </td>
+                    <td style="text-align: right;">${this.formatCurrency(cost.amount)}</td>
+                    <td>
+                        ${cost.type === 'provisorisch' ? `
+                            <button class="btn btn-sm btn-convert" onclick="App.showConvertModal(${cost.id})">In IST</button>
+                        ` : ''}
+                        ${Auth.isAdmin() ? `
+                            <button class="btn btn-sm btn-primary" onclick="App.editCost(${cost.id})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="App.deleteCostFromProject(${cost.id})">X</button>
+                        ` : ''}
+                    </td>
+                `;
+            }
+            tbody.appendChild(row);
+        });
+
+        if (allCosts.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Keine Kosten gefunden</td></tr>';
+        }
+    },
+
+    showDatevRechnungDetail: function(dokumentNr) {
+        // Finde die Rechnung und zeige Details
+        const rechnungen = DataManager.getRechnungenMitStatus();
+        const rechnung = rechnungen.find(r => r.dokumentNr === dokumentNr);
+        if (rechnung) {
+            this.showRechnungDetail(rechnung.rechnungId);
+        }
+    },
+
+    loadCategoryBreakdown: function(projectId) {
+        const categories = DataManager.getCostsByCategory(projectId);
+        const container = document.getElementById('fp-category-breakdown');
+        container.innerHTML = '';
+
+        const costTypes = DataManager.getActiveCostTypes();
+
+        for (const [category, data] of Object.entries(categories)) {
+            const costType = costTypes.find(ct => ct.name === category);
+            const color = costType ? costType.color : '#95a5a6';
+
+            container.innerHTML += `
+                <div style="padding: 0.75rem 0; border-bottom: 1px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${color};"></div>
+                            <span style="font-weight: 500;">${category}</span>
+                        </div>
+                        <span style="font-weight: 600;">${this.formatCurrency(data.total)}</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; margin-left: 20px; margin-top: 0.25rem;">
+                        IST: ${this.formatCurrency(data.ist)} | Geplant: ${this.formatCurrency(data.provisorisch)}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (Object.keys(categories).length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">Keine Kosten erfasst</p>';
+        }
+    },
+
+    editCurrentProject: function() {
+        if (this.currentProjectId) {
+            this.editProject(this.currentProjectId);
+        }
+    },
+
+    showNewCostFormForProject: function() {
+        this.showNewCostForm(this.currentProjectId);
+    },
+
+    deleteCostFromProject: function(costId) {
+        if (confirm('Kosten wirklich löschen?')) {
+            DataManager.deleteCost(costId);
+            this.filterProjectCosts();
+
+            // Budget-Übersicht aktualisieren
+            const summary = DataManager.getProjectSummary(this.currentProjectId);
+            document.getElementById('fp-ist-total').textContent = this.formatCurrency(summary.ist);
+            document.getElementById('fp-prov-total').textContent = this.formatCurrency(summary.provisorisch);
+            document.getElementById('fp-available').textContent = this.formatCurrency(summary.verfuegbar);
+            this.loadCategoryBreakdown(this.currentProjectId);
+        }
+    },
+
+    // ==========================================
+    // KOSTEN UMWANDELN
+    // ==========================================
+
+    showConvertModal: function(costId) {
+        document.getElementById('convert-cost-id').value = costId;
+        document.getElementById('convert-invoice').value = '';
+        this.showModal('convert-form-modal');
+    },
+
+    confirmConvert: function(event) {
+        event.preventDefault();
+
+        const costId = parseInt(document.getElementById('convert-cost-id').value);
+        const invoice = document.getElementById('convert-invoice').value;
+
+        DataManager.convertToEffective(costId, invoice);
+
+        this.hideModal('convert-form-modal');
+
+        // View aktualisieren
+        if (this.currentProjectId) {
+            this.filterProjectCosts();
+            const summary = DataManager.getProjectSummary(this.currentProjectId);
+            document.getElementById('fp-ist-total').textContent = this.formatCurrency(summary.ist);
+            document.getElementById('fp-prov-total').textContent = this.formatCurrency(summary.provisorisch);
+            document.getElementById('fp-available').textContent = this.formatCurrency(summary.verfuegbar);
+
+            // Budget-Balken aktualisieren
+            const budgetBar = document.getElementById('fp-budget-bar');
+            budgetBar.innerHTML = `
+                <div class="budget-segment spent" style="width: ${Math.min(summary.prozentVerbraucht, 100)}%"></div>
+                <div class="budget-segment provisional" style="width: ${Math.min(summary.prozentGeplant - summary.prozentVerbraucht, 100 - summary.prozentVerbraucht)}%"></div>
+            `;
+
+            this.loadCategoryBreakdown(this.currentProjectId);
+        } else {
+            this.filterCosts();
+        }
+    },
+
+    // ==========================================
+    // PROJEKT-FORMULARE
+    // ==========================================
+
+    showNewProjectForm: function() {
+        document.getElementById('project-form').reset();
+        document.getElementById('project-form-id').value = '';
+        document.getElementById('project-modal-title').textContent = 'Neues Projekt';
+        this.showModal('project-form-modal');
+    },
+
+    editProject: function(projectId) {
+        const project = DataManager.getProjectById(projectId);
+        if (!project) return;
+
+        document.getElementById('project-form-id').value = project.id;
+        document.getElementById('project-name').value = project.name;
+        document.getElementById('project-location').value = project.location;
+        document.getElementById('project-description').value = project.description || '';
+        document.getElementById('project-start').value = project.startDate;
+        document.getElementById('project-end').value = project.endDate;
+        document.getElementById('project-status').value = project.status;
+        document.getElementById('project-budget').value = project.budget;
+
+        document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
+        this.showModal('project-form-modal');
+    },
+
+    saveProject: function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('project-form-id').value;
+        const projectData = {
+            name: document.getElementById('project-name').value,
+            location: document.getElementById('project-location').value,
+            description: document.getElementById('project-description').value,
+            startDate: document.getElementById('project-start').value,
+            endDate: document.getElementById('project-end').value,
+            status: document.getElementById('project-status').value,
+            budget: parseFloat(document.getElementById('project-budget').value) || 0
+        };
+
+        if (id) {
+            DataManager.updateProject(parseInt(id), projectData);
+        } else {
+            DataManager.addProject(projectData);
+        }
+
+        this.hideModal('project-form-modal');
+        this.loadProjects();
+
+        // Fullpage aktualisieren falls offen
+        if (this.currentProjectId && id && parseInt(id) === this.currentProjectId) {
+            this.openProjectFullpage(this.currentProjectId);
+        }
+    },
+
+    deleteProject: function(projectId) {
+        if (confirm('Projekt wirklich löschen? Alle zugehörigen Budgets und Kosten werden ebenfalls gelöscht.')) {
+            DataManager.deleteProject(projectId);
+            this.loadProjects();
+        }
+    },
+
+    showProjectDetail: function(projectId) {
+        // Weiterleitung zur Fullpage-Ansicht
+        this.openProjectFullpage(projectId);
+    },
+
+    // ==========================================
+    // KOSTEN
+    // ==========================================
+
+    loadCosts: function() {
+        // Projekt-Dropdown befüllen
+        const projectSelect = document.getElementById('cost-filter-project');
+        const projects = DataManager.getProjects();
+        projectSelect.innerHTML = '<option value="">Alle Projekte</option>';
+        projects.forEach(p => {
+            projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+
+        // Kategorie-Dropdown befüllen
+        const categorySelect = document.getElementById('cost-filter-category');
+        const costTypes = DataManager.getActiveCostTypes();
+        categorySelect.innerHTML = '<option value="">Alle Kategorien</option>';
+        costTypes.forEach(ct => {
+            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+        });
+
+        // Lieferant-Dropdown befüllen
+        const supplierSelect = document.getElementById('cost-filter-supplier');
+        const suppliers = DataManager.getActiveSuppliers();
+        supplierSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
+        suppliers.forEach(s => {
+            supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+
+        this.filterCosts();
+    },
+
+    filterCosts: function() {
+        const projectId = document.getElementById('cost-filter-project').value;
+        const type = document.getElementById('cost-filter-type').value;
+        const category = document.getElementById('cost-filter-category').value;
+        const supplierId = document.getElementById('cost-filter-supplier').value;
+
+        let costs = DataManager.getCosts();
+
+        if (projectId) {
+            costs = costs.filter(c => c.projectId === parseInt(projectId));
+        }
+        if (type) {
+            costs = costs.filter(c => c.type === type);
+        }
+        if (category) {
+            costs = costs.filter(c => c.category === category);
+        }
+        if (supplierId) {
+            costs = costs.filter(c => c.supplierId === parseInt(supplierId));
+        }
+
+        // Sortieren nach Datum (neueste zuerst)
+        costs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const container = document.getElementById('costs-table-body');
+        container.innerHTML = '';
+
+        costs.forEach(cost => {
+            const project = DataManager.getProjectById(cost.projectId);
+            const supplier = cost.supplierId ? DataManager.getSupplierById(cost.supplierId) : null;
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${this.formatDate(cost.date)}</td>
+                <td>${project ? project.name : '-'}</td>
+                <td>
+                    <span class="badge badge-${cost.type === 'ist' ? 'danger' : 'warning'}">
+                        ${cost.type === 'ist' ? 'IST' : 'Prov.'}
+                    </span>
+                </td>
+                <td>${cost.category}</td>
+                <td>${supplier ? supplier.name : '-'}</td>
+                <td>${cost.description}</td>
+                <td>${cost.invoice || '-'}</td>
+                <td style="text-align: right;">${this.formatCurrency(cost.amount)}</td>
+                <td>
+                    ${cost.type === 'provisorisch' ? `
+                        <button class="btn btn-sm btn-convert" onclick="App.showConvertModal(${cost.id})">In IST</button>
+                    ` : ''}
+                    ${Auth.isAdmin() ? `
+                        <button class="btn btn-sm btn-primary" onclick="App.editCost(${cost.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteCost(${cost.id})">X</button>
+                    ` : ''}
+                </td>
+            `;
+            container.appendChild(row);
+        });
+    },
+
+    showNewCostForm: function(preselectedProjectId) {
+        document.getElementById('cost-form').reset();
+        document.getElementById('cost-form-id').value = '';
+        document.getElementById('cost-modal-title').textContent = 'Kosten erfassen';
+
+        // Projekt-Dropdown befüllen
+        const projectSelect = document.getElementById('cost-project');
+        const projects = DataManager.getProjects();
+        projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+        projects.forEach(p => {
+            const selected = preselectedProjectId && p.id === preselectedProjectId ? 'selected' : '';
+            projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+        });
+
+        // Kategorie-Dropdown befüllen
+        const categorySelect = document.getElementById('cost-category');
+        const costTypes = DataManager.getActiveCostTypes();
+        categorySelect.innerHTML = '';
+        costTypes.forEach(ct => {
+            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+        });
+
+        // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
+        const supplierSelect = document.getElementById('cost-supplier');
+        const suppliers = DataManager.getActiveSuppliers();
+        const datevLieferanten = DataManager.getDatevLieferanten();
+
+        supplierSelect.innerHTML = '<option value="">-- Kein Lieferant --</option>';
+
+        // DATEV-Lieferanten zuerst (mit Kennzeichnung)
+        if (datevLieferanten.length > 0) {
+            supplierSelect.innerHTML += '<optgroup label="DATEV-Lieferanten">';
+            datevLieferanten.forEach(l => {
+                supplierSelect.innerHTML += `<option value="datev_${l.partitaIva}">${l.name} (${l.partitaIva})</option>`;
+            });
+            supplierSelect.innerHTML += '</optgroup>';
+        }
+
+        // Manuelle Lieferanten
+        if (suppliers.length > 0) {
+            supplierSelect.innerHTML += '<optgroup label="Manuelle Lieferanten">';
+            suppliers.forEach(s => {
+                supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+            supplierSelect.innerHTML += '</optgroup>';
+        }
+
+        // Heutiges Datum als Standard
+        document.getElementById('cost-date').value = new Date().toISOString().split('T')[0];
+
+        // MwSt-Typ auf Standard setzen
+        document.getElementById('cost-mwst-type').value = 'brutto_it';
+
+        this.showModal('cost-form-modal');
+        this.updateMwstPreview();
+    },
+
+    editCost: function(costId) {
+        const cost = DataManager.getCosts().find(c => c.id === costId);
+        if (!cost) return;
+
+        // Projekt-Dropdown befüllen
+        const projectSelect = document.getElementById('cost-project');
+        const projects = DataManager.getProjects();
+        projectSelect.innerHTML = '';
+        projects.forEach(p => {
+            projectSelect.innerHTML += `<option value="${p.id}" ${p.id === cost.projectId ? 'selected' : ''}>${p.name}</option>`;
+        });
+
+        // Kategorie-Dropdown befüllen
+        const categorySelect = document.getElementById('cost-category');
+        const costTypes = DataManager.getActiveCostTypes();
+        categorySelect.innerHTML = '';
+        costTypes.forEach(ct => {
+            categorySelect.innerHTML += `<option value="${ct.name}" ${ct.name === cost.category ? 'selected' : ''}>${ct.name}</option>`;
+        });
+
+        // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
+        const supplierSelect = document.getElementById('cost-supplier');
+        const suppliers = DataManager.getActiveSuppliers();
+        const datevLieferanten = DataManager.getDatevLieferanten();
+
+        supplierSelect.innerHTML = '<option value="">-- Kein Lieferant --</option>';
+
+        // DATEV-Lieferanten
+        if (datevLieferanten.length > 0) {
+            supplierSelect.innerHTML += '<optgroup label="DATEV-Lieferanten">';
+            datevLieferanten.forEach(l => {
+                const value = `datev_${l.partitaIva}`;
+                const selected = cost.supplierId === value ? 'selected' : '';
+                supplierSelect.innerHTML += `<option value="${value}" ${selected}>${l.name} (${l.partitaIva})</option>`;
+            });
+            supplierSelect.innerHTML += '</optgroup>';
+        }
+
+        // Manuelle Lieferanten
+        if (suppliers.length > 0) {
+            supplierSelect.innerHTML += '<optgroup label="Manuelle Lieferanten">';
+            suppliers.forEach(s => {
+                const selected = cost.supplierId === s.id ? 'selected' : '';
+                supplierSelect.innerHTML += `<option value="${s.id}" ${selected}>${s.name}</option>`;
+            });
+            supplierSelect.innerHTML += '</optgroup>';
+        }
+
+        document.getElementById('cost-form-id').value = cost.id;
+        document.getElementById('cost-type').value = cost.type;
+        document.getElementById('cost-description').value = cost.description;
+        document.getElementById('cost-amount').value = cost.amount;
+        document.getElementById('cost-date').value = cost.date;
+        document.getElementById('cost-invoice').value = cost.invoice || '';
+        document.getElementById('cost-mwst-type').value = cost.mwstType || 'brutto_it';
+
+        document.getElementById('cost-modal-title').textContent = 'Kosten bearbeiten';
+        this.showModal('cost-form-modal');
+        this.updateMwstPreview();
+    },
+
+    /**
+     * Berechnet und zeigt MwSt-Preview an
+     */
+    updateMwstPreview: function() {
+        const mwstType = document.getElementById('cost-mwst-type').value;
+        const betrag = parseFloat(document.getElementById('cost-amount').value) || 0;
+
+        let netto = 0;
+        let mwst = 0;
+        let gesamt = 0;
+
+        switch (mwstType) {
+            case 'brutto_it':
+                // Brutto inkl. 22% MwSt - Betrag ist Brutto
+                gesamt = betrag;
+                netto = betrag / 1.22;
+                mwst = betrag - netto;
+                break;
+            case 'netto_reverse':
+                // Reverse Charge EU - Netto eingegeben, MwSt wird berechnet und abgeführt
+                netto = betrag;
+                mwst = betrag * 0.22; // Ihr müsst die MwSt ans Finanzamt zahlen
+                gesamt = betrag + mwst; // Effektive Kosten
+                break;
+            case 'netto_import':
+                // Drittland Import - ähnlich wie Reverse Charge
+                netto = betrag;
+                mwst = betrag * 0.22; // Import-MwSt
+                gesamt = betrag + mwst;
+                break;
+            case 'netto_befreit':
+                // MwSt-befreit (z.B. innergemeinschaftlich, Kleinunternehmer)
+                netto = betrag;
+                mwst = 0;
+                gesamt = betrag;
+                break;
+        }
+
+        document.getElementById('preview-netto').textContent = this.formatCurrency(netto);
+        document.getElementById('preview-mwst').textContent = this.formatCurrency(mwst);
+        document.getElementById('preview-gesamt').textContent = this.formatCurrency(gesamt);
+
+        // Hinweis für Reverse Charge anzeigen
+        const previewDiv = document.getElementById('cost-mwst-preview');
+        if (mwstType === 'netto_reverse') {
+            previewDiv.style.background = '#fff3e0';
+            previewDiv.innerHTML = `
+                <div>Netto: <strong>${this.formatCurrency(netto)}</strong></div>
+                <div>MwSt (Reverse Charge): <strong style="color: #e65100;">${this.formatCurrency(mwst)}</strong></div>
+                <div>Effektive Kosten: <strong>${this.formatCurrency(gesamt)}</strong></div>
+                <div style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">MwSt wird ans Finanzamt abgeführt</div>
+            `;
+        } else if (mwstType === 'netto_import') {
+            previewDiv.style.background = '#fff3e0';
+            previewDiv.innerHTML = `
+                <div>Netto: <strong>${this.formatCurrency(netto)}</strong></div>
+                <div>Import-MwSt: <strong style="color: #e65100;">${this.formatCurrency(mwst)}</strong></div>
+                <div>Effektive Kosten: <strong>${this.formatCurrency(gesamt)}</strong></div>
+                <div style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">MwSt bei Einfuhr fällig</div>
+            `;
+        } else {
+            previewDiv.style.background = '#f5f5f5';
+            previewDiv.innerHTML = `
+                <div>Netto: <strong>${this.formatCurrency(netto)}</strong></div>
+                <div>MwSt: <strong>${this.formatCurrency(mwst)}</strong></div>
+                <div>Gesamt: <strong>${this.formatCurrency(gesamt)}</strong></div>
+            `;
+        }
+    },
+
+    saveCost: function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('cost-form-id').value;
+        const supplierId = document.getElementById('cost-supplier').value;
+        const mwstType = document.getElementById('cost-mwst-type').value;
+        const betrag = parseFloat(document.getElementById('cost-amount').value) || 0;
+
+        // MwSt-Berechnung basierend auf Typ
+        let netto = 0, mwst = 0, gesamt = 0;
+        switch (mwstType) {
+            case 'brutto_it':
+                gesamt = betrag;
+                netto = betrag / 1.22;
+                mwst = betrag - netto;
+                break;
+            case 'netto_reverse':
+            case 'netto_import':
+                netto = betrag;
+                mwst = betrag * 0.22;
+                gesamt = betrag + mwst;
+                break;
+            case 'netto_befreit':
+                netto = betrag;
+                mwst = 0;
+                gesamt = betrag;
+                break;
+        }
+
+        const costData = {
+            projectId: parseInt(document.getElementById('cost-project').value),
+            type: document.getElementById('cost-type').value,
+            category: document.getElementById('cost-category').value,
+            description: document.getElementById('cost-description').value,
+            amount: Math.round(gesamt * 100) / 100, // Effektive Kosten (inkl. MwSt)
+            amountNetto: Math.round(netto * 100) / 100,
+            amountMwst: Math.round(mwst * 100) / 100,
+            mwstType: mwstType,
+            date: document.getElementById('cost-date').value,
+            invoice: document.getElementById('cost-invoice').value,
+            supplierId: supplierId ? parseInt(supplierId) : null
+        };
+
+        if (id) {
+            DataManager.updateCost(parseInt(id), costData);
+        } else {
+            DataManager.addCost(costData);
+        }
+
+        this.hideModal('cost-form-modal');
+
+        // View aktualisieren
+        if (this.currentProjectId) {
+            this.filterProjectCosts();
+            const summary = DataManager.getProjectSummary(this.currentProjectId);
+            document.getElementById('fp-ist-total').textContent = this.formatCurrency(summary.ist);
+            document.getElementById('fp-prov-total').textContent = this.formatCurrency(summary.provisorisch);
+            document.getElementById('fp-available').textContent = this.formatCurrency(summary.verfuegbar);
+            this.loadCategoryBreakdown(this.currentProjectId);
+        } else {
+            this.filterCosts();
+        }
+    },
+
+    deleteCost: function(costId) {
+        if (confirm('Kosten wirklich löschen?')) {
+            DataManager.deleteCost(costId);
+            this.filterCosts();
+        }
+    },
+
+    // ==========================================
+    // ZEITERFASSUNG
+    // ==========================================
+
+    loadTimeTracking: function() {
+        const entries = DataManager.getMyTimeEntries();
+
+        // Statistiken berechnen
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Montag
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const weekHours = entries
+            .filter(e => new Date(e.date) >= startOfWeek)
+            .reduce((sum, e) => sum + e.hours, 0);
+
+        const monthHours = entries
+            .filter(e => new Date(e.date) >= startOfMonth)
+            .reduce((sum, e) => sum + e.hours, 0);
+
+        document.getElementById('stat-total-hours').textContent = weekHours;
+        document.getElementById('stat-total-hours-month').textContent = monthHours;
+
+        // Einträge sortieren (neueste zuerst)
+        entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Liste befüllen
+        const container = document.getElementById('time-entries-list');
+        container.innerHTML = '';
+
+        if (entries.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Noch keine Zeiteinträge erfasst</p>';
+            return;
+        }
+
+        entries.forEach(entry => {
+            const project = DataManager.getProjectById(entry.projectId);
+            container.innerHTML += `
+                <div class="time-entry">
+                    <div class="time-entry-hours">${entry.hours}h</div>
+                    <div class="time-entry-info">
+                        <div><strong>${project ? project.name : 'Unbekanntes Projekt'}</strong></div>
+                        <div style="font-size: 0.875rem; color: #666;">${entry.description}</div>
+                        <div style="font-size: 0.75rem; color: #999;">${this.formatDate(entry.date)}</div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline" onclick="App.editTimeEntry(${entry.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteTimeEntry(${entry.id})">X</button>
+                    </div>
+                </div>
+            `;
+        });
+    },
+
+    showNewTimeEntryForm: function() {
+        document.getElementById('time-form').reset();
+        document.getElementById('time-form-id').value = '';
+        document.getElementById('time-modal-title').textContent = 'Zeit erfassen';
+
+        // Projekt-Dropdown befüllen
+        const projectSelect = document.getElementById('time-project');
+        const projects = DataManager.getProjects().filter(p => p.status !== 'abgeschlossen');
+        projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+        projects.forEach(p => {
+            projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+
+        // Heutiges Datum als Standard
+        document.getElementById('time-date').value = new Date().toISOString().split('T')[0];
+
+        this.showModal('time-form-modal');
+    },
+
+    editTimeEntry: function(entryId) {
+        const entry = DataManager.getTimeEntries().find(e => e.id === entryId);
+        if (!entry) return;
+
+        // Projekt-Dropdown befüllen
+        const projectSelect = document.getElementById('time-project');
+        const projects = DataManager.getProjects();
+        projectSelect.innerHTML = '';
+        projects.forEach(p => {
+            projectSelect.innerHTML += `<option value="${p.id}" ${p.id === entry.projectId ? 'selected' : ''}>${p.name}</option>`;
+        });
+
+        document.getElementById('time-form-id').value = entry.id;
+        document.getElementById('time-date').value = entry.date;
+        document.getElementById('time-hours').value = entry.hours;
+        document.getElementById('time-description').value = entry.description;
+
+        document.getElementById('time-modal-title').textContent = 'Zeiteintrag bearbeiten';
+        this.showModal('time-form-modal');
+    },
+
+    saveTimeEntry: function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('time-form-id').value;
+        const entryData = {
+            projectId: parseInt(document.getElementById('time-project').value),
+            date: document.getElementById('time-date').value,
+            hours: parseFloat(document.getElementById('time-hours').value) || 0,
+            description: document.getElementById('time-description').value
+        };
+
+        if (id) {
+            DataManager.updateTimeEntry(parseInt(id), entryData);
+        } else {
+            DataManager.addTimeEntry(entryData);
+        }
+
+        this.hideModal('time-form-modal');
+        this.loadTimeTracking();
+    },
+
+    deleteTimeEntry: function(entryId) {
+        if (confirm('Zeiteintrag wirklich löschen?')) {
+            DataManager.deleteTimeEntry(entryId);
+            this.loadTimeTracking();
+        }
+    },
+
+    // ==========================================
+    // KONFIGURATION
+    // ==========================================
+
+    loadConfiguration: function() {
+        this.loadCostTypes();
+        this.loadSuppliers();
+        this.loadUsers();
+        this.loadExportTab();
+    },
+
+    loadCostTypes: function() {
+        const costTypes = DataManager.getCostTypes();
+        const container = document.getElementById('cost-types-list');
+        container.innerHTML = '';
+
+        if (costTypes.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Kostentypen definiert</p>';
+            return;
+        }
+
+        costTypes.forEach(ct => {
+            container.innerHTML += `
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <div class="color-dot" style="background-color: ${ct.color};"></div>
+                        <span>${ct.name}</span>
+                        ${!ct.active ? '<span class="badge badge-warning">Inaktiv</span>' : ''}
+                    </div>
+                    <div class="config-item-actions">
+                        <button class="btn btn-sm btn-outline" onclick="App.editCostType(${ct.id})">Bearbeiten</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteCostType(${ct.id})">Löschen</button>
+                    </div>
+                </div>
+            `;
+        });
+    },
+
+    showNewCostTypeForm: function() {
+        document.getElementById('costtype-form').reset();
+        document.getElementById('costtype-form-id').value = '';
+        document.getElementById('costtype-modal-title').textContent = 'Neuer Kostentyp';
+        document.getElementById('costtype-color').value = '#3498db';
+        this.showModal('costtype-form-modal');
+    },
+
+    editCostType: function(id) {
+        const costTypes = DataManager.getCostTypes();
+        const ct = costTypes.find(c => c.id === id);
+        if (!ct) return;
+
+        document.getElementById('costtype-form-id').value = ct.id;
+        document.getElementById('costtype-name').value = ct.name;
+        document.getElementById('costtype-color').value = ct.color;
+
+        document.getElementById('costtype-modal-title').textContent = 'Kostentyp bearbeiten';
+        this.showModal('costtype-form-modal');
+    },
+
+    saveCostType: function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('costtype-form-id').value;
+        const costTypeData = {
+            name: document.getElementById('costtype-name').value,
+            color: document.getElementById('costtype-color').value
+        };
+
+        if (id) {
+            DataManager.updateCostType(parseInt(id), costTypeData);
+        } else {
+            DataManager.addCostType(costTypeData);
+        }
+
+        this.hideModal('costtype-form-modal');
+        this.loadCostTypes();
+    },
+
+    deleteCostType: function(id) {
+        if (confirm('Kostentyp wirklich löschen?')) {
+            DataManager.deleteCostType(id);
+            this.loadCostTypes();
+        }
+    },
+
+    loadSuppliers: function() {
+        const suppliers = DataManager.getSuppliers();
+        const container = document.getElementById('suppliers-list');
+        container.innerHTML = '';
+
+        if (suppliers.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Lieferanten definiert</p>';
+            return;
+        }
+
+        suppliers.forEach(s => {
+            container.innerHTML += `
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span style="font-weight: 500;">${s.name}</span>
+                        <span style="color: #666; font-size: 0.75rem; margin-left: 0.5rem;">${s.externalId || ''}</span>
+                        <span class="badge badge-primary" style="margin-left: 0.5rem;">${s.type || '-'}</span>
+                        ${!s.active ? '<span class="badge badge-warning">Inaktiv</span>' : ''}
+                    </div>
+                    <div class="config-item-actions">
+                        <button class="btn btn-sm btn-outline" onclick="App.editSupplier(${s.id})">Bearbeiten</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteSupplier(${s.id})">Löschen</button>
+                    </div>
+                </div>
+            `;
+        });
+    },
+
+    showNewSupplierForm: function() {
+        document.getElementById('supplier-form').reset();
+        document.getElementById('supplier-form-id').value = '';
+        document.getElementById('supplier-modal-title').textContent = 'Neuer Lieferant';
+        document.getElementById('supplier-external-id').value = '';
+        document.getElementById('supplier-taxid').value = '';
+        document.getElementById('supplier-address').value = '';
+        document.getElementById('supplier-notes').value = '';
+
+        // Typ-Dropdown befüllen
+        const typeSelect = document.getElementById('supplier-type');
+        const costTypes = DataManager.getActiveCostTypes();
+        typeSelect.innerHTML = '<option value="">-- Keine Kategorie --</option>';
+        costTypes.forEach(ct => {
+            typeSelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+        });
+
+        this.showModal('supplier-form-modal');
+    },
+
+    editSupplier: function(id) {
+        const supplier = DataManager.getSupplierById(id);
+        if (!supplier) return;
+
+        // Typ-Dropdown befüllen
+        const typeSelect = document.getElementById('supplier-type');
+        const costTypes = DataManager.getActiveCostTypes();
+        typeSelect.innerHTML = '<option value="">-- Keine Kategorie --</option>';
+        costTypes.forEach(ct => {
+            typeSelect.innerHTML += `<option value="${ct.name}" ${ct.name === supplier.type ? 'selected' : ''}>${ct.name}</option>`;
+        });
+
+        document.getElementById('supplier-form-id').value = supplier.id;
+        document.getElementById('supplier-name').value = supplier.name;
+        document.getElementById('supplier-external-id').value = supplier.externalId || '';
+        document.getElementById('supplier-taxid').value = supplier.taxId || '';
+        document.getElementById('supplier-address').value = supplier.address || '';
+        document.getElementById('supplier-notes').value = supplier.notes || '';
+
+        document.getElementById('supplier-modal-title').textContent = 'Lieferant bearbeiten';
+        this.showModal('supplier-form-modal');
+    },
+
+    saveSupplier: function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('supplier-form-id').value;
+        const supplierData = {
+            name: document.getElementById('supplier-name').value,
+            type: document.getElementById('supplier-type').value,
+            externalId: document.getElementById('supplier-external-id').value || undefined,
+            taxId: document.getElementById('supplier-taxid').value,
+            address: document.getElementById('supplier-address').value,
+            notes: document.getElementById('supplier-notes').value
+        };
+
+        if (id) {
+            DataManager.updateSupplier(parseInt(id), supplierData);
+        } else {
+            DataManager.addSupplier(supplierData);
+        }
+
+        this.hideModal('supplier-form-modal');
+        this.loadSuppliers();
+    },
+
+    deleteSupplier: function(id) {
+        if (confirm('Lieferant wirklich löschen?')) {
+            DataManager.deleteSupplier(id);
+            this.loadSuppliers();
+        }
+    },
+
+    // ==========================================
+    // MITARBEITER / STUNDENSÄTZE
+    // ==========================================
+
+    loadUsers: function() {
+        const users = DataManager.getUsers();
+        const container = document.getElementById('users-list');
+        container.innerHTML = '';
+
+        users.forEach(u => {
+            container.innerHTML += `
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span style="font-weight: 500;">${u.name}</span>
+                        <span class="badge badge-${u.role === 'admin' ? 'primary' : 'success'}" style="margin-left: 0.5rem;">
+                            ${u.role === 'admin' ? 'Admin' : 'Mitarbeiter'}
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span style="font-weight: 600;">${this.formatCurrency(u.hourlyRate || 0)}/Std.</span>
+                        <button class="btn btn-sm btn-outline" onclick="App.editHourlyRate(${u.id})">Bearbeiten</button>
+                    </div>
+                </div>
+            `;
+        });
+    },
+
+    editHourlyRate: function(userId) {
+        const user = DataManager.getUserById(userId);
+        if (!user) return;
+
+        document.getElementById('hourlyrate-user-id').value = user.id;
+        document.getElementById('hourlyrate-user-name').value = user.name;
+        document.getElementById('hourlyrate-value').value = user.hourlyRate || 0;
+
+        this.showModal('hourlyrate-form-modal');
+    },
+
+    saveHourlyRate: function(event) {
+        event.preventDefault();
+
+        const userId = parseInt(document.getElementById('hourlyrate-user-id').value);
+        const hourlyRate = parseFloat(document.getElementById('hourlyrate-value').value) || 0;
+
+        DataManager.updateUser(userId, { hourlyRate: hourlyRate });
+
+        this.hideModal('hourlyrate-form-modal');
+        this.loadUsers();
+    },
+
+    // ==========================================
+    // EXCEL EXPORT
+    // ==========================================
+
+    loadExportTab: function() {
+        const projects = DataManager.getProjects();
+        const select = document.getElementById('export-project-select');
+        select.innerHTML = '<option value="">-- Projekt wählen --</option>';
+        projects.forEach(p => {
+            select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+    },
+
+    exportAllToExcel: function() {
+        const csv = DataManager.exportAllToCSV();
+        const filename = `KunstMeran_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        this.downloadCSV(csv, filename);
+    },
+
+    exportProjectToExcel: function() {
+        const projectId = document.getElementById('export-project-select').value;
+        if (!projectId) {
+            alert('Bitte wählen Sie ein Projekt aus.');
+            return;
+        }
+
+        const project = DataManager.getProjectById(parseInt(projectId));
+        const csv = DataManager.exportProjectToCSV(parseInt(projectId));
+        const filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        this.downloadCSV(csv, filename);
+    },
+
+    exportCurrentProjectToExcel: function() {
+        if (!this.currentProjectId) return;
+
+        const project = DataManager.getProjectById(this.currentProjectId);
+        const csv = DataManager.exportProjectToCSV(this.currentProjectId);
+        const filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        this.downloadCSV(csv, filename);
+    },
+
+    downloadCSV: function(csv, filename) {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+
+    // ==========================================
+    // RECHNUNGEN (DATEV)
+    // ==========================================
+
+    loadRechnungen: function() {
+        // Statistiken aktualisieren
+        const rechnungen = DataManager.getRechnungenMitStatus();
+        const neuCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.NEU).length;
+        const kontrolliertCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.KONTROLLIERT).length;
+        const bezahltCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.BEZAHLT).length;
+
+        document.getElementById('stat-rechnungen-total').textContent = rechnungen.length;
+        document.getElementById('stat-rechnungen-neu').textContent = neuCount;
+        document.getElementById('stat-rechnungen-kontrolliert').textContent = kontrolliertCount;
+        document.getElementById('stat-rechnungen-bezahlt').textContent = bezahltCount;
+
+        // Letzte Aktualisierung anzeigen
+        const lastUpdate = DataManager.getDatevLastUpdate();
+        if (lastUpdate) {
+            document.getElementById('datev-last-update').textContent =
+                'Letzte Aktualisierung: ' + this.formatDate(lastUpdate);
+        }
+
+        // Filter-Dropdowns befüllen
+        this.populateRechnungenFilters();
+
+        // Rechnungen anzeigen
+        this.filterRechnungen();
+    },
+
+    populateRechnungenFilters: function() {
+        // Projekt-Filter
+        const projektSelect = document.getElementById('rechnung-filter-projekt');
+        projektSelect.innerHTML = '<option value="">Alle Projekte</option>';
+        const projekte = DataManager.getAllKunstMeranProjekte();
+        projekte.forEach(p => {
+            projektSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+
+        // Lieferanten-Filter
+        const lieferantSelect = document.getElementById('rechnung-filter-lieferant');
+        lieferantSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
+        const lieferanten = DataManager.getDatevLieferanten();
+        lieferanten.forEach(l => {
+            lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
+        });
+    },
+
+    // Ausgewählte Rechnungen (für Massenaktionen)
+    selectedRechnungen: new Set(),
+
+    filterRechnungen: function() {
+        const statusFilter = document.getElementById('rechnung-filter-status').value;
+        const projektFilter = document.getElementById('rechnung-filter-projekt').value;
+        const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
+        const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
+        const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
+
+        let rechnungen = DataManager.getRechnungenMitStatus();
+
+        // Filter anwenden
+        if (statusFilter) {
+            rechnungen = rechnungen.filter(r => r.workflowStatus === statusFilter);
+        }
+        if (projektFilter) {
+            rechnungen = rechnungen.filter(r => String(r.projektId) === projektFilter);
+        }
+        if (lieferantFilter) {
+            rechnungen = rechnungen.filter(r => r.partitaIva === lieferantFilter);
+        }
+        if (kostentypFilter) {
+            rechnungen = rechnungen.filter(r => r.kostentyp === kostentypFilter);
+        }
+        if (abgabestelleFilter) {
+            rechnungen = rechnungen.filter(r => r.abgabestelle === abgabestelleFilter);
+        }
+
+        // Sortieren nach Datum (neueste zuerst)
+        rechnungen.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+
+        // Tabelle befüllen
+        const tbody = document.getElementById('rechnungen-table-body');
+        tbody.innerHTML = '';
+
+        // "Alle auswählen" Checkbox zurücksetzen
+        document.getElementById('rechnungen-select-all').checked = false;
+
+        if (rechnungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; color: #666; padding: 2rem;">Keine Rechnungen gefunden. Bitte Import-Skript ausführen.</td></tr>';
+            this.updateMassActionsBar();
+            return;
+        }
+
+        rechnungen.forEach(r => {
+            const projekt = DataManager.getKunstMeranProjekt(r.projektId);
+            // Nutze direkt die Werte aus JSON falls vorhanden, sonst berechnen
+            const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
+            const mwst = r.betragMwst !== undefined ? r.betragMwst : (r.betrag * 0.22);
+            const gesamt = r.betragGesamt !== undefined ? r.betragGesamt : (r.betrag * 1.22);
+
+            // Gutschrift-Styling
+            const istGutschrift = r.istGutschrift || r.dokumentTyp === 'NC' || r.betrag < 0;
+            const rowStyle = istGutschrift ? 'background: #e8f5e9;' : '';
+            const betragStyle = istGutschrift ? 'color: #27ae60; font-weight: 500;' : '';
+            const typBadge = istGutschrift
+                ? '<span class="badge" style="background: #27ae60; color: white; font-size: 0.65rem; margin-left: 0.25rem;">NC</span>'
+                : '';
+
+            // Checkbox-Status prüfen
+            const isSelected = this.selectedRechnungen.has(r.rechnungId);
+
+            const row = document.createElement('tr');
+            row.style = rowStyle;
+            row.dataset.rechnungId = r.rechnungId;
+            if (isSelected) row.classList.add('selected-row');
+            // Kostentyp-Label
+            const kostentypLabels = {
+                'kuration': 'Kuration',
+                'kuenstlerausgabe': 'Künstlerausgabe',
+                'transport': 'Transport',
+                'produktion': 'Produktion',
+                'vermittlung': 'Vermittlung',
+                'dokumentation': 'Dokumentation',
+                'kommunikation': 'Kommunikation'
+            };
+            const kostentypLabel = r.kostentyp ? kostentypLabels[r.kostentyp] || r.kostentyp : '-';
+
+            // Geteilt-Badge
+            const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
+
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="rechnung-checkbox"
+                           data-rechnung-id="${r.rechnungId}"
+                           ${isSelected ? 'checked' : ''}
+                           onchange="App.toggleRechnungSelection('${r.rechnungId}', this)">
+                </td>
+                <td>${this.formatDate(r.datum)}</td>
+                <td>${r.fornitoreName}${r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : ''}</td>
+                <td>${r.dokumentNr}${typBadge}${geteiltBadge}</td>
+                <td>${projekt ? projekt.name : r.projektId}</td>
+                <td>${kostentypLabel}</td>
+                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(netto)}</td>
+                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(mwst)}</td>
+                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(gesamt)}</td>
+                <td><span class="status-badge ${r.workflowStatus}">${r.workflowStatus}</span></td>
+                <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
+                <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
+                <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
+                <td>${r.pdfExists ?
+                    `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}')">PDF</a>` :
+                    `<a class="pdf-link" style="color: #999; cursor: pointer;" onclick="App.openPdfFolder()" title="PDF nicht gefunden - Ordner öffnen">Suchen</a>`}</td>
+                <td>
+                    <div class="action-btn-group">
+                        <button class="btn btn-sm btn-outline" onclick="App.showRechnungDetail('${r.rechnungId}')">Details</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        this.updateMassActionsBar();
+    },
+
+    // ==========================================
+    // MEHRFACHAUSWAHL & MASSENAKTIONEN
+    // ==========================================
+
+    toggleRechnungSelection: function(rechnungId, checkbox) {
+        if (checkbox.checked) {
+            this.selectedRechnungen.add(rechnungId);
+            checkbox.closest('tr').classList.add('selected-row');
+        } else {
+            this.selectedRechnungen.delete(rechnungId);
+            checkbox.closest('tr').classList.remove('selected-row');
+        }
+        this.updateMassActionsBar();
+        this.updateSelectAllCheckbox();
+    },
+
+    toggleSelectAll: function(checkbox) {
+        const allCheckboxes = document.querySelectorAll('.rechnung-checkbox');
+        allCheckboxes.forEach(cb => {
+            cb.checked = checkbox.checked;
+            const rechnungId = cb.dataset.rechnungId;
+            if (checkbox.checked) {
+                this.selectedRechnungen.add(rechnungId);
+                cb.closest('tr').classList.add('selected-row');
+            } else {
+                this.selectedRechnungen.delete(rechnungId);
+                cb.closest('tr').classList.remove('selected-row');
+            }
+        });
+        this.updateMassActionsBar();
+    },
+
+    updateSelectAllCheckbox: function() {
+        const allCheckboxes = document.querySelectorAll('.rechnung-checkbox');
+        const selectAllCheckbox = document.getElementById('rechnungen-select-all');
+        if (allCheckboxes.length === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+            return;
+        }
+        const checkedCount = document.querySelectorAll('.rechnung-checkbox:checked').length;
+        selectAllCheckbox.checked = checkedCount === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+    },
+
+    updateMassActionsBar: function() {
+        const massActionsBar = document.getElementById('rechnungen-mass-actions');
+        const countSpan = document.getElementById('rechnungen-selected-count');
+        const count = this.selectedRechnungen.size;
+
+        if (count > 0) {
+            massActionsBar.style.display = 'block';
+            countSpan.textContent = count === 1 ? '1 Rechnung ausgewählt' : `${count} Rechnungen ausgewählt`;
+        } else {
+            massActionsBar.style.display = 'none';
+        }
+    },
+
+    clearSelection: function() {
+        this.selectedRechnungen.clear();
+        document.querySelectorAll('.rechnung-checkbox').forEach(cb => {
+            cb.checked = false;
+            cb.closest('tr').classList.remove('selected-row');
+        });
+        document.getElementById('rechnungen-select-all').checked = false;
+        this.updateMassActionsBar();
+    },
+
+    massMarkKontrolliert: function() {
+        if (this.selectedRechnungen.size === 0) return;
+
+        const count = this.selectedRechnungen.size;
+        if (!confirm(`${count} Rechnung(en) als kontrolliert markieren?`)) return;
+
+        this.selectedRechnungen.forEach(rechnungId => {
+            DataManager.markAsKontrolliert(rechnungId);
+        });
+
+        this.clearSelection();
+        this.loadRechnungen();
+    },
+
+    massMarkBezahlt: function() {
+        if (this.selectedRechnungen.size === 0) return;
+
+        const count = this.selectedRechnungen.size;
+        if (!confirm(`${count} Rechnung(en) als bezahlt markieren?`)) return;
+
+        this.selectedRechnungen.forEach(rechnungId => {
+            DataManager.markAsBezahlt(rechnungId);
+        });
+
+        this.clearSelection();
+        this.loadRechnungen();
+    },
+
+    massSetAbgabestelle: function(abgabestelle) {
+        if (this.selectedRechnungen.size === 0) return;
+
+        const count = this.selectedRechnungen.size;
+        if (!confirm(`Abgabestelle "${abgabestelle}" für ${count} Rechnung(en) setzen?`)) return;
+
+        this.selectedRechnungen.forEach(rechnungId => {
+            DataManager.setAbgabestelle(rechnungId, abgabestelle);
+        });
+
+        this.clearSelection();
+        this.loadRechnungen();
+    },
+
+    refreshDatevData: async function() {
+        await this.loadDatevData();
+        this.loadRechnungen();
+    },
+
+    showRechnungDetail: function(rechnungId) {
+        this.currentRechnungId = rechnungId;
+        const rechnungen = DataManager.getRechnungenMitStatus();
+        const rechnung = rechnungen.find(r => r.rechnungId === rechnungId);
+
+        if (!rechnung) return;
+
+        const projekt = DataManager.getKunstMeranProjekt(rechnung.projektId);
+        const mwst = DataManager.berechneMwst(rechnung.betrag);
+
+        // Detail-Felder befüllen
+        document.getElementById('rd-lieferant').textContent = rechnung.fornitoreName;
+        document.getElementById('rd-partita-iva').textContent = rechnung.partitaIva;
+        document.getElementById('rd-rechnungsnr').textContent = rechnung.dokumentNr;
+        document.getElementById('rd-datum').textContent = this.formatDate(rechnung.datum);
+        // Projekt als Dropdown
+        document.getElementById('rd-projekt').value = rechnung.projektId || '';
+        document.getElementById('rd-status').innerHTML = `<span class="status-badge ${rechnung.workflowStatus}">${rechnung.workflowStatus}</span>`;
+
+        // Beträge
+        document.getElementById('rd-brutto').textContent = this.formatCurrency(rechnung.betrag);
+        document.getElementById('rd-netto').textContent = this.formatCurrency(mwst.netto);
+        document.getElementById('rd-mwst').textContent = this.formatCurrency(mwst.mwstBetrag);
+        document.getElementById('rd-mwst-absetzbar').textContent = this.formatCurrency(mwst.absetzbareMwst);
+        document.getElementById('rd-mwst-nicht-absetzbar').textContent = this.formatCurrency(mwst.nichtAbsetzbareMwst);
+
+        // Status-Checkboxen und Datumsfelder
+        const istKontrolliert = rechnung.workflowStatus === RECHNUNG_STATUS.KONTROLLIERT || rechnung.workflowStatus === RECHNUNG_STATUS.BEZAHLT;
+        const istBezahlt = rechnung.workflowStatus === RECHNUNG_STATUS.BEZAHLT;
+
+        document.getElementById('rd-kontrolliert-check').checked = istKontrolliert;
+        document.getElementById('rd-kontrolliert-datum').value = rechnung.kontrolliertAm || '';
+        document.getElementById('rd-kontrolliert-datum').disabled = !istKontrolliert;
+
+        document.getElementById('rd-bezahlt-check').checked = istBezahlt;
+        document.getElementById('rd-bezahlt-datum').value = rechnung.bezahltAm || '';
+        document.getElementById('rd-bezahlt-datum').disabled = !istBezahlt;
+
+        // Kostentyp mit Datum
+        document.getElementById('rd-kostentyp').value = rechnung.kostentyp || '';
+        document.getElementById('rd-kostentyp-datum').value = rechnung.kostentypAm || '';
+
+        // Abgabestelle mit Datum
+        document.getElementById('rd-abgabestelle').value = rechnung.abgabestelle || '';
+        document.getElementById('rd-abgabestelle-datum').value = rechnung.abgabestelleAm || '';
+
+        // Notizen
+        document.getElementById('rd-notizen').value = rechnung.notizen || '';
+
+        // Geteilte Rechnung
+        document.getElementById('rd-geteilt').checked = rechnung.geteilt || false;
+
+        // Rechnung-ID speichern
+        document.getElementById('rd-rechnung-id').value = rechnungId;
+
+        // Buttons basierend auf Status anzeigen (alte Buttons ausblenden, neue Checkboxen übernehmen)
+        const btnKontrollieren = document.getElementById('rd-btn-kontrollieren');
+        const btnBezahlt = document.getElementById('rd-btn-bezahlt');
+        btnKontrollieren.style.display = 'none';
+        btnBezahlt.style.display = 'none';
+
+        this.showModal('rechnung-detail-modal');
+    },
+
+    // Checkbox: Kontrolliert toggled
+    toggleKontrolliert: function(checkbox) {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datumInput = document.getElementById('rd-kontrolliert-datum');
+
+        if (checkbox.checked) {
+            // Automatisch heutiges Datum setzen
+            const heute = new Date().toISOString().split('T')[0];
+            datumInput.value = heute;
+            datumInput.disabled = false;
+            DataManager.markAsKontrolliert(rechnungId, heute);
+        } else {
+            // Checkbox abgewählt - Status zurücksetzen auf NEU
+            datumInput.value = '';
+            datumInput.disabled = true;
+            // Auch Bezahlt zurücksetzen falls gesetzt
+            document.getElementById('rd-bezahlt-check').checked = false;
+            document.getElementById('rd-bezahlt-datum').value = '';
+            document.getElementById('rd-bezahlt-datum').disabled = true;
+            DataManager.setRechnungStatus(rechnungId, {
+                status: RECHNUNG_STATUS.NEU,
+                kontrolliertAm: null,
+                kontrolliertVon: null,
+                bezahltAm: null
+            });
+        }
+        this.loadRechnungen();
+    },
+
+    // Checkbox: Bezahlt toggled
+    toggleBezahlt: function(checkbox) {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datumInput = document.getElementById('rd-bezahlt-datum');
+        const kontrolliertCheck = document.getElementById('rd-kontrolliert-check');
+
+        if (checkbox.checked) {
+            // Automatisch heutiges Datum setzen
+            const heute = new Date().toISOString().split('T')[0];
+            datumInput.value = heute;
+            datumInput.disabled = false;
+
+            // Kontrolliert muss auch gesetzt sein
+            if (!kontrolliertCheck.checked) {
+                kontrolliertCheck.checked = true;
+                const kontrolliertDatum = document.getElementById('rd-kontrolliert-datum');
+                kontrolliertDatum.value = heute;
+                kontrolliertDatum.disabled = false;
+                DataManager.markAsKontrolliert(rechnungId, heute);
+            }
+
+            DataManager.markAsBezahlt(rechnungId, heute);
+        } else {
+            // Checkbox abgewählt - Status zurück auf KONTROLLIERT
+            datumInput.value = '';
+            datumInput.disabled = true;
+            DataManager.setRechnungStatus(rechnungId, {
+                status: RECHNUNG_STATUS.KONTROLLIERT,
+                bezahltAm: null
+            });
+        }
+        this.loadRechnungen();
+    },
+
+    // Datum manuell geändert: Kontrolliert
+    updateKontrolliertDatum: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datum = document.getElementById('rd-kontrolliert-datum').value;
+        DataManager.setKontrolliertDatum(rechnungId, datum || null);
+    },
+
+    // Datum manuell geändert: Bezahlt
+    updateBezahltDatum: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datum = document.getElementById('rd-bezahlt-datum').value;
+        DataManager.setBezahltDatum(rechnungId, datum || null);
+    },
+
+    markRechnungKontrolliert: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        DataManager.markAsKontrolliert(rechnungId);
+        this.hideModal('rechnung-detail-modal');
+        this.loadRechnungen();
+    },
+
+    markRechnungBezahlt: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        DataManager.markAsBezahlt(rechnungId);
+        this.hideModal('rechnung-detail-modal');
+        this.loadRechnungen();
+    },
+
+    updateRechnungAbgabestelle: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const abgabestelle = document.getElementById('rd-abgabestelle').value;
+        // Datum wird automatisch auf heute gesetzt wenn Wert gesetzt wird
+        DataManager.setAbgabestelle(rechnungId, abgabestelle || null);
+        // Datumsfeld aktualisieren
+        if (abgabestelle) {
+            const heute = new Date().toISOString().split('T')[0];
+            document.getElementById('rd-abgabestelle-datum').value = heute;
+        } else {
+            document.getElementById('rd-abgabestelle-datum').value = '';
+        }
+    },
+
+    updateAbgabestelleDatum: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datum = document.getElementById('rd-abgabestelle-datum').value;
+        DataManager.setAbgabestelleDatum(rechnungId, datum || null);
+    },
+
+    updateRechnungKostentyp: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const kostentyp = document.getElementById('rd-kostentyp').value;
+        // Datum wird automatisch auf heute gesetzt wenn Wert gesetzt wird
+        DataManager.setKostentyp(rechnungId, kostentyp || null);
+        // Datumsfeld aktualisieren
+        if (kostentyp) {
+            const heute = new Date().toISOString().split('T')[0];
+            document.getElementById('rd-kostentyp-datum').value = heute;
+        } else {
+            document.getElementById('rd-kostentyp-datum').value = '';
+        }
+        // Aktualisiere die Kostentabelle falls Projekt-Fullpage offen ist
+        if (this.currentProjectId) {
+            this.filterProjectCosts();
+        }
+    },
+
+    updateKostentypDatum: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const datum = document.getElementById('rd-kostentyp-datum').value;
+        DataManager.setKostentypDatum(rechnungId, datum || null);
+    },
+
+    updateRechnungNotizen: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const notizen = document.getElementById('rd-notizen').value;
+        DataManager.setRechnungStatus(rechnungId, { notizen: notizen });
+    },
+
+    updateRechnungProjekt: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const projektId = document.getElementById('rd-projekt').value;
+        DataManager.setRechnungStatus(rechnungId, { projektId: projektId || null });
+        this.loadRechnungen();
+    },
+
+    updateRechnungGeteilt: function() {
+        const rechnungId = document.getElementById('rd-rechnung-id').value;
+        const geteilt = document.getElementById('rd-geteilt').checked;
+        DataManager.setRechnungStatus(rechnungId, { geteilt: geteilt });
+        this.loadRechnungen();
+    },
+
+    exportRechnungenCSV: function() {
+        const statusFilter = document.getElementById('rechnung-filter-status').value || null;
+        const projektFilter = document.getElementById('rechnung-filter-projekt').value || null;
+        const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value || null;
+
+        const csv = DataManager.exportRechnungenCSV(statusFilter, projektFilter, lieferantFilter);
+
+        // Dateiname basierend auf Filtern
+        let filename = 'Rechnungen';
+        if (projektFilter) {
+            const projekt = DataManager.getKunstMeranProjekt(parseInt(projektFilter));
+            if (projekt) filename += '_' + projekt.name.replace(/[^a-zA-Z0-9]/g, '');
+        }
+        if (statusFilter) filename += '_' + statusFilter;
+        filename += `_${new Date().toISOString().split('T')[0]}.csv`;
+
+        this.downloadCSV(csv, filename);
+    },
+
+    // ==========================================
+    // PDF PREVIEW
+    // ==========================================
+
+    showPdfPreview: function(partitaIva, dokumentNr) {
+        const pdfPath = DataManager.getPdfPath(partitaIva, dokumentNr);
+        this.currentPdfPath = pdfPath;
+
+        document.getElementById('pdf-preview-title').textContent = `${partitaIva} - ${dokumentNr}`;
+        document.getElementById('pdf-preview-frame').src = pdfPath;
+        document.getElementById('pdf-preview-frame').style.display = '';
+        document.getElementById('pdf-preview-error').style.display = 'none';
+
+        // Fehlerbehandlung für fehlende PDFs
+        document.getElementById('pdf-preview-frame').onerror = () => {
+            document.getElementById('pdf-preview-frame').style.display = 'none';
+            document.getElementById('pdf-preview-error').style.display = '';
+        };
+
+        this.showModal('pdf-preview-modal');
+    },
+
+    openPdfInNewTab: function() {
+        if (this.currentPdfPath) {
+            window.open(this.currentPdfPath, '_blank');
+        }
+    },
+
+    openPdfFolder: function() {
+        // Öffnet den EK-Rechnungen Ordner in neuem Tab
+        window.open('EK-Rechnungen/', '_blank');
+    },
+
+    // ==========================================
+    // LIEFERANTEN (DATEV)
+    // ==========================================
+
+    loadLieferanten: function() {
+        const lieferanten = DataManager.getDatevLieferanten();
+        const rechnungen = DataManager.getRechnungenMitStatus();
+
+        // Statistiken
+        let gesamtvolumen = 0;
+        let mitRechnungen = 0;
+        let ohneNamen = 0;
+
+        lieferanten.forEach(l => {
+            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
+            if (lieferantRechnungen.length > 0) {
+                mitRechnungen++;
+                gesamtvolumen += lieferantRechnungen.reduce((sum, r) => sum + r.betrag, 0);
+            }
+            if (!l.name) ohneNamen++;
+        });
+
+        document.getElementById('stat-lieferanten-total').textContent = lieferanten.length;
+        document.getElementById('stat-lieferanten-aktiv').textContent = mitRechnungen;
+        document.getElementById('stat-lieferanten-summe').textContent = this.formatCurrency(gesamtvolumen);
+
+        // Tabelle befüllen
+        const tbody = document.getElementById('lieferanten-table-body');
+        tbody.innerHTML = '';
+
+        if (lieferanten.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden. Bitte Import-Skript ausführen.</td></tr>';
+            return;
+        }
+
+        // Hinweis wenn Namen fehlen
+        if (ohneNamen > 0) {
+            const hinweisRow = document.createElement('tr');
+            hinweisRow.innerHTML = `<td colspan="6" style="background: #fff3cd; color: #856404; padding: 0.75rem; text-align: center;">
+                <strong>Hinweis:</strong> ${ohneNamen} Lieferant(en) ohne Namen. Klicken Sie auf das Stift-Symbol, um Namen zu erfassen.
+            </td>`;
+            tbody.appendChild(hinweisRow);
+        }
+
+        lieferanten.forEach(l => {
+            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
+            const summe = lieferantRechnungen.reduce((sum, r) => sum + r.betrag, 0);
+            const hatName = l.name && l.name.trim() !== '';
+            const displayName = hatName ? l.name : '(Unbekannt)';
+            const nameClass = hatName ? '' : 'style="color: #999; font-style: italic;"';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <span id="lieferant-name-${l.partitaIva}" ${nameClass}><strong>${displayName}</strong></span>
+                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="App.editLieferantName('${l.partitaIva}')" title="Name bearbeiten">
+                        &#9998;
+                    </button>
+                </td>
+                <td>${l.partitaIva}</td>
+                <td>${l.nummer || '-'}</td>
+                <td style="text-align: right;">${lieferantRechnungen.length}</td>
+                <td style="text-align: right;">${this.formatCurrency(summe)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.showLieferantRechnungen('${l.partitaIva}')">Rechnungen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    editLieferantName: function(partitaIva) {
+        const currentName = DataManager.getLieferantName(partitaIva) || '';
+        const newName = prompt('Lieferantenname für ' + partitaIva + ':', currentName);
+
+        if (newName !== null && newName.trim() !== '') {
+            DataManager.setLieferantName(partitaIva, newName.trim());
+            this.loadLieferanten();
+            // Auch Rechnungsliste aktualisieren falls sichtbar
+            if (document.getElementById('view-rechnungen').classList.contains('active')) {
+                this.filterRechnungen();
+            }
+        }
+    },
+
+    showLieferantRechnungen: function(partitaIva) {
+        // Zur Rechnungsansicht wechseln und filtern
+        document.getElementById('rechnung-filter-lieferant').value = partitaIva;
+        this.showView('rechnungen');
+    },
+
+    // ==========================================
+    // HILFSFUNKTIONEN
+    // ==========================================
+
+    formatCurrency: function(value) {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(value);
+    },
+
+    formatDate: function(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('de-DE');
+    },
+
+    getStatusBadge: function(status) {
+        const badges = {
+            'planung': '<span class="badge badge-primary">Planung</span>',
+            'laufend': '<span class="badge badge-success">Laufend</span>',
+            'abgeschlossen': '<span class="badge badge-warning">Abgeschlossen</span>'
+        };
+        return badges[status] || status;
+    },
+
+    getBudgetStatusClass: function(percent) {
+        if (percent >= 100) return 'danger';
+        if (percent >= 80) return 'warning';
+        return 'success';
+    },
+
+    showModal: function(modalId) {
+        document.getElementById(modalId).classList.add('show');
+    },
+
+    hideModal: function(modalId) {
+        document.getElementById(modalId).classList.remove('show');
+    },
+
+    logout: function() {
+        Auth.logout();
+    },
+
+    // ==========================================
+    // SITZUNGEN
+    // ==========================================
+
+    loadSitzungen: function() {
+        const sitzungen = DataManager.getSitzungen();
+        const tbody = document.getElementById('sitzungen-table-body');
+        tbody.innerHTML = '';
+
+        if (sitzungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Sitzungen vorhanden</td></tr>';
+            return;
+        }
+
+        // Sortieren nach Datum (neueste zuerst)
+        sitzungen.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+
+        const tasks = DataManager.getTasks();
+
+        sitzungen.forEach(s => {
+            const offeneTasks = tasks.filter(t => t.sitzungId === s.id && t.status !== 'erledigt').length;
+            const typLabels = { intern: 'Intern', extern: 'Extern', vorstand: 'Vorstand' };
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${this.formatDate(s.datum)}</td>
+                <td><strong>${s.titel}</strong></td>
+                <td><span class="badge">${typLabels[s.typ] || s.typ}</span></td>
+                <td>${s.teilnehmer || '-'}</td>
+                <td>${offeneTasks > 0 ? `<span class="badge" style="background: #e74c3c;">${offeneTasks}</span>` : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editSitzung(${s.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteSitzung(${s.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        // Deadlines laden
+        this.loadDeadlines();
+    },
+
+    loadDeadlines: function() {
+        const deadlines = DataManager.getUpcomingDeadlines(14);
+        const container = document.getElementById('deadlines-liste');
+
+        if (deadlines.length === 0) {
+            container.innerHTML = '<p style="color: #666; font-style: italic;">Keine anstehenden Deadlines in den nächsten 14 Tagen</p>';
+            return;
+        }
+
+        let html = '';
+        deadlines.forEach(t => {
+            const tage = Math.ceil((new Date(t.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+            const dringend = tage <= 3 ? 'color: #e74c3c; font-weight: bold;' : '';
+            html += `
+                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e0e0e0;">
+                    <span>${t.beschreibung}</span>
+                    <span style="${dringend}">${this.formatDate(t.deadline)} (${tage} Tage)</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    },
+
+    showNewSitzungForm: function() {
+        document.getElementById('sitzung-form').reset();
+        document.getElementById('sitzung-form-id').value = '';
+        document.getElementById('sitzung-modal-title').textContent = 'Neue Sitzung';
+        document.getElementById('sitzung-datum').value = new Date().toISOString().split('T')[0];
+        document.getElementById('sitzung-tasks-liste').innerHTML = '';
+        this.showModal('sitzung-form-modal');
+    },
+
+    editSitzung: function(id) {
+        const sitzungen = DataManager.getSitzungen();
+        const s = sitzungen.find(x => x.id === id);
+        if (!s) return;
+
+        document.getElementById('sitzung-form-id').value = s.id;
+        document.getElementById('sitzung-modal-title').textContent = 'Sitzung bearbeiten';
+        document.getElementById('sitzung-titel').value = s.titel || '';
+        document.getElementById('sitzung-typ').value = s.typ || 'intern';
+        document.getElementById('sitzung-datum').value = s.datum || '';
+        document.getElementById('sitzung-uhrzeit').value = s.uhrzeit || '';
+        document.getElementById('sitzung-teilnehmer').value = s.teilnehmer || '';
+        document.getElementById('sitzung-agenda').value = s.agenda || '';
+        document.getElementById('sitzung-protokoll').value = s.protokoll || '';
+
+        // Tasks laden
+        this.loadSitzungTasks(id);
+        this.showModal('sitzung-form-modal');
+    },
+
+    loadSitzungTasks: function(sitzungId) {
+        const tasks = DataManager.getTasks().filter(t => t.sitzungId === sitzungId);
+        const container = document.getElementById('sitzung-tasks-liste');
+        container.innerHTML = '';
+
+        tasks.forEach(t => {
+            container.innerHTML += this.renderSitzungTaskRow(t);
+        });
+    },
+
+    renderSitzungTaskRow: function(task) {
+        const checked = task.status === 'erledigt' ? 'checked' : '';
+        return `
+            <div class="sitzung-task-row" data-task-id="${task.id}" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;">
+                <input type="checkbox" ${checked} onchange="App.toggleTaskStatus(${task.id}, this)" style="width: 18px; height: 18px;">
+                <input type="text" value="${task.beschreibung || ''}" class="form-control" style="flex: 1;" onchange="App.updateTaskText(${task.id}, this.value)">
+                <input type="date" value="${task.deadline || ''}" class="form-control" style="width: 140px;" onchange="App.updateTaskDeadline(${task.id}, this.value)">
+                <button type="button" class="btn btn-sm" onclick="App.deleteTaskFromSitzung(${task.id})" style="color: #e74c3c;">×</button>
+            </div>
+        `;
+    },
+
+    addSitzungTask: function() {
+        const sitzungId = document.getElementById('sitzung-form-id').value;
+        const container = document.getElementById('sitzung-tasks-liste');
+        const tempId = 'new_' + Date.now();
+
+        container.innerHTML += `
+            <div class="sitzung-task-row" data-task-id="${tempId}" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;">
+                <input type="checkbox" style="width: 18px; height: 18px;">
+                <input type="text" class="form-control task-text" style="flex: 1;" placeholder="Aufgabenbeschreibung...">
+                <input type="date" class="form-control task-deadline" style="width: 140px;">
+                <button type="button" class="btn btn-sm" onclick="this.closest('.sitzung-task-row').remove()" style="color: #e74c3c;">×</button>
+            </div>
+        `;
+    },
+
+    toggleTaskStatus: function(taskId, checkbox) {
+        const tasks = DataManager.getTasks();
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            task.status = checkbox.checked ? 'erledigt' : 'offen';
+            DataManager.saveTask(task);
+        }
+    },
+
+    updateTaskText: function(taskId, text) {
+        const tasks = DataManager.getTasks();
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            task.beschreibung = text;
+            DataManager.saveTask(task);
+        }
+    },
+
+    updateTaskDeadline: function(taskId, deadline) {
+        const tasks = DataManager.getTasks();
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            task.deadline = deadline;
+            DataManager.saveTask(task);
+        }
+    },
+
+    deleteTaskFromSitzung: function(taskId) {
+        if (confirm('Aufgabe wirklich löschen?')) {
+            DataManager.deleteTask(taskId);
+            document.querySelector(`[data-task-id="${taskId}"]`).remove();
+        }
+    },
+
+    saveSitzung: function(event) {
+        event.preventDefault();
+        const id = document.getElementById('sitzung-form-id').value;
+
+        const sitzung = {
+            id: id ? parseInt(id) : null,
+            titel: document.getElementById('sitzung-titel').value,
+            typ: document.getElementById('sitzung-typ').value,
+            datum: document.getElementById('sitzung-datum').value,
+            uhrzeit: document.getElementById('sitzung-uhrzeit').value,
+            teilnehmer: document.getElementById('sitzung-teilnehmer').value,
+            agenda: document.getElementById('sitzung-agenda').value,
+            protokoll: document.getElementById('sitzung-protokoll').value
+        };
+
+        const savedSitzung = DataManager.saveSitzung(sitzung);
+
+        // Neue Tasks speichern
+        const newTaskRows = document.querySelectorAll('[data-task-id^="new_"]');
+        newTaskRows.forEach(row => {
+            const text = row.querySelector('.task-text')?.value;
+            const deadline = row.querySelector('.task-deadline')?.value;
+            if (text) {
+                DataManager.saveTask({
+                    sitzungId: savedSitzung.id,
+                    beschreibung: text,
+                    deadline: deadline || null,
+                    status: 'offen'
+                });
+            }
+        });
+
+        this.hideModal('sitzung-form-modal');
+        this.loadSitzungen();
+    },
+
+    deleteSitzung: function(id) {
+        if (confirm('Sitzung wirklich löschen? Alle zugehörigen Aufgaben werden ebenfalls gelöscht.')) {
+            // Tasks der Sitzung löschen
+            const tasks = DataManager.getTasks().filter(t => t.sitzungId === id);
+            tasks.forEach(t => DataManager.deleteTask(t.id));
+            DataManager.deleteSitzung(id);
+            this.loadSitzungen();
+        }
+    },
+
+    filterSitzungen: function(typ) {
+        // Tab-Styling
+        document.querySelectorAll('#view-sitzungen .tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        const sitzungen = DataManager.getSitzungen();
+        const filtered = typ === 'alle' ? sitzungen : sitzungen.filter(s => s.typ === typ);
+
+        const tbody = document.getElementById('sitzungen-table-body');
+        tbody.innerHTML = '';
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Sitzungen gefunden</td></tr>';
+            return;
+        }
+
+        const tasks = DataManager.getTasks();
+        filtered.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+
+        filtered.forEach(s => {
+            const offeneTasks = tasks.filter(t => t.sitzungId === s.id && t.status !== 'erledigt').length;
+            const typLabels = { intern: 'Intern', extern: 'Extern', vorstand: 'Vorstand' };
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${this.formatDate(s.datum)}</td>
+                <td><strong>${s.titel}</strong></td>
+                <td><span class="badge">${typLabels[s.typ] || s.typ}</span></td>
+                <td>${s.teilnehmer || '-'}</td>
+                <td>${offeneTasks > 0 ? `<span class="badge" style="background: #e74c3c;">${offeneTasks}</span>` : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editSitzung(${s.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteSitzung(${s.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    // ==========================================
+    // KÜNSTLER
+    // ==========================================
+
+    loadKuenstler: function() {
+        const kuenstler = DataManager.getKuenstler();
+        const tbody = document.getElementById('kuenstler-table-body');
+        tbody.innerHTML = '';
+
+        if (kuenstler.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Künstler vorhanden</td></tr>';
+            return;
+        }
+
+        kuenstler.forEach(k => {
+            const projekte = (k.projekte || []).map(p => KUNST_MERAN_PROJEKTE[p]?.name || p).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${k.name}</strong></td>
+                <td>${k.land || '-'}</td>
+                <td>${k.technik || '-'}</td>
+                <td>${projekte || '-'}</td>
+                <td>${k.email ? `<a href="mailto:${k.email}">${k.email}</a>` : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editKuenstler(${k.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteKuenstler(${k.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    showNewKuenstlerForm: function() {
+        document.getElementById('kuenstler-form').reset();
+        document.getElementById('kuenstler-form-id').value = '';
+        document.getElementById('kuenstler-modal-title').textContent = 'Neuer Künstler';
+        this.showModal('kuenstler-form-modal');
+    },
+
+    editKuenstler: function(id) {
+        const k = DataManager.getKuenstler().find(x => x.id === id);
+        if (!k) return;
+
+        document.getElementById('kuenstler-form-id').value = k.id;
+        document.getElementById('kuenstler-modal-title').textContent = 'Künstler bearbeiten';
+        document.getElementById('kuenstler-name').value = k.name || '';
+        document.getElementById('kuenstler-land').value = k.land || '';
+        document.getElementById('kuenstler-technik').value = k.technik || '';
+        document.getElementById('kuenstler-email').value = k.email || '';
+        document.getElementById('kuenstler-telefon').value = k.telefon || '';
+        document.getElementById('kuenstler-website').value = k.website || '';
+        document.getElementById('kuenstler-notizen').value = k.notizen || '';
+
+        // Projekte auswählen
+        const select = document.getElementById('kuenstler-projekte');
+        Array.from(select.options).forEach(opt => {
+            opt.selected = (k.projekte || []).includes(opt.value);
+        });
+
+        this.showModal('kuenstler-form-modal');
+    },
+
+    saveKuenstler: function(event) {
+        event.preventDefault();
+        const id = document.getElementById('kuenstler-form-id').value;
+
+        const projekte = Array.from(document.getElementById('kuenstler-projekte').selectedOptions).map(o => o.value);
+
+        const kuenstler = {
+            id: id ? parseInt(id) : null,
+            name: document.getElementById('kuenstler-name').value,
+            land: document.getElementById('kuenstler-land').value,
+            technik: document.getElementById('kuenstler-technik').value,
+            email: document.getElementById('kuenstler-email').value,
+            telefon: document.getElementById('kuenstler-telefon').value,
+            website: document.getElementById('kuenstler-website').value,
+            projekte: projekte,
+            notizen: document.getElementById('kuenstler-notizen').value
+        };
+
+        DataManager.saveKuenstler(kuenstler);
+        this.hideModal('kuenstler-form-modal');
+        this.loadKuenstler();
+    },
+
+    deleteKuenstler: function(id) {
+        if (confirm('Künstler wirklich löschen?')) {
+            DataManager.deleteKuenstler(id);
+            this.loadKuenstler();
+        }
+    },
+
+    filterKuenstler: function() {
+        const projektFilter = document.getElementById('kuenstler-filter-projekt').value;
+        const suche = document.getElementById('kuenstler-suche').value.toLowerCase();
+
+        let kuenstler = DataManager.getKuenstler();
+
+        if (projektFilter) {
+            kuenstler = kuenstler.filter(k => (k.projekte || []).includes(projektFilter));
+        }
+        if (suche) {
+            kuenstler = kuenstler.filter(k => k.name.toLowerCase().includes(suche));
+        }
+
+        const tbody = document.getElementById('kuenstler-table-body');
+        tbody.innerHTML = '';
+
+        if (kuenstler.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Künstler gefunden</td></tr>';
+            return;
+        }
+
+        kuenstler.forEach(k => {
+            const projekte = (k.projekte || []).map(p => KUNST_MERAN_PROJEKTE[p]?.name || p).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${k.name}</strong></td>
+                <td>${k.land || '-'}</td>
+                <td>${k.technik || '-'}</td>
+                <td>${projekte || '-'}</td>
+                <td>${k.email ? `<a href="mailto:${k.email}">${k.email}</a>` : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editKuenstler(${k.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteKuenstler(${k.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    // ==========================================
+    // INVENTAR
+    // ==========================================
+
+    loadInventar: function() {
+        const inventar = DataManager.getInventar();
+        const tbody = document.getElementById('inventar-table-body');
+        tbody.innerHTML = '';
+
+        if (inventar.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666; padding: 2rem;">Kein Inventar vorhanden</td></tr>';
+            return;
+        }
+
+        const kategorieLabels = { technik: 'Technik', moebel: 'Möbel', kunst: 'Kunstwerke', transport: 'Transport', sonstiges: 'Sonstiges' };
+        const standortLabels = { kunsthaus: 'Kunsthaus', lager: 'Lager', extern: 'Extern' };
+        const zustandLabels = { gut: 'Gut', gebraucht: 'Gebraucht', reparatur: 'Reparatur', defekt: 'Defekt' };
+
+        inventar.forEach(i => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${i.inventarNr}</strong></td>
+                <td>${i.bezeichnung}</td>
+                <td>${kategorieLabels[i.kategorie] || i.kategorie}</td>
+                <td>${standortLabels[i.standort] || i.standort}</td>
+                <td><span class="badge">${zustandLabels[i.zustand] || i.zustand}</span></td>
+                <td>${i.anschaffung ? this.formatDate(i.anschaffung) : '-'}</td>
+                <td style="text-align: right;">${i.wert ? this.formatCurrency(i.wert) : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editInventar(${i.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteInventar(${i.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    showNewInventarForm: function() {
+        document.getElementById('inventar-form').reset();
+        document.getElementById('inventar-form-id').value = '';
+        document.getElementById('inventar-modal-title').textContent = 'Neuer Gegenstand';
+        document.getElementById('inventar-nr').value = '';
+        this.showModal('inventar-form-modal');
+    },
+
+    editInventar: function(id) {
+        const i = DataManager.getInventar().find(x => x.id === id);
+        if (!i) return;
+
+        document.getElementById('inventar-form-id').value = i.id;
+        document.getElementById('inventar-modal-title').textContent = 'Gegenstand bearbeiten';
+        document.getElementById('inventar-nr').value = i.inventarNr || '';
+        document.getElementById('inventar-kategorie').value = i.kategorie || '';
+        document.getElementById('inventar-bezeichnung').value = i.bezeichnung || '';
+        document.getElementById('inventar-standort').value = i.standort || 'kunsthaus';
+        document.getElementById('inventar-zustand').value = i.zustand || 'gut';
+        document.getElementById('inventar-anschaffung').value = i.anschaffung || '';
+        document.getElementById('inventar-wert').value = i.wert || '';
+        document.getElementById('inventar-beschreibung').value = i.beschreibung || '';
+
+        this.showModal('inventar-form-modal');
+    },
+
+    saveInventar: function(event) {
+        event.preventDefault();
+        const id = document.getElementById('inventar-form-id').value;
+
+        const item = {
+            id: id ? parseInt(id) : null,
+            inventarNr: document.getElementById('inventar-nr').value || null,
+            kategorie: document.getElementById('inventar-kategorie').value,
+            bezeichnung: document.getElementById('inventar-bezeichnung').value,
+            standort: document.getElementById('inventar-standort').value,
+            zustand: document.getElementById('inventar-zustand').value,
+            anschaffung: document.getElementById('inventar-anschaffung').value,
+            wert: parseFloat(document.getElementById('inventar-wert').value) || 0,
+            beschreibung: document.getElementById('inventar-beschreibung').value
+        };
+
+        DataManager.saveInventar(item);
+        this.hideModal('inventar-form-modal');
+        this.loadInventar();
+    },
+
+    deleteInventar: function(id) {
+        if (confirm('Gegenstand wirklich aus dem Inventar löschen?')) {
+            DataManager.deleteInventar(id);
+            this.loadInventar();
+        }
+    },
+
+    filterInventar: function() {
+        const kategorieFilter = document.getElementById('inventar-filter-kategorie').value;
+        const standortFilter = document.getElementById('inventar-filter-standort').value;
+        const suche = document.getElementById('inventar-suche').value.toLowerCase();
+
+        let inventar = DataManager.getInventar();
+
+        if (kategorieFilter) {
+            inventar = inventar.filter(i => i.kategorie === kategorieFilter);
+        }
+        if (standortFilter) {
+            inventar = inventar.filter(i => i.standort === standortFilter);
+        }
+        if (suche) {
+            inventar = inventar.filter(i => i.bezeichnung.toLowerCase().includes(suche));
+        }
+
+        const tbody = document.getElementById('inventar-table-body');
+        tbody.innerHTML = '';
+
+        if (inventar.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666; padding: 2rem;">Keine Gegenstände gefunden</td></tr>';
+            return;
+        }
+
+        const kategorieLabels = { technik: 'Technik', moebel: 'Möbel', kunst: 'Kunstwerke', transport: 'Transport', sonstiges: 'Sonstiges' };
+        const standortLabels = { kunsthaus: 'Kunsthaus', lager: 'Lager', extern: 'Extern' };
+        const zustandLabels = { gut: 'Gut', gebraucht: 'Gebraucht', reparatur: 'Reparatur', defekt: 'Defekt' };
+
+        inventar.forEach(i => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${i.inventarNr}</strong></td>
+                <td>${i.bezeichnung}</td>
+                <td>${kategorieLabels[i.kategorie] || i.kategorie}</td>
+                <td>${standortLabels[i.standort] || i.standort}</td>
+                <td><span class="badge">${zustandLabels[i.zustand] || i.zustand}</span></td>
+                <td>${i.anschaffung ? this.formatDate(i.anschaffung) : '-'}</td>
+                <td style="text-align: right;">${i.wert ? this.formatCurrency(i.wert) : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editInventar(${i.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteInventar(${i.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    exportInventarCSV: function() {
+        const inventar = DataManager.getInventar();
+        let csv = '\uFEFF';
+        csv += 'Inventar-Nr;Bezeichnung;Kategorie;Standort;Zustand;Anschaffung;Wert;Beschreibung\n';
+
+        inventar.forEach(i => {
+            csv += `${i.inventarNr};"${i.bezeichnung}";${i.kategorie};${i.standort};${i.zustand};${i.anschaffung || ''};${i.wert || 0};"${i.beschreibung || ''}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Inventar_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    },
+
+    // ==========================================
+    // ADRESSEN
+    // ==========================================
+
+    loadAdressen: function() {
+        const adressen = DataManager.getAdressen();
+        const tbody = document.getElementById('adressen-table-body');
+        tbody.innerHTML = '';
+
+        if (adressen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 2rem;">Keine Kontakte vorhanden</td></tr>';
+            return;
+        }
+
+        const kategorieLabels = { kuenstler: 'Künstler', kurator: 'Kurator', presse: 'Presse', sponsor: 'Sponsor', lieferant: 'Lieferant', institution: 'Institution', sonstige: 'Sonstige' };
+
+        adressen.forEach(a => {
+            const ort = [a.stadt, a.land].filter(x => x).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${a.name}</strong></td>
+                <td>${a.organisation || '-'}</td>
+                <td><span class="badge">${kategorieLabels[a.kategorie] || a.kategorie}</span></td>
+                <td>${a.email ? `<a href="mailto:${a.email}">${a.email}</a>` : '-'}</td>
+                <td>${a.telefon || '-'}</td>
+                <td>${ort || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editAdresse(${a.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteAdresse(${a.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    showNewAdresseForm: function() {
+        document.getElementById('adresse-form').reset();
+        document.getElementById('adresse-form-id').value = '';
+        document.getElementById('adresse-modal-title').textContent = 'Neuer Kontakt';
+        this.showModal('adresse-form-modal');
+    },
+
+    editAdresse: function(id) {
+        const a = DataManager.getAdressen().find(x => x.id === id);
+        if (!a) return;
+
+        document.getElementById('adresse-form-id').value = a.id;
+        document.getElementById('adresse-modal-title').textContent = 'Kontakt bearbeiten';
+        document.getElementById('adresse-name').value = a.name || '';
+        document.getElementById('adresse-organisation').value = a.organisation || '';
+        document.getElementById('adresse-kategorie').value = a.kategorie || 'sonstige';
+        document.getElementById('adresse-email').value = a.email || '';
+        document.getElementById('adresse-telefon').value = a.telefon || '';
+        document.getElementById('adresse-strasse').value = a.strasse || '';
+        document.getElementById('adresse-plz').value = a.plz || '';
+        document.getElementById('adresse-stadt').value = a.stadt || '';
+        document.getElementById('adresse-land').value = a.land || 'Italien';
+        document.getElementById('adresse-notizen').value = a.notizen || '';
+
+        this.showModal('adresse-form-modal');
+    },
+
+    saveAdresse: function(event) {
+        event.preventDefault();
+        const id = document.getElementById('adresse-form-id').value;
+
+        const adresse = {
+            id: id ? parseInt(id) : null,
+            name: document.getElementById('adresse-name').value,
+            organisation: document.getElementById('adresse-organisation').value,
+            kategorie: document.getElementById('adresse-kategorie').value,
+            email: document.getElementById('adresse-email').value,
+            telefon: document.getElementById('adresse-telefon').value,
+            strasse: document.getElementById('adresse-strasse').value,
+            plz: document.getElementById('adresse-plz').value,
+            stadt: document.getElementById('adresse-stadt').value,
+            land: document.getElementById('adresse-land').value,
+            notizen: document.getElementById('adresse-notizen').value
+        };
+
+        DataManager.saveAdresse(adresse);
+        this.hideModal('adresse-form-modal');
+        this.loadAdressen();
+    },
+
+    deleteAdresse: function(id) {
+        if (confirm('Kontakt wirklich löschen?')) {
+            DataManager.deleteAdresse(id);
+            this.loadAdressen();
+        }
+    },
+
+    filterAdressen: function() {
+        const kategorieFilter = document.getElementById('adresse-filter-kategorie').value;
+        const suche = document.getElementById('adresse-suche').value.toLowerCase();
+
+        let adressen = DataManager.getAdressen();
+
+        if (kategorieFilter) {
+            adressen = adressen.filter(a => a.kategorie === kategorieFilter);
+        }
+        if (suche) {
+            adressen = adressen.filter(a =>
+                a.name.toLowerCase().includes(suche) ||
+                (a.email || '').toLowerCase().includes(suche) ||
+                (a.organisation || '').toLowerCase().includes(suche)
+            );
+        }
+
+        const tbody = document.getElementById('adressen-table-body');
+        tbody.innerHTML = '';
+
+        if (adressen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 2rem;">Keine Kontakte gefunden</td></tr>';
+            return;
+        }
+
+        const kategorieLabels = { kuenstler: 'Künstler', kurator: 'Kurator', presse: 'Presse', sponsor: 'Sponsor', lieferant: 'Lieferant', institution: 'Institution', sonstige: 'Sonstige' };
+
+        adressen.forEach(a => {
+            const ort = [a.stadt, a.land].filter(x => x).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${a.name}</strong></td>
+                <td>${a.organisation || '-'}</td>
+                <td><span class="badge">${kategorieLabels[a.kategorie] || a.kategorie}</span></td>
+                <td>${a.email ? `<a href="mailto:${a.email}">${a.email}</a>` : '-'}</td>
+                <td>${a.telefon || '-'}</td>
+                <td>${ort || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editAdresse(${a.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteAdresse(${a.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    exportAdressenCSV: function() {
+        const adressen = DataManager.getAdressen();
+        let csv = '\uFEFF';
+        csv += 'Name;Organisation;Kategorie;Email;Telefon;Strasse;PLZ;Stadt;Land;Notizen\n';
+
+        adressen.forEach(a => {
+            csv += `"${a.name}";"${a.organisation || ''}";"${a.kategorie}";"${a.email || ''}";"${a.telefon || ''}";"${a.strasse || ''}";"${a.plz || ''}";"${a.stadt || ''}";"${a.land || ''}";"${a.notizen || ''}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Adressen_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    },
+
+    // ==========================================
+    // REPORTING
+    // ==========================================
+
+    loadReporting: function() {
+        const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
+
+        // Projektübersicht laden
+        this.loadReportingProjekte(jahr);
+
+        // Deckungsbeitragsrechnung laden
+        this.loadDeckungsbeitrag(jahr);
+
+        // Kosten nach Kategorie laden
+        this.loadKostenKategorien(jahr);
+    },
+
+    loadReportingProjekte: function(jahr) {
+        const tbody = document.getElementById('reporting-projekte-table');
+        const tfoot = document.getElementById('reporting-projekte-footer');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        const summaries = DataManager.getAllProjectsSummary();
+        let totalBudget = 0, totalIst = 0, totalPersonal = 0;
+
+        summaries.forEach(s => {
+            const verfuegbar = s.budget - s.ist - s.provisorisch;
+            const auslastung = s.budget > 0 ? ((s.ist + s.provisorisch) / s.budget * 100) : 0;
+
+            totalBudget += s.budget;
+            totalIst += s.ist;
+
+            // Personalkosten aus Zeiterfassung berechnen
+            const personalkosten = DataManager.getProjectLaborCost(s.project.id) || 0;
+            totalPersonal += personalkosten;
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${s.project.name}</strong></td>
+                <td>${s.project.datevKostenstelle || s.project.id}</td>
+                <td style="text-align: right;">${this.formatCurrency(s.budget)}</td>
+                <td style="text-align: right;">${this.formatCurrency(s.ist)}</td>
+                <td style="text-align: right;">${this.formatCurrency(personalkosten)}</td>
+                <td style="text-align: right; ${verfuegbar < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(verfuegbar)}</td>
+                <td>
+                    <div style="background: #e0e0e0; border-radius: 4px; height: 20px; position: relative;">
+                        <div style="background: ${auslastung > 100 ? '#e74c3c' : auslastung > 80 ? '#f39c12' : '#27ae60'};
+                                    width: ${Math.min(auslastung, 100)}%; height: 100%; border-radius: 4px;"></div>
+                        <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px;">
+                            ${auslastung.toFixed(0)}%
+                        </span>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        // Footer mit Summen
+        if (tfoot) {
+            tfoot.innerHTML = `
+                <tr style="font-weight: bold; background: #f5f5f5;">
+                    <td colspan="2">SUMME</td>
+                    <td style="text-align: right;">${this.formatCurrency(totalBudget)}</td>
+                    <td style="text-align: right;">${this.formatCurrency(totalIst)}</td>
+                    <td style="text-align: right;">${this.formatCurrency(totalPersonal)}</td>
+                    <td style="text-align: right;">${this.formatCurrency(totalBudget - totalIst)}</td>
+                    <td></td>
+                </tr>
+            `;
+        }
+    },
+
+    loadDeckungsbeitrag: function(jahr) {
+        const tbody = document.getElementById('db-table-body');
+        if (!tbody) return;
+
+        const db = DataManager.calculateDeckungsbeitrag(jahr);
+        const einnahmenSummary = DataManager.getEinnahmenSummary(jahr);
+
+        // Struktur der Deckungsbeitragsrechnung
+        const rows = [
+            { type: 'header', label: '1. UMSÄTZE', konto: '' },
+            { type: 'detail', label: '   Erlöse Lieferungen/Leistungen', konto: '6001*', ist: 0, plan: einnahmenSummary.gesamt * 0.2 },
+            { type: 'detail', label: '   Zuschüsse und Beiträge', konto: '6401*', ist: einnahmenSummary.ist, plan: einnahmenSummary.gesamt * 0.7 },
+            { type: 'detail', label: '   Sonstige betriebliche Erträge', konto: '6400*', ist: 0, plan: einnahmenSummary.gesamt * 0.1 },
+            { type: 'sum', label: 'SUMME UMSÄTZE', ist: db.umsaetze, plan: einnahmenSummary.gesamt },
+
+            { type: 'spacer' },
+            { type: 'header', label: '2. DIREKTE KOSTEN', konto: '' },
+            { type: 'detail', label: '   (a) Materialkosten', konto: '680*', ist: db.direkteKosten * 0.3, plan: 0 },
+            { type: 'detail', label: '   (b) Dienstleistungen (Ausst./Projekte)', konto: '690125*', ist: db.direkteKosten * 0.7, plan: 0 },
+            { type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db.direkteKosten, plan: 0 },
+
+            { type: 'spacer' },
+            { type: 'result', label: '3. DECKUNGSBEITRAG 1 (DB1)', ist: db.db1, plan: einnahmenSummary.gesamt, highlight: true },
+
+            { type: 'spacer' },
+            { type: 'header', label: '4. STRUKTURKOSTEN', konto: '' },
+            { type: 'detail', label: '   (a) Verwaltung', konto: '6901/02*', ist: db.strukturkosten * 0.2, plan: 0 },
+            { type: 'detail', label: '   (b) Strukturen (inkl. Miete)', konto: '700*', ist: db.strukturkosten * 0.3, plan: 0 },
+            { type: 'detail', label: '   (c) Gebäudekosten', konto: '690241/42*', ist: db.strukturkosten * 0.1, plan: 0 },
+            { type: 'detail', label: '   (d) Personalkosten', konto: '710*', ist: db.strukturkosten * 0.4, plan: 0 },
+            { type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db.strukturkosten, plan: 0 },
+
+            { type: 'spacer' },
+            { type: 'result', label: '5. DECKUNGSBEITRAG 2 / EBITDA', ist: db.db2, plan: einnahmenSummary.gesamt, highlight: true },
+
+            { type: 'spacer' },
+            { type: 'detail', label: '6. Abschreibungen (kalk.)', konto: '720*', ist: db.abschreibungen, plan: 0 },
+            { type: 'detail', label: '7. Zinsen', konto: '850*', ist: db.zinsen, plan: 0 },
+
+            { type: 'spacer' },
+            { type: 'result', label: '8. ERGEBNIS', ist: db.ergebnis, plan: einnahmenSummary.gesamt, highlight: true, final: true }
+        ];
+
+        tbody.innerHTML = '';
+        rows.forEach(r => {
+            const tr = document.createElement('tr');
+
+            if (r.type === 'spacer') {
+                tr.innerHTML = '<td colspan="5" style="height: 10px;"></td>';
+            } else if (r.type === 'header') {
+                tr.innerHTML = `<td colspan="5" style="font-weight: bold; background: #f0f0f0; padding: 8px;">${r.label}</td>`;
+            } else {
+                const abw = (r.ist || 0) - (r.plan || 0);
+                const style = r.highlight ? 'font-weight: bold; background: #e8f4fd;' : '';
+                const finalStyle = r.final ? 'font-weight: bold; background: #d4edda; font-size: 1.1em;' : '';
+
+                tr.style.cssText = finalStyle || style;
+                tr.innerHTML = `
+                    <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">${r.label}</td>
+                    <td style="color: #666;">${r.konto || ''}</td>
+                    <td style="text-align: right;">${r.ist !== undefined ? this.formatCurrency(r.ist) : ''}</td>
+                    <td style="text-align: right;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
+                    <td style="text-align: right; color: ${abw < 0 ? '#e74c3c' : '#27ae60'};">
+                        ${r.plan ? this.formatCurrency(abw) : '-'}
+                    </td>
+                `;
+            }
+            tbody.appendChild(tr);
+        });
+    },
+
+    loadKostenKategorien: function(jahr) {
+        const tbody = document.getElementById('reporting-kategorien-table');
+        if (!tbody) return;
+
+        const buchungen = DataManager.getBuchungen(jahr);
+
+        // Nach Kategorie gruppieren
+        const kategorien = {};
+        let gesamt = 0;
+
+        buchungen.forEach(b => {
+            const konto = b.konto || 'unbekannt';
+            let kategorie = 'Sonstige';
+            let bereich = konto;
+
+            // Kategorisieren basierend auf Konto
+            for (const [key, kat] of Object.entries(DataManager.KONTEN_KATEGORIEN)) {
+                if (konto.startsWith(kat.prefix)) {
+                    kategorie = kat.name;
+                    bereich = kat.prefix + '*';
+                    break;
+                }
+            }
+
+            if (!kategorien[kategorie]) {
+                kategorien[kategorie] = { bereich, betrag: 0 };
+            }
+            kategorien[kategorie].betrag += parseFloat(b.betrag) || 0;
+            gesamt += parseFloat(b.betrag) || 0;
+        });
+
+        tbody.innerHTML = '';
+
+        // Sortieren nach Betrag
+        const sorted = Object.entries(kategorien).sort((a, b) => b[1].betrag - a[1].betrag);
+
+        sorted.forEach(([name, data]) => {
+            const anteil = gesamt > 0 ? (data.betrag / gesamt * 100) : 0;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${name}</td>
+                <td style="color: #666;">${data.bereich}</td>
+                <td style="text-align: right;">${this.formatCurrency(data.betrag)}</td>
+                <td style="text-align: right;">${anteil.toFixed(1)}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Summenzeile
+        const sumRow = document.createElement('tr');
+        sumRow.style.cssText = 'font-weight: bold; background: #f5f5f5;';
+        sumRow.innerHTML = `
+            <td colspan="2">GESAMT</td>
+            <td style="text-align: right;">${this.formatCurrency(gesamt)}</td>
+            <td style="text-align: right;">100%</td>
+        `;
+        tbody.appendChild(sumRow);
+    },
+
+    // ==========================================
+    // EINNAHMENPLANUNG
+    // ==========================================
+
+    loadEinnahmen: function() {
+        const jahr = document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear();
+        const einnahmen = DataManager.getEinnahmen(parseInt(jahr));
+
+        // Summary aktualisieren
+        const summary = DataManager.getEinnahmenSummary(parseInt(jahr));
+        document.getElementById('einnahmen-bestaetigt').textContent = this.formatCurrency(summary.bestaetigt);
+        document.getElementById('einnahmen-erwartet').textContent = this.formatCurrency(summary.erwartet);
+        document.getElementById('einnahmen-unsicher').textContent = this.formatCurrency(summary.unsicher);
+        document.getElementById('einnahmen-gesamt').textContent = this.formatCurrency(summary.gesamt);
+
+        this.allEinnahmen = einnahmen;
+        this.filterEinnahmen();
+    },
+
+    filterEinnahmen: function() {
+        const typ = document.getElementById('einnahmen-filter-typ')?.value || '';
+        const status = document.getElementById('einnahmen-filter-status')?.value || '';
+
+        let filtered = this.allEinnahmen || [];
+
+        if (typ) {
+            filtered = filtered.filter(e => e.typ === typ);
+        }
+        if (status) {
+            filtered = filtered.filter(e => e.status === status);
+        }
+
+        this.renderEinnahmenTable(filtered);
+    },
+
+    renderEinnahmenTable: function(einnahmen) {
+        const tbody = document.getElementById('einnahmen-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        let summePlan = 0, summeIst = 0;
+
+        const typLabels = {
+            'zuschuss_provinz': 'Zuschuss Provinz',
+            'zuschuss_gemeinde': 'Zuschuss Gemeinde',
+            'zuschuss_region': 'Zuschuss Region',
+            'zuschuss_stiftung': 'Zuschuss Stiftung',
+            'sponsoring': 'Sponsoring',
+            'spende': 'Spende',
+            'mitgliedsbeitrag': 'Mitgliedsbeitrag',
+            'erloese': 'Erlöse',
+            'sonstige': 'Sonstige'
+        };
+
+        const statusColors = {
+            'bestaetigt': '#27ae60',
+            'eingegangen': '#27ae60',
+            'erwartet': '#f39c12',
+            'unsicher': '#95a5a6',
+            'abgesagt': '#e74c3c'
+        };
+
+        const statusLabels = {
+            'bestaetigt': 'Bestätigt',
+            'eingegangen': 'Eingegangen',
+            'erwartet': 'Erwartet',
+            'unsicher': 'Unsicher',
+            'abgesagt': 'Abgesagt'
+        };
+
+        einnahmen.forEach(e => {
+            summePlan += parseFloat(e.betragPlan) || 0;
+            summeIst += parseFloat(e.betragIst) || 0;
+
+            const dok = DataManager.getEinnahmeDokument(e.id);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${e.quelle}</strong></td>
+                <td>${typLabels[e.typ] || e.typ}</td>
+                <td style="text-align: right;">${this.formatCurrency(e.betragPlan)}</td>
+                <td style="text-align: right;">${e.betragIst ? this.formatCurrency(e.betragIst) : '-'}</td>
+                <td>
+                    <span style="background: ${statusColors[e.status]}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                        ${statusLabels[e.status] || e.status}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    ${dok ? `<button class="btn btn-outline btn-sm" onclick="App.showDokumentPreview(${e.id})" title="${dok.name}">📄</button>` :
+                           `<span style="color: #ccc;">-</span>`}
+                </td>
+                <td>${e.faellig ? new Date(e.faellig).toLocaleDateString('de-DE') : '-'}</td>
+                <td>
+                    <button class="btn btn-outline btn-sm" onclick="App.editEinnahme(${e.id})">Bearbeiten</button>
+                    <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme(${e.id})" style="color: #e74c3c;">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Summen aktualisieren
+        document.getElementById('einnahmen-summe-plan').textContent = this.formatCurrency(summePlan);
+        document.getElementById('einnahmen-summe-ist').textContent = this.formatCurrency(summeIst);
+    },
+
+    showNewEinnahmeForm: function() {
+        document.getElementById('einnahme-modal-title').textContent = 'Neue Einnahme';
+        document.getElementById('einnahme-id').value = '';
+        document.getElementById('einnahme-quelle').value = '';
+        document.getElementById('einnahme-typ').value = '';
+        document.getElementById('einnahme-jahr').value = new Date().getFullYear();
+        document.getElementById('einnahme-betrag-plan').value = '';
+        document.getElementById('einnahme-betrag-ist').value = '';
+        document.getElementById('einnahme-status').value = 'unsicher';
+        document.getElementById('einnahme-faellig').value = '';
+        document.getElementById('einnahme-konto').value = '';
+        document.getElementById('einnahme-dokument').value = '';
+        document.getElementById('einnahme-dokument-vorschau').innerHTML = '';
+        document.getElementById('einnahme-notizen').value = '';
+
+        this.showModal('einnahme-form-modal');
+    },
+
+    editEinnahme: function(id) {
+        const einnahmen = DataManager.getEinnahmen();
+        const e = einnahmen.find(x => x.id === id);
+        if (!e) return;
+
+        document.getElementById('einnahme-modal-title').textContent = 'Einnahme bearbeiten';
+        document.getElementById('einnahme-id').value = e.id;
+        document.getElementById('einnahme-quelle').value = e.quelle || '';
+        document.getElementById('einnahme-typ').value = e.typ || '';
+        document.getElementById('einnahme-jahr').value = e.jahr || new Date().getFullYear();
+        document.getElementById('einnahme-betrag-plan').value = e.betragPlan || '';
+        document.getElementById('einnahme-betrag-ist').value = e.betragIst || '';
+        document.getElementById('einnahme-status').value = e.status || 'unsicher';
+        document.getElementById('einnahme-faellig').value = e.faellig || '';
+        document.getElementById('einnahme-konto').value = e.konto || '';
+        document.getElementById('einnahme-dokument').value = '';
+        document.getElementById('einnahme-notizen').value = e.notizen || '';
+
+        // Dokumentvorschau
+        const dok = DataManager.getEinnahmeDokument(id);
+        const vorschau = document.getElementById('einnahme-dokument-vorschau');
+        if (dok) {
+            vorschau.innerHTML = `<div style="padding: 0.5rem; background: #e8f4fd; border-radius: 4px;">
+                📄 <strong>${dok.name}</strong> (${(dok.size / 1024).toFixed(1)} KB)
+                <button type="button" class="btn btn-outline btn-sm" onclick="App.showDokumentPreview(${id})" style="margin-left: 0.5rem;">Anzeigen</button>
+            </div>`;
+        } else {
+            vorschau.innerHTML = '';
+        }
+
+        this.showModal('einnahme-form-modal');
+    },
+
+    async saveEinnahme(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('einnahme-id').value;
+        const einnahme = {
+            id: id ? parseInt(id) : null,
+            quelle: document.getElementById('einnahme-quelle').value,
+            typ: document.getElementById('einnahme-typ').value,
+            jahr: parseInt(document.getElementById('einnahme-jahr').value),
+            betragPlan: parseFloat(document.getElementById('einnahme-betrag-plan').value) || 0,
+            betragIst: parseFloat(document.getElementById('einnahme-betrag-ist').value) || 0,
+            status: document.getElementById('einnahme-status').value,
+            faellig: document.getElementById('einnahme-faellig').value,
+            konto: document.getElementById('einnahme-konto').value,
+            notizen: document.getElementById('einnahme-notizen').value
+        };
+
+        const saved = DataManager.saveEinnahme(einnahme);
+
+        // Dokument speichern falls hochgeladen
+        const fileInput = document.getElementById('einnahme-dokument');
+        if (fileInput.files.length > 0) {
+            await DataManager.saveEinnahmeDokument(saved.id, fileInput.files[0]);
+        }
+
+        this.hideModal('einnahme-form-modal');
+        this.loadEinnahmen();
+    },
+
+    deleteEinnahme: function(id) {
+        if (confirm('Einnahme wirklich löschen?')) {
+            DataManager.deleteEinnahme(id);
+            this.loadEinnahmen();
+        }
+    },
+
+    toggleDokumentRequired: function() {
+        const status = document.getElementById('einnahme-status').value;
+        const label = document.getElementById('dokument-label');
+        if (status === 'bestaetigt') {
+            label.innerHTML = 'Bestätigungsdokument (E-Mail, Zusage, Vertrag) <span style="color: #e74c3c;">*empfohlen</span>';
+        } else {
+            label.innerHTML = 'Bestätigungsdokument (E-Mail, Zusage, Vertrag)';
+        }
+    },
+
+    showDokumentPreview: function(einnahmeId) {
+        const dok = DataManager.getEinnahmeDokument(einnahmeId);
+        if (!dok) {
+            alert('Kein Dokument vorhanden');
+            return;
+        }
+
+        document.getElementById('dokument-preview-title').textContent = dok.name;
+        const frame = document.getElementById('dokument-preview-frame');
+
+        // Je nach Dateityp anzeigen
+        if (dok.type.includes('pdf') || dok.type.includes('image')) {
+            frame.src = dok.data;
+        } else {
+            // Für andere Dateitypen Download-Link anzeigen
+            frame.srcdoc = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: sans-serif;">
+                    <div style="text-align: center;">
+                        <p style="font-size: 48px;">📄</p>
+                        <p><strong>${dok.name}</strong></p>
+                        <p>${(dok.size / 1024).toFixed(1)} KB</p>
+                        <a href="${dok.data}" download="${dok.name}" style="color: #3498db;">Herunterladen</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        this.showModal('dokument-preview-modal');
+    },
+
+    exportEinnahmenCSV: function() {
+        const jahr = document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear();
+        const einnahmen = DataManager.getEinnahmen(parseInt(jahr));
+
+        let csv = '\uFEFF';
+        csv += 'Quelle;Typ;Jahr;Betrag Plan;Betrag IST;Status;Fällig;Konto;Notizen\n';
+
+        einnahmen.forEach(e => {
+            csv += `"${e.quelle}";"${e.typ}";"${e.jahr}";"${e.betragPlan}";"${e.betragIst || ''}";"${e.status}";"${e.faellig || ''}";"${e.konto || ''}";"${e.notizen || ''}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Einnahmen_${jahr}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    }
+};
+
+// App starten wenn Seite geladen
+document.addEventListener('DOMContentLoaded', function() {
+    App.init();
+});

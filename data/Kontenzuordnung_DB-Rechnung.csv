@@ -1,0 +1,80 @@
+KONTENZUORDNUNG FÜR DECKUNGSBEITRAGSRECHNUNG - KUNST MERAN
+Stand: Juli 2026
+;;;;
+ERKLÄRUNG;;;;
+"Diese Datei zeigt, welche DATEV-Konten in welche Position der Deckungsbeitragsrechnung fließen.";;;;
+"DB1 = Deckungsbeitrag 1 (Umsätze minus Direkte Kosten) - zeigt die Profitabilität der Kernaktivitäten";;;;
+"DB2 = Deckungsbeitrag 2 / EBITDA (DB1 minus Strukturkosten) - zeigt das operative Ergebnis vor Abschreibungen";;;;
+;;;;
+====== 1. UMSÄTZE (Einnahmen) ======;;;;
+Position;Konto-Bereich;Beispiel-Konten;Beschreibung;DB-Zuordnung
+1.1 Erlöse Lieferungen/Leistungen;6001*;600101010, 600151051, 600151053;Shop-Erlöse, Ausstellungserlöse, Werbeerlöse;UMSATZ
+1.2 Zuschüsse und Beiträge;6401*;6401550, 6401552, 6401554, 6401557;Mitgliedsbeiträge, Gemeinde, Provinz, Stiftung;UMSATZ
+1.3 Sonstige betriebliche Erträge;6400*;6400335, 6401233, 6401751;Spesenrückerstattung, außerord. Erträge, Investitionsbeiträge;UMSATZ
+;;;;
+====== 2. DIREKTE KOSTEN (für DB1) ======;;;;
+Position;Konto-Bereich;Beispiel-Konten;Beschreibung;DB-Zuordnung
+(a) Materialkosten;680*;6800750, 6802510, 680201010;Zukauf Ausstellung, Zukauf Shop, Verbrauchsmaterial;DIREKTE KOSTEN
+(b) Dienstleistungen Ausstellung/Projekte;690125*;6901251, 6901252, 6901253, 6901257;DL Ausstellung, Kataloge, Projekte, Venedig;DIREKTE KOSTEN
+(c) Künstler-Kosten;69033*;6903312, 6903316, 6903351;Reisekosten Künstler, Unterkunft Künstler, Repräsentation;DIREKTE KOSTEN
+;;;;
+>>> DECKUNGSBEITRAG 1 (DB1) = UMSÄTZE - DIREKTE KOSTEN <<<;;;;
+"Der DB1 zeigt, wie profitabel die Kernaktivitäten (Ausstellungen, Projekte) sind.";;;;
+"Sind die direkten Kosten höher als die Umsätze, macht das Kunsthaus mit seiner Kerntätigkeit Verlust.";;;;
+;;;;
+====== 4. STRUKTURKOSTEN (für DB2) ======;;;;
+Position;Konto-Bereich;Beispiel-Konten;Beschreibung;DB-Zuordnung
+(a) Verwaltung;6901*;6901201, 6901230, 690181520, 690182025;Sonstige DL, betriebl. Aufwendungen, Honorare, Steuerberatung;STRUKTURKOSTEN
+(b) Werbung/Marketing;6902*;6902110, 6902150, 6902152;Werbung, Zeitungsanzeigen, Online Marketing;STRUKTURKOSTEN
+(c) Miete/Strukturen;700*;7001010, 7001052, 7001053, 7001055;Miete Café, Ausstellungsbereich, Büro, Venedig;STRUKTURKOSTEN
+(d) Gebäudekosten;69024*;690241003, 690241006, 690241524, 690242010;Strom, Telefon, Versicherungen, Reinigung;STRUKTURKOSTEN
+(e) Personalkosten;710*;7101010, 7101510, 7102010;Gehälter, Sozialabgaben, Abfertigungsfond;STRUKTURKOSTEN
+;;;;
+>>> DECKUNGSBEITRAG 2 / EBITDA = DB1 - STRUKTURKOSTEN <<<;;;;
+"Der DB2 zeigt das operative Ergebnis vor Abschreibungen und Zinsen.";;;;
+"Dies ist die wichtigste Kennzahl für die finanzielle Gesundheit des Kunsthauses.";;;;
+;;;;
+====== WEITERE POSITIONEN ======;;;;
+Position;Konto-Bereich;Beispiel-Konten;Beschreibung;DB-Zuordnung
+Abschreibungen;720*;720151015, 720151025;AfA techn. Anlagen, sonstige Sachanlagen;ABSCHREIBUNGEN
+Zinsen;850*;85015053, 85015090;Passivzinsen Bankkontokorrent, Kommissionen;ZINSEN
+;;;;
+>>> ERGEBNIS = EBITDA - Abschreibungen - Zinsen <<<;;;;
+;;;;
+====== BEISPIEL-BERECHNUNG 2026 (basierend auf Monatsbilanz) ======;;;;
+Position;Betrag YTD;Betrag Jahr (hochgerechnet);;
+;;;;
+1. UMSÄTZE;;;;
+   Erlöse Lieferungen/Leistungen;256.273;768.816;;
+   Zuschüsse und Beiträge;851.072;2.553.215;;
+   Sonstige betriebliche Erträge;87.404;262.211;;
+SUMME UMSÄTZE;1.194.749;3.584.242;;
+;;;;
+2. DIREKTE KOSTEN;;;;
+   Materialkosten;54.536;163.606;;
+   Dienstleistungen (Ausst./Projekte);432.587;1.297.765;;
+SUMME DIREKTE KOSTEN;487.123;1.461.371;;
+;;;;
+3. DECKUNGSBEITRAG 1 (DB1);707.626;2.122.871;;
+   DB1-Marge (DB1/Umsätze);59,2%;59,2%;;
+;;;;
+4. STRUKTURKOSTEN;;;;
+   Verwaltung;143.901;431.705;;
+   Strukturen (inkl. Miete);200.269;600.805;;
+   Gebäudekosten;36.665;109.999;;
+   Personalkosten;304.742;914.223;;
+SUMME STRUKTURKOSTEN;685.577;2.056.732;;
+;;;;
+5. DECKUNGSBEITRAG 2 / EBITDA;22.049;66.139;;
+   EBITDA-Marge (EBITDA/Umsätze);1,8%;1,8%;;
+;;;;
+6. Abschreibungen;14.554;43.663;;
+7. Zinsen;9.559;28.685;;
+;;;;
+8. ERGEBNIS;-2.064;-6.209;;
+;;;;
+====== INTERPRETATION ======;;;;
+"Das Kunsthaus erwirtschaftet einen DB1 von ca. 59% - das bedeutet, die direkten Projektkosten sind gut gedeckt.";;;;
+"Der EBITDA von ca. 1,8% zeigt, dass nach Abzug aller Strukturkosten nur wenig übrig bleibt.";;;;
+"Das negative Ergebnis von -6.209 EUR zeigt, dass Abschreibungen und Zinsen nicht vollständig gedeckt sind.";;;;
+"Dies ist für gemeinnützige Kultureinrichtungen normal, solange die Zuschüsse gesichert sind.";;;;
