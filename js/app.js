@@ -362,6 +362,7 @@ const App = {
 
         // Projekt-Info
         document.getElementById('fp-location').textContent = project.location;
+        document.getElementById('fp-datev-id').textContent = project.datevId || '-';
         document.getElementById('fp-period').textContent = `${this.formatDate(project.startDate)} - ${this.formatDate(project.endDate)}`;
         document.getElementById('fp-status').innerHTML = this.getStatusBadge(project.status);
         document.getElementById('fp-description').textContent = project.description || '-';
@@ -680,6 +681,7 @@ const App = {
         document.getElementById('project-form-id').value = project.id;
         document.getElementById('project-name').value = project.name;
         document.getElementById('project-location').value = project.location;
+        document.getElementById('project-datev-id').value = project.datevId || '';
         document.getElementById('project-description').value = project.description || '';
         document.getElementById('project-start').value = project.startDate;
         document.getElementById('project-end').value = project.endDate;
@@ -697,6 +699,7 @@ const App = {
         const projectData = {
             name: document.getElementById('project-name').value,
             location: document.getElementById('project-location').value,
+            datevId: document.getElementById('project-datev-id').value,
             description: document.getElementById('project-description').value,
             startDate: document.getElementById('project-start').value,
             endDate: document.getElementById('project-end').value,
