@@ -182,7 +182,7 @@ const App = {
     /**
      * View anzeigen
      */
-    showView: function(viewName) {
+    showView: async function(viewName) {
         // Navigation aktualisieren
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
@@ -207,10 +207,10 @@ const App = {
         // View-spezifische Initialisierung
         switch(viewName) {
             case 'dashboard':
-                this.loadDashboard();
+                await this.loadDashboard();
                 break;
             case 'projekte':
-                this.loadProjects();
+                await this.loadProjects();
                 break;
             case 'rechnungen':
                 this.loadRechnungen();
@@ -314,8 +314,8 @@ const App = {
     // PROJEKTE
     // ==========================================
 
-    loadProjects: function() {
-        const projects = DataManager.getProjects();
+    loadProjects: async function() {
+        const projects = await DataManager.getProjects();
         const container = document.getElementById('projects-table-body');
         container.innerHTML = '';
 
