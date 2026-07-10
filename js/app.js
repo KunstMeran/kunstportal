@@ -264,7 +264,7 @@ const App = {
                 await this.loadRechnungen();
                 break;
             case 'lieferanten':
-                this.loadLieferanten();
+                await this.loadLieferanten();
                 break;
             case 'kosten':
                 this.loadCosts();
@@ -2574,9 +2574,9 @@ const App = {
     // LIEFERANTEN (DATEV)
     // ==========================================
 
-    loadLieferanten: function() {
-        const lieferanten = DataManager.getDatevLieferanten();
-        const rechnungen = DataManager.getRechnungenMitStatus();
+    loadLieferanten: async function() {
+        const lieferanten = await DataManager.getDatevLieferanten();
+        const rechnungen = await DataManager.getRechnungenMitStatus();
 
         // Statistiken
         let gesamtvolumen = 0;
