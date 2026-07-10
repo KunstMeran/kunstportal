@@ -1769,15 +1769,23 @@ const App = {
             // Geteilt-Badge
             const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
 
-            // Für Supabase-only: Verknüpfungs-Dropdown generieren
+            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Input generieren
             let projektCell = '';
-            if (r.isSupabaseOnly) {
+            if (r.isSupabaseOnly || (!r.projektId && r.invoiceId)) {
+                // Suchbares Input-Feld mit Datalist statt Dropdown
+                const datalistId = `datev-options-${r.invoiceId}`;
                 projektCell = `
-                    <select class="form-control" style="font-size: 0.75rem; padding: 0.25rem;"
-                            onchange="App.linkInvoiceToDatev('${r.invoiceId}', this.value)">
-                        <option value="">-- DATEV-Bewegung wählen --</option>
-                        ${this.getUnlinkedDatevOptions()}
-                    </select>`;
+                    <div style="position: relative;">
+                        <input type="text"
+                               class="form-control"
+                               style="font-size: 0.75rem; padding: 0.25rem;"
+                               placeholder="DATEV-Bewegung suchen..."
+                               list="${datalistId}"
+                               onchange="App.linkInvoiceToDatevFromInput('${r.invoiceId}', this.value)">
+                        <datalist id="${datalistId}">
+                            ${this.getUnlinkedDatevOptions()}
+                        </datalist>
+                    </div>`;
             } else {
                 projektCell = projekt ? projekt.name : r.projektId;
             }
@@ -1830,10 +1838,42 @@ const App = {
 
         return unlinked.map(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
-            const label = `${r.fornitoreName} - ${r.dokumentNr} (${projekt?.name || r.projektId}) - ${this.formatCurrency(r.betrag)}`;
+            const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projekt?.name || r.projektId} - ${this.formatCurrency(r.betrag)}`;
             const key = `${r.partitaIva}_${r.dokumentNr}`;
-            return `<option value="${key}">${label}</option>`;
+            // data-value für einfaches Extrahieren
+            return `<option value="${label}" data-key="${key}"></option>`;
         }).join('');
+    },
+
+    /**
+     * Verknüpft Invoice aus Input-Feld (mit Datalist)
+     */
+    linkInvoiceToDatevFromInput: async function(invoiceId, selectedLabel) {
+        if (!selectedLabel) return;
+
+        try {
+            // Finde die passende DATEV-Bewegung anhand des Labels
+            const allRechnungen = this.filteredRechnungen || [];
+            const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
+
+            const matchedRechnung = unlinked.find(r => {
+                const projekt = DataManager.getKunstMeranProjekt(r.projektId);
+                const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projekt?.name || r.projektId} - ${this.formatCurrency(r.betrag)}`;
+                return label === selectedLabel;
+            });
+
+            if (!matchedRechnung) {
+                this.showToast('error', 'Fehler', 'DATEV-Bewegung nicht gefunden');
+                return;
+            }
+
+            const datevKey = `${matchedRechnung.partitaIva}_${matchedRechnung.dokumentNr}`;
+            await this.linkInvoiceToDatev(invoiceId, datevKey);
+
+        } catch (error) {
+            console.error('Fehler beim Verknüpfen:', error);
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen');
+        }
     },
 
     /**
