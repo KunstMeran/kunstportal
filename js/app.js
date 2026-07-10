@@ -27,6 +27,9 @@ const App = {
         // Tab Setup
         this.setupTabs();
 
+        // File Upload Setup
+        this.setupFileUpload();
+
         // DATEV-Daten laden
         await this.loadDatevData();
 
@@ -1013,7 +1016,7 @@ const App = {
         }
     },
 
-    saveCost: function(event) {
+    saveCost: async function(event) {
         event.preventDefault();
 
         const id = document.getElementById('cost-form-id').value;
@@ -1056,10 +1059,36 @@ const App = {
             supplierId: supplierId ? parseInt(supplierId) : null
         };
 
+        // Speichern und ID erhalten
+        let savedCost;
         if (id) {
-            DataManager.updateCost(parseInt(id), costData);
+            savedCost = await DataManager.updateCost(parseInt(id), costData);
         } else {
-            DataManager.addCost(costData);
+            savedCost = await DataManager.addCost(costData);
+        }
+
+        // Datei-Upload wenn vorhanden
+        if (this.currentInvoiceFile && savedCost) {
+            try {
+                console.log('📤 Uploading invoice file...');
+                const uploadResult = await StorageService.uploadFile(
+                    this.currentInvoiceFile,
+                    costData.projectId,
+                    savedCost.id
+                );
+
+                // Datei-Pfad zur Kosten-Datenbank hinzufügen
+                await DataManager.updateCost(savedCost.id, {
+                    ...costData,
+                    filePath: uploadResult.path
+                });
+
+                console.log('✅ Invoice uploaded:', uploadResult.path);
+                this.currentInvoiceFile = null;
+            } catch (error) {
+                console.error('❌ Upload-Fehler:', error);
+                alert('Kosten gespeichert, aber Datei-Upload fehlgeschlagen: ' + error.message);
+            }
         }
 
         this.hideModal('cost-form-modal');
@@ -3322,6 +3351,83 @@ const App = {
         link.href = URL.createObjectURL(blob);
         link.download = `Einnahmen_${jahr}_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
+    },
+
+    // ==========================================
+    // DATEI-UPLOAD (Drag & Drop)
+    // ==========================================
+
+    currentInvoiceFile: null,
+
+    setupFileUpload: function() {
+        const uploadZone = document.getElementById('invoice-upload-zone');
+        const fileInput = document.getElementById('invoice-file-input');
+        const uploadContent = uploadZone.querySelector('.upload-content');
+
+        // Click zum Datei-Auswahl
+        uploadContent.addEventListener('click', () => fileInput.click());
+
+        // Datei ausgewählt
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleFile(e.target.files[0]);
+            }
+        });
+
+        // Drag & Drop Events
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+
+            if (e.dataTransfer.files.length > 0) {
+                this.handleFile(e.dataTransfer.files[0]);
+            }
+        });
+    },
+
+    handleFile: function(file) {
+        // Validierung
+        if (!file.type.includes('pdf')) {
+            alert('Bitte nur PDF-Dateien hochladen.');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10 MB
+            alert('Datei zu groß. Maximale Größe: 10 MB');
+            return;
+        }
+
+        // Datei speichern
+        this.currentInvoiceFile = file;
+
+        // Preview anzeigen
+        const uploadContent = document.querySelector('#invoice-upload-zone .upload-content');
+        const filePreview = document.getElementById('invoice-file-preview');
+
+        uploadContent.style.display = 'none';
+        filePreview.style.display = 'flex';
+        filePreview.querySelector('.file-name').textContent = file.name;
+    },
+
+    removeInvoiceFile: function() {
+        this.currentInvoiceFile = null;
+
+        const uploadContent = document.querySelector('#invoice-upload-zone .upload-content');
+        const filePreview = document.getElementById('invoice-file-preview');
+
+        uploadContent.style.display = 'flex';
+        filePreview.style.display = 'none';
+
+        document.getElementById('invoice-file-input').value = '';
     }
 };
 

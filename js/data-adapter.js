@@ -210,7 +210,8 @@ const SupabaseDataAdapter = {
                 cost_type: costData.type === 'effektiv' ? 'IST' : 'Provisorisch',
                 date: costData.date || new Date().toISOString().split('T')[0],
                 supplier: costData.supplier || null,
-                invoice_number: costData.invoiceNumber || null
+                invoice_number: costData.invoiceNumber || null,
+                file_path: costData.filePath || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -237,8 +238,14 @@ const SupabaseDataAdapter = {
                 cost_type: updates.type === 'effektiv' ? 'IST' : 'Provisorisch',
                 date: updates.date,
                 supplier: updates.supplier,
-                invoice_number: updates.invoiceNumber
+                invoice_number: updates.invoiceNumber,
+                file_path: updates.filePath !== undefined ? updates.filePath : undefined
             };
+
+            // undefined Werte entfernen (damit sie nicht als null gespeichert werden)
+            Object.keys(supabaseUpdates).forEach(key =>
+                supabaseUpdates[key] === undefined && delete supabaseUpdates[key]
+            );
 
             const { data, error } = await SupabaseService.client
                 .from('costs')
@@ -303,6 +310,7 @@ const SupabaseDataAdapter = {
             date: supabaseCost.date,
             supplier: supabaseCost.supplier,
             invoiceNumber: supabaseCost.invoice_number,
+            filePath: supabaseCost.file_path,
             createdAt: supabaseCost.created_at
         };
     },

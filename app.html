@@ -1635,6 +1635,25 @@
                         <label class="form-label">Rechnungsnummer</label>
                         <input type="text" id="cost-invoice" class="form-control" placeholder="z.B. RG-2026-0123">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Rechnung (PDF)</label>
+                        <div id="invoice-upload-zone" class="upload-zone">
+                            <input type="file" id="invoice-file-input" accept=".pdf,application/pdf" style="display: none;">
+                            <div class="upload-content">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p>PDF hier ablegen oder <span class="upload-link">klicken zum Auswählen</span></p>
+                                <small>Maximale Größe: 10 MB</small>
+                            </div>
+                            <div id="invoice-file-preview" class="file-preview" style="display: none;">
+                                <span class="file-name"></span>
+                                <button type="button" class="file-remove" onclick="App.removeInvoiceFile()">✕</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="App.hideModal('cost-form-modal')">Abbrechen</button>
@@ -2374,6 +2393,7 @@
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="js/supabase-client.js"></script>
+    <script src="js/storage-service.js"></script>
     <script src="js/data.js"></script>
     <script src="js/data-adapter.js"></script>
     <script src="js/auth.js"></script>
