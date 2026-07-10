@@ -15,10 +15,11 @@ const App = {
      */
     init: async function() {
         // Auth prüfen
-        if (!Auth.checkAuth()) return;
+        const isAuthenticated = await Auth.checkAuth();
+        if (!isAuthenticated) return;
 
         // Benutzerinfo laden
-        this.loadUserInfo();
+        await this.loadUserInfo();
 
         // Navigation Setup
         this.setupNavigation();
@@ -126,12 +127,15 @@ const App = {
     /**
      * Benutzerinfo in Sidebar anzeigen
      */
-    loadUserInfo: function() {
-        const user = Auth.getCurrentUser();
+    loadUserInfo: async function() {
+        const user = await Auth.getCurrentUser();
         if (user) {
-            document.getElementById('user-name').textContent = user.name;
-            document.getElementById('user-role').textContent = user.role === 'admin' ? 'Administrator' : 'Mitarbeiter';
-            document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+            const userName = user.name || user.username || user.email?.split('@')[0] || 'User';
+            const userRole = user.role || 'Admin';
+
+            document.getElementById('user-name').textContent = userName;
+            document.getElementById('user-role').textContent = userRole === 'admin' || userRole === 'Admin' ? 'Administrator' : 'Mitarbeiter';
+            document.getElementById('user-avatar').textContent = userName.charAt(0).toUpperCase();
 
             // Admin-only Elemente anzeigen/verstecken
             const adminElements = document.querySelectorAll('.admin-only');
