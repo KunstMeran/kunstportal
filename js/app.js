@@ -1890,7 +1890,12 @@ const App = {
      * Verknüpft eine Supabase-Invoice mit einer DATEV-Bewegung
      */
     linkInvoiceToDatev: async function(invoiceId, datevKey) {
-        if (!datevKey) return;
+        console.log('linkInvoiceToDatev aufgerufen:', { invoiceId, datevKey });
+
+        if (!datevKey) {
+            console.log('Kein datevKey übergeben - abbruch');
+            return;
+        }
 
         try {
             // Split nur am ersten Unterstrich (dokumentNr kann selbst _ enthalten)
@@ -1905,7 +1910,7 @@ const App = {
             console.log('Verknüpfe:', { invoiceId, partitaIva, dokumentNr });
 
             // Update in Supabase: setze partita_iva und invoice_number
-            const { error } = await SupabaseService.client
+            const { data, error } = await SupabaseService.client
                 .from('invoices')
                 .update({
                     partita_iva: partitaIva,
@@ -1913,8 +1918,12 @@ const App = {
                 })
                 .eq('id', invoiceId);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase Verknüpfungs-Error:', error);
+                throw error;
+            }
 
+            console.log('Verknüpfung erfolgreich:', data);
             this.showToast('success', 'Verknüpft', 'Rechnung wurde mit DATEV-Bewegung verknüpft');
 
             // Tabelle neu laden
@@ -1922,7 +1931,9 @@ const App = {
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
-            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen');
+            console.error('Error Message:', error.message);
+            console.error('Error Details:', JSON.stringify(error, null, 2));
+            this.showToast('error', 'Fehler', `Verknüpfung fehlgeschlagen: ${error.message}`);
         }
     },
 
@@ -2377,23 +2388,32 @@ const App = {
 
     updateRechnungNotizInline: async function(id, notizText, isSupabaseInvoice) {
         try {
+            console.log('Speichere Notiz:', { id, notizText, isSupabaseInvoice });
+
             if (isSupabaseInvoice) {
                 // Supabase Invoice: Update notes Feld
-                const { error } = await SupabaseService.client
+                const { data, error } = await SupabaseService.client
                     .from('invoices')
                     .update({ notes: notizText })
                     .eq('id', id);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase Error Details:', error);
+                    throw error;
+                }
+                console.log('Supabase Update Success:', data);
             } else {
                 // DATEV-Buchung: Update über DataManager
                 DataManager.setRechnungStatus(id, { notizen: notizText });
+                console.log('DATEV Update Success');
             }
 
             this.showToast('success', 'Gespeichert', 'Notiz wurde aktualisiert');
         } catch (error) {
             console.error('Fehler beim Speichern der Notiz:', error);
-            this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
+            console.error('Error Message:', error.message);
+            console.error('Error Details:', JSON.stringify(error, null, 2));
+            this.showToast('error', 'Fehler', `Notiz konnte nicht gespeichert werden: ${error.message}`);
         }
     },
 
