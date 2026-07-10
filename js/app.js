@@ -1773,17 +1773,21 @@ const App = {
             // Geteilt-Badge
             const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
 
-            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Dropdown generieren
+            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Input generieren
             let projektCell = '';
             if (r.isSupabaseOnly || (!r.projektId && r.invoiceId)) {
-                // Select mit Suchfunktion
+                // Input mit Datalist für Suchfunktion
+                const datalistId = `datev-options-${r.invoiceId}`;
                 projektCell = `
-                    <select class="form-control datev-movement-select"
-                            style="font-size: 0.75rem; padding: 0.25rem; max-width: 200px;"
-                            onchange="App.linkInvoiceToDatev('${r.invoiceId}', this.value)">
-                        <option value="">-- Bewegung wählen --</option>
-                        ${this.getUnlinkedDatevOptionsAsSelect()}
-                    </select>`;
+                    <input type="text"
+                           list="${datalistId}"
+                           class="form-control"
+                           style="font-size: 0.75rem; padding: 0.25rem; max-width: 250px;"
+                           placeholder="DATEV-Bewegung suchen..."
+                           onchange="App.linkInvoiceToDatevFromInput('${r.invoiceId}', this.value)">
+                    <datalist id="${datalistId}">
+                        ${this.getUnlinkedDatevOptionsAsDatalist()}
+                    </datalist>`;
             } else if (r.invoiceId && r.projektId) {
                 // Verknüpfte Rechnung: Zeige Projekt + Trennen-Button
                 projektCell = `
@@ -1822,7 +1826,10 @@ const App = {
                 <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
                 <td>${r.pdfExists ?
                     `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>` :
-                    `<a class="pdf-link" style="color: #999; cursor: pointer;" onclick="App.openPdfFolder()" title="PDF nicht gefunden - Ordner öffnen">Suchen</a>`}</td>
+                    `<select class="form-control" style="font-size: 0.75rem; padding: 0.25rem; max-width: 150px;" onchange="App.linkPdfToDatev('${r.partitaIva}', '${r.dokumentNr}', this.value)">
+                        <option value="">-- PDF wählen --</option>
+                        ${this.getUnlinkedPdfOptionsAsSelect()}
+                    </select>`}</td>
                 <td>
                     <input type="text"
                            class="form-control"
@@ -1848,9 +1855,9 @@ const App = {
     },
 
     /**
-     * Generiert Optionen für DATEV-Bewegungen ohne PDF (als Select Options)
+     * Generiert Optionen für DATEV-Bewegungen ohne PDF (für Datalist)
      */
-    getUnlinkedDatevOptionsAsSelect: function() {
+    getUnlinkedDatevOptionsAsDatalist: function() {
         // Alle DATEV-Buchungen ohne pdfExists
         const allRechnungen = this.filteredRechnungen || [];
         const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
@@ -1858,9 +1865,47 @@ const App = {
         return unlinked.map(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projekt?.name || r.projektId} - ${this.formatCurrency(r.betrag)}`;
-            const key = `${r.partitaIva}_${r.dokumentNr}`;
-            return `<option value="${key}">${label}</option>`;
+            return `<option value="${label}"></option>`;
         }).join('');
+    },
+
+    /**
+     * Generiert Optionen für unverknüpfte PDFs (Supabase-only Invoices)
+     */
+    getUnlinkedPdfOptionsAsSelect: function() {
+        const allRechnungen = this.filteredRechnungen || [];
+        const unlinkedPdfs = allRechnungen.filter(r => r.isSupabaseOnly || (r.invoiceId && !r.partitaIva));
+
+        return unlinkedPdfs.map(r => {
+            const fileName = r.fileName || 'Unbekannt';
+            return `<option value="${r.invoiceId}">${fileName}</option>`;
+        }).join('');
+    },
+
+    /**
+     * Verknüpft ein PDF mit einer DATEV-Buchung
+     */
+    linkPdfToDatev: async function(partitaIva, dokumentNr, invoiceId) {
+        if (!invoiceId) return;
+
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    partita_iva: partitaIva,
+                    invoice_number: dokumentNr
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
+            await this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Verknüpfen:', error);
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen');
+        }
     },
 
     /**
