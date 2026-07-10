@@ -893,3 +893,65 @@ textarea.form-control {
         opacity: 0;
     }
 }
+
+/* --- FIXED SIDEBAR --- */
+.sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+/* --- SCROLLABLE TABLE --- */
+.table-container {
+    overflow-x: auto;
+    position: relative;
+}
+
+.table-container table {
+    min-width: 100%;
+    width: max-content;
+}
+
+/* --- PAGINATION --- */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding: 1rem 0;
+}
+
+.pagination-btn {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 0 1rem;
+}

@@ -647,6 +647,15 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination -->
+                    <div id="rechnungen-pagination" class="pagination" style="display: none;">
+                        <button class="pagination-btn" onclick="App.goToRechnungenPage(1)" id="page-first">««</button>
+                        <button class="pagination-btn" onclick="App.goToRechnungenPage('prev')" id="page-prev">‹</button>
+                        <span class="pagination-info" id="page-info">Seite 1 von 1</span>
+                        <button class="pagination-btn" onclick="App.goToRechnungenPage('next')" id="page-next">›</button>
+                        <button class="pagination-btn" onclick="App.goToRechnungenPage('last')" id="page-last">»»</button>
+                    </div>
                 </div>
             </div>
 

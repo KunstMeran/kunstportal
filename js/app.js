@@ -10,6 +10,11 @@ const App = {
     currentRechnungId: null,
     currentPdfPath: null,
 
+    // Pagination
+    currentRechnungenPage: 1,
+    rechnungenPerPage: 20,
+    filteredRechnungen: [],
+
     /**
      * App initialisieren
      */
