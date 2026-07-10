@@ -459,7 +459,7 @@ const DataManager = {
 
     isAdmin: function() {
         const session = this.getSession();
-        return session && session.role === 'admin';
+        return session && session.role && session.role.toLowerCase() === 'admin';
     },
 
     // ==========================================
