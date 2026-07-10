@@ -1813,6 +1813,14 @@ const App = {
                     `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>` :
                     `<a class="pdf-link" style="color: #999; cursor: pointer;" onclick="App.openPdfFolder()" title="PDF nicht gefunden - Ordner öffnen">Suchen</a>`}</td>
                 <td>
+                    <input type="text"
+                           class="form-control"
+                           style="font-size: 0.75rem; padding: 0.25rem; min-width: 120px;"
+                           placeholder="Notiz..."
+                           value="${r.notes || r.notizen || ''}"
+                           onchange="App.updateRechnungNotizInline('${r.invoiceId || r.rechnungId}', this.value, ${!!r.invoiceId})">
+                </td>
+                <td>
                     <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
                         ${r.workflowStatus === 'uploaded' ?
                             `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'kontrolliert')" title="Als kontrolliert markieren">✓</button>` :
@@ -1883,7 +1891,16 @@ const App = {
         if (!datevKey) return;
 
         try {
-            const [partitaIva, dokumentNr] = datevKey.split('_');
+            // Split nur am ersten Unterstrich (dokumentNr kann selbst _ enthalten)
+            const firstUnderscoreIndex = datevKey.indexOf('_');
+            if (firstUnderscoreIndex === -1) {
+                throw new Error('Ungültiges Format für DATEV-Key');
+            }
+
+            const partitaIva = datevKey.substring(0, firstUnderscoreIndex);
+            const dokumentNr = datevKey.substring(firstUnderscoreIndex + 1);
+
+            console.log('Verknüpfe:', { invoiceId, partitaIva, dokumentNr });
 
             // Update in Supabase: setze partita_iva und invoice_number
             const { error } = await SupabaseService.client
@@ -2354,6 +2371,28 @@ const App = {
         const rechnungId = document.getElementById('rd-rechnung-id').value;
         const notizen = document.getElementById('rd-notizen').value;
         DataManager.setRechnungStatus(rechnungId, { notizen: notizen });
+    },
+
+    updateRechnungNotizInline: async function(id, notizText, isSupabaseInvoice) {
+        try {
+            if (isSupabaseInvoice) {
+                // Supabase Invoice: Update notes Feld
+                const { error } = await SupabaseService.client
+                    .from('invoices')
+                    .update({ notes: notizText })
+                    .eq('id', id);
+
+                if (error) throw error;
+            } else {
+                // DATEV-Buchung: Update über DataManager
+                DataManager.setRechnungStatus(id, { notizen: notizText });
+            }
+
+            this.showToast('success', 'Gespeichert', 'Notiz wurde aktualisiert');
+        } catch (error) {
+            console.error('Fehler beim Speichern der Notiz:', error);
+            this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
+        }
     },
 
     updateRechnungProjekt: function() {

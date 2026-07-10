@@ -472,7 +472,8 @@ const SupabaseDataAdapter = {
                         fileName: matchingInvoice.file_name,
                         uploadedAt: matchingInvoice.created_at,
                         pdfExists: true,
-                        status: matchingInvoice.status
+                        status: matchingInvoice.status,
+                        notes: matchingInvoice.notes
                     };
                 }
 
@@ -492,6 +493,7 @@ const SupabaseDataAdapter = {
                     uploadedAt: inv.created_at,
                     pdfExists: true,
                     status: inv.status,
+                    notes: inv.notes,
 
                     // Fehlende DATEV-Daten als null
                     projektId: null,
