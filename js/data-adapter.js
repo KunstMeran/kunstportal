@@ -359,6 +359,7 @@ const SupabaseDataAdapter = {
                 partita_iva: invoiceData.partitaIva,
                 invoice_number: invoiceData.invoiceNumber,
                 status: invoiceData.status || 'uploaded',
+                datev_buchung_id: invoiceData.datevBuchungId || null,
                 uploaded_by: (await SupabaseService.client.auth.getUser()).data.user?.id
             };
 

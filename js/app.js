@@ -3795,6 +3795,12 @@ const App = {
                     null
                 );
 
+                // DATEV-Verknüpfung suchen
+                const datevBuchungId = this.findMatchingDatevBuchung(
+                    item.parsed.partitaIva,
+                    item.parsed.invoiceNumber
+                );
+
                 // In Datenbank speichern
                 await DataManager.addInvoice({
                     fileName: item.file.name,
@@ -3802,11 +3808,12 @@ const App = {
                     fileSize: item.file.size,
                     partitaIva: item.parsed.partitaIva,
                     invoiceNumber: item.parsed.invoiceNumber,
-                    status: 'uploaded'
+                    status: 'uploaded',
+                    datevBuchungId: datevBuchungId
                 });
 
                 uploaded++;
-                console.log(`✅ ${item.file.name} hochgeladen`);
+                console.log(`✅ ${item.file.name} hochgeladen${datevBuchungId ? ' (DATEV verknüpft)' : ''}`);
 
             } catch (error) {
                 console.error(`❌ Fehler bei ${item.file.name}:`, error);
@@ -3826,6 +3833,29 @@ const App = {
 
         this.cancelMassUpload();
         this.loadRechnungen(); // Liste neu laden
+    },
+
+    /**
+     * Sucht passende DATEV-Buchung anhand PartitaIVA und Rechnungsnummer
+     */
+    findMatchingDatevBuchung: function(partitaIva, invoiceNumber) {
+        if (!partitaIva || !invoiceNumber) return null;
+
+        const buchungen = DataManager.getDatevBuchungen();
+
+        // Suche nach exakter Übereinstimmung
+        const match = buchungen.find(b =>
+            b.partitaIva === partitaIva &&
+            b.dokumentNr === invoiceNumber
+        );
+
+        if (match) {
+            console.log(`🔗 DATEV-Verknüpfung gefunden: Buchung ID ${match.id}`);
+            return match.id;
+        }
+
+        console.log(`⚠️ Keine DATEV-Buchung gefunden für ${partitaIva}_${invoiceNumber}`);
+        return null;
     },
 
     // ==========================================
