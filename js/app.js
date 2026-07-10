@@ -1622,14 +1622,14 @@ const App = {
     // Ausgewählte Rechnungen (für Massenaktionen)
     selectedRechnungen: new Set(),
 
-    filterRechnungen: function() {
+    filterRechnungen: async function() {
         const statusFilter = document.getElementById('rechnung-filter-status').value;
         const projektFilter = document.getElementById('rechnung-filter-projekt').value;
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
         const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
 
-        let rechnungen = DataManager.getRechnungenMitStatus();
+        let rechnungen = await DataManager.getRechnungenMitStatus();
 
         // Filter anwenden
         if (statusFilter) {

@@ -51,6 +51,11 @@ const SupabaseDataAdapter = {
         // Rechnungs-Funktionen überschreiben
         DataManager.addInvoice = this.addInvoice.bind(this);
         DataManager.updateInvoiceStatus = this.updateInvoiceStatus.bind(this);
+        DataManager.getInvoices = this.getInvoices.bind(this);
+
+        // getRechnungenMitStatus überschreiben (kombiniert DATEV + Supabase)
+        DataManager._getRechnungenMitStatusOriginal = DataManager.getRechnungenMitStatus;
+        DataManager.getRechnungenMitStatus = this.getRechnungenMitStatus.bind(this);
 
         console.log('✅ Supabase Data Adapter aktiviert');
     },
@@ -411,6 +416,134 @@ const SupabaseDataAdapter = {
             console.error('Fehler beim Aktualisieren des Rechnungsstatus:', error);
             throw error;
         }
+    },
+
+    async getInvoices() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Rechnungen:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Kombiniert DATEV-Buchungen mit hochgeladenen Supabase-Invoices
+     */
+    async getRechnungenMitStatus() {
+        try {
+            // 1. Original DATEV-Buchungen holen
+            const datevBuchungen = DataManager._getRechnungenMitStatusOriginal();
+
+            // 2. Supabase Invoices holen
+            const supabaseInvoices = await this.getInvoices();
+
+            // 3. Zusammenführen: Supabase Invoices zu DATEV-Buchungen matchen
+            const datevBuchungenMap = new Map();
+            datevBuchungen.forEach(buchung => {
+                const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
+                datevBuchungenMap.set(key, buchung);
+            });
+
+            // Matched Invoices tracken
+            const matchedInvoiceIds = new Set();
+
+            // DATEV-Buchungen mit Supabase-Daten anreichern
+            const enrichedDatevBuchungen = datevBuchungen.map(buchung => {
+                const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
+                const matchingInvoice = supabaseInvoices.find(inv =>
+                    inv.partita_iva === buchung.partitaIva &&
+                    inv.invoice_number === buchung.dokumentNr
+                );
+
+                if (matchingInvoice) {
+                    matchedInvoiceIds.add(matchingInvoice.id);
+                    return {
+                        ...buchung,
+                        invoiceId: matchingInvoice.id,
+                        filePath: matchingInvoice.file_path,
+                        fileName: matchingInvoice.file_name,
+                        uploadedAt: matchingInvoice.created_at,
+                        hasPdf: true,
+                        status: matchingInvoice.status
+                    };
+                }
+
+                return buchung;
+            });
+
+            // 4. Nicht-gematchte Supabase Invoices als eigene Zeilen hinzufügen
+            const unmatchedInvoices = supabaseInvoices
+                .filter(inv => !matchedInvoiceIds.has(inv.id))
+                .map(inv => ({
+                    // Basis-Daten aus Invoice
+                    invoiceId: inv.id,
+                    partitaIva: inv.partita_iva,
+                    dokumentNr: inv.invoice_number,
+                    filePath: inv.file_path,
+                    fileName: inv.file_name,
+                    uploadedAt: inv.created_at,
+                    hasPdf: true,
+                    status: inv.status,
+
+                    // Fehlende DATEV-Daten als null
+                    projektId: null,
+                    projektName: '(Kein DATEV-Projekt)',
+                    fornitoreName: this.extractSupplierFromFilename(inv.file_name),
+                    buchungsdatum: null,
+                    belegdatum: null,
+                    betrag: 0,
+                    konto: null,
+
+                    // UI-Flags
+                    isSupabaseOnly: true
+                }));
+
+            // 5. Kombinieren und sortieren
+            const combined = [...enrichedDatevBuchungen, ...unmatchedInvoices];
+
+            // Nach Upload-Datum bzw. Belegdatum sortieren (neueste zuerst)
+            combined.sort((a, b) => {
+                const dateA = a.uploadedAt || a.belegdatum || '';
+                const dateB = b.uploadedAt || b.belegdatum || '';
+                return dateB.localeCompare(dateA);
+            });
+
+            console.log(`📊 Rechnungen kombiniert: ${datevBuchungen.length} DATEV + ${unmatchedInvoices.length} nur Supabase = ${combined.length} gesamt`);
+
+            return combined;
+
+        } catch (error) {
+            console.error('Fehler beim Kombinieren der Rechnungen:', error);
+            // Fallback: nur DATEV-Buchungen
+            return DataManager._getRechnungenMitStatusOriginal();
+        }
+    },
+
+    /**
+     * Lieferant aus Dateiname extrahieren (für Supabase-only Invoices)
+     */
+    extractSupplierFromFilename(filename) {
+        if (!filename) return 'Unbekannt';
+
+        // Format: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum.pdf
+        const nameWithoutExt = filename.replace(/\.pdf$/i, '');
+        const parts = nameWithoutExt.split('_');
+
+        // 5-Teile Format: Fornitore ist Teil 3
+        if (parts.length >= 5) {
+            return parts[2];
+        }
+
+        // 3-Teile Format (Timestamp_PartitaIVA_RechnungsNr) oder 2-Teile: kein Lieferant
+        return 'Unbekannt';
     }
 };
 
