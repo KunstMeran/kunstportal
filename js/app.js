@@ -1781,6 +1781,18 @@ const App = {
                         <option value="">-- Bewegung wählen --</option>
                         ${this.getUnlinkedDatevOptionsAsSelect()}
                     </select>`;
+            } else if (r.invoiceId && r.projektId) {
+                // Verknüpfte Rechnung: Zeige Projekt + Trennen-Button
+                projektCell = `
+                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <span>${projekt ? projekt.name : r.projektId}</span>
+                        <button class="btn btn-sm"
+                                style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
+                                onclick="App.unlinkInvoiceFromDatev('${r.invoiceId}')"
+                                title="Verknüpfung trennen">
+                            ✕
+                        </button>
+                    </div>`;
             } else {
                 projektCell = projekt ? projekt.name : r.projektId;
             }
@@ -1934,6 +1946,44 @@ const App = {
             console.error('Error Message:', error.message);
             console.error('Error Details:', JSON.stringify(error, null, 2));
             this.showToast('error', 'Fehler', `Verknüpfung fehlgeschlagen: ${error.message}`);
+        }
+    },
+
+    /**
+     * Entfernt Verknüpfung zwischen Invoice und DATEV-Bewegung
+     */
+    unlinkInvoiceFromDatev: async function(invoiceId) {
+        if (!confirm('Möchten Sie die Verknüpfung wirklich trennen?')) {
+            return;
+        }
+
+        try {
+            console.log('Trenne Verknüpfung für Invoice:', invoiceId);
+
+            // Setze partita_iva und invoice_number auf null
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    partita_iva: null,
+                    invoice_number: null
+                })
+                .eq('id', invoiceId);
+
+            if (error) {
+                console.error('Supabase Unlink-Error:', error);
+                throw error;
+            }
+
+            console.log('Verknüpfung getrennt:', data);
+            this.showToast('success', 'Getrennt', 'Verknüpfung wurde entfernt');
+
+            // Tabelle neu laden
+            await this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Trennen:', error);
+            console.error('Error Message:', error.message);
+            this.showToast('error', 'Fehler', `Trennen fehlgeschlagen: ${error.message}`);
         }
     },
 
