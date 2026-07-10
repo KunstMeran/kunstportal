@@ -15,6 +15,10 @@ const App = {
     rechnungenPerPage: 20,
     filteredRechnungen: [],
 
+    // Sortierung
+    currentSortColumn: 'datum',
+    currentSortDirection: 'desc',
+
     /**
      * App initialisieren
      */
@@ -1653,6 +1657,9 @@ const App = {
         // Nur die aktuelle Seite rendern
         const pageRechnungen = this.filteredRechnungen.slice(startIndex, endIndex);
 
+        // Sortier-Pfeile aktualisieren
+        this.updateSortArrows();
+
         pageRechnungen.forEach(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             // Nutze direkt die Werte aus JSON falls vorhanden, sonst berechnen
@@ -1738,6 +1745,119 @@ const App = {
         }
 
         this.renderRechnungenPage();
+    },
+
+    sortRechnungen: function(column) {
+        // Toggle direction wenn gleiche Spalte
+        if (this.currentSortColumn === column) {
+            this.currentSortDirection = this.currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.currentSortColumn = column;
+            this.currentSortDirection = 'asc';
+        }
+
+        // Sortier-Logik
+        this.filteredRechnungen.sort((a, b) => {
+            let valA, valB;
+
+            switch (column) {
+                case 'datum':
+                    valA = new Date(a.datum);
+                    valB = new Date(b.datum);
+                    break;
+                case 'lieferant':
+                    valA = (a.fornitoreName || '').toLowerCase();
+                    valB = (b.fornitoreName || '').toLowerCase();
+                    break;
+                case 'rechnungsnr':
+                    valA = (a.dokumentNr || '').toLowerCase();
+                    valB = (b.dokumentNr || '').toLowerCase();
+                    break;
+                case 'projekt':
+                    const projektA = DataManager.getKunstMeranProjekt(a.projektId);
+                    const projektB = DataManager.getKunstMeranProjekt(b.projektId);
+                    valA = (projektA?.name || '').toLowerCase();
+                    valB = (projektB?.name || '').toLowerCase();
+                    break;
+                case 'kostentyp':
+                    valA = (a.kostentyp || '').toLowerCase();
+                    valB = (b.kostentyp || '').toLowerCase();
+                    break;
+                case 'netto':
+                    valA = a.betragNetto !== undefined ? a.betragNetto : a.betrag;
+                    valB = b.betragNetto !== undefined ? b.betragNetto : b.betrag;
+                    break;
+                case 'mwst':
+                    valA = a.betragMwst !== undefined ? a.betragMwst : (a.betrag * 0.22);
+                    valB = b.betragMwst !== undefined ? b.betragMwst : (b.betrag * 0.22);
+                    break;
+                case 'brutto':
+                    valA = a.betragGesamt !== undefined ? a.betragGesamt : (a.betrag * 1.22);
+                    valB = b.betragGesamt !== undefined ? b.betragGesamt : (b.betrag * 1.22);
+                    break;
+                case 'status':
+                    valA = (a.workflowStatus || '').toLowerCase();
+                    valB = (b.workflowStatus || '').toLowerCase();
+                    break;
+                case 'kontrolliert':
+                    valA = a.kontrolliertAm ? new Date(a.kontrolliertAm) : new Date(0);
+                    valB = b.kontrolliertAm ? new Date(b.kontrolliertAm) : new Date(0);
+                    break;
+                case 'bezahlt':
+                    valA = a.bezahltAm ? new Date(a.bezahltAm) : new Date(0);
+                    valB = b.bezahltAm ? new Date(b.bezahltAm) : new Date(0);
+                    break;
+                case 'abgabestelle':
+                    valA = (a.abgabestelle || '').toLowerCase();
+                    valB = (b.abgabestelle || '').toLowerCase();
+                    break;
+                default:
+                    return 0;
+            }
+
+            // Vergleich
+            let comparison = 0;
+            if (valA < valB) comparison = -1;
+            if (valA > valB) comparison = 1;
+
+            // Direction anwenden
+            return this.currentSortDirection === 'asc' ? comparison : -comparison;
+        });
+
+        // UI aktualisieren
+        this.updateSortArrows();
+        this.renderRechnungenPage();
+    },
+
+    updateSortArrows: function() {
+        // Alle sort-Klassen entfernen
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+
+        // Aktive Spalte markieren
+        const columnMap = {
+            'datum': 0,
+            'lieferant': 1,
+            'rechnungsnr': 2,
+            'projekt': 3,
+            'kostentyp': 4,
+            'netto': 5,
+            'mwst': 6,
+            'brutto': 7,
+            'status': 8,
+            'kontrolliert': 9,
+            'bezahlt': 10,
+            'abgabestelle': 11
+        };
+
+        const thIndex = columnMap[this.currentSortColumn];
+        if (thIndex !== undefined) {
+            const ths = document.querySelectorAll('#rechnungen-view th.sortable');
+            if (ths[thIndex]) {
+                ths[thIndex].classList.add(`sort-${this.currentSortDirection}`);
+            }
+        }
     },
 
     // ==========================================

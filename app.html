@@ -626,18 +626,42 @@
                                     <th style="width: 40px;">
                                         <input type="checkbox" id="rechnungen-select-all" onchange="App.toggleSelectAll(this)" title="Alle auswählen/abwählen">
                                     </th>
-                                    <th>Datum</th>
-                                    <th>Lieferant</th>
-                                    <th>Rechnungsnr.</th>
-                                    <th>Projekt</th>
-                                    <th>Kostentyp</th>
-                                    <th style="text-align: right;">Netto</th>
-                                    <th style="text-align: right;">MwSt</th>
-                                    <th style="text-align: right;">Brutto</th>
-                                    <th>Status</th>
-                                    <th>Kontrolliert</th>
-                                    <th>Bezahlt</th>
-                                    <th>Abgabestelle</th>
+                                    <th class="sortable" onclick="App.sortRechnungen('datum')">
+                                        Datum <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('lieferant')">
+                                        Lieferant <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('rechnungsnr')">
+                                        Rechnungsnr. <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('projekt')">
+                                        Projekt <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('kostentyp')">
+                                        Kostentyp <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('netto')">
+                                        Netto <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('mwst')">
+                                        MwSt <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('brutto')">
+                                        Brutto <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('status')">
+                                        Status <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('kontrolliert')">
+                                        Kontrolliert <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('bezahlt')">
+                                        Bezahlt <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('abgabestelle')">
+                                        Abgabestelle <span class="sort-arrow">⇅</span>
+                                    </th>
                                     <th>PDF</th>
                                     <th>Aktionen</th>
                                 </tr>
