@@ -50,6 +50,7 @@ const SupabaseDataAdapter = {
 
         // Rechnungs-Funktionen überschreiben
         DataManager.addInvoice = this.addInvoice.bind(this);
+        DataManager.updateInvoiceStatus = this.updateInvoiceStatus.bind(this);
 
         console.log('✅ Supabase Data Adapter aktiviert');
     },
@@ -374,6 +375,40 @@ const SupabaseDataAdapter = {
             return data;
         } catch (error) {
             console.error('Fehler beim Erstellen der Rechnung:', error);
+            throw error;
+        }
+    },
+
+    async updateInvoiceStatus(invoiceId, newStatus) {
+        try {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const now = new Date().toISOString();
+
+            const updates = {
+                status: newStatus
+            };
+
+            // Je nach Status zusätzliche Felder setzen
+            if (newStatus === 'kontrolliert') {
+                updates.kontrolled_by = currentUser?.id;
+                updates.kontrolled_at = now;
+            } else if (newStatus === 'bezahlt') {
+                updates.paid_by = currentUser?.id;
+                updates.paid_at = now;
+            }
+
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .update(updates)
+                .eq('id', invoiceId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Rechnungsstatus:', error);
             throw error;
         }
     }

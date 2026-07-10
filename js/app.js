@@ -1720,8 +1720,12 @@ const App = {
                     `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}')">PDF</a>` :
                     `<a class="pdf-link" style="color: #999; cursor: pointer;" onclick="App.openPdfFolder()" title="PDF nicht gefunden - Ordner öffnen">Suchen</a>`}</td>
                 <td>
-                    <div class="action-btn-group">
-                        <button class="btn btn-sm btn-outline" onclick="App.showRechnungDetail('${r.rechnungId}')">Details</button>
+                    <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
+                        ${r.workflowStatus === 'uploaded' ?
+                            `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'kontrolliert')" title="Als kontrolliert markieren">✓</button>` :
+                        r.workflowStatus === 'kontrolliert' && DataManager.isAdmin() ?
+                            `<button class="btn btn-sm btn-success" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'bezahlt')" title="Als bezahlt markieren">€</button>` :
+                        ''}
                     </div>
                 </td>
             `;
@@ -3856,6 +3860,40 @@ const App = {
 
         console.log(`⚠️ Keine DATEV-Buchung gefunden für ${partitaIva}_${invoiceNumber}`);
         return null;
+    },
+
+    // ==========================================
+    // STATUS-WORKFLOW
+    // ==========================================
+
+    /**
+     * Ändert den Status einer Rechnung
+     */
+    changeInvoiceStatus: async function(invoiceId, newStatus) {
+        try {
+            // Berechtigungen prüfen
+            if (newStatus === 'bezahlt' && !DataManager.isAdmin()) {
+                this.showToast('error', 'Keine Berechtigung', 'Nur Admins können Rechnungen als bezahlt markieren');
+                return;
+            }
+
+            // Status in Supabase aktualisieren
+            await DataManager.updateInvoiceStatus(invoiceId, newStatus);
+
+            // Erfolgsmeldung
+            const statusLabels = {
+                'kontrolliert': 'Kontrolliert',
+                'bezahlt': 'Bezahlt'
+            };
+            this.showToast('success', 'Status geändert', `Rechnung als ${statusLabels[newStatus]} markiert`);
+
+            // Tabelle neu laden
+            this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Ändern des Status:', error);
+            this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
     },
 
     // ==========================================
