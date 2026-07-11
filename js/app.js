@@ -308,56 +308,91 @@ const App = {
     // DASHBOARD
     // ==========================================
 
-    loadDashboard: function() {
-        const summaries = DataManager.getAllProjectsSummary();
+    loadDashboard: async function() {
+        try {
+            // Projekte und Rechnungen aus Supabase laden
+            const projects = await DataManager.getProjects();
+            const rechnungen = await DataManager.getRechnungenMitStatus();
 
-        // Statistiken berechnen
-        const activeProjects = summaries.filter(s => s.project.status === 'laufend').length;
-        const totalBudget = summaries.reduce((sum, s) => sum + s.budget, 0);
-        const totalSpent = summaries.reduce((sum, s) => sum + s.ist, 0);
-        const totalPlanned = summaries.reduce((sum, s) => sum + s.provisorisch, 0);
+            // Projekt-Summaries berechnen
+            const summaries = projects.map(project => {
+                // DATEV-Buchungen für dieses Projekt
+                const projektRechnungen = rechnungen.filter(r =>
+                    String(r.projektId) === String(project.id) && !r.isSupabaseOnly
+                );
+                const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
 
-        // Stats aktualisieren
-        document.getElementById('stat-projects').textContent = activeProjects;
-        document.getElementById('stat-budget').textContent = this.formatCurrency(totalBudget);
-        document.getElementById('stat-spent').textContent = this.formatCurrency(totalSpent);
-        document.getElementById('stat-available').textContent = this.formatCurrency(totalBudget - totalSpent - totalPlanned);
+                // Budget aus Projekt (falls vorhanden)
+                const budget = project.budget || 0;
 
-        // Projekt-Übersicht laden
-        this.loadDashboardProjects(summaries);
+                return {
+                    project: project,
+                    budget: budget,
+                    ist: istTotal,
+                    rechnungenAnzahl: projektRechnungen.length,
+                    verfuegbar: budget - istTotal,
+                    prozentVerbraucht: budget > 0 ? Math.round((istTotal / budget) * 100) : 0
+                };
+            });
+
+            // Statistiken berechnen
+            const activeProjects = summaries.filter(s => s.project.status === 'laufend').length;
+            const totalBudget = summaries.reduce((sum, s) => sum + s.budget, 0);
+            const totalSpent = summaries.reduce((sum, s) => sum + s.ist, 0);
+
+            // Stats aktualisieren
+            document.getElementById('stat-projects').textContent = activeProjects;
+            document.getElementById('stat-budget').textContent = this.formatCurrency(totalBudget);
+            document.getElementById('stat-spent').textContent = this.formatCurrency(totalSpent);
+            document.getElementById('stat-available').textContent = this.formatCurrency(totalBudget - totalSpent);
+
+            // Projekt-Übersicht laden
+            this.renderDashboardProjects(summaries);
+
+        } catch (error) {
+            console.error('Fehler beim Laden des Dashboards:', error);
+        }
     },
 
-    loadDashboardProjects: function(summaries) {
+    renderDashboardProjects: function(summaries) {
         const container = document.getElementById('dashboard-projects');
         container.innerHTML = '';
 
-        // Nur laufende und Planungsprojekte
-        const activeProjects = summaries.filter(s =>
-            s.project.status === 'laufend' || s.project.status === 'planung'
-        );
+        // Nur Projekte mit Rechnungen oder Budget anzeigen, sortiert nach IST-Kosten
+        const activeProjects = summaries
+            .filter(s => s.ist > 0 || s.budget > 0)
+            .sort((a, b) => b.ist - a.ist);
 
         if (activeProjects.length === 0) {
-            container.innerHTML = '<p style="color: #666; padding: 1rem;">Keine aktiven Projekte</p>';
+            container.innerHTML = '<p style="color: #666; padding: 1rem;">Keine Projekte mit Buchungen gefunden</p>';
             return;
         }
 
         activeProjects.forEach(summary => {
+            const statusClass = summary.project.status === 'laufend' ? 'success' :
+                               summary.project.status === 'abgeschlossen' ? 'secondary' : 'primary';
+            const prozent = Math.min(summary.prozentVerbraucht, 100);
+            const barColor = prozent > 90 ? '#e74c3c' : prozent > 70 ? '#f39c12' : '#27ae60';
+
             const html = `
-                <div class="project-row" onclick="App.openProjectFullpage(${summary.project.id})">
-                    <div class="project-info">
-                        <strong>${summary.project.name}</strong>
-                        <span class="badge badge-${summary.project.status === 'laufend' ? 'success' : 'primary'}">
-                            ${summary.project.status}
-                        </span>
+                <div class="project-row" style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer;"
+                     onclick="App.openProjectFullpage('${summary.project.id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div>
+                            <strong>${summary.project.name}</strong>
+                            <span class="badge badge-${statusClass}" style="margin-left: 0.5rem; font-size: 0.7rem;">
+                                ${summary.project.status || 'laufend'}
+                            </span>
+                        </div>
+                        <span style="font-size: 0.85rem; color: #666;">${summary.rechnungenAnzahl} Rechnungen</span>
                     </div>
                     <div class="budget-visual">
-                        <div class="budget-bar">
-                            <div class="budget-segment spent" style="width: ${Math.min(summary.prozentVerbraucht, 100)}%"></div>
-                            <div class="budget-segment provisional" style="width: ${Math.min(summary.prozentGeplant - summary.prozentVerbraucht, 100 - summary.prozentVerbraucht)}%"></div>
+                        <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
+                            <div style="background: ${barColor}; height: 100%; width: ${prozent}%; transition: width 0.3s;"></div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem;">
-                            <span>IST: ${this.formatCurrency(summary.ist)}</span>
-                            <span>Budget: ${this.formatCurrency(summary.budget)}</span>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem; color: #666;">
+                            <span>IST: <strong style="color: #333;">${this.formatCurrency(summary.ist)}</strong></span>
+                            ${summary.budget > 0 ? `<span>Budget: ${this.formatCurrency(summary.budget)} (${summary.prozentVerbraucht}%)</span>` : ''}
                         </div>
                     </div>
                 </div>
