@@ -440,6 +440,21 @@
                 </div>
 
                 <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 class="card-title" style="margin: 0;">Projektliste</h3>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <label style="font-size: 0.875rem; color: #666;">
+                                Zeige
+                                <select id="projects-per-page" class="form-control" style="width: auto; display: inline-block; margin: 0 0.25rem;" onchange="App.changeProjectsPerPage()">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="30">30</option>
+                                    <option value="50">50</option>
+                                </select>
+                                Einträge
+                            </label>
+                        </div>
+                    </div>
                     <div class="table-container">
                         <table>
                             <thead>
@@ -457,6 +472,49 @@
                                 <!-- Wird dynamisch geladen -->
                             </tbody>
                         </table>
+                    </div>
+                    <!-- Pagination -->
+                    <div id="projects-pagination" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-top: 1px solid #e0e0e0;">
+                        <div id="projects-pagination-info" style="font-size: 0.875rem; color: #666;">
+                            Zeige 1-20 von 0 Projekten
+                        </div>
+                        <div id="projects-pagination-buttons" style="display: flex; gap: 0.25rem;">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stunden-Übersicht -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Stunden-Übersicht</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projekt</th>
+                                    <th>Mitarbeiter</th>
+                                    <th>Datum</th>
+                                    <th>Beschreibung</th>
+                                    <th style="text-align: right;">Stunden</th>
+                                    <th style="text-align: right;">Kosten</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hours-overview-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
+                            <tfoot id="hours-overview-footer">
+                                <tr style="background: #f8f9fa; font-weight: 600;">
+                                    <td colspan="4" style="text-align: right;">Summe:</td>
+                                    <td id="hours-total" style="text-align: right;">0 Std.</td>
+                                    <td id="hours-cost-total" style="text-align: right;">0,00 EUR</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
+                        Hinweis: Stundenkosten werden nicht in die Projekt-Gesamtsumme eingerechnet.
                     </div>
                 </div>
             </div>

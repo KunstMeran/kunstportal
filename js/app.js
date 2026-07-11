@@ -405,21 +405,56 @@ const App = {
     // PROJEKTE
     // ==========================================
 
+    // Pagination State für Projekte
+    currentProjectsPage: 1,
+    projectsPerPage: 20,
+    allProjects: [],
+
     loadProjects: async function() {
-        const projects = await DataManager.getProjects();
+        // Alle Projekte laden
+        this.allProjects = await DataManager.getProjects();
+
+        // Pagination-Einstellung aus Select übernehmen
+        const perPageSelect = document.getElementById('projects-per-page');
+        if (perPageSelect) {
+            this.projectsPerPage = parseInt(perPageSelect.value) || 20;
+        }
+
+        // Projekte anzeigen
+        this.displayProjects();
+
+        // Stunden-Übersicht laden
+        this.loadHoursOverview();
+    },
+
+    displayProjects: function() {
         const container = document.getElementById('projects-table-body');
         container.innerHTML = '';
 
-        // Zeige erstmal Basis-Infos (Summary später nachladen)
-        projects.forEach(project => {
+        const totalProjects = this.allProjects.length;
+        const totalPages = Math.ceil(totalProjects / this.projectsPerPage);
+
+        // Sicherstellen, dass aktuelle Seite gültig ist
+        if (this.currentProjectsPage > totalPages) {
+            this.currentProjectsPage = Math.max(1, totalPages);
+        }
+
+        // Projekte für aktuelle Seite
+        const startIndex = (this.currentProjectsPage - 1) * this.projectsPerPage;
+        const endIndex = Math.min(startIndex + this.projectsPerPage, totalProjects);
+        const pageProjects = this.allProjects.slice(startIndex, endIndex);
+
+        // Tabelle befüllen
+        pageProjects.forEach(project => {
             const statusBadge = this.getStatusBadge(project.status);
+            const budget = project.budget || 0;
 
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${project.name}</strong></td>
-                <td>${project.location}</td>
+                <td>${project.location || '-'}</td>
                 <td>${statusBadge}</td>
-                <td>-</td>
+                <td>${budget > 0 ? this.formatCurrency(budget) : '-'}</td>
                 <td>-</td>
                 <td>-</td>
                 <td>
@@ -432,6 +467,134 @@ const App = {
             `;
             container.appendChild(row);
         });
+
+        // Pagination Info aktualisieren
+        const infoEl = document.getElementById('projects-pagination-info');
+        if (infoEl) {
+            if (totalProjects === 0) {
+                infoEl.textContent = 'Keine Projekte vorhanden';
+            } else {
+                infoEl.textContent = `Zeige ${startIndex + 1}-${endIndex} von ${totalProjects} Projekten`;
+            }
+        }
+
+        // Pagination Buttons aktualisieren
+        this.renderProjectsPagination(totalPages);
+    },
+
+    renderProjectsPagination: function(totalPages) {
+        const container = document.getElementById('projects-pagination-buttons');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Zurück-Button
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-sm btn-outline';
+        prevBtn.textContent = '←';
+        prevBtn.disabled = this.currentProjectsPage === 1;
+        prevBtn.onclick = () => this.goToProjectsPage(this.currentProjectsPage - 1);
+        container.appendChild(prevBtn);
+
+        // Seiten-Buttons (max 5 anzeigen)
+        const maxButtons = 5;
+        let startPage = Math.max(1, this.currentProjectsPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.className = `btn btn-sm ${i === this.currentProjectsPage ? 'btn-primary' : 'btn-outline'}`;
+            pageBtn.textContent = i;
+            pageBtn.onclick = () => this.goToProjectsPage(i);
+            container.appendChild(pageBtn);
+        }
+
+        // Vor-Button
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-sm btn-outline';
+        nextBtn.textContent = '→';
+        nextBtn.disabled = this.currentProjectsPage === totalPages;
+        nextBtn.onclick = () => this.goToProjectsPage(this.currentProjectsPage + 1);
+        container.appendChild(nextBtn);
+    },
+
+    goToProjectsPage: function(page) {
+        this.currentProjectsPage = page;
+        this.displayProjects();
+    },
+
+    changeProjectsPerPage: function() {
+        const select = document.getElementById('projects-per-page');
+        this.projectsPerPage = parseInt(select.value) || 20;
+        this.currentProjectsPage = 1; // Zurück zur ersten Seite
+        this.displayProjects();
+    },
+
+    loadHoursOverview: async function() {
+        const container = document.getElementById('hours-overview-body');
+        if (!container) return;
+
+        container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Lade Stunden...</td></tr>';
+
+        try {
+            // Alle Zeiteinträge laden
+            const timeEntries = await DataManager.getTimeEntries();
+            const projects = this.allProjects;
+
+            // Users laden (für Namen)
+            const users = await SupabaseService.getAllUsers();
+
+            if (timeEntries.length === 0) {
+                container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Keine Zeiteinträge vorhanden</td></tr>';
+                document.getElementById('hours-total').textContent = '0 Std.';
+                document.getElementById('hours-cost-total').textContent = this.formatCurrency(0);
+                return;
+            }
+
+            container.innerHTML = '';
+
+            // Nach Datum sortieren (neueste zuerst)
+            timeEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            let totalHours = 0;
+            let totalCost = 0;
+            const defaultHourlyRate = 50; // Standard-Stundensatz
+
+            timeEntries.forEach(entry => {
+                const project = projects.find(p => String(p.id) === String(entry.projectId));
+                const user = users.find(u => u.id === entry.userId);
+                const hourlyRate = user?.hourlyRate || defaultHourlyRate;
+                const entryCost = (entry.hours || 0) * hourlyRate;
+
+                totalHours += entry.hours || 0;
+                totalCost += entryCost;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${project ? project.name : 'Unbekannt'}</td>
+                    <td>${user ? user.username : 'Unbekannt'}</td>
+                    <td>${this.formatDate(entry.date)}</td>
+                    <td>${entry.description || '-'}</td>
+                    <td style="text-align: right;">${entry.hours || 0} Std.</td>
+                    <td style="text-align: right;">${this.formatCurrency(entryCost)}</td>
+                `;
+                container.appendChild(row);
+            });
+
+            // Summen aktualisieren
+            document.getElementById('hours-total').textContent = `${totalHours} Std.`;
+            document.getElementById('hours-cost-total').textContent = this.formatCurrency(totalCost);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Stunden-Übersicht:', error);
+            container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Fehler beim Laden</td></tr>';
+        }
     },
 
     // ==========================================
