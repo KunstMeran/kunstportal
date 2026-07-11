@@ -1671,10 +1671,10 @@ const App = {
             rechnungen = rechnungen.filter(r => !r.pdfExists || r.isSupabaseOnly);
         }
         if (datevStatusFilter === 'zugewiesen') {
-            // Einträge mit DATEV-Bewegung (haben projektId und sind keine Supabase-only)
-            rechnungen = rechnungen.filter(r => r.projektId && !r.isSupabaseOnly);
+            // PDFs die einer DATEV-Bewegung zugewiesen sind (haben projektId UND pdfExists)
+            rechnungen = rechnungen.filter(r => r.projektId && r.pdfExists && !r.isSupabaseOnly);
         } else if (datevStatusFilter === 'nicht-zugewiesen') {
-            // Nur PDFs ohne DATEV-Zuordnung (Supabase-only), keine leeren DATEV-Buchungen
+            // Nur PDFs ohne DATEV-Zuordnung (Supabase-only)
             rechnungen = rechnungen.filter(r => r.isSupabaseOnly);
         }
         // Zeitraum-Filter
@@ -1692,12 +1692,23 @@ const App = {
         // Sortieren nach Datum (neueste zuerst)
         rechnungen.sort((a, b) => new Date(b.datum) - new Date(a.datum));
 
-        // Filtered results speichern und zur ersten Seite zurück
+        // Filtered results speichern
         this.filteredRechnungen = rechnungen;
-        this.currentRechnungenPage = 1;
+
+        // Seite nur zurücksetzen wenn Filter von User geändert wurden (nicht bei Reload nach Aktion)
+        if (!this._keepCurrentPage) {
+            this.currentRechnungenPage = 1;
+        }
+        this._keepCurrentPage = false;
 
         // Seite rendern
         this.renderRechnungenPage();
+    },
+
+    // Reload ohne Seite/Filter zurückzusetzen
+    reloadRechnungenKeepState: async function() {
+        this._keepCurrentPage = true;
+        await this.filterRechnungen();
     },
 
     renderRechnungenPage: function() {
@@ -1833,17 +1844,26 @@ const App = {
                     </div>` :
                     (() => {
                         const pdfDropdownId = `pdf-dropdown-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
-                        return `<div class="pdf-search-container" style="position: relative; min-width: 280px;">
-                                    <input type="text"
-                                           id="input-${pdfDropdownId}"
-                                           class="form-control pdf-search-input"
-                                           style="font-size: 0.75rem; padding: 0.25rem;"
-                                           placeholder="PDF suchen..."
-                                           onfocus="App.showPdfDropdown('${pdfDropdownId}')"
-                                           oninput="App.filterPdfDropdown('${pdfDropdownId}', this.value)">
-                                    <div id="${pdfDropdownId}" class="pdf-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-                                        ${this.getPdfDropdownItems(r.partitaIva, r.dokumentNr)}
+                        const uploadInputId = `upload-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
+                        return `<div style="display: flex; align-items: center; gap: 0.25rem;">
+                                    <div class="pdf-search-container" style="position: relative; min-width: 200px;">
+                                        <input type="text"
+                                               id="input-${pdfDropdownId}"
+                                               class="form-control pdf-search-input"
+                                               style="font-size: 0.75rem; padding: 0.25rem;"
+                                               placeholder="PDF suchen..."
+                                               onfocus="App.showPdfDropdown('${pdfDropdownId}')"
+                                               oninput="App.filterPdfDropdown('${pdfDropdownId}', this.value)">
+                                        <div id="${pdfDropdownId}" class="pdf-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                                            ${this.getPdfDropdownItems(r.partitaIva, r.dokumentNr)}
+                                        </div>
                                     </div>
+                                    <input type="file" id="${uploadInputId}" accept=".pdf" style="display: none;"
+                                           onchange="App.uploadPdfForBuchung('${r.partitaIva}', '${r.dokumentNr}', this)">
+                                    <button class="btn btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.7rem; background: #4CAF50; color: white;"
+                                            onclick="document.getElementById('${uploadInputId}').click()" title="PDF hochladen">
+                                        ↑
+                                    </button>
                                 </div>`;
                     })()
                 }</td>
@@ -1867,6 +1887,31 @@ const App = {
             `;
             tbody.appendChild(row);
         });
+
+        // Summenzeile für alle gefilterten Rechnungen (nicht nur aktuelle Seite)
+        const sumNetto = this.filteredRechnungen.reduce((sum, r) => {
+            const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
+            return sum + (netto || 0);
+        }, 0);
+        const sumMwst = this.filteredRechnungen.reduce((sum, r) => {
+            const mwst = r.betragMwst !== undefined ? r.betragMwst : (r.betrag * 0.22);
+            return sum + (mwst || 0);
+        }, 0);
+        const sumGesamt = this.filteredRechnungen.reduce((sum, r) => {
+            const gesamt = r.betragGesamt !== undefined ? r.betragGesamt : (r.betrag * 1.22);
+            return sum + (gesamt || 0);
+        }, 0);
+
+        const sumRow = document.createElement('tr');
+        sumRow.style = 'background: #f5f5f5; font-weight: bold; border-top: 2px solid #333;';
+        sumRow.innerHTML = `
+            <td colspan="7" style="text-align: right; padding-right: 1rem;">Summe (${totalCount} Rechnungen):</td>
+            <td style="text-align: right;">${this.formatCurrency(sumNetto)}</td>
+            <td style="text-align: right;">${this.formatCurrency(sumMwst)}</td>
+            <td style="text-align: right;">${this.formatCurrency(sumGesamt)}</td>
+            <td colspan="5"></td>
+        `;
+        tbody.appendChild(sumRow);
 
         this.updateMassActionsBar();
     },
@@ -1983,8 +2028,7 @@ const App = {
 
             this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
 
-            this.currentRechnungenPage = currentPage;
-            await this.filterRechnungen();
+            await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -2007,6 +2051,56 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Laden des PDFs:', error);
             this.showToast('error', 'Fehler', 'PDF konnte nicht geladen werden');
+        }
+    },
+
+    /**
+     * Direkter PDF-Upload für eine Buchung
+     */
+    uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+
+        try {
+            this.showToast('info', 'Upload...', 'PDF wird hochgeladen...');
+
+            // Dateiname generieren: 2026_PartitaIva_DokumentNr.pdf
+            const year = new Date().getFullYear();
+            const newFileName = `${year}_${partitaIva}_${dokumentNr}.pdf`;
+            const filePath = `invoices/${newFileName}`;
+
+            // Upload zu Supabase Storage
+            const { data: uploadData, error: uploadError } = await SupabaseService.client.storage
+                .from('invoices')
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            // Invoice-Eintrag in Datenbank erstellen
+            const { data: invoiceData, error: dbError } = await SupabaseService.client
+                .from('invoices')
+                .insert({
+                    file_name: newFileName,
+                    file_path: filePath,
+                    partita_iva: partitaIva,
+                    invoice_number: dokumentNr,
+                    status: 'uploaded'
+                })
+                .select()
+                .single();
+
+            if (dbError) throw dbError;
+
+            this.showToast('success', 'Hochgeladen', `PDF wurde hochgeladen und verknüpft`);
+
+            // Input zurücksetzen
+            inputElement.value = '';
+
+            await this.reloadRechnungenKeepState();
+
+        } catch (error) {
+            console.error('Fehler beim Upload:', error);
+            this.showToast('error', 'Fehler', `Upload fehlgeschlagen: ${error.message}`);
         }
     },
 
@@ -2048,9 +2142,7 @@ const App = {
 
             this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
 
-            // Seite wiederherstellen vor dem Reload
-            this.currentRechnungenPage = currentPage;
-            await this.filterRechnungen();
+            await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -2139,9 +2231,7 @@ const App = {
             console.log('Verknüpfung erfolgreich:', data);
             this.showToast('success', 'Verknüpft', 'Rechnung wurde mit DATEV-Bewegung verknüpft');
 
-            // Seite wiederherstellen vor dem Reload
-            this.currentRechnungenPage = currentPage;
-            await this.filterRechnungen();
+            await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Verknüpfen:', error);
@@ -2182,9 +2272,7 @@ const App = {
             console.log('Verknüpfung getrennt:', data);
             this.showToast('success', 'Getrennt', 'Verknüpfung wurde entfernt');
 
-            // Seite wiederherstellen vor dem Reload
-            this.currentRechnungenPage = currentPage;
-            await this.filterRechnungen();
+            await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Trennen:', error);
@@ -2218,8 +2306,7 @@ const App = {
 
             this.showToast('success', 'Getrennt', 'PDF-Verknüpfung wurde entfernt');
 
-            this.currentRechnungenPage = currentPage;
-            await this.filterRechnungen();
+            await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Trennen:', error);
