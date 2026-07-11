@@ -489,20 +489,66 @@ const App = {
 
     async loadProjectDetails(projectId) {
         try {
-            // Kosten laden
-            const costs = await DataManager.getCostsByProject(projectId);
+            // Projekt holen (für datevId)
+            const project = await DataManager.getProjectById(projectId);
+            if (!project) return;
 
-            // TODO: Summary berechnen und anzeigen
-            // Erstmal nur Kosten-Liste anzeigen
-            this.displayProjectCosts(costs);
+            // DATEV-Buchungen für dieses Projekt laden (über datevId)
+            const allRechnungen = await DataManager.getRechnungenMitStatus();
+            const projektRechnungen = allRechnungen.filter(r =>
+                String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
+            );
+
+            // IST-Summe berechnen
+            const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            // Budget-Übersicht aktualisieren
+            document.getElementById('fp-ist-total').textContent = this.formatCurrency(istTotal);
+            document.getElementById('fp-prov-total').textContent = '-'; // TODO: Provisorische Kosten
+            document.getElementById('fp-available').textContent = '-'; // TODO: Verfügbar berechnen
+
+            // Kosten-Tabelle befüllen
+            this.displayProjectCosts(projektRechnungen);
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Details:', error);
         }
     },
 
-    displayProjectCosts(costs) {
-        // TODO: Kosten in der Fullpage-View anzeigen
-        console.log('Geladene Kosten:', costs);
+    displayProjectCosts(rechnungen) {
+        const tbody = document.getElementById('fp-costs-table');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        if (rechnungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
+            return;
+        }
+
+        // Sortieren nach Datum (neueste zuerst)
+        rechnungen.sort((a, b) => {
+            const dateA = a.datum || a.belegdatum || '';
+            const dateB = b.datum || b.belegdatum || '';
+            return dateB.localeCompare(dateA);
+        });
+
+        rechnungen.forEach(r => {
+            const row = document.createElement('tr');
+            const betragStyle = r.betrag < 0 ? 'color: #e74c3c;' : '';
+
+            row.innerHTML = `
+                <td>${this.formatDate(r.datum)}</td>
+                <td><span class="badge" style="background: #e8f5e9; color: #2e7d32;">DATEV</span></td>
+                <td>${r.fornitoreName || '-'}</td>
+                <td>${r.beschreibung || r.dokumentNr || '-'}</td>
+                <td><span class="badge badge-danger">IST</span></td>
+                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(r.betrag)}</td>
+                <td>
+                    ${r.pdfExists ? `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${r.filePath}')">PDF</button>` : '-'}
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
     },
 
     closeProjectFullpage: function() {
