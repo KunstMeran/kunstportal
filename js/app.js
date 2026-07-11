@@ -539,17 +539,17 @@ const App = {
             if (budget > 0) {
                 const istProzent = Math.min(Math.round((istTotal / budget) * 100), 100);
                 const geplantProzent = Math.min(Math.round((geplanteTotal / budget) * 100), 100 - istProzent);
-                const istColor = istProzent > 90 ? '#e74c3c' : istProzent > 70 ? '#f39c12' : '#e74c3c';
+                const freiProzent = Math.max(0, 100 - istProzent - geplantProzent);
 
                 document.getElementById('fp-budget-bar').innerHTML = `
                     <div style="background: #e9ecef; border-radius: 4px; height: 100%; overflow: hidden; display: flex;">
                         <div style="background: #e74c3c; height: 100%; width: ${istProzent}%;" title="IST: ${istProzent}%"></div>
                         <div style="background: #f39c12; height: 100%; width: ${geplantProzent}%;" title="Geplant: ${geplantProzent}%"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.25rem;">
-                        <span style="color: #e74c3c;">IST ${istProzent}%</span>
-                        <span style="color: #f39c12;">Geplant ${geplantProzent}%</span>
-                        <span style="color: #27ae60;">Frei ${100 - istProzent - geplantProzent}%</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.5rem; gap: 1rem;">
+                        <span style="color: #e74c3c; white-space: nowrap;">IST ${istProzent}%</span>
+                        <span style="color: #f39c12; white-space: nowrap;">Geplant ${geplantProzent}%</span>
+                        <span style="color: #27ae60; white-space: nowrap;">Frei ${freiProzent}%</span>
                     </div>
                 `;
             }
