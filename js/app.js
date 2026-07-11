@@ -932,7 +932,10 @@ const App = {
         document.getElementById('project-start').value = project.startDate;
         document.getElementById('project-end').value = project.endDate;
         document.getElementById('project-status').value = project.status;
-        document.getElementById('project-budget').value = project.budget;
+        document.getElementById('project-budget').value = project.budget || 0;
+        document.getElementById('project-pl1').value = project.pl1 || '';
+        document.getElementById('project-pl2').value = project.pl2 || '';
+        document.getElementById('project-dropbox').value = project.dropboxLink || '';
 
         document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
         this.showModal('project-form-modal');
@@ -950,7 +953,10 @@ const App = {
             startDate: document.getElementById('project-start').value,
             endDate: document.getElementById('project-end').value,
             status: document.getElementById('project-status').value,
-            budget: parseFloat(document.getElementById('project-budget').value) || 0
+            budget: parseFloat(document.getElementById('project-budget').value) || 0,
+            pl1: document.getElementById('project-pl1').value || null,
+            pl2: document.getElementById('project-pl2').value || null,
+            dropboxLink: document.getElementById('project-dropbox').value || null
         };
 
         if (id) {

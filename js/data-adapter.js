@@ -112,7 +112,11 @@ const SupabaseDataAdapter = {
                 start_date: projectData.startDate || null,
                 end_date: projectData.endDate || null,
                 status: this.mapStatusToSupabase(projectData.status),
-                datev_id: projectData.datevId || null
+                datev_id: projectData.datevId || null,
+                budget: projectData.budget || 0,
+                pl1: projectData.pl1 || null,
+                pl2: projectData.pl2 || null,
+                dropbox_link: projectData.dropboxLink || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -139,7 +143,11 @@ const SupabaseDataAdapter = {
                 start_date: updates.startDate,
                 end_date: updates.endDate,
                 status: this.mapStatusToSupabase(updates.status),
-                datev_id: updates.datevId || null
+                datev_id: updates.datevId || null,
+                budget: updates.budget || 0,
+                pl1: updates.pl1 || null,
+                pl2: updates.pl2 || null,
+                dropbox_link: updates.dropboxLink || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -306,7 +314,10 @@ const SupabaseDataAdapter = {
             endDate: supabaseProject.end_date,
             status: this.mapStatusFromSupabase(supabaseProject.status),
             datevId: supabaseProject.datev_id || '',
-            budget: 0, // Wird später berechnet
+            budget: supabaseProject.budget || 0,
+            pl1: supabaseProject.pl1 || '',
+            pl2: supabaseProject.pl2 || '',
+            dropboxLink: supabaseProject.dropbox_link || '',
             createdBy: supabaseProject.created_by,
             createdAt: supabaseProject.created_at
         };
