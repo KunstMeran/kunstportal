@@ -1625,23 +1625,6 @@ const App = {
         lieferanten.forEach(l => {
             lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
         });
-
-        // Jahr-Filter dynamisch befüllen
-        const jahrSelect = document.getElementById('rechnung-filter-jahr');
-        jahrSelect.innerHTML = '<option value="">Alle Jahre</option>';
-        const rechnungen = await DataManager.getRechnungenMitStatus();
-        const jahre = new Set();
-        rechnungen.forEach(r => {
-            const datum = r.belegdatum || r.uploadedAt;
-            if (datum) {
-                const jahr = new Date(datum).getFullYear();
-                if (!isNaN(jahr)) jahre.add(jahr);
-            }
-        });
-        // Sortiert absteigend
-        Array.from(jahre).sort((a, b) => b - a).forEach(jahr => {
-            jahrSelect.innerHTML += `<option value="${jahr}">${jahr}</option>`;
-        });
     },
 
     // Ausgewählte Rechnungen (für Massenaktionen)
@@ -1655,8 +1638,8 @@ const App = {
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
         const pdfStatusFilter = document.getElementById('rechnung-filter-pdf-status')?.value || '';
         const datevStatusFilter = document.getElementById('rechnung-filter-datev-status')?.value || '';
-        const jahrFilter = document.getElementById('rechnung-filter-jahr').value;
-        const monatFilter = document.getElementById('rechnung-filter-monat').value;
+        const datumVon = document.getElementById('rechnung-filter-datum-von')?.value || '';
+        const datumBis = document.getElementById('rechnung-filter-datum-bis')?.value || '';
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
 
@@ -1688,26 +1671,21 @@ const App = {
             rechnungen = rechnungen.filter(r => !r.pdfExists || r.isSupabaseOnly);
         }
         if (datevStatusFilter === 'zugewiesen') {
-            // PDFs mit DATEV-Bewegung (haben projektId)
+            // Einträge mit DATEV-Bewegung (haben projektId und sind keine Supabase-only)
             rechnungen = rechnungen.filter(r => r.projektId && !r.isSupabaseOnly);
         } else if (datevStatusFilter === 'nicht-zugewiesen') {
-            // PDFs ohne DATEV-Bewegung (Supabase-only oder ohne projektId)
-            rechnungen = rechnungen.filter(r => r.isSupabaseOnly || !r.projektId);
+            // Nur PDFs ohne DATEV-Zuordnung (Supabase-only), keine leeren DATEV-Buchungen
+            rechnungen = rechnungen.filter(r => r.isSupabaseOnly);
         }
-        if (jahrFilter) {
+        // Zeitraum-Filter
+        if (datumVon || datumBis) {
             rechnungen = rechnungen.filter(r => {
-                const datum = r.belegdatum || r.uploadedAt;
+                const datum = r.datum || r.belegdatum || r.uploadedAt;
                 if (!datum) return false;
-                const jahr = new Date(datum).getFullYear();
-                return String(jahr) === jahrFilter;
-            });
-        }
-        if (monatFilter) {
-            rechnungen = rechnungen.filter(r => {
-                const datum = r.belegdatum || r.uploadedAt;
-                if (!datum) return false;
-                const monat = new Date(datum).getMonth() + 1; // 1-12
-                return String(monat) === monatFilter;
+                const rechnungDatum = new Date(datum);
+                if (datumVon && rechnungDatum < new Date(datumVon)) return false;
+                if (datumBis && rechnungDatum > new Date(datumBis + 'T23:59:59')) return false;
+                return true;
             });
         }
 
