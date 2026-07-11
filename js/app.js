@@ -76,6 +76,11 @@ const App = {
 
             // Nach Animation entfernen
             setTimeout(() => ripple.remove(), 600);
+
+            // PDF-Dropdowns schließen wenn außerhalb geklickt
+            if (!e.target.closest('.pdf-search-container')) {
+                document.querySelectorAll('.pdf-dropdown').forEach(d => d.style.display = 'none');
+            }
         });
     },
 
@@ -1833,18 +1838,27 @@ const App = {
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
                 <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
                 <td>${r.pdfExists ?
-                    `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>` :
+                    `<div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>
+                        ${r.invoiceId ? `<button class="btn btn-sm"
+                                style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
+                                onclick="App.unlinkPdfFromDatev('${r.invoiceId}')"
+                                title="PDF-Verknüpfung trennen">✕</button>` : ''}
+                    </div>` :
                     (() => {
-                        const pdfDatalistId = `pdf-options-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
-                        return `<input type="text"
-                                       list="${pdfDatalistId}"
-                                       class="form-control"
-                                       style="font-size: 0.75rem; padding: 0.25rem; min-width: 250px;"
-                                       placeholder="PDF suchen..."
-                                       onchange="App.linkPdfToDatevFromInput('${r.partitaIva}', '${r.dokumentNr}', this.value)">
-                                <datalist id="${pdfDatalistId}">
-                                    ${this.getUnlinkedPdfOptionsAsDatalist()}
-                                </datalist>`;
+                        const pdfDropdownId = `pdf-dropdown-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
+                        return `<div class="pdf-search-container" style="position: relative; min-width: 280px;">
+                                    <input type="text"
+                                           id="input-${pdfDropdownId}"
+                                           class="form-control pdf-search-input"
+                                           style="font-size: 0.75rem; padding: 0.25rem;"
+                                           placeholder="PDF suchen..."
+                                           onfocus="App.showPdfDropdown('${pdfDropdownId}')"
+                                           oninput="App.filterPdfDropdown('${pdfDropdownId}', this.value)">
+                                    <div id="${pdfDropdownId}" class="pdf-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                                        ${this.getPdfDropdownItems(r.partitaIva, r.dokumentNr)}
+                                    </div>
+                                </div>`;
                     })()
                 }</td>
                 <td>
@@ -1903,6 +1917,111 @@ const App = {
             const label = `${shortFileName} | ${uploadDate}`;
             return `<option value="${label}" data-invoice-id="${r.invoiceId}"></option>`;
         }).join('');
+    },
+
+    /**
+     * Generiert Custom-Dropdown-Items für PDF-Suche mit Vorschau-Button
+     */
+    getPdfDropdownItems: function(partitaIva, dokumentNr) {
+        const allRechnungen = this.filteredRechnungen || [];
+        const unlinkedPdfs = allRechnungen.filter(r => r.isSupabaseOnly || (r.invoiceId && !r.partitaIva));
+
+        if (unlinkedPdfs.length === 0) {
+            return '<div style="padding: 0.5rem; color: #666; text-align: center;">Keine PDFs verfügbar</div>';
+        }
+
+        return unlinkedPdfs.map(r => {
+            const fileName = r.fileName || 'Unbekannt';
+            const shortFileName = fileName.length > 40 ? fileName.substring(0, 40) + '...' : fileName;
+            const uploadDate = r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('de-DE') : '';
+            const filePath = r.filePath || '';
+
+            return `<div class="pdf-dropdown-item" data-filename="${fileName}" data-invoice-id="${r.invoiceId}"
+                        style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.5rem; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.75rem;"
+                        onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">
+                        <span onclick="App.selectPdfFromDropdown('${r.invoiceId}', '${partitaIva}', '${dokumentNr}')" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${shortFileName} <span style="color: #888;">| ${uploadDate}</span>
+                        </span>
+                        <button onclick="event.stopPropagation(); App.previewPdfFromStorage('${filePath}')"
+                                style="margin-left: 0.5rem; padding: 0.1rem 0.4rem; font-size: 0.7rem; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                                title="PDF anzeigen">
+                            👁
+                        </button>
+                    </div>`;
+        }).join('');
+    },
+
+    /**
+     * Zeigt PDF-Dropdown an
+     */
+    showPdfDropdown: function(dropdownId) {
+        // Schließe alle anderen Dropdowns
+        document.querySelectorAll('.pdf-dropdown').forEach(d => {
+            if (d.id !== dropdownId) d.style.display = 'none';
+        });
+        document.getElementById(dropdownId).style.display = 'block';
+    },
+
+    /**
+     * Filtert PDF-Dropdown nach Eingabe
+     */
+    filterPdfDropdown: function(dropdownId, searchText) {
+        const dropdown = document.getElementById(dropdownId);
+        const items = dropdown.querySelectorAll('.pdf-dropdown-item');
+        const lowerSearch = searchText.toLowerCase();
+
+        items.forEach(item => {
+            const filename = item.getAttribute('data-filename').toLowerCase();
+            item.style.display = filename.includes(lowerSearch) ? 'flex' : 'none';
+        });
+
+        dropdown.style.display = 'block';
+    },
+
+    /**
+     * Wählt PDF aus Custom-Dropdown und verknüpft
+     */
+    selectPdfFromDropdown: async function(invoiceId, partitaIva, dokumentNr) {
+        try {
+            const currentPage = this.currentRechnungenPage;
+
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    partita_iva: partitaIva,
+                    invoice_number: dokumentNr
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Buchung verknüpft');
+
+            this.currentRechnungenPage = currentPage;
+            await this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Verknüpfen:', error);
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen: ' + error.message);
+        }
+    },
+
+    /**
+     * Zeigt PDF-Vorschau aus Supabase Storage
+     */
+    previewPdfFromStorage: async function(filePath) {
+        if (!filePath) {
+            this.showToast('error', 'Fehler', 'Kein Dateipfad vorhanden');
+            return;
+        }
+
+        try {
+            const signedUrl = await StorageService.getSignedUrl(filePath);
+            window.open(signedUrl, '_blank');
+        } catch (error) {
+            console.error('Fehler beim Laden des PDFs:', error);
+            this.showToast('error', 'Fehler', 'PDF konnte nicht geladen werden');
+        }
     },
 
     /**
@@ -2084,6 +2203,40 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Trennen:', error);
             console.error('Error Message:', error.message);
+            this.showToast('error', 'Fehler', `Trennen fehlgeschlagen: ${error.message}`);
+        }
+    },
+
+    /**
+     * Entfernt PDF-Verknüpfung von DATEV-Buchung (nur PDF-Seite)
+     */
+    unlinkPdfFromDatev: async function(invoiceId) {
+        if (!confirm('PDF-Verknüpfung trennen? Das PDF bleibt erhalten und kann neu zugewiesen werden.')) {
+            return;
+        }
+
+        try {
+            const currentPage = this.currentRechnungenPage;
+
+            console.log('Trenne PDF-Verknüpfung für Invoice:', invoiceId);
+
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    partita_iva: null,
+                    invoice_number: null
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Getrennt', 'PDF-Verknüpfung wurde entfernt');
+
+            this.currentRechnungenPage = currentPage;
+            await this.filterRechnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Trennen:', error);
             this.showToast('error', 'Fehler', `Trennen fehlgeschlagen: ${error.message}`);
         }
     },

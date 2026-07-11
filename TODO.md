@@ -1,167 +1,73 @@
 # TODO Liste - Projektsoftware Kunst Meran
 
-Stand: 2026-07-10
-
-## 🎯 Priorität: Hoch
-
-### 1. ✅ DATEV-ID Anzeige & Bearbeitung debuggen und fixen
-**Status:** In Arbeit
-**Zeitaufwand:** ~5-10 Min
-**Problem:** DATEV-ID wird nicht korrekt angezeigt/gespeichert
-**Nächster Schritt:**
-- Browser-Konsole prüfen beim Klick auf "Bearbeiten"
-- `editProject()` auf async umstellen
-- `getProjectById()` mit await aufrufen
+Stand: 2026-07-11
 
 ---
 
-### 2. 📁 Files-Speicherung Konzept klären
-**Status:** Offen - Entscheidung nötig
-**Zeitaufwand:** Diskussion + Implementierung
-**Optionen:**
-- **Option A:** Supabase Storage (für jetzt, einfach zu integrieren)
-- **Option B:** Hetzner Server (geplant für später, mehr Kontrolle)
+## 🎯 Aktuelle Aufgaben (Priorität: Hoch)
 
-**Fragen zu klären:**
-- Wo sollen PDFs gespeichert werden?
-- Wie funktioniert der Upload-Flow?
-- Automatische Zuordnung zu Lieferanten aus DATEV-Excel?
+### 1. Import der Bedarfe
+- [ ] Prüfen, ob die Bedarfe ohne "owner 2026" (die gelöscht wurden) bereits verknüpft waren
+- [ ] Kontrollieren, ob die später hochgeladenen Bedarfe korrekt verknüpft wurden
+- [ ] Weitere Bedarfe hochladen (sobald fehlende Fornitori ergänzt sind)
+- [ ] Fehlende Fornitori (Lieferanten) identifizieren und ergänzen
 
-**Features:**
-- Drag & Drop für Eingangsrechnungen (PDFs)
-- Automatische Benennung nach Format
-- Automatische Lieferanten-Zuordnung
-- PDF-Vorschau in der App
-- CSV-Import mit Archiv-Historie
+### 2. Suche der Bewegungen
+- [ ] Suchfunktion für Bewegungen optimieren
 
----
+### 3. Dashboard und Ansichten
+- [ ] Dashboard aktivieren/verknüpfen (bereits vorbereitet)
+- [ ] Lieferanten-Ansicht füllen (aktuell leer)
+- [ ] Projektdetails: Rechnungen bei den Bewegungen anzeigen
 
-### 3. 🔄 Session-State bei Page-Refresh beibehalten
-**Status:** Offen
-**Zeitaufwand:** ~10 Min
-**Problem:** Nach F5/Reload landet man immer auf Dashboard
-**Lösung:**
-- Aktuelle View in localStorage speichern
-- Bei App-Init letzte View wiederherstellen
-- Optional: URL-Parameter für Deep-Links
-
-**Implementierung:**
-```javascript
-// Beim View-Wechsel:
-localStorage.setItem('lastView', viewName);
-
-// Bei App-Init:
-const lastView = localStorage.getItem('lastView') || 'dashboard';
-this.showView(lastView);
-```
+### 4. Budget und Deckungsbeiträge
+- [ ] Budget eintragen
+- [ ] Deckungsbeiträge erstellen (basierend auf den zwei Excel-Beispielen)
 
 ---
 
-### 4. 👤 User-Aktivitäten tracken
-**Status:** Offen
-**Zeitaufwand:** ~15 Min
-**Anforderung:** Immer ersichtlich welcher User welche Aktion durchgeführt hat
+## 🔧 Technische Verbesserungen
 
-**Was zu implementieren:**
-- `created_by` automatisch setzen bei INSERT
-- `updated_by` + `updated_at` automatisch setzen bei UPDATE
-- User-Info in Listen/Details anzeigen
-- Optional: Audit-Log für wichtige Aktionen
-
-**Supabase RLS:**
-- `created_by` wird automatisch via `auth.uid()` gesetzt
-- Trigger für `updated_by` erstellen
+### PDF-Handling
+- [ ] PDF entverknüpfen Button für fehlerhafte PDFs (rote Links)
+- [ ] PDF-Vorschau Icons in der Dropdown-Suchliste
 
 ---
 
-## 🎨 Design & UX Verbesserungen
+## ✅ Erledigte Aufgaben
 
-### 5. ✨ Mouse-Click Effekte hinzufügen
-**Status:** Offen
-**Zeitaufwand:** ~5 Min
-**Anforderung:** Kleiner bunter Punkt oder Effekt beim Klick
+### Rechnungen-Features (erledigt 2026-07-10/11)
+- [x] DATEV-Bewegung als suchbares Input mit Datalist (400px breit)
+- [x] PDF-Suche als suchbares Input mit Datalist (250px breit)
+- [x] PDF-Status Filter (Zugewiesen / Nicht zugewiesen)
+- [x] Lieferantennamen aus Suppliers-Tabelle anzeigen
+- [x] Seiten-Position bleibt beim Verknüpfen erhalten
+- [x] Upload-Feedback: "X neu, Y bereits vorhanden, Z Fehler"
+- [x] Mass-Upload: PDF-Preview Icon zum Öffnen
+- [x] Mass-Upload: Dateinamen-Filter
 
-**Implementierung:**
-- CSS Ripple-Effekt
-- Bunte Farben passend zum Theme
-- Smooth Animation
-
-**Technologie:**
-```css
-/* Material Design Ripple Effect */
-.ripple {
-  position: relative;
-  overflow: hidden;
-}
-```
+### Infrastruktur (erledigt)
+- [x] Supabase + Vercel Deployment
+- [x] Login über Supabase Auth
+- [x] Projekte aus Supabase laden
+- [x] PDF-Upload zu Supabase Storage
+- [x] DATEV-Import Flow
 
 ---
 
-### 6. 🎨 Farben für Rechnungen anpassen
-**Status:** Offen
-**Zeitaufwand:** ~5 Min
-**Anforderung:** Kräftigere Farben statt Ockergelb bei Einkaufsrechnungen
+## 📋 Backlog (Niedrige Priorität)
 
-**Aktuell:** Gelb/Ockertöne
-**Gewünscht:** Kräftigere, stärkere Farben
+### UX Verbesserungen
+- [ ] Session-State bei Page-Refresh beibehalten
+- [ ] Mouse-Click Effekte (Ripple)
+- [ ] Kräftigere Farben für Rechnungen
 
-**Zu ändern in CSS Variables:**
-```css
-:root {
-  --color-invoice-pending: #f39c12; /* Aktuell: Ockergelb */
-  --color-invoice-paid: #27ae60;
-  --color-invoice-overdue: #e74c3c;
-}
-```
-
-**Neue Vorschläge:**
-- Orange: `#ff6b35` (kräftiger)
-- Amber: `#ffa000` (stärker)
-- Deep Orange: `#ff5722` (modern)
-
----
-
-## 📊 Geschätzter Gesamtaufwand
-
-| Task | Zeit | Status |
-|------|------|--------|
-| 1. DATEV-ID Fix | 5-10 Min | 🔄 In Arbeit |
-| 2. Files-Speicherung | Diskussion + Impl. | ⏳ Offen |
-| 3. Session-State | 10 Min | ⏳ Offen |
-| 4. User-Tracking | 15 Min | ⏳ Offen |
-| 5. Click-Effekte | 5 Min | ⏳ Offen |
-| 6. Farben-Update | 5 Min | ⏳ Offen |
-| **GESAMT** | **~1 Stunde** (ohne Files) | |
-
----
-
-## 🗂️ Reihenfolge der Umsetzung
-
-1. ✅ **DATEV-ID fixen** (muss funktionieren)
-2. 📁 **Files-Konzept besprechen** (wichtige Entscheidung)
-3. 🔄 **Session-State** (schnelle UX-Verbesserung)
-4. 👤 **User-Tracking** (wichtig für Audit)
-5. ✨ **Click-Effekte** (nice to have)
-6. 🎨 **Farben** (polishing)
+### Audit & Tracking
+- [ ] User-Aktivitäten tracken (created_by, updated_by)
 
 ---
 
 ## 📝 Notizen
 
-- Supabase + Vercel Deployment läuft stabil ✅
-- Projekte aus Supabase werden geladen ✅
-- Login über Supabase Auth funktioniert ✅
 - Kosten/Budget noch nicht migriert (localStorage)
-- DATEV-Import Flow vorhanden (muss an Supabase angepasst werden)
-
----
-
-## 🚀 Nach Fertigstellung
-
-- [ ] Kosten nach Supabase migrieren
-- [ ] Budget-Items nach Supabase migrieren
-- [ ] Einnahmen nach Supabase migrieren
-- [ ] DATEV-CSV Import auf Supabase umstellen
-- [ ] PDF-Upload System implementieren
-- [ ] Tests schreiben
-- [ ] Dokumentation aktualisieren
+- Alte PDFs mit falschem Dateiformat müssen neu hochgeladen werden
