@@ -2307,9 +2307,18 @@ const App = {
         this.loadExportTab();
     },
 
-    loadCostTypes: function() {
-        const costTypes = DataManager.getCostTypes();
+    loadCostTypes: async function() {
         const container = document.getElementById('cost-types-list');
+        container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">Lade Kostentypen...</p>';
+
+        // Warten auf Supabase-Daten
+        let costTypes = [];
+        if (SupabaseDataAdapter.costTypesCache) {
+            costTypes = SupabaseDataAdapter.costTypesCache;
+        } else {
+            costTypes = await SupabaseDataAdapter.loadCostTypesFromSupabase();
+        }
+
         container.innerHTML = '';
 
         if (costTypes.length === 0) {
@@ -2321,13 +2330,13 @@ const App = {
             container.innerHTML += `
                 <div class="config-item">
                     <div class="config-item-info">
-                        <div class="color-dot" style="background-color: ${ct.color};"></div>
+                        <span class="badge" style="background: #e3f2fd; color: #1565c0; margin-right: 0.5rem;">${ct.code || ct.id}</span>
                         <span>${ct.name}</span>
-                        ${!ct.active ? '<span class="badge badge-warning">Inaktiv</span>' : ''}
+                        ${!ct.active ? '<span class="badge badge-warning" style="margin-left: 0.5rem;">Inaktiv</span>' : ''}
                     </div>
                     <div class="config-item-actions">
-                        <button class="btn btn-sm btn-outline" onclick="App.editCostType(${ct.id})">Bearbeiten</button>
-                        <button class="btn btn-sm btn-danger" onclick="App.deleteCostType(${ct.id})">Löschen</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.editCostType('${ct.id}')">Bearbeiten</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteCostType('${ct.id}')">Löschen</button>
                     </div>
                 </div>
             `;
@@ -2338,46 +2347,54 @@ const App = {
         document.getElementById('costtype-form').reset();
         document.getElementById('costtype-form-id').value = '';
         document.getElementById('costtype-modal-title').textContent = 'Neuer Kostentyp';
-        document.getElementById('costtype-color').value = '#3498db';
         this.showModal('costtype-form-modal');
     },
 
     editCostType: function(id) {
-        const costTypes = DataManager.getCostTypes();
-        const ct = costTypes.find(c => c.id === id);
+        const costTypes = SupabaseDataAdapter.costTypesCache || [];
+        const ct = costTypes.find(c => String(c.id) === String(id));
         if (!ct) return;
 
         document.getElementById('costtype-form-id').value = ct.id;
+        document.getElementById('costtype-code').value = ct.code || ct.id;
         document.getElementById('costtype-name').value = ct.name;
-        document.getElementById('costtype-color').value = ct.color;
 
         document.getElementById('costtype-modal-title').textContent = 'Kostentyp bearbeiten';
         this.showModal('costtype-form-modal');
     },
 
-    saveCostType: function(event) {
+    saveCostType: async function(event) {
         event.preventDefault();
 
         const id = document.getElementById('costtype-form-id').value;
         const costTypeData = {
+            code: document.getElementById('costtype-code')?.value || '',
             name: document.getElementById('costtype-name').value,
-            color: document.getElementById('costtype-color').value
+            description: document.getElementById('costtype-name').value
         };
 
-        if (id) {
-            DataManager.updateCostType(parseInt(id), costTypeData);
-        } else {
-            DataManager.addCostType(costTypeData);
-        }
+        try {
+            if (id) {
+                await DataManager.updateCostType(id, costTypeData);
+            } else {
+                await DataManager.addCostType(costTypeData);
+            }
 
-        this.hideModal('costtype-form-modal');
-        this.loadCostTypes();
+            this.hideModal('costtype-form-modal');
+            await this.loadCostTypes();
+        } catch (error) {
+            alert('Fehler beim Speichern: ' + error.message);
+        }
     },
 
-    deleteCostType: function(id) {
+    deleteCostType: async function(id) {
         if (confirm('Kostentyp wirklich löschen?')) {
-            DataManager.deleteCostType(id);
-            this.loadCostTypes();
+            try {
+                await DataManager.deleteCostType(id);
+                await this.loadCostTypes();
+            } catch (error) {
+                alert('Fehler beim Löschen: ' + error.message);
+            }
         }
     },
 

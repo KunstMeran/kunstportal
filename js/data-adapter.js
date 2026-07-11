@@ -836,16 +836,17 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
                 .select('*')
-                .order('code', { ascending: true });
+                .order('id', { ascending: true });
 
             if (error) throw error;
 
+            // Spalten anpassen: id ist der Code, is_active statt active
             this.costTypesCache = (data || []).map(ct => ({
                 id: ct.id,
-                code: ct.code || '',
+                code: ct.id, // id ist gleichzeitig der Code (z.B. "5101")
                 name: ct.name,
                 description: ct.description || '',
-                active: ct.active !== false
+                active: ct.is_active !== false
             }));
 
             console.log(`📋 ${this.costTypesCache.length} Kostentypen aus Supabase geladen`);
@@ -874,13 +875,16 @@ const SupabaseDataAdapter = {
 
     async addCostType(costTypeData) {
         try {
+            // id ist gleichzeitig der Code
+            const newId = costTypeData.code || costTypeData.id || String(Date.now());
+
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
                 .insert([{
-                    code: costTypeData.code || '',
+                    id: newId,
                     name: costTypeData.name,
-                    description: costTypeData.description || '',
-                    active: true
+                    description: costTypeData.description || costTypeData.name,
+                    is_active: true
                 }])
                 .select()
                 .single();
@@ -892,10 +896,10 @@ const SupabaseDataAdapter = {
 
             return {
                 id: data.id,
-                code: data.code,
+                code: data.id,
                 name: data.name,
                 description: data.description,
-                active: data.active
+                active: data.is_active
             };
         } catch (error) {
             console.error('Fehler beim Anlegen des Kostentyps:', error);
@@ -908,10 +912,9 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
                 .update({
-                    code: updates.code,
                     name: updates.name,
                     description: updates.description,
-                    active: updates.active
+                    is_active: updates.active
                 })
                 .eq('id', id)
                 .select()
@@ -924,10 +927,10 @@ const SupabaseDataAdapter = {
 
             return {
                 id: data.id,
-                code: data.code,
+                code: data.id,
                 name: data.name,
                 description: data.description,
-                active: data.active
+                active: data.is_active
             };
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Kostentyps:', error);
