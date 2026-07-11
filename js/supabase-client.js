@@ -52,6 +52,16 @@ const SupabaseService = {
         return data;
     },
 
+    async getAllUsers() {
+        const { data, error } = await this.client
+            .from('users')
+            .select('id, username, email, role')
+            .order('username', { ascending: true });
+
+        if (error) throw error;
+        return data || [];
+    },
+
     // PROJECT METHODS
     async getProjects() {
         const { data, error } = await this.client

@@ -928,16 +928,23 @@ const App = {
     // PROJEKT-FORMULARE
     // ==========================================
 
-    showNewProjectForm: function() {
+    showNewProjectForm: async function() {
         document.getElementById('project-form').reset();
         document.getElementById('project-form-id').value = '';
         document.getElementById('project-modal-title').textContent = 'Neues Projekt';
+
+        // User für PL-Dropdowns laden
+        await this.loadUserDropdowns();
+
         this.showModal('project-form-modal');
     },
 
     editProject: async function(projectId) {
         const project = await DataManager.getProjectById(projectId);
         if (!project) return;
+
+        // User für PL-Dropdowns laden
+        await this.loadUserDropdowns();
 
         document.getElementById('project-form-id').value = project.id;
         document.getElementById('project-name').value = project.name;
@@ -954,6 +961,28 @@ const App = {
 
         document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
         this.showModal('project-form-modal');
+    },
+
+    /**
+     * Lädt User aus Supabase in die PL-Dropdowns
+     */
+    loadUserDropdowns: async function() {
+        try {
+            const users = await SupabaseService.getAllUsers();
+
+            const pl1Select = document.getElementById('project-pl1');
+            const pl2Select = document.getElementById('project-pl2');
+
+            // Options erstellen
+            const optionsHtml = '<option value="">-- Nicht zugewiesen --</option>' +
+                users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+
+            pl1Select.innerHTML = optionsHtml;
+            pl2Select.innerHTML = optionsHtml;
+
+        } catch (error) {
+            console.error('Fehler beim Laden der User:', error);
+        }
     },
 
     saveProject: async function(event) {
