@@ -2900,71 +2900,189 @@ const App = {
     // LIEFERANTEN (DATEV)
     // ==========================================
 
+    // Alle Lieferanten-Daten speichern für Filter
+    allLieferanten: [],
+    allLieferantenRechnungen: [],
+
     loadLieferanten: async function() {
         const lieferanten = await DataManager.getDatevLieferanten();
         const rechnungen = await DataManager.getRechnungenMitStatus();
 
-        // Statistiken
+        // Daten speichern für Filter
+        this.allLieferanten = lieferanten;
+        this.allLieferantenRechnungen = rechnungen;
+
+        // Statistiken berechnen
         let gesamtvolumen = 0;
         let mitRechnungen = 0;
-        let ohneNamen = 0;
 
         lieferanten.forEach(l => {
             const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
             if (lieferantRechnungen.length > 0) {
                 mitRechnungen++;
-                gesamtvolumen += lieferantRechnungen.reduce((sum, r) => sum + r.betrag, 0);
+                gesamtvolumen += lieferantRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
             }
-            if (!l.name) ohneNamen++;
         });
 
         document.getElementById('stat-lieferanten-total').textContent = lieferanten.length;
         document.getElementById('stat-lieferanten-aktiv').textContent = mitRechnungen;
         document.getElementById('stat-lieferanten-summe').textContent = this.formatCurrency(gesamtvolumen);
 
-        // Tabelle befüllen
-        const tbody = document.getElementById('lieferanten-table-body');
-        tbody.innerHTML = '';
+        // Suchfeld leeren
+        document.getElementById('lieferanten-search').value = '';
 
-        if (lieferanten.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden. Bitte Import-Skript ausführen.</td></tr>';
+        // Tabelle rendern
+        this.renderLieferantenTable(lieferanten);
+    },
+
+    filterLieferanten: function() {
+        const searchTerm = document.getElementById('lieferanten-search').value.toLowerCase();
+
+        if (!searchTerm) {
+            this.renderLieferantenTable(this.allLieferanten);
             return;
         }
 
-        // Hinweis wenn Namen fehlen
-        if (ohneNamen > 0) {
-            const hinweisRow = document.createElement('tr');
-            hinweisRow.innerHTML = `<td colspan="6" style="background: #fff3cd; color: #856404; padding: 0.75rem; text-align: center;">
-                <strong>Hinweis:</strong> ${ohneNamen} Lieferant(en) ohne Namen. Klicken Sie auf das Stift-Symbol, um Namen zu erfassen.
-            </td>`;
-            tbody.appendChild(hinweisRow);
+        const filtered = this.allLieferanten.filter(l => {
+            const name = (l.name || '').toLowerCase();
+            const partitaIva = (l.partitaIva || '').toLowerCase();
+            const address = (l.address || '').toLowerCase();
+            const city = (l.city || '').toLowerCase();
+
+            return name.includes(searchTerm) ||
+                   partitaIva.includes(searchTerm) ||
+                   address.includes(searchTerm) ||
+                   city.includes(searchTerm);
+        });
+
+        this.renderLieferantenTable(filtered);
+    },
+
+    renderLieferantenTable: function(lieferanten) {
+        const tbody = document.getElementById('lieferanten-table-body');
+        tbody.innerHTML = '';
+        const rechnungen = this.allLieferantenRechnungen;
+        const currentYear = new Date().getFullYear();
+
+        if (lieferanten.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden.</td></tr>';
+            return;
         }
 
         lieferanten.forEach(l => {
             const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
-            const summe = lieferantRechnungen.reduce((sum, r) => sum + r.betrag, 0);
+            const summe = lieferantRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
             const hatName = l.name && l.name.trim() !== '';
             const displayName = hatName ? l.name : '(Unbekannt)';
-            const nameClass = hatName ? '' : 'style="color: #999; font-style: italic;"';
+            const nameStyle = hatName ? '' : 'color: #999; font-style: italic;';
 
+            // Adresse zusammensetzen
+            const adressParts = [l.address, l.city, l.country].filter(Boolean);
+            const adresse = adressParts.join(', ') || '-';
+
+            // Rechnungen dieses Jahr
+            const rechnungenDiesesJahr = lieferantRechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === currentYear;
+            });
+            const summeDiesesJahr = rechnungenDiesesJahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            // Hauptzeile mit Expand-Button
             const row = document.createElement('tr');
+            row.className = 'lieferant-row';
+            row.style.cursor = 'pointer';
+            row.onclick = () => this.toggleLieferantDetails(l.partitaIva);
             row.innerHTML = `
+                <td style="text-align: center;">
+                    <span id="expand-icon-${l.partitaIva}" style="font-size: 0.8rem;">▶</span>
+                </td>
                 <td>
-                    <span id="lieferant-name-${l.partitaIva}" ${nameClass}><strong>${displayName}</strong></span>
-                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="App.editLieferantName('${l.partitaIva}')" title="Name bearbeiten">
-                        &#9998;
+                    <span style="${nameStyle}"><strong>${displayName}</strong></span>
+                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="event.stopPropagation(); App.editLieferantName('${l.partitaIva}')" title="Name bearbeiten">
+                        ✎
                     </button>
                 </td>
                 <td>${l.partitaIva}</td>
-                <td>${l.nummer || '-'}</td>
+                <td style="font-size: 0.85rem; color: #666;">${adresse}</td>
                 <td style="text-align: right;">${lieferantRechnungen.length}</td>
                 <td style="text-align: right;">${this.formatCurrency(summe)}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline" onclick="App.showLieferantRechnungen('${l.partitaIva}')">Rechnungen</button>
-                </td>
             `;
             tbody.appendChild(row);
+
+            // Detail-Zeile (versteckt)
+            const detailRow = document.createElement('tr');
+            detailRow.id = `lieferant-detail-${l.partitaIva}`;
+            detailRow.style.display = 'none';
+            detailRow.innerHTML = `
+                <td colspan="6" style="background: #f8f9fa; padding: 1rem;">
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>${currentYear}:</strong> ${rechnungenDiesesJahr.length} Rechnungen, ${this.formatCurrency(summeDiesesJahr)}
+                        <span style="color: #666; margin-left: 1rem;">| Gesamt: ${lieferantRechnungen.length} Rechnungen</span>
+                    </div>
+                    <div id="lieferant-rechnungen-${l.partitaIva}">
+                        ${this.renderLieferantRechnungenList(rechnungenDiesesJahr, l.partitaIva)}
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(detailRow);
         });
+    },
+
+    toggleLieferantDetails: function(partitaIva) {
+        const detailRow = document.getElementById(`lieferant-detail-${partitaIva}`);
+        const expandIcon = document.getElementById(`expand-icon-${partitaIva}`);
+
+        if (detailRow.style.display === 'none') {
+            detailRow.style.display = 'table-row';
+            expandIcon.textContent = '▼';
+        } else {
+            detailRow.style.display = 'none';
+            expandIcon.textContent = '▶';
+        }
+    },
+
+    renderLieferantRechnungenList: function(rechnungen, partitaIva) {
+        if (rechnungen.length === 0) {
+            return '<div style="color: #666; font-style: italic;">Keine Rechnungen in diesem Jahr</div>';
+        }
+
+        return `
+            <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #e9ecef;">
+                        <th style="padding: 0.4rem; text-align: left;">Datum</th>
+                        <th style="padding: 0.4rem; text-align: left;">Rechnungs-Nr.</th>
+                        <th style="padding: 0.4rem; text-align: left;">Projekt</th>
+                        <th style="padding: 0.4rem; text-align: right;">Netto</th>
+                        <th style="padding: 0.4rem; text-align: right;">Brutto</th>
+                        <th style="padding: 0.4rem; text-align: center;">PDF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rechnungen.map(r => {
+                        const projekt = DataManager.getKunstMeranProjekt(r.projektId);
+                        const projektName = projekt?.name || r.projektId || '-';
+                        const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
+                        const brutto = r.betragGesamt !== undefined ? r.betragGesamt : (r.betrag * 1.22);
+                        return `
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 0.4rem;">${this.formatDate(r.datum || r.belegdatum)}</td>
+                                <td style="padding: 0.4rem;">${r.dokumentNr || '-'}</td>
+                                <td style="padding: 0.4rem;">${projektName}</td>
+                                <td style="padding: 0.4rem; text-align: right;">${this.formatCurrency(netto)}</td>
+                                <td style="padding: 0.4rem; text-align: right;">${this.formatCurrency(brutto)}</td>
+                                <td style="padding: 0.4rem; text-align: center;">
+                                    ${r.pdfExists ?
+                                        `<a href="#" onclick="event.preventDefault(); App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')" style="color: #2196F3;">📄</a>` :
+                                        '<span style="color: #ccc;">-</span>'
+                                    }
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
     },
 
     editLieferantName: function(partitaIva) {

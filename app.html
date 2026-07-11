@@ -743,18 +743,30 @@
                     </div>
                 </div>
 
+                <!-- Lieferanten-Suche -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="card-body" style="padding: 0.75rem;">
+                        <input type="text"
+                               id="lieferanten-search"
+                               class="form-control"
+                               placeholder="Lieferant suchen (Name, Partita IVA, Adresse)..."
+                               oninput="App.filterLieferanten()"
+                               style="font-size: 0.9rem;">
+                    </div>
+                </div>
+
                 <!-- Lieferantenliste -->
                 <div class="card">
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
+                                    <th style="width: 30px;"></th>
                                     <th>Lieferant</th>
                                     <th>Partita IVA</th>
-                                    <th>Nummer</th>
+                                    <th>Adresse</th>
                                     <th style="text-align: right;">Rechnungen</th>
                                     <th style="text-align: right;">Gesamtbetrag</th>
-                                    <th>Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="lieferanten-table-body">
