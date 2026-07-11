@@ -483,40 +483,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Stunden-Übersicht -->
-                <div class="card" style="margin-top: 1.5rem;">
-                    <div class="card-header">
-                        <h3 class="card-title">Stunden-Übersicht</h3>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Projekt</th>
-                                    <th>Mitarbeiter</th>
-                                    <th>Datum</th>
-                                    <th>Beschreibung</th>
-                                    <th style="text-align: right;">Stunden</th>
-                                    <th style="text-align: right;">Kosten</th>
-                                </tr>
-                            </thead>
-                            <tbody id="hours-overview-body">
-                                <!-- Wird dynamisch geladen -->
-                            </tbody>
-                            <tfoot id="hours-overview-footer">
-                                <tr style="background: #f8f9fa; font-weight: 600;">
-                                    <td colspan="4" style="text-align: right;">Summe:</td>
-                                    <td id="hours-total" style="text-align: right;">0 Std.</td>
-                                    <td id="hours-cost-total" style="text-align: right;">0,00 EUR</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
-                        Hinweis: Stundenkosten werden nicht in die Projekt-Gesamtsumme eingerechnet.
-                    </div>
-                </div>
             </div>
 
             <!-- ==================== RECHNUNGEN (DATEV) ==================== -->
@@ -1669,6 +1635,39 @@
                                 <tbody id="fp-costs-table">
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Stunden-Übersicht für dieses Projekt -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Zeiterfassung / Arbeitsstunden</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Mitarbeiter</th>
+                                        <th>Datum</th>
+                                        <th>Beschreibung</th>
+                                        <th style="text-align: right;">Stunden</th>
+                                        <th style="text-align: right;">Kosten</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fp-hours-overview-body">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background: #f8f9fa; font-weight: 600;">
+                                        <td colspan="3" style="text-align: right;">Summe:</td>
+                                        <td id="fp-hours-total" style="text-align: right;">0 Std.</td>
+                                        <td id="fp-hours-cost-total" style="text-align: right;">0,00 EUR</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
+                            Hinweis: Stundenkosten werden nicht in die Projekt-Gesamtsumme eingerechnet.
                         </div>
                     </div>
                 </div>

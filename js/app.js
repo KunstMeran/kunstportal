@@ -422,9 +422,6 @@ const App = {
 
         // Projekte anzeigen
         this.displayProjects();
-
-        // Stunden-Übersicht laden
-        this.loadHoursOverview();
     },
 
     displayProjects: function() {
@@ -536,24 +533,23 @@ const App = {
         this.displayProjects();
     },
 
-    loadHoursOverview: async function() {
-        const container = document.getElementById('hours-overview-body');
+    loadProjectHoursOverview: async function(projectId) {
+        const container = document.getElementById('fp-hours-overview-body');
         if (!container) return;
 
-        container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Lade Stunden...</td></tr>';
+        container.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666;">Lade Stunden...</td></tr>';
 
         try {
-            // Alle Zeiteinträge laden
-            const timeEntries = await DataManager.getTimeEntries();
-            const projects = this.allProjects;
+            // Zeiteinträge für dieses Projekt laden
+            const timeEntries = await DataManager.getTimeEntriesByProject(projectId);
 
             // Users laden (für Namen)
             const users = await SupabaseService.getAllUsers();
 
             if (timeEntries.length === 0) {
-                container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Keine Zeiteinträge vorhanden</td></tr>';
-                document.getElementById('hours-total').textContent = '0 Std.';
-                document.getElementById('hours-cost-total').textContent = this.formatCurrency(0);
+                container.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666;">Keine Zeiteinträge für dieses Projekt</td></tr>';
+                document.getElementById('fp-hours-total').textContent = '0 Std.';
+                document.getElementById('fp-hours-cost-total').textContent = this.formatCurrency(0);
                 return;
             }
 
@@ -567,7 +563,6 @@ const App = {
             const defaultHourlyRate = 50; // Standard-Stundensatz
 
             timeEntries.forEach(entry => {
-                const project = projects.find(p => String(p.id) === String(entry.projectId));
                 const user = users.find(u => u.id === entry.userId);
                 const hourlyRate = user?.hourlyRate || defaultHourlyRate;
                 const entryCost = (entry.hours || 0) * hourlyRate;
@@ -577,7 +572,6 @@ const App = {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${project ? project.name : 'Unbekannt'}</td>
                     <td>${user ? user.username : 'Unbekannt'}</td>
                     <td>${this.formatDate(entry.date)}</td>
                     <td>${entry.description || '-'}</td>
@@ -588,12 +582,12 @@ const App = {
             });
 
             // Summen aktualisieren
-            document.getElementById('hours-total').textContent = `${totalHours} Std.`;
-            document.getElementById('hours-cost-total').textContent = this.formatCurrency(totalCost);
+            document.getElementById('fp-hours-total').textContent = `${totalHours} Std.`;
+            document.getElementById('fp-hours-cost-total').textContent = this.formatCurrency(totalCost);
 
         } catch (error) {
             console.error('Fehler beim Laden der Stunden-Übersicht:', error);
-            container.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Fehler beim Laden</td></tr>';
+            container.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #e74c3c;">Fehler beim Laden</td></tr>';
         }
     },
 
@@ -720,6 +714,9 @@ const App = {
 
             // Kosten-Tabelle befüllen (DATEV + manuelle geplante Kosten)
             this.displayProjectCosts(projektRechnungen, geplanteKosten);
+
+            // Stunden-Übersicht für dieses Projekt laden
+            this.loadProjectHoursOverview(projectId);
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Details:', error);
         }
