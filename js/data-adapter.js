@@ -97,9 +97,23 @@ const SupabaseDataAdapter = {
         DataManager._deleteCostTypeOriginal = DataManager.deleteCostType;
         DataManager.deleteCostType = this.deleteCostType.bind(this);
 
+        // User-Funktionen überschreiben
+        DataManager._getUsersOriginal = DataManager.getUsers;
+        DataManager.getUsers = this.getUsers.bind(this);
+
+        DataManager._getUserByIdOriginal = DataManager.getUserById;
+        DataManager.getUserById = this.getUserById.bind(this);
+
+        DataManager._updateUserOriginal = DataManager.updateUser;
+        DataManager.updateUser = this.updateUser.bind(this);
+
         // Cache für Kostentypen initialisieren
         this.costTypesCache = null;
         this.loadCostTypesFromSupabase();
+
+        // Cache für User initialisieren
+        this.usersCache = null;
+        this.loadUsersFromSupabase();
 
         console.log('✅ Supabase Data Adapter aktiviert');
     },
@@ -953,6 +967,89 @@ const SupabaseDataAdapter = {
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Kostentyps:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * USER-FUNKTIONEN (aus Supabase users Tabelle)
+     */
+
+    usersCache: null,
+
+    async loadUsersFromSupabase() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('users')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            this.usersCache = (data || []).map(u => ({
+                id: u.id,
+                name: u.name || u.email,
+                email: u.email,
+                role: u.role || 'user',
+                hourlyRate: parseFloat(u.hourly_rate) || 0
+            }));
+
+            console.log(`👥 ${this.usersCache.length} Benutzer aus Supabase geladen`);
+            return this.usersCache;
+        } catch (error) {
+            console.error('Fehler beim Laden der Benutzer:', error);
+            this.usersCache = DataManager._getUsersOriginal ? DataManager._getUsersOriginal() : [];
+            return this.usersCache;
+        }
+    },
+
+    getUsers() {
+        if (!this.usersCache) {
+            this.loadUsersFromSupabase();
+            return DataManager._getUsersOriginal ? DataManager._getUsersOriginal() : [];
+        }
+        return this.usersCache;
+    },
+
+    getUserById(id) {
+        const users = this.getUsers();
+        return users.find(u => String(u.id) === String(id));
+    },
+
+    async updateUser(id, updates) {
+        try {
+            const supabaseUpdates = {};
+            if (updates.hourlyRate !== undefined) {
+                supabaseUpdates.hourly_rate = updates.hourlyRate;
+            }
+            if (updates.name !== undefined) {
+                supabaseUpdates.name = updates.name;
+            }
+            if (updates.role !== undefined) {
+                supabaseUpdates.role = updates.role;
+            }
+
+            const { data, error } = await SupabaseService.client
+                .from('users')
+                .update(supabaseUpdates)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Cache invalidieren
+            await this.loadUsersFromSupabase();
+
+            return {
+                id: data.id,
+                name: data.name || data.email,
+                email: data.email,
+                role: data.role || 'user',
+                hourlyRate: parseFloat(data.hourly_rate) || 0
+            };
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Benutzers:', error);
             throw error;
         }
     }

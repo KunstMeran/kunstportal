@@ -299,7 +299,7 @@ const App = {
                 await this.loadImportStatistics();
                 break;
             case 'konfiguration':
-                this.loadConfiguration();
+                await this.loadConfiguration();
                 break;
         }
     },
@@ -2300,10 +2300,10 @@ const App = {
     // KONFIGURATION
     // ==========================================
 
-    loadConfiguration: function() {
-        this.loadCostTypes();
+    loadConfiguration: async function() {
+        await this.loadCostTypes();
         this.loadSuppliers();
-        this.loadUsers();
+        await this.loadUsers();
         this.loadExportTab();
     },
 
@@ -2503,10 +2503,24 @@ const App = {
     // MITARBEITER / STUNDENSÄTZE
     // ==========================================
 
-    loadUsers: function() {
-        const users = DataManager.getUsers();
+    loadUsers: async function() {
         const container = document.getElementById('users-list');
+        container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">Lade Mitarbeiter...</p>';
+
+        // Warten auf Supabase-Daten
+        let users = [];
+        if (SupabaseDataAdapter.usersCache) {
+            users = SupabaseDataAdapter.usersCache;
+        } else {
+            users = await SupabaseDataAdapter.loadUsersFromSupabase();
+        }
+
         container.innerHTML = '';
+
+        if (users.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Mitarbeiter definiert</p>';
+            return;
+        }
 
         users.forEach(u => {
             container.innerHTML += `
@@ -2519,7 +2533,7 @@ const App = {
                     </div>
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <span style="font-weight: 600;">${this.formatCurrency(u.hourlyRate || 0)}/Std.</span>
-                        <button class="btn btn-sm btn-outline" onclick="App.editHourlyRate(${u.id})">Bearbeiten</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.editHourlyRate('${u.id}')">Bearbeiten</button>
                     </div>
                 </div>
             `;
@@ -2537,16 +2551,19 @@ const App = {
         this.showModal('hourlyrate-form-modal');
     },
 
-    saveHourlyRate: function(event) {
+    saveHourlyRate: async function(event) {
         event.preventDefault();
 
-        const userId = parseInt(document.getElementById('hourlyrate-user-id').value);
+        const userId = document.getElementById('hourlyrate-user-id').value; // UUID als String
         const hourlyRate = parseFloat(document.getElementById('hourlyrate-value').value) || 0;
 
-        DataManager.updateUser(userId, { hourlyRate: hourlyRate });
-
-        this.hideModal('hourlyrate-form-modal');
-        this.loadUsers();
+        try {
+            await DataManager.updateUser(userId, { hourlyRate: hourlyRate });
+            this.hideModal('hourlyrate-form-modal');
+            await this.loadUsers();
+        } catch (error) {
+            alert('Fehler beim Speichern: ' + error.message);
+        }
     },
 
     // ==========================================
