@@ -1654,6 +1654,7 @@ const App = {
         const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
         const pdfStatusFilter = document.getElementById('rechnung-filter-pdf-status')?.value || '';
+        const datevStatusFilter = document.getElementById('rechnung-filter-datev-status')?.value || '';
         const jahrFilter = document.getElementById('rechnung-filter-jahr').value;
         const monatFilter = document.getElementById('rechnung-filter-monat').value;
 
@@ -1685,6 +1686,13 @@ const App = {
         } else if (pdfStatusFilter === 'nicht-zugewiesen') {
             // DATEV-Buchungen ohne PDF ODER Supabase-only PDFs ohne DATEV
             rechnungen = rechnungen.filter(r => !r.pdfExists || r.isSupabaseOnly);
+        }
+        if (datevStatusFilter === 'zugewiesen') {
+            // PDFs mit DATEV-Bewegung (haben projektId)
+            rechnungen = rechnungen.filter(r => r.projektId && !r.isSupabaseOnly);
+        } else if (datevStatusFilter === 'nicht-zugewiesen') {
+            // PDFs ohne DATEV-Bewegung (Supabase-only oder ohne projektId)
+            rechnungen = rechnungen.filter(r => r.isSupabaseOnly || !r.projektId);
         }
         if (jahrFilter) {
             rechnungen = rechnungen.filter(r => {
