@@ -508,27 +508,48 @@ const App = {
                 String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
             );
 
-            // Rechnungen speichern für Filter
+            // Manuelle/geplante Kosten laden
+            const manuelleKosten = await DataManager.getCostsByProject(projectId);
+            const geplanteKosten = manuelleKosten.filter(k => k.type === 'provisorisch');
+            const geplanteTotal = geplanteKosten.reduce((sum, k) => sum + (k.amount || 0), 0);
+
+            // Rechnungen speichern für Filter (DATEV + manuelle)
             this.currentProjectRechnungen = projektRechnungen;
+            this.currentProjectManuelleKosten = manuelleKosten;
 
             // IST-Summe berechnen
             const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
             const budget = project.budget || 0;
-            const verfuegbar = budget - istTotal;
+            const verfuegbar = budget - istTotal - geplanteTotal;
 
             // Budget-Übersicht aktualisieren
             document.getElementById('fp-budget-total').textContent = budget > 0 ? this.formatCurrency(budget) : '-';
             document.getElementById('fp-ist-total').textContent = this.formatCurrency(istTotal);
-            document.getElementById('fp-prov-total').textContent = '-'; // TODO: Provisorische Kosten
+            document.getElementById('fp-prov-total').textContent = geplanteTotal > 0 ? this.formatCurrency(geplanteTotal) : '-';
             document.getElementById('fp-available').textContent = budget > 0 ? this.formatCurrency(verfuegbar) : '-';
 
-            // Budget-Balken aktualisieren
+            // Arbeitsstunden laden und anzeigen
+            const timeEntries = DataManager.getTimeEntriesByProject ?
+                DataManager.getTimeEntriesByProject(projectId) :
+                DataManager.getTimeEntries().filter(t => String(t.projectId) === String(projectId));
+            const totalHours = timeEntries.reduce((sum, t) => sum + (t.hours || 0), 0);
+            document.getElementById('fp-hours').textContent = `${totalHours} Std.`;
+
+            // Budget-Balken mit IST und Geplant
             if (budget > 0) {
-                const prozent = Math.min(Math.round((istTotal / budget) * 100), 100);
-                const barColor = prozent > 90 ? '#e74c3c' : prozent > 70 ? '#f39c12' : '#27ae60';
+                const istProzent = Math.min(Math.round((istTotal / budget) * 100), 100);
+                const geplantProzent = Math.min(Math.round((geplanteTotal / budget) * 100), 100 - istProzent);
+                const istColor = istProzent > 90 ? '#e74c3c' : istProzent > 70 ? '#f39c12' : '#e74c3c';
+
                 document.getElementById('fp-budget-bar').innerHTML = `
-                    <div style="background: #e9ecef; border-radius: 4px; height: 100%; overflow: hidden;">
-                        <div style="background: ${barColor}; height: 100%; width: ${prozent}%; transition: width 0.3s;"></div>
+                    <div style="background: #e9ecef; border-radius: 4px; height: 100%; overflow: hidden; display: flex;">
+                        <div style="background: #e74c3c; height: 100%; width: ${istProzent}%;" title="IST: ${istProzent}%"></div>
+                        <div style="background: #f39c12; height: 100%; width: ${geplantProzent}%;" title="Geplant: ${geplantProzent}%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.25rem;">
+                        <span style="color: #e74c3c;">IST ${istProzent}%</span>
+                        <span style="color: #f39c12;">Geplant ${geplantProzent}%</span>
+                        <span style="color: #27ae60;">Frei ${100 - istProzent - geplantProzent}%</span>
                     </div>
                 `;
             }
@@ -536,8 +557,8 @@ const App = {
             // Kategorie-Zusammenfassung berechnen und anzeigen
             this.renderCategoryBreakdown(projektRechnungen);
 
-            // Kosten-Tabelle befüllen
-            this.displayProjectCosts(projektRechnungen);
+            // Kosten-Tabelle befüllen (DATEV + manuelle geplante Kosten)
+            this.displayProjectCosts(projektRechnungen, geplanteKosten);
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Details:', error);
         }
@@ -609,11 +630,12 @@ const App = {
     filterProjectCostsWithSearch() {
         const searchTerm = (document.getElementById('fp-search')?.value || '').toLowerCase().trim();
 
-        let filtered = this.currentProjectRechnungen;
+        let filteredRechnungen = this.currentProjectRechnungen || [];
+        let filteredManuelle = (this.currentProjectManuelleKosten || []).filter(k => k.type === 'provisorisch');
 
         // Suche anwenden
         if (searchTerm) {
-            filtered = filtered.filter(r => {
+            filteredRechnungen = filteredRechnungen.filter(r => {
                 const beschreibung = (r.beschreibung || '').toLowerCase();
                 const lieferant = (r.fornitoreName || '').toLowerCase();
                 const dokumentNr = (r.dokumentNr || '').toLowerCase();
@@ -621,9 +643,18 @@ const App = {
                        lieferant.includes(searchTerm) ||
                        dokumentNr.includes(searchTerm);
             });
+
+            filteredManuelle = filteredManuelle.filter(k => {
+                const beschreibung = (k.description || '').toLowerCase();
+                const lieferant = (k.supplierName || '').toLowerCase();
+                const costType = (k.costTypeName || '').toLowerCase();
+                return beschreibung.includes(searchTerm) ||
+                       lieferant.includes(searchTerm) ||
+                       costType.includes(searchTerm);
+            });
         }
 
-        this.displayProjectCosts(filtered);
+        this.displayProjectCosts(filteredRechnungen, filteredManuelle);
     },
 
     // Sortier-State für Projektkosten
@@ -643,7 +674,7 @@ const App = {
         }
 
         // Sortier-Indikatoren aktualisieren
-        ['datum', 'lieferant', 'beschreibung', 'betrag'].forEach(col => {
+        ['datum', 'quelle', 'lieferant', 'beschreibung', 'typ', 'betrag'].forEach(col => {
             const indicator = document.getElementById(`fp-sort-${col}`);
             if (indicator) {
                 if (col === column) {
@@ -658,33 +689,68 @@ const App = {
         this.filterProjectCostsWithSearch();
     },
 
-    displayProjectCosts(rechnungen) {
+    displayProjectCosts(rechnungen, geplanteKosten = []) {
         const tbody = document.getElementById('fp-costs-table');
         if (!tbody) return;
 
         tbody.innerHTML = '';
 
-        if (rechnungen.length === 0) {
+        // Kombiniere DATEV-Buchungen und geplante Kosten in ein einheitliches Format
+        const alleKosten = [
+            ...rechnungen.map(r => ({
+                datum: r.datum || r.belegdatum,
+                quelle: 'DATEV',
+                lieferant: r.fornitoreName || '-',
+                beschreibung: r.beschreibung || r.dokumentNr || '-',
+                typ: 'IST',
+                betrag: r.betrag || 0,
+                pdfExists: r.pdfExists,
+                filePath: r.filePath,
+                isDatev: true
+            })),
+            ...geplanteKosten.map(k => ({
+                datum: k.date || k.created_at,
+                quelle: 'Manuell',
+                lieferant: k.supplierName || '-',
+                beschreibung: k.description || k.costTypeName || '-',
+                typ: 'Geplant',
+                betrag: k.amount || 0,
+                pdfExists: false,
+                filePath: null,
+                isDatev: false,
+                costId: k.id
+            }))
+        ];
+
+        if (alleKosten.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
             return;
         }
 
         // Sortieren nach gewählter Spalte
-        const sorted = [...rechnungen].sort((a, b) => {
+        const sorted = [...alleKosten].sort((a, b) => {
             let valA, valB;
 
             switch (this.projectCostsSortColumn) {
                 case 'datum':
-                    valA = a.datum || a.belegdatum || '';
-                    valB = b.datum || b.belegdatum || '';
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+                    break;
+                case 'quelle':
+                    valA = a.quelle || '';
+                    valB = b.quelle || '';
                     break;
                 case 'lieferant':
-                    valA = (a.fornitoreName || '').toLowerCase();
-                    valB = (b.fornitoreName || '').toLowerCase();
+                    valA = (a.lieferant || '').toLowerCase();
+                    valB = (b.lieferant || '').toLowerCase();
                     break;
                 case 'beschreibung':
-                    valA = (a.beschreibung || a.dokumentNr || '').toLowerCase();
-                    valB = (b.beschreibung || b.dokumentNr || '').toLowerCase();
+                    valA = (a.beschreibung || '').toLowerCase();
+                    valB = (b.beschreibung || '').toLowerCase();
+                    break;
+                case 'typ':
+                    valA = a.typ || '';
+                    valB = b.typ || '';
                     break;
                 case 'betrag':
                     valA = a.betrag || 0;
@@ -695,39 +761,85 @@ const App = {
                     valB = b.datum || '';
             }
 
-            const comparison = valA.localeCompare(valB);
+            const comparison = String(valA).localeCompare(String(valB));
             return this.projectCostsSortDirection === 'asc' ? comparison : -comparison;
         });
 
-        sorted.forEach(r => {
+        sorted.forEach(k => {
             const row = document.createElement('tr');
-            const betragStyle = r.betrag < 0 ? 'color: #e74c3c;' : '';
+            const betragStyle = k.betrag < 0 ? 'color: #e74c3c;' : '';
+
+            // Quelle-Badge Styling
+            const quelleBadge = k.isDatev
+                ? '<span class="badge" style="background: #e8f5e9; color: #2e7d32;">DATEV</span>'
+                : '<span class="badge" style="background: #fff3e0; color: #e65100;">Manuell</span>';
+
+            // Typ-Badge Styling
+            const typBadge = k.typ === 'IST'
+                ? '<span class="badge badge-danger">IST</span>'
+                : '<span class="badge" style="background: #fff8e1; color: #f57f17;">Geplant</span>';
+
+            // Aktionen
+            let aktionen = '-';
+            if (k.pdfExists && k.filePath) {
+                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${k.filePath}')">PDF</button>`;
+            } else if (!k.isDatev && k.costId) {
+                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.editCost('${k.costId}')">✏️</button>`;
+            }
 
             row.innerHTML = `
-                <td>${this.formatDate(r.datum)}</td>
-                <td><span class="badge" style="background: #e8f5e9; color: #2e7d32;">DATEV</span></td>
-                <td>${r.fornitoreName || '-'}</td>
-                <td>${r.beschreibung || r.dokumentNr || '-'}</td>
-                <td><span class="badge badge-danger">IST</span></td>
-                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(r.betrag)}</td>
-                <td>
-                    ${r.pdfExists ? `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${r.filePath}')">PDF</button>` : '-'}
-                </td>
+                <td>${this.formatDate(k.datum)}</td>
+                <td>${quelleBadge}</td>
+                <td>${k.lieferant}</td>
+                <td>${k.beschreibung}</td>
+                <td>${typBadge}</td>
+                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(k.betrag)}</td>
+                <td>${aktionen}</td>
             `;
             tbody.appendChild(row);
         });
 
-        // Summe am Ende
-        const summe = rechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
-        const sumRow = document.createElement('tr');
-        sumRow.style.background = '#f8f9fa';
-        sumRow.style.fontWeight = '600';
-        sumRow.innerHTML = `
-            <td colspan="5" style="text-align: right;">Summe (${rechnungen.length} Buchungen):</td>
-            <td style="text-align: right;">${this.formatCurrency(summe)}</td>
-            <td></td>
-        `;
-        tbody.appendChild(sumRow);
+        // Summen am Ende
+        const istSumme = rechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+        const geplantSumme = geplanteKosten.reduce((sum, k) => sum + (k.amount || 0), 0);
+        const gesamtSumme = istSumme + geplantSumme;
+
+        // IST-Summe Zeile
+        if (rechnungen.length > 0) {
+            const istRow = document.createElement('tr');
+            istRow.style.background = '#fef3f3';
+            istRow.innerHTML = `
+                <td colspan="5" style="text-align: right;">IST-Summe (${rechnungen.length} Buchungen):</td>
+                <td style="text-align: right; font-weight: 600; color: #e74c3c;">${this.formatCurrency(istSumme)}</td>
+                <td></td>
+            `;
+            tbody.appendChild(istRow);
+        }
+
+        // Geplant-Summe Zeile
+        if (geplanteKosten.length > 0) {
+            const geplantRow = document.createElement('tr');
+            geplantRow.style.background = '#fffbf0';
+            geplantRow.innerHTML = `
+                <td colspan="5" style="text-align: right;">Geplant-Summe (${geplanteKosten.length} Einträge):</td>
+                <td style="text-align: right; font-weight: 600; color: #f57f17;">${this.formatCurrency(geplantSumme)}</td>
+                <td></td>
+            `;
+            tbody.appendChild(geplantRow);
+        }
+
+        // Gesamt-Summe nur wenn beide vorhanden
+        if (rechnungen.length > 0 && geplanteKosten.length > 0) {
+            const sumRow = document.createElement('tr');
+            sumRow.style.background = '#f8f9fa';
+            sumRow.style.fontWeight = '600';
+            sumRow.innerHTML = `
+                <td colspan="5" style="text-align: right;">Gesamt (IST + Geplant):</td>
+                <td style="text-align: right;">${this.formatCurrency(gesamtSumme)}</td>
+                <td></td>
+            `;
+            tbody.appendChild(sumRow);
+        }
     },
 
     closeProjectFullpage: function() {
@@ -1859,13 +1971,59 @@ const App = {
         this.downloadCSV(csv, filename);
     },
 
-    exportCurrentProjectToExcel: function() {
+    exportCurrentProjectToExcel: async function() {
         if (!this.currentProjectId) return;
 
-        const project = DataManager.getProjectById(this.currentProjectId);
-        const csv = DataManager.exportProjectToCSV(this.currentProjectId);
-        const filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_Export_${new Date().toISOString().split('T')[0]}.csv`;
-        this.downloadCSV(csv, filename);
+        try {
+            const project = await DataManager.getProjectById(this.currentProjectId);
+            if (!project) {
+                alert('Projekt nicht gefunden');
+                return;
+            }
+
+            // DATEV-Buchungen für Export laden
+            const allRechnungen = await DataManager.getRechnungenMitStatus();
+            const projektRechnungen = allRechnungen.filter(r =>
+                String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
+            );
+
+            // CSV erstellen
+            let csv = '\ufeff'; // BOM für Excel UTF-8
+            csv += `Projekt-Export: ${project.name}\n`;
+            csv += `Exportiert am: ${new Date().toLocaleDateString('de-DE')}\n`;
+            csv += `Budget: ${project.budget || 0} EUR\n\n`;
+
+            // DATEV-Buchungen
+            csv += 'DATEV-BUCHUNGEN\n';
+            csv += 'Datum;Lieferant;Beschreibung;Dokumentnr;Netto;MwSt;Brutto\n';
+
+            let sumNetto = 0, sumMwst = 0, sumBrutto = 0;
+            projektRechnungen.forEach(r => {
+                const netto = r.betrag || 0;
+                const mwst = r.mwstBetrag || 0;
+                const brutto = netto + mwst;
+                sumNetto += netto;
+                sumMwst += mwst;
+                sumBrutto += brutto;
+
+                csv += `${r.datum || ''};`;
+                csv += `"${(r.fornitoreName || '').replace(/"/g, '""')}";`;
+                csv += `"${(r.beschreibung || '').replace(/"/g, '""')}";`;
+                csv += `${r.dokumentNr || ''};`;
+                csv += `${netto.toFixed(2).replace('.', ',')};`;
+                csv += `${mwst.toFixed(2).replace('.', ',')};`;
+                csv += `${brutto.toFixed(2).replace('.', ',')}\n`;
+            });
+
+            csv += `;;SUMME;;${sumNetto.toFixed(2).replace('.', ',')};${sumMwst.toFixed(2).replace('.', ',')};${sumBrutto.toFixed(2).replace('.', ',')}\n`;
+
+            const filename = `${project.name.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')}_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            this.downloadCSV(csv, filename);
+
+        } catch (error) {
+            console.error('Export-Fehler:', error);
+            alert('Fehler beim Export: ' + error.message);
+        }
     },
 
     downloadCSV: function(csv, filename) {
