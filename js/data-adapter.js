@@ -61,6 +61,25 @@ const SupabaseDataAdapter = {
         DataManager._getDatevLieferantenOriginal = DataManager.getDatevLieferanten;
         DataManager.getDatevLieferanten = this.getSuppliers.bind(this);
 
+        // Zeiterfassungs-Funktionen überschreiben
+        DataManager._getTimeEntriesOriginal = DataManager.getTimeEntries;
+        DataManager.getTimeEntries = this.getTimeEntries.bind(this);
+
+        DataManager._getTimeEntriesByProjectOriginal = DataManager.getTimeEntriesByProject;
+        DataManager.getTimeEntriesByProject = this.getTimeEntriesByProject.bind(this);
+
+        DataManager._addTimeEntryOriginal = DataManager.addTimeEntry;
+        DataManager.addTimeEntry = this.addTimeEntry.bind(this);
+
+        DataManager._updateTimeEntryOriginal = DataManager.updateTimeEntry;
+        DataManager.updateTimeEntry = this.updateTimeEntry.bind(this);
+
+        DataManager._deleteTimeEntryOriginal = DataManager.deleteTimeEntry;
+        DataManager.deleteTimeEntry = this.deleteTimeEntry.bind(this);
+
+        DataManager._getProjectTotalHoursOriginal = DataManager.getProjectTotalHours;
+        DataManager.getProjectTotalHours = this.getProjectTotalHours.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -624,6 +643,143 @@ const SupabaseDataAdapter = {
             return DataManager._getDatevLieferantenOriginal ?
                 DataManager._getDatevLieferantenOriginal() : [];
         }
+    },
+
+    /**
+     * ZEITERFASSUNGS-FUNKTIONEN
+     */
+
+    async getTimeEntries() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('time_entries')
+                .select('*')
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+
+            return (data || []).map(e => this.convertTimeEntryFromSupabase(e));
+        } catch (error) {
+            console.error('Fehler beim Laden der Zeiteinträge:', error);
+            return DataManager._getTimeEntriesOriginal ? DataManager._getTimeEntriesOriginal() : [];
+        }
+    },
+
+    async getTimeEntriesByProject(projectId) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('time_entries')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+
+            return (data || []).map(e => this.convertTimeEntryFromSupabase(e));
+        } catch (error) {
+            console.error('Fehler beim Laden der Projekt-Zeiteinträge:', error);
+            return DataManager._getTimeEntriesByProjectOriginal ?
+                DataManager._getTimeEntriesByProjectOriginal(projectId) : [];
+        }
+    },
+
+    async addTimeEntry(entryData) {
+        try {
+            const user = await Auth.getCurrentUser();
+
+            const supabaseEntry = {
+                project_id: entryData.projectId,
+                user_id: user?.id || null,
+                date: entryData.date,
+                hours: entryData.hours,
+                description: entryData.description || '',
+                activity_type: entryData.activityType || null
+            };
+
+            const { data, error } = await SupabaseService.client
+                .from('time_entries')
+                .insert([supabaseEntry])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return this.convertTimeEntryFromSupabase(data);
+        } catch (error) {
+            console.error('Fehler beim Speichern des Zeiteintrags:', error);
+            throw error;
+        }
+    },
+
+    async updateTimeEntry(id, updates) {
+        try {
+            const supabaseUpdates = {
+                date: updates.date,
+                hours: updates.hours,
+                description: updates.description,
+                activity_type: updates.activityType
+            };
+
+            // Nur definierte Werte übernehmen
+            Object.keys(supabaseUpdates).forEach(key => {
+                if (supabaseUpdates[key] === undefined) {
+                    delete supabaseUpdates[key];
+                }
+            });
+
+            const { data, error } = await SupabaseService.client
+                .from('time_entries')
+                .update(supabaseUpdates)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return this.convertTimeEntryFromSupabase(data);
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Zeiteintrags:', error);
+            throw error;
+        }
+    },
+
+    async deleteTimeEntry(id) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('time_entries')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Löschen des Zeiteintrags:', error);
+            throw error;
+        }
+    },
+
+    async getProjectTotalHours(projectId) {
+        try {
+            const entries = await this.getTimeEntriesByProject(projectId);
+            return entries.reduce((sum, e) => sum + (e.hours || 0), 0);
+        } catch (error) {
+            console.error('Fehler beim Berechnen der Stunden:', error);
+            return 0;
+        }
+    },
+
+    convertTimeEntryFromSupabase(supabaseEntry) {
+        return {
+            id: supabaseEntry.id,
+            projectId: supabaseEntry.project_id,
+            userId: supabaseEntry.user_id,
+            date: supabaseEntry.date,
+            hours: parseFloat(supabaseEntry.hours) || 0,
+            description: supabaseEntry.description || '',
+            activityType: supabaseEntry.activity_type || '',
+            createdAt: supabaseEntry.created_at
+        };
     }
 };
 

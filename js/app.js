@@ -528,10 +528,8 @@ const App = {
             document.getElementById('fp-prov-total').textContent = geplanteTotal > 0 ? this.formatCurrency(geplanteTotal) : '-';
             document.getElementById('fp-available').textContent = budget > 0 ? this.formatCurrency(verfuegbar) : '-';
 
-            // Arbeitsstunden laden und anzeigen
-            const timeEntries = DataManager.getTimeEntriesByProject ?
-                DataManager.getTimeEntriesByProject(projectId) :
-                DataManager.getTimeEntries().filter(t => String(t.projectId) === String(projectId));
+            // Arbeitsstunden laden und anzeigen (async)
+            const timeEntries = await DataManager.getTimeEntriesByProject(projectId);
             const totalHours = timeEntries.reduce((sum, t) => sum + (t.hours || 0), 0);
             document.getElementById('fp-hours').textContent = `${totalHours} Std.`;
 
@@ -1580,8 +1578,13 @@ const App = {
     // ==========================================
 
     loadTimeTracking: async function() {
-        const entries = DataManager.getMyTimeEntries();
+        // Alle Zeiteinträge laden (aus Supabase)
+        const allEntries = await DataManager.getTimeEntries();
         const projects = await DataManager.getProjects();
+
+        // Für "Meine Einträge" - aktuellen User filtern
+        const user = await Auth.getCurrentUser();
+        const entries = user ? allEntries.filter(e => e.userId === user.id) : allEntries;
 
         // Statistiken berechnen
         const now = new Date();
@@ -1593,11 +1596,11 @@ const App = {
 
         const weekHours = entries
             .filter(e => new Date(e.date) >= startOfWeek)
-            .reduce((sum, e) => sum + e.hours, 0);
+            .reduce((sum, e) => sum + (e.hours || 0), 0);
 
         const monthHours = entries
             .filter(e => new Date(e.date) >= startOfMonth)
-            .reduce((sum, e) => sum + e.hours, 0);
+            .reduce((sum, e) => sum + (e.hours || 0), 0);
 
         document.getElementById('stat-total-hours').textContent = weekHours;
         document.getElementById('stat-total-hours-month').textContent = monthHours;
@@ -1621,12 +1624,12 @@ const App = {
                     <div class="time-entry-hours">${entry.hours}h</div>
                     <div class="time-entry-info">
                         <div><strong>${project ? project.name : 'Unbekanntes Projekt'}</strong></div>
-                        <div style="font-size: 0.875rem; color: #666;">${entry.description}</div>
+                        <div style="font-size: 0.875rem; color: #666;">${entry.description || '-'}</div>
                         <div style="font-size: 0.75rem; color: #999;">${this.formatDate(entry.date)}</div>
                     </div>
                     <div>
-                        <button class="btn btn-sm btn-outline" onclick="App.editTimeEntry(${entry.id})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="App.deleteTimeEntry(${entry.id})">X</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.editTimeEntry('${entry.id}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="App.deleteTimeEntry('${entry.id}')">X</button>
                     </div>
                 </div>
             `;
@@ -1654,7 +1657,8 @@ const App = {
     },
 
     editTimeEntry: async function(entryId) {
-        const entry = DataManager.getTimeEntries().find(e => e.id === entryId);
+        const allEntries = await DataManager.getTimeEntries();
+        const entry = allEntries.find(e => e.id === entryId);
         if (!entry) return;
 
         // Projekt-Dropdown befüllen (async)
@@ -1675,31 +1679,41 @@ const App = {
         this.showModal('time-form-modal');
     },
 
-    saveTimeEntry: function(event) {
+    saveTimeEntry: async function(event) {
         event.preventDefault();
 
         const id = document.getElementById('time-form-id').value;
         const entryData = {
-            projectId: document.getElementById('time-project').value, // UUID, kein parseInt
+            projectId: document.getElementById('time-project').value, // UUID
             date: document.getElementById('time-date').value,
             hours: parseFloat(document.getElementById('time-hours').value) || 0,
             description: document.getElementById('time-description').value
         };
 
-        if (id) {
-            DataManager.updateTimeEntry(parseInt(id), entryData);
-        } else {
-            DataManager.addTimeEntry(entryData);
-        }
+        try {
+            if (id) {
+                await DataManager.updateTimeEntry(id, entryData);
+            } else {
+                await DataManager.addTimeEntry(entryData);
+            }
 
-        this.hideModal('time-form-modal');
-        this.loadTimeTracking();
+            this.hideModal('time-form-modal');
+            this.loadTimeTracking();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            alert('Fehler beim Speichern des Zeiteintrags');
+        }
     },
 
-    deleteTimeEntry: function(entryId) {
+    deleteTimeEntry: async function(entryId) {
         if (confirm('Zeiteintrag wirklich löschen?')) {
-            DataManager.deleteTimeEntry(entryId);
-            this.loadTimeTracking();
+            try {
+                await DataManager.deleteTimeEntry(entryId);
+                this.loadTimeTracking();
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error);
+                alert('Fehler beim Löschen des Zeiteintrags');
+            }
         }
     },
 
