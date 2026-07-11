@@ -316,9 +316,9 @@ const App = {
 
             // Projekt-Summaries berechnen
             const summaries = projects.map(project => {
-                // DATEV-Buchungen für dieses Projekt
+                // DATEV-Buchungen für dieses Projekt (über datevId/Kostenstelle matchen)
                 const projektRechnungen = rechnungen.filter(r =>
-                    String(r.projektId) === String(project.id) && !r.isSupabaseOnly
+                    String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
                 );
                 const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
 
