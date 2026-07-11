@@ -463,11 +463,12 @@ const App = {
         document.getElementById('fp-pl1').textContent = project.pl1 || '-';
         document.getElementById('fp-pl2').textContent = project.pl2 || '-';
 
-        // Budget-Übersicht (Platzhalter)
-        document.getElementById('fp-budget-total').textContent = '-';
-        document.getElementById('fp-ist-total').textContent = '-';
+        // Budget-Übersicht
+        const budget = project.budget || 0;
+        document.getElementById('fp-budget-total').textContent = budget > 0 ? this.formatCurrency(budget) : '-';
+        document.getElementById('fp-ist-total').textContent = '-'; // Wird in loadProjectDetails aktualisiert
         document.getElementById('fp-prov-total').textContent = '-';
-        document.getElementById('fp-available').textContent = '-';
+        document.getElementById('fp-available').textContent = '-'; // Wird in loadProjectDetails aktualisiert
 
         // Planvergleich (Platzhalter)
         document.getElementById('fp-planned-original').textContent = '-';
@@ -512,11 +513,25 @@ const App = {
 
             // IST-Summe berechnen
             const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+            const budget = project.budget || 0;
+            const verfuegbar = budget - istTotal;
 
             // Budget-Übersicht aktualisieren
+            document.getElementById('fp-budget-total').textContent = budget > 0 ? this.formatCurrency(budget) : '-';
             document.getElementById('fp-ist-total').textContent = this.formatCurrency(istTotal);
             document.getElementById('fp-prov-total').textContent = '-'; // TODO: Provisorische Kosten
-            document.getElementById('fp-available').textContent = '-'; // TODO: Verfügbar berechnen
+            document.getElementById('fp-available').textContent = budget > 0 ? this.formatCurrency(verfuegbar) : '-';
+
+            // Budget-Balken aktualisieren
+            if (budget > 0) {
+                const prozent = Math.min(Math.round((istTotal / budget) * 100), 100);
+                const barColor = prozent > 90 ? '#e74c3c' : prozent > 70 ? '#f39c12' : '#27ae60';
+                document.getElementById('fp-budget-bar').innerHTML = `
+                    <div style="background: #e9ecef; border-radius: 4px; height: 100%; overflow: hidden;">
+                        <div style="background: ${barColor}; height: 100%; width: ${prozent}%; transition: width 0.3s;"></div>
+                    </div>
+                `;
+            }
 
             // Kategorie-Zusammenfassung berechnen und anzeigen
             this.renderCategoryBreakdown(projektRechnungen);
