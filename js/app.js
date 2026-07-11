@@ -2399,8 +2399,11 @@ const App = {
     },
 
     loadSuppliers: function() {
-        const suppliers = DataManager.getSuppliers();
+        // Lieferanten werden jetzt über Supabase verwaltet, Tab wurde entfernt
         const container = document.getElementById('suppliers-list');
+        if (!container) return; // Tab existiert nicht mehr
+
+        const suppliers = DataManager.getSuppliers();
         container.innerHTML = '';
 
         if (suppliers.length === 0) {
