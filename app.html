@@ -608,12 +608,12 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Zeitraum</label>
-                            <div style="display: flex; gap: 0.25rem; align-items: center;">
-                                <input type="date" id="rechnung-filter-datum-von" class="form-control" style="font-size: 0.8rem; padding: 0.25rem;" onchange="App.filterRechnungen()" title="Von">
-                                <span style="color: #666;">-</span>
-                                <input type="date" id="rechnung-filter-datum-bis" class="form-control" style="font-size: 0.8rem; padding: 0.25rem;" onchange="App.filterRechnungen()" title="Bis">
-                            </div>
+                            <label class="form-label">Von</label>
+                            <input type="date" id="rechnung-filter-datum-von" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bis</label>
+                            <input type="date" id="rechnung-filter-datum-bis" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
                     </div>
                     <!-- IVA-Hinweis -->
