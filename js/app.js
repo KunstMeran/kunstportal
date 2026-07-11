@@ -1393,8 +1393,9 @@ const App = {
                 break;
         }
 
+        const projectIdValue = document.getElementById('cost-project').value;
         const costData = {
-            projectId: parseInt(document.getElementById('cost-project').value),
+            projectId: projectIdValue, // UUID oder Zahl - nicht parseInt verwenden
             type: document.getElementById('cost-type').value,
             category: document.getElementById('cost-category').value,
             description: document.getElementById('cost-description').value,
@@ -1404,7 +1405,8 @@ const App = {
             mwstType: mwstType,
             date: document.getElementById('cost-date').value,
             invoice: document.getElementById('cost-invoice').value,
-            supplierId: supplierId ? parseInt(supplierId) : null
+            supplierId: supplierId && !supplierId.startsWith('datev_') ? parseInt(supplierId) : null,
+            datevLieferant: supplierId && supplierId.startsWith('datev_') ? supplierId.replace('datev_', '') : null
         };
 
         // Speichern und ID erhalten
