@@ -459,6 +459,10 @@ const App = {
         document.getElementById('fp-description').textContent = project.description || '-';
         document.getElementById('fp-hours').textContent = '- Std.'; // TODO: Später berechnen
 
+        // Projektleiter anzeigen (falls vorhanden)
+        document.getElementById('fp-pl1').textContent = project.pl1 || '-';
+        document.getElementById('fp-pl2').textContent = project.pl2 || '-';
+
         // Budget-Übersicht (Platzhalter)
         document.getElementById('fp-budget-total').textContent = '-';
         document.getElementById('fp-ist-total').textContent = '-';
@@ -487,6 +491,10 @@ const App = {
         this.loadProjectDetails(projectId);
     },
 
+    // Speicher für Projekt-Rechnungen (für Filter/Suche)
+    currentProjectRechnungen: [],
+    filterDebounceTimer: null,
+
     async loadProjectDetails(projectId) {
         try {
             // Projekt holen (für datevId)
@@ -499,6 +507,9 @@ const App = {
                 String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
             );
 
+            // Rechnungen speichern für Filter
+            this.currentProjectRechnungen = projektRechnungen;
+
             // IST-Summe berechnen
             const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
 
@@ -507,11 +518,97 @@ const App = {
             document.getElementById('fp-prov-total').textContent = '-'; // TODO: Provisorische Kosten
             document.getElementById('fp-available').textContent = '-'; // TODO: Verfügbar berechnen
 
+            // Kategorie-Zusammenfassung berechnen und anzeigen
+            this.renderCategoryBreakdown(projektRechnungen);
+
             // Kosten-Tabelle befüllen
             this.displayProjectCosts(projektRechnungen);
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Details:', error);
         }
+    },
+
+    /**
+     * Zeigt Zusammenfassung nach Kategorie/Lieferant
+     */
+    renderCategoryBreakdown(rechnungen) {
+        const container = document.getElementById('fp-category-breakdown');
+        if (!container) return;
+
+        // Nach Lieferant gruppieren
+        const bySupplier = {};
+        rechnungen.forEach(r => {
+            const supplier = r.fornitoreName || 'Unbekannt';
+            if (!bySupplier[supplier]) {
+                bySupplier[supplier] = { count: 0, total: 0 };
+            }
+            bySupplier[supplier].count++;
+            bySupplier[supplier].total += r.betrag || 0;
+        });
+
+        // Sortieren nach Betrag (höchste zuerst)
+        const sorted = Object.entries(bySupplier)
+            .sort((a, b) => b[1].total - a[1].total)
+            .slice(0, 10); // Top 10
+
+        if (sorted.length === 0) {
+            container.innerHTML = '<p style="color: #666; padding: 0.5rem;">Keine Daten</p>';
+            return;
+        }
+
+        let html = '<div style="padding: 0.5rem;">';
+        sorted.forEach(([supplier, data]) => {
+            const percent = rechnungen.length > 0 ? Math.round((data.count / rechnungen.length) * 100) : 0;
+            html += `
+                <div style="margin-bottom: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;" title="${supplier}">${supplier}</span>
+                        <span style="font-weight: 600;">${this.formatCurrency(data.total)}</span>
+                    </div>
+                    <div style="background: #e9ecef; border-radius: 4px; height: 6px; overflow: hidden;">
+                        <div style="background: #3498db; height: 100%; width: ${percent}%;"></div>
+                    </div>
+                    <div style="font-size: 0.7rem; color: #666;">${data.count} Buchungen</div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    },
+
+    /**
+     * Debounced Filter-Funktion für Suche
+     */
+    filterProjectCostsDebounced() {
+        if (this.filterDebounceTimer) {
+            clearTimeout(this.filterDebounceTimer);
+        }
+        this.filterDebounceTimer = setTimeout(() => {
+            this.filterProjectCostsWithSearch();
+        }, 300);
+    },
+
+    /**
+     * Filtert Projekt-Kosten mit Suchfunktion
+     */
+    filterProjectCostsWithSearch() {
+        const searchTerm = (document.getElementById('fp-search')?.value || '').toLowerCase().trim();
+
+        let filtered = this.currentProjectRechnungen;
+
+        // Suche anwenden
+        if (searchTerm) {
+            filtered = filtered.filter(r => {
+                const beschreibung = (r.beschreibung || '').toLowerCase();
+                const lieferant = (r.fornitoreName || '').toLowerCase();
+                const dokumentNr = (r.dokumentNr || '').toLowerCase();
+                return beschreibung.includes(searchTerm) ||
+                       lieferant.includes(searchTerm) ||
+                       dokumentNr.includes(searchTerm);
+            });
+        }
+
+        this.displayProjectCosts(filtered);
     },
 
     displayProjectCosts(rechnungen) {
@@ -526,13 +623,13 @@ const App = {
         }
 
         // Sortieren nach Datum (neueste zuerst)
-        rechnungen.sort((a, b) => {
+        const sorted = [...rechnungen].sort((a, b) => {
             const dateA = a.datum || a.belegdatum || '';
             const dateB = b.datum || b.belegdatum || '';
             return dateB.localeCompare(dateA);
         });
 
-        rechnungen.forEach(r => {
+        sorted.forEach(r => {
             const row = document.createElement('tr');
             const betragStyle = r.betrag < 0 ? 'color: #e74c3c;' : '';
 
@@ -549,6 +646,18 @@ const App = {
             `;
             tbody.appendChild(row);
         });
+
+        // Summe am Ende
+        const summe = rechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+        const sumRow = document.createElement('tr');
+        sumRow.style.background = '#f8f9fa';
+        sumRow.style.fontWeight = '600';
+        sumRow.innerHTML = `
+            <td colspan="5" style="text-align: right;">Summe (${rechnungen.length} Buchungen):</td>
+            <td style="text-align: right;">${this.formatCurrency(summe)}</td>
+            <td></td>
+        `;
+        tbody.appendChild(sumRow);
     },
 
     closeProjectFullpage: function() {
@@ -2970,6 +3079,13 @@ const App = {
         if (this.currentPdfPath) {
             window.open(this.currentPdfPath, '_blank');
         }
+    },
+
+    /**
+     * Öffnet PDF aus Supabase Storage (Alias für previewPdfFromStorage)
+     */
+    openPdf: async function(filePath) {
+        await this.previewPdfFromStorage(filePath);
     },
 
     openPdfFolder: function() {

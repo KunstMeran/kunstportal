@@ -1546,6 +1546,14 @@
                                 <label>Arbeitsstunden</label>
                                 <span id="fp-hours">0 Std.</span>
                             </div>
+                            <div class="detail-item">
+                                <label>PL1 - Kostenverantwortung</label>
+                                <span id="fp-pl1">-</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>PL2 - Kommunikation</label>
+                                <span id="fp-pl2">-</span>
+                            </div>
                         </div>
                         <div style="margin-top: 1rem;">
                             <label style="font-size: 0.75rem; color: #666; text-transform: uppercase;">Beschreibung</label>
@@ -1561,7 +1569,11 @@
                                 + Kosten hinzufügen
                             </button>
                         </div>
-                        <div class="filter-row">
+                        <div class="filter-row" style="flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label class="form-label">Suche (Beschreibung/Lieferant)</label>
+                                <input type="text" id="fp-search" class="form-control" placeholder="Suchbegriff eingeben..." oninput="App.filterProjectCostsDebounced()">
+                            </div>
                             <div class="form-group">
                                 <label class="form-label">Kategorie</label>
                                 <select id="fp-filter-category" class="form-control" onchange="App.filterProjectCosts()">
