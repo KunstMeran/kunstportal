@@ -807,27 +807,29 @@ const App = {
     },
 
     /**
-     * Zeigt Zusammenfassung nach Kategorie/Lieferant
+     * Zeigt Zusammenfassung nach Kostentyp
      */
     renderCategoryBreakdown(rechnungen) {
         const container = document.getElementById('fp-category-breakdown');
         if (!container) return;
 
-        // Nach Lieferant gruppieren
-        const bySupplier = {};
+        // Nach Kostentyp gruppieren
+        const byKostentyp = {};
+        let totalBetrag = 0;
+
         rechnungen.forEach(r => {
-            const supplier = r.fornitoreName || 'Unbekannt';
-            if (!bySupplier[supplier]) {
-                bySupplier[supplier] = { count: 0, total: 0 };
+            const kostentyp = r.kostentyp || 'Nicht zugeordnet';
+            if (!byKostentyp[kostentyp]) {
+                byKostentyp[kostentyp] = { count: 0, total: 0 };
             }
-            bySupplier[supplier].count++;
-            bySupplier[supplier].total += r.betrag || 0;
+            byKostentyp[kostentyp].count++;
+            byKostentyp[kostentyp].total += r.betrag || 0;
+            totalBetrag += r.betrag || 0;
         });
 
         // Sortieren nach Betrag (höchste zuerst)
-        const sorted = Object.entries(bySupplier)
-            .sort((a, b) => b[1].total - a[1].total)
-            .slice(0, 10); // Top 10
+        const sorted = Object.entries(byKostentyp)
+            .sort((a, b) => b[1].total - a[1].total);
 
         if (sorted.length === 0) {
             container.innerHTML = '<p style="color: #666; padding: 0.5rem;">Keine Daten</p>';
@@ -835,18 +837,22 @@ const App = {
         }
 
         let html = '<div style="padding: 0.5rem;">';
-        sorted.forEach(([supplier, data]) => {
-            const percent = rechnungen.length > 0 ? Math.round((data.count / rechnungen.length) * 100) : 0;
+        sorted.forEach(([kostentyp, data]) => {
+            const percent = totalBetrag > 0 ? Math.round((data.total / totalBetrag) * 100) : 0;
+            const isUnassigned = kostentyp === 'Nicht zugeordnet';
+            const labelColor = isUnassigned ? '#999' : '#333';
+            const barColor = isUnassigned ? '#bdc3c7' : '#3498db';
+
             html += `
                 <div style="margin-bottom: 0.75rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
-                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;" title="${supplier}">${supplier}</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; color: ${labelColor}; ${isUnassigned ? 'font-style: italic;' : ''}" title="${kostentyp}">${kostentyp}</span>
                         <span style="font-weight: 600;">${this.formatCurrency(data.total)}</span>
                     </div>
                     <div style="background: #e9ecef; border-radius: 4px; height: 6px; overflow: hidden;">
-                        <div style="background: #3498db; height: 100%; width: ${percent}%;"></div>
+                        <div style="background: ${barColor}; height: 100%; width: ${percent}%;"></div>
                     </div>
-                    <div style="font-size: 0.7rem; color: #666;">${data.count} Buchungen</div>
+                    <div style="font-size: 0.7rem; color: #666;">${data.count} Buchungen · ${percent}%</div>
                 </div>
             `;
         });

@@ -81,6 +81,26 @@ const SupabaseDataAdapter = {
         DataManager._getProjectTotalHoursOriginal = DataManager.getProjectTotalHours;
         DataManager.getProjectTotalHours = this.getProjectTotalHours.bind(this);
 
+        // Kostentypen-Funktionen überschreiben
+        DataManager._getCostTypesOriginal = DataManager.getCostTypes;
+        DataManager.getCostTypes = this.getCostTypes.bind(this);
+
+        DataManager._getActiveCostTypesOriginal = DataManager.getActiveCostTypes;
+        DataManager.getActiveCostTypes = this.getActiveCostTypes.bind(this);
+
+        DataManager._addCostTypeOriginal = DataManager.addCostType;
+        DataManager.addCostType = this.addCostType.bind(this);
+
+        DataManager._updateCostTypeOriginal = DataManager.updateCostType;
+        DataManager.updateCostType = this.updateCostType.bind(this);
+
+        DataManager._deleteCostTypeOriginal = DataManager.deleteCostType;
+        DataManager.deleteCostType = this.deleteCostType.bind(this);
+
+        // Cache für Kostentypen initialisieren
+        this.costTypesCache = null;
+        this.loadCostTypesFromSupabase();
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -803,6 +823,135 @@ const SupabaseDataAdapter = {
             activityType: supabaseEntry.activity_type || '',
             createdAt: supabaseEntry.created_at
         };
+    },
+
+    /**
+     * KOSTENTYPEN-FUNKTIONEN
+     */
+
+    costTypesCache: null,
+
+    async loadCostTypesFromSupabase() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('cost_types')
+                .select('*')
+                .order('code', { ascending: true });
+
+            if (error) throw error;
+
+            this.costTypesCache = (data || []).map(ct => ({
+                id: ct.id,
+                code: ct.code || '',
+                name: ct.name,
+                description: ct.description || '',
+                active: ct.active !== false
+            }));
+
+            console.log(`📋 ${this.costTypesCache.length} Kostentypen aus Supabase geladen`);
+            return this.costTypesCache;
+        } catch (error) {
+            console.error('Fehler beim Laden der Kostentypen:', error);
+            // Fallback auf lokale Daten
+            this.costTypesCache = DataManager._getCostTypesOriginal ? DataManager._getCostTypesOriginal() : [];
+            return this.costTypesCache;
+        }
+    },
+
+    getCostTypes() {
+        // Wenn Cache leer, synchron lokale Daten zurückgeben und async nachladen
+        if (!this.costTypesCache) {
+            this.loadCostTypesFromSupabase();
+            return DataManager._getCostTypesOriginal ? DataManager._getCostTypesOriginal() : [];
+        }
+        return this.costTypesCache;
+    },
+
+    getActiveCostTypes() {
+        const types = this.getCostTypes();
+        return types.filter(ct => ct.active !== false);
+    },
+
+    async addCostType(costTypeData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('cost_types')
+                .insert([{
+                    code: costTypeData.code || '',
+                    name: costTypeData.name,
+                    description: costTypeData.description || '',
+                    active: true
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Cache invalidieren
+            await this.loadCostTypesFromSupabase();
+
+            return {
+                id: data.id,
+                code: data.code,
+                name: data.name,
+                description: data.description,
+                active: data.active
+            };
+        } catch (error) {
+            console.error('Fehler beim Anlegen des Kostentyps:', error);
+            throw error;
+        }
+    },
+
+    async updateCostType(id, updates) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('cost_types')
+                .update({
+                    code: updates.code,
+                    name: updates.name,
+                    description: updates.description,
+                    active: updates.active
+                })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Cache invalidieren
+            await this.loadCostTypesFromSupabase();
+
+            return {
+                id: data.id,
+                code: data.code,
+                name: data.name,
+                description: data.description,
+                active: data.active
+            };
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Kostentyps:', error);
+            throw error;
+        }
+    },
+
+    async deleteCostType(id) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('cost_types')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // Cache invalidieren
+            await this.loadCostTypesFromSupabase();
+
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Löschen des Kostentyps:', error);
+            throw error;
+        }
     }
 };
 

@@ -1399,7 +1399,6 @@
 
                 <div class="tabs">
                     <div class="tab active" data-tab="kostentypen">Kostentypen</div>
-                    <div class="tab" data-tab="lieferanten">Lieferanten</div>
                     <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
                     <div class="tab" data-tab="export">Datenexport</div>
                 </div>
@@ -1414,21 +1413,6 @@
                             </button>
                         </div>
                         <div id="cost-types-list">
-                            <!-- Wird dynamisch geladen -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Lieferanten Tab -->
-                <div id="tab-lieferanten" class="tab-content">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Lieferanten verwalten</h3>
-                            <button class="btn btn-primary btn-sm" onclick="App.showNewSupplierForm()">
-                                + Neuer Lieferant
-                            </button>
-                        </div>
-                        <div id="suppliers-list">
                             <!-- Wird dynamisch geladen -->
                         </div>
                     </div>
@@ -1719,10 +1703,10 @@
                         </div>
                     </div>
 
-                    <!-- Aufschlüsselung nach Kategorie -->
+                    <!-- Aufschlüsselung nach Kostentyp -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Nach Kategorie</h3>
+                            <h3 class="card-title">Nach Kostentyp</h3>
                         </div>
                         <div id="fp-category-breakdown">
                             <!-- Wird dynamisch geladen -->
