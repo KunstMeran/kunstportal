@@ -505,7 +505,9 @@ const SupabaseDataAdapter = {
 
                 return {
                     ...buchung,
-                    fornitoreName: enrichedFornitoreName
+                    fornitoreName: enrichedFornitoreName,
+                    // Überschreibe alte pdfExists aus buchungen.json - nur true wenn Supabase-Invoice existiert
+                    pdfExists: false
                 };
             });
 
