@@ -646,7 +646,8 @@ const App = {
             const defaultHourlyRate = 25; // Standard-Stundensatz (aus Konfiguration)
 
             timeEntries.forEach(entry => {
-                const user = users.find(u => u.id === entry.userId);
+                // String-Vergleich für UUIDs
+                const user = users.find(u => String(u.id) === String(entry.userId));
                 const hourlyRate = user?.hourlyRate || defaultHourlyRate;
                 const entryCost = (entry.hours || 0) * hourlyRate;
 
@@ -2149,7 +2150,7 @@ const App = {
 
         entries.forEach(entry => {
             const project = projects.find(p => String(p.id) === String(entry.projectId));
-            const entryUser = users.find(u => u.id === entry.userId);
+            const entryUser = users.find(u => String(u.id) === String(entry.userId));
             const showUserName = isAdmin && !document.getElementById('time-filter-user')?.value;
 
             container.innerHTML += `
