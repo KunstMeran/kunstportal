@@ -55,11 +55,16 @@ const SupabaseService = {
     async getAllUsers() {
         const { data, error } = await this.client
             .from('users')
-            .select('id, username, email, role')
+            .select('id, username, email, role, hourly_rate')
             .order('username', { ascending: true });
 
         if (error) throw error;
-        return data || [];
+
+        // hourly_rate zu hourlyRate konvertieren für Kompatibilität
+        return (data || []).map(u => ({
+            ...u,
+            hourlyRate: u.hourly_rate || 0
+        }));
     },
 
     // PROJECT METHODS

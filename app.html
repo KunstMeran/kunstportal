@@ -333,9 +333,6 @@
                 <a href="#" class="nav-item" data-view="lieferanten">
                     <span>Lieferanten</span>
                 </a>
-                <a href="#" class="nav-item" data-view="kosten">
-                    <span>Kosten</span>
-                </a>
                 <a href="#" class="nav-item" data-view="zeiterfassung">
                     <span>Zeiterfassung</span>
                 </a>
@@ -443,6 +440,12 @@
                     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <h3 class="card-title" style="margin: 0;">Projektliste</h3>
                         <div style="display: flex; align-items: center; gap: 1rem;">
+                            <label style="font-size: 0.875rem; color: #666;">
+                                Jahr
+                                <select id="projects-year-filter" class="form-control" style="width: auto; display: inline-block; margin: 0 0.25rem;" onchange="App.filterProjectsByYear()">
+                                    <option value="">Alle Jahre</option>
+                                </select>
+                            </label>
                             <label style="font-size: 0.875rem; color: #666;">
                                 Zeige
                                 <select id="projects-per-page" class="form-control" style="width: auto; display: inline-block; margin: 0 0.25rem;" onchange="App.changeProjectsPerPage()">
@@ -801,73 +804,6 @@
                 </div>
             </div>
 
-            <!-- ==================== KOSTEN ==================== -->
-            <div id="view-kosten" class="view-content hidden">
-                <div class="page-header">
-                    <h1 class="page-title">Kosten</h1>
-                    <button class="btn btn-primary" onclick="App.showNewCostForm()">
-                        + Kosten erfassen
-                    </button>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Filter</h3>
-                    </div>
-                    <div class="filter-row">
-                        <div class="form-group">
-                            <label class="form-label">Projekt</label>
-                            <select id="cost-filter-project" class="form-control" onchange="App.filterCosts()">
-                                <option value="">Alle Projekte</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Typ</label>
-                            <select id="cost-filter-type" class="form-control" onchange="App.filterCosts()">
-                                <option value="">Alle</option>
-                                <option value="ist">IST-Kosten</option>
-                                <option value="provisorisch">Provisorisch</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Kategorie</label>
-                            <select id="cost-filter-category" class="form-control" onchange="App.filterCosts()">
-                                <option value="">Alle Kategorien</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Lieferant</label>
-                            <select id="cost-filter-supplier" class="form-control" onchange="App.filterCosts()">
-                                <option value="">Alle Lieferanten</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Datum</th>
-                                    <th>Projekt</th>
-                                    <th>Typ</th>
-                                    <th>Kategorie</th>
-                                    <th>Lieferant</th>
-                                    <th>Beschreibung</th>
-                                    <th>Rechnung</th>
-                                    <th>Betrag</th>
-                                    <th>Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="costs-table-body">
-                                <!-- Wird dynamisch geladen -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
             <!-- ==================== ZEITERFASSUNG ==================== -->
             <div id="view-zeiterfassung" class="view-content hidden">
                 <div class="page-header">
@@ -888,9 +824,39 @@
                     </div>
                 </div>
 
+                <!-- Admin-Filter (nur für Admins sichtbar) -->
+                <div id="time-admin-filters" class="card admin-only" style="margin-bottom: 1rem; display: none;">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 class="card-title" style="margin: 0;">Filter (Admin)</h3>
+                    </div>
+                    <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Mitarbeiter</label>
+                            <select id="time-filter-user" class="form-control" onchange="App.loadTimeTracking()">
+                                <option value="">Alle Mitarbeiter</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Projekt</label>
+                            <select id="time-filter-project" class="form-control" onchange="App.loadTimeTracking()">
+                                <option value="">Alle Projekte</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Von</label>
+                            <input type="date" id="time-filter-from" class="form-control" onchange="App.loadTimeTracking()">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Bis</label>
+                            <input type="date" id="time-filter-to" class="form-control" onchange="App.loadTimeTracking()">
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="App.resetTimeFilters()">Filter zurücksetzen</button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Meine Zeiteinträge</h3>
+                        <h3 class="card-title" id="time-entries-title">Meine Zeiteinträge</h3>
                     </div>
                     <div id="time-entries-list">
                         <!-- Wird dynamisch geladen -->
@@ -1619,15 +1585,29 @@
                                 </select>
                             </div>
                         </div>
+                        <!-- Massenbearbeitung -->
+                        <div id="fp-mass-edit-bar" style="display: none; padding: 0.75rem; background: #e3f2fd; border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span id="fp-selected-count">0 ausgewählt</span>
+                                <select id="fp-mass-kostentyp" class="form-control" style="width: auto;">
+                                    <option value="">Kostentyp zuweisen...</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="App.applyMassKostentyp()">Zuweisen</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.clearCostSelection()">Abbrechen</button>
+                            </div>
+                        </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
+                                        <th style="width: 40px;"><input type="checkbox" id="fp-select-all" onchange="App.toggleAllCosts(this)"></th>
+                                        <th style="width: 40px;">Nr.</th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('datum')">Datum <span id="fp-sort-datum"></span></th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('quelle')">Quelle <span id="fp-sort-quelle"></span></th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('lieferant')">Lieferant <span id="fp-sort-lieferant"></span></th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('beschreibung')">Beschreibung <span id="fp-sort-beschreibung"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('typ')">Typ <span id="fp-sort-typ"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('kostentyp')">Kostentyp <span id="fp-sort-kostentyp"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('typ')">Status <span id="fp-sort-typ"></span></th>
                                         <th style="text-align: right; cursor: pointer;" onclick="App.sortProjectCosts('betrag')">Betrag <span id="fp-sort-betrag"></span></th>
                                         <th>Aktionen</th>
                                     </tr>
@@ -1635,6 +1615,19 @@
                                 <tbody id="fp-costs-table">
                                 </tbody>
                             </table>
+                        </div>
+                        <!-- Pagination -->
+                        <div id="fp-costs-pagination" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-top: 1px solid #e0e0e0;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 0.875rem; color: #666;">Zeige</span>
+                                <select id="fp-costs-per-page" class="form-control" style="width: auto;" onchange="App.changeCostsPerPage()">
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                            <div id="fp-costs-pagination-info" style="font-size: 0.875rem; color: #666;"></div>
+                            <div id="fp-costs-pagination-buttons" style="display: flex; gap: 0.25rem;"></div>
                         </div>
                     </div>
 

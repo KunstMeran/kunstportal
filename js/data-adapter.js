@@ -51,6 +51,7 @@ const SupabaseDataAdapter = {
         // Rechnungs-Funktionen überschreiben
         DataManager.addInvoice = this.addInvoice.bind(this);
         DataManager.updateInvoiceStatus = this.updateInvoiceStatus.bind(this);
+        DataManager.updateInvoiceKostentyp = this.updateInvoiceKostentyp.bind(this);
         DataManager.getInvoices = this.getInvoices.bind(this);
 
         // getRechnungenMitStatus überschreiben (kombiniert DATEV + Supabase)
@@ -452,6 +453,24 @@ const SupabaseDataAdapter = {
         }
     },
 
+    async updateInvoiceKostentyp(invoiceId, kostentyp) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('invoices')
+                .update({ kostentyp: kostentyp })
+                .eq('id', invoiceId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Kostentyps:', error);
+            throw error;
+        }
+    },
+
     async getInvoices() {
         try {
             const { data, error } = await SupabaseService.client
@@ -523,13 +542,15 @@ const SupabaseDataAdapter = {
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
+                        id: matchingInvoice.id,
                         invoiceId: matchingInvoice.id,
                         filePath: matchingInvoice.file_path,
                         fileName: matchingInvoice.file_name,
                         uploadedAt: matchingInvoice.created_at,
                         pdfExists: true,
                         status: matchingInvoice.status,
-                        notes: matchingInvoice.notes
+                        notes: matchingInvoice.notes,
+                        kostentyp: matchingInvoice.kostentyp || ''
                     };
                 }
 
@@ -551,6 +572,7 @@ const SupabaseDataAdapter = {
 
                     return {
                         // Basis-Daten aus Invoice
+                        id: inv.id,
                         invoiceId: inv.id,
                         partitaIva: inv.partita_iva,
                         dokumentNr: inv.invoice_number,
@@ -560,6 +582,7 @@ const SupabaseDataAdapter = {
                         pdfExists: true,
                         status: inv.status,
                         notes: inv.notes,
+                        kostentyp: inv.kostentyp || '',
 
                         // Fehlende DATEV-Daten als null
                         projektId: null,

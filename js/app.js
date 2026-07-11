@@ -410,9 +410,35 @@ const App = {
     projectsPerPage: 20,
     allProjects: [],
 
+    // Filter-Status für Projekte
+    projectsYearFilter: '',
+    allProjectsUnfiltered: [],
+
     loadProjects: async function() {
-        // Alle Projekte laden
-        this.allProjects = await DataManager.getProjects();
+        // Alle Projekte und Rechnungen laden
+        const projects = await DataManager.getProjects();
+        const rechnungen = await DataManager.getRechnungenMitStatus();
+
+        // Projekte mit berechneten IST-Kosten anreichern
+        this.allProjectsUnfiltered = projects.map(project => {
+            const projektRechnungen = rechnungen.filter(r =>
+                String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly
+            );
+            const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+            const budget = project.budget || 0;
+
+            return {
+                ...project,
+                istKosten: istTotal,
+                verfuegbar: budget - istTotal
+            };
+        });
+
+        // Jahr-Filter Dropdown befüllen
+        this.populateProjectsYearFilter();
+
+        // Filter anwenden
+        this.applyProjectsYearFilter();
 
         // Pagination-Einstellung aus Select übernehmen
         const perPageSelect = document.getElementById('projects-per-page');
@@ -422,6 +448,58 @@ const App = {
 
         // Projekte anzeigen
         this.displayProjects();
+    },
+
+    populateProjectsYearFilter: function() {
+        const select = document.getElementById('projects-year-filter');
+        if (!select) return;
+
+        // Verfügbare Jahre aus den Projekten extrahieren (basierend auf created_at oder start_date)
+        const years = new Set();
+        this.allProjectsUnfiltered.forEach(p => {
+            const date = p.created_at || p.start_date;
+            if (date) {
+                const year = new Date(date).getFullYear();
+                if (!isNaN(year)) years.add(year);
+            }
+        });
+
+        // Sortierte Jahre-Liste (neueste zuerst)
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+        // Dropdown befüllen
+        select.innerHTML = '<option value="">Alle Jahre</option>';
+        sortedYears.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            if (String(year) === this.projectsYearFilter) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+    },
+
+    filterProjectsByYear: function() {
+        const select = document.getElementById('projects-year-filter');
+        this.projectsYearFilter = select ? select.value : '';
+        this.currentProjectsPage = 1; // Zurück zur ersten Seite
+        this.applyProjectsYearFilter();
+        this.displayProjects();
+    },
+
+    applyProjectsYearFilter: function() {
+        if (!this.projectsYearFilter) {
+            this.allProjects = [...this.allProjectsUnfiltered];
+        } else {
+            const filterYear = parseInt(this.projectsYearFilter);
+            this.allProjects = this.allProjectsUnfiltered.filter(p => {
+                const date = p.created_at || p.start_date;
+                if (!date) return false;
+                const projectYear = new Date(date).getFullYear();
+                return projectYear === filterYear;
+            });
+        }
     },
 
     displayProjects: function() {
@@ -445,6 +523,11 @@ const App = {
         pageProjects.forEach(project => {
             const statusBadge = this.getStatusBadge(project.status);
             const budget = project.budget || 0;
+            const istKosten = project.istKosten || 0;
+            const verfuegbar = project.verfuegbar || 0;
+
+            // Farbe für Verfügbar (rot wenn negativ)
+            const verfuegbarStyle = verfuegbar < 0 ? 'color: #e74c3c;' : 'color: #27ae60;';
 
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -452,8 +535,8 @@ const App = {
                 <td>${project.location || '-'}</td>
                 <td>${statusBadge}</td>
                 <td>${budget > 0 ? this.formatCurrency(budget) : '-'}</td>
-                <td>-</td>
-                <td>-</td>
+                <td>${istKosten > 0 ? this.formatCurrency(istKosten) : '-'}</td>
+                <td style="${verfuegbarStyle}">${budget > 0 ? this.formatCurrency(verfuegbar) : '-'}</td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage('${project.id}')">Details</button>
                     ${Auth.isAdmin() ? `
@@ -560,7 +643,7 @@ const App = {
 
             let totalHours = 0;
             let totalCost = 0;
-            const defaultHourlyRate = 50; // Standard-Stundensatz
+            const defaultHourlyRate = 25; // Standard-Stundensatz (aus Konfiguration)
 
             timeEntries.forEach(entry => {
                 const user = users.find(u => u.id === entry.userId);
@@ -847,30 +930,39 @@ const App = {
         this.filterProjectCostsWithSearch();
     },
 
+    // Projektkosten Pagination State
+    projectCostsPage: 1,
+    projectCostsPerPage: 20,
+    allProjectCosts: [],
+    selectedCostIds: new Set(),
+
     displayProjectCosts(rechnungen, geplanteKosten = []) {
         const tbody = document.getElementById('fp-costs-table');
         if (!tbody) return;
 
-        tbody.innerHTML = '';
-
         // Kombiniere DATEV-Buchungen und geplante Kosten in ein einheitliches Format
-        const alleKosten = [
+        this.allProjectCosts = [
             ...rechnungen.map(r => ({
+                id: r.id || r.dokumentNr || `datev-${r.belegdatum}-${r.betrag}`,
                 datum: r.datum || r.belegdatum,
                 quelle: 'DATEV',
                 lieferant: r.fornitoreName || '-',
                 beschreibung: r.beschreibung || r.dokumentNr || '-',
+                kostentyp: r.kostentyp || r.costTypeName || '',
                 typ: 'IST',
                 betrag: r.betrag || 0,
                 pdfExists: r.pdfExists,
                 filePath: r.filePath,
-                isDatev: true
+                isDatev: true,
+                rechnungId: r.id
             })),
             ...geplanteKosten.map(k => ({
+                id: k.id,
                 datum: k.date || k.created_at,
                 quelle: 'Manuell',
                 lieferant: k.supplierName || '-',
                 beschreibung: k.description || k.costTypeName || '-',
+                kostentyp: k.costTypeName || '',
                 typ: 'Geplant',
                 betrag: k.amount || 0,
                 pdfExists: false,
@@ -880,13 +972,8 @@ const App = {
             }))
         ];
 
-        if (alleKosten.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
-            return;
-        }
-
         // Sortieren nach gewählter Spalte
-        const sorted = [...alleKosten].sort((a, b) => {
+        this.allProjectCosts.sort((a, b) => {
             let valA, valB;
 
             switch (this.projectCostsSortColumn) {
@@ -906,6 +993,10 @@ const App = {
                     valA = (a.beschreibung || '').toLowerCase();
                     valB = (b.beschreibung || '').toLowerCase();
                     break;
+                case 'kostentyp':
+                    valA = (a.kostentyp || '').toLowerCase();
+                    valB = (b.kostentyp || '').toLowerCase();
+                    break;
                 case 'typ':
                     valA = a.typ || '';
                     valB = b.typ || '';
@@ -923,9 +1014,38 @@ const App = {
             return this.projectCostsSortDirection === 'asc' ? comparison : -comparison;
         });
 
-        sorted.forEach(k => {
+        // Massenbearbeitung Dropdown mit Kostentypen befüllen
+        this.populateMassKostentypDropdown();
+
+        // Pagination rendern
+        this.renderProjectCostsPage();
+    },
+
+    renderProjectCostsPage() {
+        const tbody = document.getElementById('fp-costs-table');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        const totalItems = this.allProjectCosts.length;
+
+        if (totalItems === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
+            this.updateCostsPagination(0, 0, 0);
+            return;
+        }
+
+        // Pagination berechnen
+        const startIndex = (this.projectCostsPage - 1) * this.projectCostsPerPage;
+        const endIndex = Math.min(startIndex + this.projectCostsPerPage, totalItems);
+        const pageItems = this.allProjectCosts.slice(startIndex, endIndex);
+
+        // Zeilen rendern
+        pageItems.forEach((k, idx) => {
+            const globalIndex = startIndex + idx + 1; // 1-basierte Zeilennummer
             const row = document.createElement('tr');
             const betragStyle = k.betrag < 0 ? 'color: #e74c3c;' : '';
+            const isSelected = this.selectedCostIds.has(k.id);
 
             // Quelle-Badge Styling
             const quelleBadge = k.isDatev
@@ -937,6 +1057,11 @@ const App = {
                 ? '<span class="badge badge-danger">IST</span>'
                 : '<span class="badge" style="background: #fff8e1; color: #f57f17;">Geplant</span>';
 
+            // Kostentyp Badge
+            const kostentypBadge = k.kostentyp
+                ? `<span class="badge" style="background: #e3f2fd; color: #1565c0;">${k.kostentyp}</span>`
+                : '<span style="color: #999;">-</span>';
+
             // Aktionen
             let aktionen = '-';
             if (k.pdfExists && k.filePath) {
@@ -946,10 +1071,13 @@ const App = {
             }
 
             row.innerHTML = `
+                <td><input type="checkbox" class="cost-checkbox" data-id="${k.id}" ${isSelected ? 'checked' : ''} onchange="App.toggleCostSelection('${k.id}')"></td>
+                <td style="color: #999; font-size: 0.85rem;">${globalIndex}</td>
                 <td>${this.formatDate(k.datum)}</td>
                 <td>${quelleBadge}</td>
                 <td>${k.lieferant}</td>
                 <td>${k.beschreibung}</td>
+                <td>${kostentypBadge}</td>
                 <td>${typBadge}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(k.betrag)}</td>
                 <td>${aktionen}</td>
@@ -957,46 +1085,235 @@ const App = {
             tbody.appendChild(row);
         });
 
-        // Summen am Ende
-        const istSumme = rechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
-        const geplantSumme = geplanteKosten.reduce((sum, k) => sum + (k.amount || 0), 0);
-        const gesamtSumme = istSumme + geplantSumme;
+        // Summenzeilen nur auf letzter Seite
+        const totalPages = Math.ceil(totalItems / this.projectCostsPerPage);
+        if (this.projectCostsPage === totalPages) {
+            const istKosten = this.allProjectCosts.filter(k => k.typ === 'IST');
+            const geplantKosten = this.allProjectCosts.filter(k => k.typ === 'Geplant');
+            const istSumme = istKosten.reduce((sum, k) => sum + (k.betrag || 0), 0);
+            const geplantSumme = geplantKosten.reduce((sum, k) => sum + (k.betrag || 0), 0);
 
-        // IST-Summe Zeile
-        if (rechnungen.length > 0) {
-            const istRow = document.createElement('tr');
-            istRow.style.background = '#fef3f3';
-            istRow.innerHTML = `
-                <td colspan="5" style="text-align: right;">IST-Summe (${rechnungen.length} Buchungen):</td>
-                <td style="text-align: right; font-weight: 600; color: #e74c3c;">${this.formatCurrency(istSumme)}</td>
-                <td></td>
-            `;
-            tbody.appendChild(istRow);
+            // IST-Summe Zeile
+            if (istKosten.length > 0) {
+                const istRow = document.createElement('tr');
+                istRow.style.background = '#fef3f3';
+                istRow.innerHTML = `
+                    <td colspan="8" style="text-align: right;">IST-Summe (${istKosten.length} Buchungen):</td>
+                    <td style="text-align: right; font-weight: 600; color: #e74c3c;">${this.formatCurrency(istSumme)}</td>
+                    <td></td>
+                `;
+                tbody.appendChild(istRow);
+            }
+
+            // Geplant-Summe Zeile
+            if (geplantKosten.length > 0) {
+                const geplantRow = document.createElement('tr');
+                geplantRow.style.background = '#fffbf0';
+                geplantRow.innerHTML = `
+                    <td colspan="8" style="text-align: right;">Geplant-Summe (${geplantKosten.length} Einträge):</td>
+                    <td style="text-align: right; font-weight: 600; color: #f57f17;">${this.formatCurrency(geplantSumme)}</td>
+                    <td></td>
+                `;
+                tbody.appendChild(geplantRow);
+            }
+
+            // Gesamt-Summe
+            if (istKosten.length > 0 && geplantKosten.length > 0) {
+                const sumRow = document.createElement('tr');
+                sumRow.style.background = '#f8f9fa';
+                sumRow.style.fontWeight = '600';
+                sumRow.innerHTML = `
+                    <td colspan="8" style="text-align: right;">Gesamt (IST + Geplant):</td>
+                    <td style="text-align: right;">${this.formatCurrency(istSumme + geplantSumme)}</td>
+                    <td></td>
+                `;
+                tbody.appendChild(sumRow);
+            }
         }
 
-        // Geplant-Summe Zeile
-        if (geplanteKosten.length > 0) {
-            const geplantRow = document.createElement('tr');
-            geplantRow.style.background = '#fffbf0';
-            geplantRow.innerHTML = `
-                <td colspan="5" style="text-align: right;">Geplant-Summe (${geplanteKosten.length} Einträge):</td>
-                <td style="text-align: right; font-weight: 600; color: #f57f17;">${this.formatCurrency(geplantSumme)}</td>
-                <td></td>
-            `;
-            tbody.appendChild(geplantRow);
+        // Pagination Info aktualisieren
+        this.updateCostsPagination(startIndex + 1, endIndex, totalItems);
+
+        // Select-All Checkbox aktualisieren
+        this.updateSelectAllCheckbox();
+    },
+
+    updateCostsPagination(start, end, total) {
+        const info = document.getElementById('fp-costs-pagination-info');
+        const buttons = document.getElementById('fp-costs-pagination-buttons');
+
+        if (info) {
+            info.textContent = total > 0 ? `${start}-${end} von ${total}` : 'Keine Einträge';
         }
 
-        // Gesamt-Summe nur wenn beide vorhanden
-        if (rechnungen.length > 0 && geplanteKosten.length > 0) {
-            const sumRow = document.createElement('tr');
-            sumRow.style.background = '#f8f9fa';
-            sumRow.style.fontWeight = '600';
-            sumRow.innerHTML = `
-                <td colspan="5" style="text-align: right;">Gesamt (IST + Geplant):</td>
-                <td style="text-align: right;">${this.formatCurrency(gesamtSumme)}</td>
-                <td></td>
-            `;
-            tbody.appendChild(sumRow);
+        if (!buttons) return;
+        buttons.innerHTML = '';
+
+        const totalPages = Math.ceil(total / this.projectCostsPerPage);
+        if (totalPages <= 1) return;
+
+        // Zurück-Button
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-sm btn-outline';
+        prevBtn.innerHTML = '‹';
+        prevBtn.disabled = this.projectCostsPage === 1;
+        prevBtn.onclick = () => this.goToCostsPage(this.projectCostsPage - 1);
+        buttons.appendChild(prevBtn);
+
+        // Seiten-Buttons (max 5 sichtbar)
+        const maxVisible = 5;
+        let startPage = Math.max(1, this.projectCostsPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const btn = document.createElement('button');
+            btn.className = `btn btn-sm ${i === this.projectCostsPage ? 'btn-primary' : 'btn-outline'}`;
+            btn.textContent = i;
+            btn.onclick = () => this.goToCostsPage(i);
+            buttons.appendChild(btn);
+        }
+
+        // Vorwärts-Button
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-sm btn-outline';
+        nextBtn.innerHTML = '›';
+        nextBtn.disabled = this.projectCostsPage === totalPages;
+        nextBtn.onclick = () => this.goToCostsPage(this.projectCostsPage + 1);
+        buttons.appendChild(nextBtn);
+    },
+
+    goToCostsPage(page) {
+        const totalPages = Math.ceil(this.allProjectCosts.length / this.projectCostsPerPage);
+        this.projectCostsPage = Math.max(1, Math.min(page, totalPages));
+        this.renderProjectCostsPage();
+    },
+
+    changeCostsPerPage() {
+        const select = document.getElementById('fp-costs-per-page');
+        if (select) {
+            this.projectCostsPerPage = parseInt(select.value) || 20;
+            this.projectCostsPage = 1; // Zurück zur ersten Seite
+            this.renderProjectCostsPage();
+        }
+    },
+
+    // Massenbearbeitung Funktionen
+    populateMassKostentypDropdown() {
+        const select = document.getElementById('fp-mass-kostentyp');
+        if (!select) return;
+
+        const costTypes = DataManager.getActiveCostTypes();
+        select.innerHTML = '<option value="">Kostentyp zuweisen...</option>';
+        costTypes.forEach(ct => {
+            select.innerHTML += `<option value="${ct.id || ct.name}">${ct.name}</option>`;
+        });
+    },
+
+    toggleCostSelection(id) {
+        if (this.selectedCostIds.has(id)) {
+            this.selectedCostIds.delete(id);
+        } else {
+            this.selectedCostIds.add(id);
+        }
+        this.updateMassEditBar();
+        this.updateSelectAllCheckbox();
+    },
+
+    toggleAllCosts(checkbox) {
+        const checkboxes = document.querySelectorAll('.cost-checkbox');
+        checkboxes.forEach(cb => {
+            const id = cb.dataset.id;
+            if (checkbox.checked) {
+                this.selectedCostIds.add(id);
+                cb.checked = true;
+            } else {
+                this.selectedCostIds.delete(id);
+                cb.checked = false;
+            }
+        });
+        this.updateMassEditBar();
+    },
+
+    updateSelectAllCheckbox() {
+        const selectAll = document.getElementById('fp-select-all');
+        const checkboxes = document.querySelectorAll('.cost-checkbox');
+        if (selectAll && checkboxes.length > 0) {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+    },
+
+    updateMassEditBar() {
+        const bar = document.getElementById('fp-mass-edit-bar');
+        const count = document.getElementById('fp-selected-count');
+
+        if (bar && count) {
+            const selectedCount = this.selectedCostIds.size;
+            if (selectedCount > 0) {
+                bar.style.display = 'block';
+                count.textContent = `${selectedCount} ausgewählt`;
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+    },
+
+    clearCostSelection() {
+        this.selectedCostIds.clear();
+        document.querySelectorAll('.cost-checkbox').forEach(cb => cb.checked = false);
+        const selectAll = document.getElementById('fp-select-all');
+        if (selectAll) selectAll.checked = false;
+        this.updateMassEditBar();
+    },
+
+    async applyMassKostentyp() {
+        const select = document.getElementById('fp-mass-kostentyp');
+        const kostentypValue = select ? select.value : '';
+
+        if (!kostentypValue) {
+            alert('Bitte wählen Sie einen Kostentyp aus.');
+            return;
+        }
+
+        if (this.selectedCostIds.size === 0) {
+            alert('Keine Einträge ausgewählt.');
+            return;
+        }
+
+        const costTypes = DataManager.getActiveCostTypes();
+        const selectedType = costTypes.find(ct => (ct.id || ct.name) === kostentypValue);
+        const kostentypName = selectedType ? selectedType.name : kostentypValue;
+
+        try {
+            // Für jeden ausgewählten Eintrag den Kostentyp setzen
+            for (const id of this.selectedCostIds) {
+                const cost = this.allProjectCosts.find(c => c.id === id);
+                if (cost) {
+                    if (cost.isDatev && cost.rechnungId) {
+                        // DATEV-Buchung: In Supabase Kostentyp speichern
+                        await DataManager.updateInvoiceKostentyp(cost.rechnungId, kostentypName);
+                    } else if (!cost.isDatev && cost.costId) {
+                        // Manuelle Kosten: costTypeName aktualisieren
+                        await DataManager.updateCost(cost.costId, { costTypeName: kostentypName });
+                    }
+                    // Lokales Update
+                    cost.kostentyp = kostentypName;
+                }
+            }
+
+            // Auswahl zurücksetzen und neu rendern
+            this.clearCostSelection();
+            this.renderProjectCostsPage();
+
+            alert(`Kostentyp "${kostentypName}" wurde ${this.selectedCostIds.size} Einträgen zugewiesen.`);
+        } catch (error) {
+            console.error('Fehler beim Zuweisen des Kostentyps:', error);
+            alert('Fehler beim Zuweisen: ' + error.message);
         }
     },
 
@@ -1741,10 +2058,63 @@ const App = {
         // Alle Zeiteinträge laden (aus Supabase)
         const allEntries = await DataManager.getTimeEntries();
         const projects = await DataManager.getProjects();
+        const users = await SupabaseService.getAllUsers();
+        const currentUser = await Auth.getCurrentUser();
+        const isAdmin = Auth.isAdmin();
 
-        // Für "Meine Einträge" - aktuellen User filtern
-        const user = await Auth.getCurrentUser();
-        const entries = user ? allEntries.filter(e => e.userId === user.id) : allEntries;
+        // Admin-Filter Panel anzeigen/verstecken
+        const adminFilters = document.getElementById('time-admin-filters');
+        const title = document.getElementById('time-entries-title');
+        if (adminFilters) {
+            adminFilters.style.display = isAdmin ? 'block' : 'none';
+        }
+
+        // Filter-Dropdowns für Admin befüllen (nur einmal beim ersten Laden)
+        if (isAdmin) {
+            this.populateTimeFilterDropdowns(users, projects);
+        }
+
+        // Einträge filtern basierend auf Rolle und Filter
+        let entries;
+        if (isAdmin) {
+            // Admin: Alle Einträge, mit Filteroptionen
+            entries = [...allEntries];
+
+            // User-Filter anwenden
+            const userFilter = document.getElementById('time-filter-user')?.value;
+            if (userFilter) {
+                entries = entries.filter(e => e.userId === userFilter);
+            }
+
+            // Projekt-Filter anwenden
+            const projectFilter = document.getElementById('time-filter-project')?.value;
+            if (projectFilter) {
+                entries = entries.filter(e => String(e.projectId) === projectFilter);
+            }
+
+            // Datum von/bis Filter
+            const fromDate = document.getElementById('time-filter-from')?.value;
+            const toDate = document.getElementById('time-filter-to')?.value;
+            if (fromDate) {
+                entries = entries.filter(e => e.date >= fromDate);
+            }
+            if (toDate) {
+                entries = entries.filter(e => e.date <= toDate);
+            }
+
+            // Titel anpassen
+            if (title) {
+                title.textContent = userFilter || projectFilter || fromDate || toDate
+                    ? 'Gefilterte Zeiteinträge'
+                    : 'Alle Zeiteinträge';
+            }
+        } else {
+            // Normaler User: Nur eigene Einträge
+            entries = currentUser ? allEntries.filter(e => e.userId === currentUser.id) : [];
+            if (title) {
+                title.textContent = 'Meine Zeiteinträge';
+            }
+        }
 
         // Statistiken berechnen
         const now = new Date();
@@ -1773,17 +2143,21 @@ const App = {
         container.innerHTML = '';
 
         if (entries.length === 0) {
-            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Noch keine Zeiteinträge erfasst</p>';
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Zeiteinträge gefunden</p>';
             return;
         }
 
         entries.forEach(entry => {
             const project = projects.find(p => String(p.id) === String(entry.projectId));
+            const entryUser = users.find(u => u.id === entry.userId);
+            const showUserName = isAdmin && !document.getElementById('time-filter-user')?.value;
+
             container.innerHTML += `
                 <div class="time-entry">
                     <div class="time-entry-hours">${entry.hours}h</div>
                     <div class="time-entry-info">
                         <div><strong>${project ? project.name : 'Unbekanntes Projekt'}</strong></div>
+                        ${showUserName ? `<div style="font-size: 0.85rem; color: #3498db;">${entryUser ? entryUser.username : 'Unbekannt'}</div>` : ''}
                         <div style="font-size: 0.875rem; color: #666;">${entry.description || '-'}</div>
                         <div style="font-size: 0.75rem; color: #999;">${this.formatDate(entry.date)}</div>
                     </div>
@@ -1794,6 +2168,44 @@ const App = {
                 </div>
             `;
         });
+    },
+
+    populateTimeFilterDropdowns: function(users, projects) {
+        // User-Dropdown
+        const userSelect = document.getElementById('time-filter-user');
+        if (userSelect && userSelect.options.length <= 1) {
+            users.forEach(u => {
+                const option = document.createElement('option');
+                option.value = u.id;
+                option.textContent = u.username || u.email;
+                userSelect.appendChild(option);
+            });
+        }
+
+        // Projekt-Dropdown
+        const projectSelect = document.getElementById('time-filter-project');
+        if (projectSelect && projectSelect.options.length <= 1) {
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.name;
+                projectSelect.appendChild(option);
+            });
+        }
+    },
+
+    resetTimeFilters: function() {
+        const userSelect = document.getElementById('time-filter-user');
+        const projectSelect = document.getElementById('time-filter-project');
+        const fromDate = document.getElementById('time-filter-from');
+        const toDate = document.getElementById('time-filter-to');
+
+        if (userSelect) userSelect.value = '';
+        if (projectSelect) projectSelect.value = '';
+        if (fromDate) fromDate.value = '';
+        if (toDate) toDate.value = '';
+
+        this.loadTimeTracking();
     },
 
     showNewTimeEntryForm: async function() {
