@@ -626,6 +626,38 @@ const App = {
         this.displayProjectCosts(filtered);
     },
 
+    // Sortier-State für Projektkosten
+    projectCostsSortColumn: 'datum',
+    projectCostsSortDirection: 'desc',
+
+    /**
+     * Sortiert Projektkosten nach Spalte
+     */
+    sortProjectCosts(column) {
+        // Toggle Richtung wenn gleiche Spalte
+        if (this.projectCostsSortColumn === column) {
+            this.projectCostsSortDirection = this.projectCostsSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.projectCostsSortColumn = column;
+            this.projectCostsSortDirection = 'desc';
+        }
+
+        // Sortier-Indikatoren aktualisieren
+        ['datum', 'lieferant', 'beschreibung', 'betrag'].forEach(col => {
+            const indicator = document.getElementById(`fp-sort-${col}`);
+            if (indicator) {
+                if (col === column) {
+                    indicator.textContent = this.projectCostsSortDirection === 'asc' ? '▲' : '▼';
+                } else {
+                    indicator.textContent = '';
+                }
+            }
+        });
+
+        // Neu rendern mit Suche
+        this.filterProjectCostsWithSearch();
+    },
+
     displayProjectCosts(rechnungen) {
         const tbody = document.getElementById('fp-costs-table');
         if (!tbody) return;
@@ -637,11 +669,34 @@ const App = {
             return;
         }
 
-        // Sortieren nach Datum (neueste zuerst)
+        // Sortieren nach gewählter Spalte
         const sorted = [...rechnungen].sort((a, b) => {
-            const dateA = a.datum || a.belegdatum || '';
-            const dateB = b.datum || b.belegdatum || '';
-            return dateB.localeCompare(dateA);
+            let valA, valB;
+
+            switch (this.projectCostsSortColumn) {
+                case 'datum':
+                    valA = a.datum || a.belegdatum || '';
+                    valB = b.datum || b.belegdatum || '';
+                    break;
+                case 'lieferant':
+                    valA = (a.fornitoreName || '').toLowerCase();
+                    valB = (b.fornitoreName || '').toLowerCase();
+                    break;
+                case 'beschreibung':
+                    valA = (a.beschreibung || a.dokumentNr || '').toLowerCase();
+                    valB = (b.beschreibung || b.dokumentNr || '').toLowerCase();
+                    break;
+                case 'betrag':
+                    valA = a.betrag || 0;
+                    valB = b.betrag || 0;
+                    return this.projectCostsSortDirection === 'asc' ? valA - valB : valB - valA;
+                default:
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+            }
+
+            const comparison = valA.localeCompare(valB);
+            return this.projectCostsSortDirection === 'asc' ? comparison : -comparison;
         });
 
         sorted.forEach(r => {
@@ -1121,17 +1176,17 @@ const App = {
         });
     },
 
-    showNewCostForm: function(preselectedProjectId) {
+    showNewCostForm: async function(preselectedProjectId) {
         document.getElementById('cost-form').reset();
         document.getElementById('cost-form-id').value = '';
         document.getElementById('cost-modal-title').textContent = 'Kosten erfassen';
 
-        // Projekt-Dropdown befüllen
+        // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('cost-project');
-        const projects = DataManager.getProjects();
+        const projects = await DataManager.getProjects();
         projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         projects.forEach(p => {
-            const selected = preselectedProjectId && p.id === preselectedProjectId ? 'selected' : '';
+            const selected = preselectedProjectId && String(p.id) === String(preselectedProjectId) ? 'selected' : '';
             projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
         });
 
@@ -1146,7 +1201,7 @@ const App = {
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
         const supplierSelect = document.getElementById('cost-supplier');
         const suppliers = DataManager.getActiveSuppliers();
-        const datevLieferanten = DataManager.getDatevLieferanten();
+        const datevLieferanten = await DataManager.getDatevLieferanten();
 
         supplierSelect.innerHTML = '<option value="">-- Kein Lieferant --</option>';
 
