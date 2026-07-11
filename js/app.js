@@ -2309,19 +2309,25 @@ const App = {
 
     loadCostTypes: async function() {
         const container = document.getElementById('cost-types-list');
+        if (!container) {
+            console.error('❌ cost-types-list Container nicht gefunden!');
+            return;
+        }
         container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">Lade Kostentypen...</p>';
 
         // Warten auf Supabase-Daten
         let costTypes = [];
-        if (SupabaseDataAdapter.costTypesCache) {
-            costTypes = SupabaseDataAdapter.costTypesCache;
-        } else {
+        try {
+            console.log('🔄 Lade Kostentypen...');
             costTypes = await SupabaseDataAdapter.loadCostTypesFromSupabase();
+            console.log('✅ Kostentypen geladen:', costTypes);
+        } catch (error) {
+            console.error('❌ Fehler beim Laden der Kostentypen:', error);
         }
 
         container.innerHTML = '';
 
-        if (costTypes.length === 0) {
+        if (!costTypes || costTypes.length === 0) {
             container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Kostentypen definiert</p>';
             return;
         }
@@ -2508,19 +2514,25 @@ const App = {
 
     loadUsers: async function() {
         const container = document.getElementById('users-list');
+        if (!container) {
+            console.error('❌ users-list Container nicht gefunden!');
+            return;
+        }
         container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">Lade Mitarbeiter...</p>';
 
         // Warten auf Supabase-Daten
         let users = [];
-        if (SupabaseDataAdapter.usersCache) {
-            users = SupabaseDataAdapter.usersCache;
-        } else {
+        try {
+            console.log('🔄 Lade Mitarbeiter...');
             users = await SupabaseDataAdapter.loadUsersFromSupabase();
+            console.log('✅ Mitarbeiter geladen:', users);
+        } catch (error) {
+            console.error('❌ Fehler beim Laden der Mitarbeiter:', error);
         }
 
         container.innerHTML = '';
 
-        if (users.length === 0) {
+        if (!users || users.length === 0) {
             container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Mitarbeiter definiert</p>';
             return;
         }
