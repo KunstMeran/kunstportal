@@ -1467,8 +1467,9 @@ const App = {
     // ZEITERFASSUNG
     // ==========================================
 
-    loadTimeTracking: function() {
+    loadTimeTracking: async function() {
         const entries = DataManager.getMyTimeEntries();
+        const projects = await DataManager.getProjects();
 
         // Statistiken berechnen
         const now = new Date();
@@ -1502,7 +1503,7 @@ const App = {
         }
 
         entries.forEach(entry => {
-            const project = DataManager.getProjectById(entry.projectId);
+            const project = projects.find(p => String(p.id) === String(entry.projectId));
             container.innerHTML += `
                 <div class="time-entry">
                     <div class="time-entry-hours">${entry.hours}h</div>
@@ -1520,14 +1521,15 @@ const App = {
         });
     },
 
-    showNewTimeEntryForm: function() {
+    showNewTimeEntryForm: async function() {
         document.getElementById('time-form').reset();
         document.getElementById('time-form-id').value = '';
         document.getElementById('time-modal-title').textContent = 'Zeit erfassen';
 
-        // Projekt-Dropdown befüllen
+        // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('time-project');
-        const projects = DataManager.getProjects().filter(p => p.status !== 'abgeschlossen');
+        const allProjects = await DataManager.getProjects();
+        const projects = allProjects.filter(p => p.status !== 'abgeschlossen');
         projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         projects.forEach(p => {
             projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
@@ -1539,16 +1541,17 @@ const App = {
         this.showModal('time-form-modal');
     },
 
-    editTimeEntry: function(entryId) {
+    editTimeEntry: async function(entryId) {
         const entry = DataManager.getTimeEntries().find(e => e.id === entryId);
         if (!entry) return;
 
-        // Projekt-Dropdown befüllen
+        // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('time-project');
-        const projects = DataManager.getProjects();
+        const projects = await DataManager.getProjects();
         projectSelect.innerHTML = '';
         projects.forEach(p => {
-            projectSelect.innerHTML += `<option value="${p.id}" ${p.id === entry.projectId ? 'selected' : ''}>${p.name}</option>`;
+            const selected = String(p.id) === String(entry.projectId) ? 'selected' : '';
+            projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
         });
 
         document.getElementById('time-form-id').value = entry.id;
@@ -1565,7 +1568,7 @@ const App = {
 
         const id = document.getElementById('time-form-id').value;
         const entryData = {
-            projectId: parseInt(document.getElementById('time-project').value),
+            projectId: document.getElementById('time-project').value, // UUID, kein parseInt
             date: document.getElementById('time-date').value,
             hours: parseFloat(document.getElementById('time-hours').value) || 0,
             description: document.getElementById('time-description').value
