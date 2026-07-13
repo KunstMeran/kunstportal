@@ -703,6 +703,7 @@ const App = {
         // Projektleiter anzeigen (falls vorhanden)
         document.getElementById('fp-pl1').textContent = project.pl1 || '-';
         document.getElementById('fp-pl2').textContent = project.pl2 || '-';
+        document.getElementById('fp-pl3').textContent = project.pl3 || '-';
 
         // Budget-Übersicht
         const budget = project.budget || 0;
@@ -1606,6 +1607,7 @@ const App = {
         document.getElementById('project-budget').value = project.budget || 0;
         document.getElementById('project-pl1').value = project.pl1 || '';
         document.getElementById('project-pl2').value = project.pl2 || '';
+        document.getElementById('project-pl3').value = project.pl3 || '';
         document.getElementById('project-dropbox').value = project.dropboxLink || '';
 
         document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
@@ -1621,6 +1623,7 @@ const App = {
 
             const pl1Select = document.getElementById('project-pl1');
             const pl2Select = document.getElementById('project-pl2');
+            const pl3Select = document.getElementById('project-pl3');
 
             // Options erstellen
             const optionsHtml = '<option value="">-- Nicht zugewiesen --</option>' +
@@ -1628,6 +1631,7 @@ const App = {
 
             pl1Select.innerHTML = optionsHtml;
             pl2Select.innerHTML = optionsHtml;
+            pl3Select.innerHTML = optionsHtml;
 
         } catch (error) {
             console.error('Fehler beim Laden der User:', error);
@@ -1649,6 +1653,7 @@ const App = {
             budget: parseFloat(document.getElementById('project-budget').value) || 0,
             pl1: document.getElementById('project-pl1').value || null,
             pl2: document.getElementById('project-pl2').value || null,
+            pl3: document.getElementById('project-pl3').value || null,
             dropboxLink: document.getElementById('project-dropbox').value || null
         };
 

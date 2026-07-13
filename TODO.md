@@ -4,6 +4,20 @@ Stand: 2026-07-11
 
 ---
 
+## 🚨 Blockierend
+
+### Supabase RLS Policies
+- [ ] **cost_types Tabelle**: RLS Policies hinzufügen (SELECT, INSERT, UPDATE, DELETE)
+  ```sql
+  CREATE POLICY "Users can view cost_types" ON cost_types FOR SELECT TO authenticated USING (true);
+  CREATE POLICY "Users can insert cost_types" ON cost_types FOR INSERT TO authenticated WITH CHECK (true);
+  CREATE POLICY "Users can update cost_types" ON cost_types FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  CREATE POLICY "Users can delete cost_types" ON cost_types FOR DELETE TO authenticated USING (true);
+  ```
+  → Ohne diese Policies funktioniert Konfiguration > Kostentypen nicht!
+
+---
+
 ## 🎯 Aktuelle Aufgaben (Priorität: Hoch)
 
 ### 1. Import der Bedarfe
