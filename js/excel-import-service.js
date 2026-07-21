@@ -257,11 +257,24 @@ const ExcelImportService = {
 
     /**
      * Excel-Zeile zu Lieferant mappen
+     * Unterstützt verschiedene Spaltenformate:
+     * - Format 1: Codice Cli, Nominativo, Indirizzo, CodiceFisc, Partita IVA
+     * - Format 2: Numero, Nome/Denominazione, Via, Località, Partita IVA, Codice fiscale
      */
     mapRowToSupplier(row, fileName) {
-        // Partita IVA mit IT-Prefix versehen wenn nicht vorhanden
-        let partitaIva = row['Partita IVA'] || null;
-        if (partitaIva && !partitaIva.startsWith('IT') && !partitaIva.startsWith('DE') && !partitaIva.startsWith('AT')) {
+        // Partita IVA aus verschiedenen möglichen Spalten
+        let partitaIva = row['Partita IVA'] || row['CodiceFisc'] || row['P.IVA'] || null;
+
+        // Als String konvertieren falls Zahl (Excel wissenschaftliche Notation)
+        if (partitaIva && typeof partitaIva === 'number') {
+            partitaIva = String(Math.round(partitaIva));
+        }
+        if (partitaIva) {
+            partitaIva = String(partitaIva).trim();
+        }
+
+        // IT-Prefix hinzufügen wenn nicht vorhanden
+        if (partitaIva && !partitaIva.startsWith('IT') && !partitaIva.startsWith('DE') && !partitaIva.startsWith('AT') && !partitaIva.startsWith('CF:')) {
             partitaIva = 'IT' + partitaIva;
         }
 
@@ -273,7 +286,7 @@ const ExcelImportService = {
         }
 
         // Codice Fiscale (für Künstler ohne Partita IVA)
-        const codiceFiscale = row['Codice fiscale'] || row['C.F.'];
+        const codiceFiscale = row['Codice fiscale'] || row['CodiceFisc'] || row['C.F.'] || null;
 
         // Falls keine Partita IVA, aber Codice Fiscale vorhanden
         if (!partitaIva && codiceFiscale) {
@@ -282,7 +295,7 @@ const ExcelImportService = {
 
         return {
             partita_iva: partitaIva,
-            fornitore_nr: row['Numero'] || row['DATEV-ID'] || row['Conto'] || null,
+            fornitore_nr: row['Numero'] || row['Codice Cli'] || row['DATEV-ID'] || row['Conto'] || null,
             fornitore_name: row['Nominativo'] || row['Nome'] || row['Denominazione'] || 'Unbekannt',
             codice_fiscale: codiceFiscale || null,
             address: row['Indirizzo'] || row['Via'] || null,
