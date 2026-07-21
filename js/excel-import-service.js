@@ -161,10 +161,26 @@ const ExcelImportService = {
 
             console.log(`✅ ${upsertedData.length} Lieferanten importiert/aktualisiert`);
 
+            // DATEV-Buchungen mit Lieferantennamen aktualisieren
+            let updatedBookings = 0;
+            for (const supplier of uniqueSuppliers) {
+                const { data: updated, error: updateError } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ fornitore_name: supplier.fornitore_name })
+                    .eq('partita_iva', supplier.partita_iva)
+                    .select('id');
+
+                if (!updateError && updated) {
+                    updatedBookings += updated.length;
+                }
+            }
+            console.log(`🔄 ${updatedBookings} DATEV-Buchungen aktualisiert`);
+
             return {
                 success: true,
                 imported: upsertedData.length,
-                message: `${upsertedData.length} Lieferanten importiert/aktualisiert`
+                updatedBookings: updatedBookings,
+                message: `${upsertedData.length} Lieferanten importiert, ${updatedBookings} Buchungen aktualisiert`
             };
 
         } catch (error) {
