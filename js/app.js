@@ -3663,6 +3663,54 @@ const App = {
         this.loadRechnungen();
     },
 
+    /**
+     * Lieferantennamen in DATEV-Buchungen aus Suppliers-Tabelle aktualisieren
+     */
+    updateSupplierNames: async function() {
+        try {
+            // Lade alle Lieferanten
+            const { data: suppliers, error: supplierError } = await SupabaseService.client
+                .from('suppliers')
+                .select('partita_iva, fornitore_name');
+
+            if (supplierError) throw supplierError;
+
+            if (!suppliers || suppliers.length === 0) {
+                alert('Keine Lieferanten in der Datenbank gefunden.');
+                return;
+            }
+
+            console.log(`📇 ${suppliers.length} Lieferanten geladen`);
+
+            // Update alle DATEV-Buchungen
+            let updatedCount = 0;
+            for (const supplier of suppliers) {
+                if (!supplier.partita_iva || !supplier.fornitore_name) continue;
+
+                const { data: updated, error: updateError } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ fornitore_name: supplier.fornitore_name })
+                    .eq('partita_iva', supplier.partita_iva)
+                    .select('id');
+
+                if (!updateError && updated && updated.length > 0) {
+                    updatedCount += updated.length;
+                    console.log(`✅ ${supplier.fornitore_name}: ${updated.length} Buchungen aktualisiert`);
+                }
+            }
+
+            alert(`${updatedCount} Buchungen aktualisiert!`);
+
+            // Daten neu laden
+            await this.loadDatevData();
+            this.loadRechnungen();
+
+        } catch (error) {
+            console.error('❌ Fehler beim Aktualisieren:', error);
+            alert('Fehler: ' + error.message);
+        }
+    },
+
     showRechnungDetail: function(rechnungId) {
         this.currentRechnungId = rechnungId;
         const rechnungen = DataManager.getRechnungenMitStatus();
