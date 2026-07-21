@@ -136,12 +136,24 @@ const ExcelImportService = {
                 throw new Error('Keine gültigen Lieferanten gefunden (Partita IVA fehlt)');
             }
 
-            // Upsert (INSERT or UPDATE on conflict)
+            // Duplikate in der Excel-Datei entfernen (nur erste Zeile pro partita_iva behalten)
+            const uniqueSuppliers = [];
+            const seenPartitaIva = new Set();
+            for (const supplier of suppliers) {
+                if (!seenPartitaIva.has(supplier.partita_iva)) {
+                    seenPartitaIva.add(supplier.partita_iva);
+                    uniqueSuppliers.push(supplier);
+                }
+            }
+
+            console.log(`🔄 ${suppliers.length - uniqueSuppliers.length} Duplikate in Datei entfernt`);
+
+            // Upsert (INSERT or UPDATE on conflict) - ignoreDuplicates: true für bereits existierende
             const { data: upsertedData, error: upsertError } = await SupabaseService.client
                 .from('suppliers')
-                .upsert(suppliers, {
+                .upsert(uniqueSuppliers, {
                     onConflict: 'partita_iva',
-                    ignoreDuplicates: false
+                    ignoreDuplicates: true
                 })
                 .select();
 
