@@ -318,7 +318,9 @@
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="sidebar-logo">KUNST MERAN</div>
+            <div class="sidebar-logo">
+                <img src="logo_weiss.png" alt="Kunst Meran" class="sidebar-logo-img">
+            </div>
 
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-view="dashboard">
@@ -353,6 +355,12 @@
                 </a>
                 <a href="#" class="nav-item" data-view="einnahmen">
                     <span>Einnahmenplanung</span>
+                </a>
+                <a href="#" class="nav-item" data-view="budgetplanung">
+                    <span>Budgetplanung</span>
+                </a>
+                <a href="#" class="nav-item" data-view="mitglieder">
+                    <span>Mitglieder</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="import">
                     <span>DATEV Import</span>
@@ -574,6 +582,23 @@
                     </div>
                 </div>
 
+                <!-- Volltextsuche -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="card-body" style="padding: 0.75rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="text"
+                                   id="bewegungen-volltext-suche"
+                                   class="form-control"
+                                   placeholder="Bewegungen durchsuchen (Rechnungs-Nr., Lieferant, Betrag, Notizen...)"
+                                   oninput="App.filterRechnungen()"
+                                   style="flex: 1; font-size: 0.95rem;">
+                            <button class="btn btn-outline btn-sm" onclick="App.clearBewegungssuche()" title="Suche leeren" style="padding: 0.4rem 0.75rem;">
+                                Leeren
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Filter -->
                 <div class="card">
                     <div class="card-header">
@@ -717,6 +742,7 @@
                                     <th class="sortable" onclick="App.sortRechnungen('status')">
                                         Status <span class="sort-arrow">⇅</span>
                                     </th>
+                                    <th>PDF</th>
                                     <th class="sortable" onclick="App.sortRechnungen('kontrolliert')">
                                         Kontrolliert <span class="sort-arrow">⇅</span>
                                     </th>
@@ -726,7 +752,6 @@
                                     <th class="sortable" onclick="App.sortRechnungen('abgabestelle')">
                                         Abgabestelle <span class="sort-arrow">⇅</span>
                                     </th>
-                                    <th>PDF</th>
                                     <th style="min-width: 150px;">Notiz</th>
                                     <th>Aktionen</th>
                                 </tr>
@@ -738,12 +763,23 @@
                     </div>
 
                     <!-- Pagination -->
-                    <div id="rechnungen-pagination" class="pagination" style="display: none;">
-                        <button class="pagination-btn" onclick="App.goToRechnungenPage(1)" id="page-first">««</button>
-                        <button class="pagination-btn" onclick="App.goToRechnungenPage('prev')" id="page-prev">‹</button>
-                        <span class="pagination-info" id="page-info">Seite 1 von 1</span>
-                        <button class="pagination-btn" onclick="App.goToRechnungenPage('next')" id="page-next">›</button>
-                        <button class="pagination-btn" onclick="App.goToRechnungenPage('last')" id="page-last">»»</button>
+                    <div id="rechnungen-pagination" class="pagination" style="display: none; align-items: center; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <label style="font-size: 0.8rem; color: #666;">Pro Seite:</label>
+                            <select id="page-size-select" onchange="App.changePageSize(this.value)" style="padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem;">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <button class="pagination-btn" onclick="App.goToRechnungenPage(1)" id="page-first">««</button>
+                            <button class="pagination-btn" onclick="App.goToRechnungenPage('prev')" id="page-prev">‹</button>
+                            <span class="pagination-info" id="page-info">Seite 1 von 1</span>
+                            <button class="pagination-btn" onclick="App.goToRechnungenPage('next')" id="page-next">›</button>
+                            <button class="pagination-btn" onclick="App.goToRechnungenPage('last')" id="page-last">»»</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1129,10 +1165,58 @@
                     </div>
                 </div>
 
-                <!-- Deckungsbeitragsrechnung -->
+                <!-- Deckungsbeiträge pro Projekt -->
                 <div class="card" style="margin-bottom: 1.5rem;">
                     <div class="card-header">
-                        <h3 class="card-title">Deckungsbeitragsrechnung</h3>
+                        <h3 class="card-title">Deckungsbeiträge pro Projekt</h3>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-outline btn-sm" onclick="App.exportDbCsv()">CSV Export</button>
+                            <button class="btn btn-outline btn-sm" onclick="App.loadDeckungsbeitragProjekte()">Aktualisieren</button>
+                        </div>
+                    </div>
+                    <p style="padding: 0 1rem 1rem; color: #666; font-size: 0.875rem;">
+                        Gemeinkosten (DB2/DB3) werden anteilig nach Ausstellungsdauer verteilt.
+                        <a href="#" onclick="App.showView('konfiguration'); return false;">Kontenplan konfigurieren</a>
+                    </p>
+                    <div class="table-container" style="overflow-x: auto;">
+                        <table class="data-table" style="min-width: 900px;">
+                            <thead>
+                                <tr>
+                                    <th>Projekt</th>
+                                    <th style="text-align: center; width: 60px;">Tage</th>
+                                    <th style="text-align: center; width: 60px;">Anteil</th>
+                                    <th style="text-align: right;">Umsatz</th>
+                                    <th style="text-align: right;">- Direkt</th>
+                                    <th style="text-align: right; background: #e3f2fd;">= DB1</th>
+                                    <th style="text-align: right;">- Struktur</th>
+                                    <th style="text-align: right; background: #fff3e0;">= DB2</th>
+                                    <th style="text-align: right;">- Fix</th>
+                                    <th style="text-align: right; background: #e8f5e9;">= DB3</th>
+                                </tr>
+                            </thead>
+                            <tbody id="db-projekte-table-body">
+                                <tr><td colspan="10" style="text-align: center; padding: 2rem; color: #666;">Klicken Sie auf "Aktualisieren" um die Berechnung zu starten</td></tr>
+                            </tbody>
+                            <tfoot id="db-projekte-table-footer" style="font-weight: bold; background: #f5f5f5;">
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Nicht-projektbezogene Einnahmen -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Nicht-projektbezogene Einnahmen</h3>
+                    </div>
+                    <div id="db-allgemein-container" style="padding: 1rem;">
+                        <p style="color: #666;">Wird nach Berechnung angezeigt...</p>
+                    </div>
+                </div>
+
+                <!-- Gesamt-Deckungsbeitragsrechnung (klassische Ansicht) -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title">Gesamt-Deckungsbeitragsrechnung</h3>
                     </div>
                     <div class="table-container">
                         <table class="db-table">
@@ -1259,13 +1343,14 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Quelle</th>
-                                    <th>Typ</th>
-                                    <th style="text-align: right;">Betrag (Plan)</th>
-                                    <th style="text-align: right;">Betrag (IST)</th>
+                                    <th>Code</th>
+                                    <th>Name / Quelle</th>
+                                    <th style="text-align: right;">Budget</th>
+                                    <th style="text-align: right;">Ausgaben</th>
+                                    <th style="text-align: right;">Verfügbar</th>
                                     <th>Status</th>
+                                    <th>Abgabestelle</th>
                                     <th>Dokument</th>
-                                    <th>Fällig am</th>
                                     <th>Aktionen</th>
                                 </tr>
                             </thead>
@@ -1275,11 +1360,295 @@
                             <tfoot>
                                 <tr style="font-weight: bold; background: #f5f5f5;">
                                     <td colspan="2">Summe</td>
-                                    <td style="text-align: right;" id="einnahmen-summe-plan">0,00 EUR</td>
-                                    <td style="text-align: right;" id="einnahmen-summe-ist">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-budget">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-ausgaben">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-verfuegbar">0,00 EUR</td>
                                     <td colspan="4"></td>
                                 </tr>
                             </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== BUDGETPLANUNG ==================== -->
+            <div id="view-budgetplanung" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Budgetplanung</h1>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.875rem; color: #666;">
+                            Jahr
+                            <select id="budget-year-filter" class="form-control" style="width: auto; display: inline-block; margin-left: 0.5rem;" onchange="App.loadBudgetplanung()">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                            </select>
+                        </label>
+                        <button class="btn btn-outline" onclick="App.exportBudgetCSV()">CSV Export</button>
+                    </div>
+                </div>
+
+                <!-- Zusammenfassung -->
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="budget-total">0 EUR</div>
+                        <div class="stat-label">Gesamtbudget</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="budget-forecast">0 EUR</div>
+                        <div class="stat-label">Forecast (geplant)</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-value" id="budget-ist">0 EUR</div>
+                        <div class="stat-label">IST (verbucht)</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="budget-available">0 EUR</div>
+                        <div class="stat-label">Verfügbar</div>
+                    </div>
+                </div>
+
+                <!-- Tabs für Bilanzkonten und Projekte -->
+                <div class="tabs">
+                    <div class="tab active" data-tab="budget-konten">Nach Bilanzkonten</div>
+                    <div class="tab" data-tab="budget-projekte">Nach Projekten</div>
+                    <div class="tab" data-tab="budget-notizen">Notizen</div>
+                </div>
+
+                <!-- Tab: Bilanzkonten -->
+                <div id="tab-budget-konten" class="tab-content active">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Budget nach Bilanzkonten</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.875rem;">
+                                    <input type="checkbox" id="budget-show-vorjahr" onchange="App.loadBudgetplanung()">
+                                    Vorjahr anzeigen
+                                </label>
+                                <button class="btn btn-primary btn-sm" onclick="App.showBudgetEntryModal()">+ Budget hinzufügen</button>
+                            </div>
+                        </div>
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table style="min-width: 1400px;">
+                                <thead>
+                                    <tr>
+                                        <th style="min-width: 80px;">Konto</th>
+                                        <th style="min-width: 200px;">Beschreibung</th>
+                                        <th style="text-align: right; min-width: 70px;">Jan</th>
+                                        <th style="text-align: right; min-width: 70px;">Feb</th>
+                                        <th style="text-align: right; min-width: 70px;">Mär</th>
+                                        <th style="text-align: right; min-width: 70px;">Apr</th>
+                                        <th style="text-align: right; min-width: 70px;">Mai</th>
+                                        <th style="text-align: right; min-width: 70px;">Jun</th>
+                                        <th style="text-align: right; min-width: 70px;">Jul</th>
+                                        <th style="text-align: right; min-width: 70px;">Aug</th>
+                                        <th style="text-align: right; min-width: 70px;">Sep</th>
+                                        <th style="text-align: right; min-width: 70px;">Okt</th>
+                                        <th style="text-align: right; min-width: 70px;">Nov</th>
+                                        <th style="text-align: right; min-width: 70px;">Dez</th>
+                                        <th style="text-align: right; min-width: 90px;">Gesamt</th>
+                                        <th style="min-width: 80px;">Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="budget-konten-body">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                                <tfoot>
+                                    <tr style="font-weight: bold; background: #f8f9fa;">
+                                        <td colspan="2">Gesamt Budget</td>
+                                        <td style="text-align: right;" id="budget-total-jan">0</td>
+                                        <td style="text-align: right;" id="budget-total-feb">0</td>
+                                        <td style="text-align: right;" id="budget-total-mar">0</td>
+                                        <td style="text-align: right;" id="budget-total-apr">0</td>
+                                        <td style="text-align: right;" id="budget-total-mai">0</td>
+                                        <td style="text-align: right;" id="budget-total-jun">0</td>
+                                        <td style="text-align: right;" id="budget-total-jul">0</td>
+                                        <td style="text-align: right;" id="budget-total-aug">0</td>
+                                        <td style="text-align: right;" id="budget-total-sep">0</td>
+                                        <td style="text-align: right;" id="budget-total-okt">0</td>
+                                        <td style="text-align: right;" id="budget-total-nov">0</td>
+                                        <td style="text-align: right;" id="budget-total-dez">0</td>
+                                        <td style="text-align: right;" id="budget-total-year">0</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr style="font-weight: bold; background: #e8f5e9; color: #2e7d32;">
+                                        <td colspan="2">IST (verbucht)</td>
+                                        <td style="text-align: right;" id="ist-total-jan">0</td>
+                                        <td style="text-align: right;" id="ist-total-feb">0</td>
+                                        <td style="text-align: right;" id="ist-total-mar">0</td>
+                                        <td style="text-align: right;" id="ist-total-apr">0</td>
+                                        <td style="text-align: right;" id="ist-total-mai">0</td>
+                                        <td style="text-align: right;" id="ist-total-jun">0</td>
+                                        <td style="text-align: right;" id="ist-total-jul">0</td>
+                                        <td style="text-align: right;" id="ist-total-aug">0</td>
+                                        <td style="text-align: right;" id="ist-total-sep">0</td>
+                                        <td style="text-align: right;" id="ist-total-okt">0</td>
+                                        <td style="text-align: right;" id="ist-total-nov">0</td>
+                                        <td style="text-align: right;" id="ist-total-dez">0</td>
+                                        <td style="text-align: right;" id="ist-total-year">0</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr style="font-weight: bold; background: #fff3e0; color: #e65100;">
+                                        <td colspan="2">Differenz</td>
+                                        <td style="text-align: right;" id="diff-total-jan">0</td>
+                                        <td style="text-align: right;" id="diff-total-feb">0</td>
+                                        <td style="text-align: right;" id="diff-total-mar">0</td>
+                                        <td style="text-align: right;" id="diff-total-apr">0</td>
+                                        <td style="text-align: right;" id="diff-total-mai">0</td>
+                                        <td style="text-align: right;" id="diff-total-jun">0</td>
+                                        <td style="text-align: right;" id="diff-total-jul">0</td>
+                                        <td style="text-align: right;" id="diff-total-aug">0</td>
+                                        <td style="text-align: right;" id="diff-total-sep">0</td>
+                                        <td style="text-align: right;" id="diff-total-okt">0</td>
+                                        <td style="text-align: right;" id="diff-total-nov">0</td>
+                                        <td style="text-align: right;" id="diff-total-dez">0</td>
+                                        <td style="text-align: right;" id="diff-total-year">0</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Projekte -->
+                <div id="tab-budget-projekte" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Budget nach Projekten</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Projekt</th>
+                                        <th>Status</th>
+                                        <th style="text-align: right;">Budget</th>
+                                        <th style="text-align: right;">Forecast</th>
+                                        <th style="text-align: right;">IST</th>
+                                        <th style="text-align: right;">Verfügbar</th>
+                                        <th style="text-align: center;">Fortschritt</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="budget-projekte-body">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                                <tfoot>
+                                    <tr style="font-weight: bold; background: #f8f9fa;">
+                                        <td colspan="2">Gesamt</td>
+                                        <td style="text-align: right;" id="budget-projekte-total-budget">0,00 EUR</td>
+                                        <td style="text-align: right;" id="budget-projekte-total-forecast">0,00 EUR</td>
+                                        <td style="text-align: right;" id="budget-projekte-total-ist">0,00 EUR</td>
+                                        <td style="text-align: right;" id="budget-projekte-total-available">0,00 EUR</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Notizen -->
+                <div id="tab-budget-notizen" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Planungsnotizen</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.saveBudgetNotizen()">Speichern</button>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <textarea id="budget-notizen-text" class="form-control" rows="15" placeholder="Notizen zur Budgetplanung eingeben..."></textarea>
+                            <small style="color: #666; display: block; margin-top: 0.5rem;">
+                                Notizen werden automatisch pro Jahr gespeichert.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== MITGLIEDER ==================== -->
+            <div id="view-mitglieder" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Mitglieder</h1>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-outline" onclick="App.showMemberImportModal()">Excel Import</button>
+                        <button class="btn btn-primary" onclick="App.showNewMemberForm()">+ Neues Mitglied</button>
+                    </div>
+                </div>
+
+                <!-- Zusammenfassung -->
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="members-total">0</div>
+                        <div class="stat-label">Mitglieder Gesamt</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="members-paid">0</div>
+                        <div class="stat-label">Bezahlt (<span id="members-year-label">2026</span>)</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="members-unpaid">0</div>
+                        <div class="stat-label">Offen</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="members-amount">0 EUR</div>
+                        <div class="stat-label">Einnahmen Beiträge</div>
+                    </div>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div class="filter-row" style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Jahr</label>
+                            <select id="members-filter-year" class="form-control" onchange="App.loadMembers()">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Zahlungsstatus</label>
+                            <select id="members-filter-paid" class="form-control" onchange="App.filterMembers()">
+                                <option value="">Alle</option>
+                                <option value="paid">Bezahlt</option>
+                                <option value="unpaid">Offen</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                            <label class="form-label">Suche</label>
+                            <input type="text" id="members-filter-search" class="form-control" placeholder="Name, E-Mail..." oninput="App.filterMembers()">
+                        </div>
+                        <button class="btn btn-outline" onclick="App.showUnmatchedPayments()" style="white-space: nowrap;">
+                            Nicht zugeordnete Zahlungen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mitglieder-Liste -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Mitgliederliste</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportMembersCSV()">CSV Export</button>
+                    </div>
+                    <div class="table-container" style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nr.</th>
+                                    <th>Nachname</th>
+                                    <th>Vorname</th>
+                                    <th>Ort</th>
+                                    <th>E-Mail</th>
+                                    <th style="text-align: right;">Beitrag</th>
+                                    <th style="text-align: center;">Bezahlt</th>
+                                    <th>Zahlungsdatum</th>
+                                    <th>DATEV-Buchung</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="members-table-body">
+                                <!-- Wird dynamisch geladen -->
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -1402,6 +1771,8 @@
 
                 <div class="tabs">
                     <div class="tab active" data-tab="kostentypen">Kostentypen</div>
+                    <div class="tab" data-tab="kontenplan">Kontenplan</div>
+                    <div class="tab" data-tab="workspaces">Workspaces</div>
                     <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
                     <div class="tab" data-tab="export">Datenexport</div>
                 </div>
@@ -1416,6 +1787,120 @@
                             </button>
                         </div>
                         <div id="cost-types-list">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kontenplan Tab -->
+                <div id="tab-kontenplan" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Kontenplan (DB-Zuordnung)</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewAccountModal()">
+                                + Neues Konto
+                            </button>
+                        </div>
+                        <p style="padding: 0 1rem 1rem; color: #666; font-size: 0.875rem;">
+                            Ordnen Sie DATEV-Konten den Deckungsbeitrags-Stufen zu. Nutzen Sie % als Wildcard (z.B. 680% für alle Konten die mit 680 beginnen).
+                        </p>
+
+                        <!-- Filter -->
+                        <div style="padding: 0 1rem 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <input type="text" id="kontenplan-search" class="form-control" placeholder="Suche nach Konto oder Name..." style="max-width: 250px;" oninput="App.filterKontenplan()">
+                            <select id="kontenplan-filter-db" class="form-control" style="max-width: 180px;" onchange="App.filterKontenplan()">
+                                <option value="">Alle DB-Stufen</option>
+                                <option value="UMSATZ">Umsatz</option>
+                                <option value="DB1_KOSTEN">DB1 - Direkte Kosten</option>
+                                <option value="DB2_KOSTEN">DB2 - Strukturkosten</option>
+                                <option value="DB3_KOSTEN">DB3 - Fixkosten</option>
+                                <option value="NEUTRAL">Neutral</option>
+                            </select>
+                        </div>
+
+                        <!-- Tabelle -->
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 120px;">Konto-Pattern</th>
+                                        <th>Name</th>
+                                        <th style="width: 150px;">Kategorie</th>
+                                        <th style="width: 160px;">DB-Zuordnung</th>
+                                        <th style="width: 100px;">Projektbez.</th>
+                                        <th style="width: 80px;">Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kontenplan-list">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Info-Card: DB-Stufen Erklärung -->
+                    <div class="card" style="margin-top: 1rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">Deckungsbeitrags-Stufen</h3>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <table class="data-table" style="font-size: 0.875rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Stufe</th>
+                                        <th>Berechnung</th>
+                                        <th>Beispiele</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Umsatz</strong></td>
+                                        <td>Alle Einnahmen</td>
+                                        <td>Erlöse, Zuschüsse, Mitgliedsbeiträge</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>DB1</strong></td>
+                                        <td>Umsatz - Direkte Kosten</td>
+                                        <td>Material, Künstler, Projektdienstleistungen</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>DB2</strong></td>
+                                        <td>DB1 - Strukturkosten (anteilig)</td>
+                                        <td>Verwaltung, Marketing, Werbung</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>DB3</strong></td>
+                                        <td>DB2 - Fixkosten (anteilig)</td>
+                                        <td>Miete, Personal, Gebäudekosten</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Neutral</strong></td>
+                                        <td>Nicht in DB-Rechnung</td>
+                                        <td>Abschreibungen, Zinsen</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p style="margin-top: 1rem; font-size: 0.875rem; color: #666;">
+                                <strong>Projektbezogen:</strong> Wenn aktiviert, werden diese Kosten nur in DB1 berücksichtigt, wenn sie einem Projekt zugeordnet sind.
+                                Nicht-projektbezogene Kosten werden anteilig nach Ausstellungsdauer auf alle Projekte verteilt.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workspaces Tab -->
+                <div id="tab-workspaces" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Workspaces verwalten</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showWorkspaceModal()">
+                                + Neuer Workspace
+                            </button>
+                        </div>
+                        <p style="padding: 0 1rem 1rem; color: #666; font-size: 0.875rem;">
+                            Workspaces definieren Berechtigungsgruppen. Weisen Sie Benutzer Workspaces zu, um deren Zugriff auf Bereiche zu steuern.
+                        </p>
+                        <div id="workspaces-list">
                             <!-- Wird dynamisch geladen -->
                         </div>
                     </div>
@@ -1599,6 +2084,7 @@
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('beschreibung')">Beschreibung <span id="fp-sort-beschreibung"></span></th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('kostentyp')">Kostentyp <span id="fp-sort-kostentyp"></span></th>
                                         <th style="cursor: pointer;" onclick="App.sortProjectCosts('typ')">Status <span id="fp-sort-typ"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('bezahlt')">Bezahlt <span id="fp-sort-bezahlt"></span></th>
                                         <th style="text-align: right; cursor: pointer;" onclick="App.sortProjectCosts('betrag')">Betrag <span id="fp-sort-betrag"></span></th>
                                         <th>Aktionen</th>
                                     </tr>
@@ -2009,6 +2495,61 @@
         </div>
     </div>
 
+    <!-- Kontenplan-Formular Modal -->
+    <div id="account-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="account-modal-title">Neues Konto</h2>
+                <button class="modal-close" onclick="App.hideModal('account-form-modal')">&times;</button>
+            </div>
+            <form id="account-form" onsubmit="App.saveAccount(event)">
+                <input type="hidden" id="account-form-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Konto-Pattern *</label>
+                        <input type="text" id="account-pattern" class="form-control" required placeholder="z.B. 680% oder 6901251">
+                        <small style="color: #666;">Nutze % als Wildcard (680% = alle Konten die mit 680 beginnen)</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Konto-Name</label>
+                        <input type="text" id="account-name" class="form-control" placeholder="z.B. Materialkosten">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kategorie</label>
+                        <input type="text" id="account-kategorie" class="form-control" placeholder="z.B. Material, Personal, Miete">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">DB-Zuordnung *</label>
+                        <select id="account-db-zuordnung" class="form-control" required>
+                            <option value="UMSATZ">Umsatz (Einnahmen)</option>
+                            <option value="DB1_KOSTEN">DB1 - Direkte Kosten</option>
+                            <option value="DB2_KOSTEN">DB2 - Strukturkosten</option>
+                            <option value="DB3_KOSTEN">DB3 - Fixkosten</option>
+                            <option value="NEUTRAL">Neutral (nicht in DB)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="account-projektbezogen">
+                            Projektbezogen
+                        </label>
+                        <small style="color: #666; display: block; margin-top: 0.25rem;">
+                            Wenn aktiviert: Kosten fließen nur in DB1, wenn einem Projekt zugewiesen
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="account-beschreibung" class="form-control" rows="2" placeholder="Optionale Notizen..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('account-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Lieferant-Formular Modal -->
     <div id="supplier-form-modal" class="modal-overlay">
         <div class="modal" style="max-width: 500px;">
@@ -2125,7 +2666,11 @@
                 <iframe id="pdf-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
                 <div id="pdf-preview-error" style="display: none; padding: 2rem; text-align: center; color: #e74c3c;">
                     <p style="font-size: 1.25rem; margin-bottom: 0.5rem;">PDF nicht gefunden</p>
-                    <p style="color: #666;">Die Datei existiert nicht oder ist nicht zugänglich.</p>
+                    <p style="color: #666; margin-bottom: 1rem;">Die Datei existiert nicht oder ist nicht zugänglich.</p>
+                    <p id="pdf-preview-error-details" style="font-size: 0.8rem; color: #999; margin-bottom: 1rem;"></p>
+                    <button id="pdf-unlink-btn" class="btn" style="background: #ff5722; color: white;" onclick="App.unlinkCurrentPdf()">
+                        Fehlerhafte Verknüpfung entfernen
+                    </button>
                 </div>
             </div>
         </div>
@@ -2570,27 +3115,24 @@
                 <div class="modal-body">
                     <input type="hidden" id="einnahme-id">
 
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 0 120px;">
+                            <label class="form-label">Code *</label>
+                            <input type="text" id="einnahme-code" class="form-control" required placeholder="2026-01">
+                            <small style="color: #666;">Eindeutig pro Jahr</small>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Name / Bezeichnung *</label>
+                            <input type="text" id="einnahme-name" class="form-control" required placeholder="z.B. Förderung Webseite">
+                        </div>
+                    </div>
+
                     <div class="form-group">
-                        <label class="form-label">Quelle / Geber *</label>
-                        <input type="text" id="einnahme-quelle" class="form-control" required placeholder="z.B. Provinz Bozen, Stiftung Sparkasse, Firma XYZ...">
+                        <label class="form-label">Quelle / Geber</label>
+                        <input type="text" id="einnahme-quelle" class="form-control" placeholder="z.B. Gemeinde Meran, Stiftung Sparkasse...">
                     </div>
 
                     <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Typ *</label>
-                            <select id="einnahme-typ" class="form-control" required>
-                                <option value="">-- Auswählen --</option>
-                                <option value="zuschuss_provinz">Zuschuss Provinz</option>
-                                <option value="zuschuss_gemeinde">Zuschuss Gemeinde</option>
-                                <option value="zuschuss_region">Zuschuss Region</option>
-                                <option value="zuschuss_stiftung">Zuschuss Stiftung</option>
-                                <option value="sponsoring">Sponsoring</option>
-                                <option value="spende">Spende</option>
-                                <option value="mitgliedsbeitrag">Mitgliedsbeitrag</option>
-                                <option value="erloese">Erlöse (Shop, Ausstellungen)</option>
-                                <option value="sonstige">Sonstige</option>
-                            </select>
-                        </div>
                         <div class="form-group">
                             <label class="form-label">Jahr *</label>
                             <select id="einnahme-jahr" class="form-control" required>
@@ -2599,16 +3141,9 @@
                                 <option value="2024">2024</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Betrag (Plan) *</label>
+                            <label class="form-label">Budget (EUR) *</label>
                             <input type="number" id="einnahme-betrag-plan" class="form-control" step="0.01" required placeholder="0,00">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Betrag (IST/Eingegangen)</label>
-                            <input type="number" id="einnahme-betrag-ist" class="form-control" step="0.01" placeholder="0,00">
                         </div>
                     </div>
 
@@ -2616,22 +3151,20 @@
                         <div class="form-group">
                             <label class="form-label">Status *</label>
                             <select id="einnahme-status" class="form-control" required onchange="App.toggleDokumentRequired()">
-                                <option value="unsicher">Unsicher</option>
-                                <option value="erwartet">Erwartet</option>
-                                <option value="bestaetigt">Bestätigt</option>
+                                <option value="offen">Offen</option>
+                                <option value="beantragt">Beantragt</option>
+                                <option value="zugesagt">Zugesagt</option>
                                 <option value="eingegangen">Eingegangen</option>
-                                <option value="abgesagt">Abgesagt</option>
+                                <option value="abgelehnt">Abgelehnt</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Fällig am / Erwartet bis</label>
-                            <input type="date" id="einnahme-faellig" class="form-control">
+                            <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="einnahme-abgabestelle" style="width: auto;">
+                                Als Abgabestelle bei Rechnungen verwenden
+                            </label>
+                            <small style="color: #666;">Wenn aktiviert, kann diese Einnahme bei Rechnungen ausgewählt werden</small>
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Konto (DATEV)</label>
-                        <input type="text" id="einnahme-konto" class="form-control" placeholder="z.B. 6401554">
                     </div>
 
                     <div class="form-group">
@@ -2654,6 +3187,120 @@
         </div>
     </div>
 
+    <!-- Budget-Eintrag Modal -->
+    <div id="budget-entry-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 800px;">
+            <form onsubmit="App.saveBudgetEntry(event)">
+                <div class="modal-header">
+                    <h2 id="budget-entry-modal-title">Neuer Budget-Eintrag</h2>
+                    <button type="button" class="modal-close" onclick="App.hideModal('budget-entry-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="budget-entry-id">
+
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Bilanzkonto *</label>
+                            <input type="text" id="budget-entry-konto" class="form-control" required placeholder="z.B. 6401550" list="budget-konten-list">
+                            <datalist id="budget-konten-list">
+                                <!-- Wird dynamisch geladen -->
+                            </datalist>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Beschreibung *</label>
+                            <input type="text" id="budget-entry-description" class="form-control" required placeholder="z.B. Personalkosten Ausstellung XY">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Projekt (optional)</label>
+                            <select id="budget-entry-projekt" class="form-control">
+                                <option value="">-- Kein Projekt --</option>
+                                <!-- Wird dynamisch geladen -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Typ</label>
+                            <select id="budget-entry-type" class="form-control">
+                                <option value="budget">Budget (Plan)</option>
+                                <option value="forecast">Forecast (Prognose)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">Monatliche Beträge (EUR)</label>
+                        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem;">
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Jan</label>
+                                <input type="number" id="budget-entry-jan" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Feb</label>
+                                <input type="number" id="budget-entry-feb" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Mär</label>
+                                <input type="number" id="budget-entry-mar" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Apr</label>
+                                <input type="number" id="budget-entry-apr" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Mai</label>
+                                <input type="number" id="budget-entry-mai" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Jun</label>
+                                <input type="number" id="budget-entry-jun" class="form-control" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-top: 0.5rem;">
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Jul</label>
+                                <input type="number" id="budget-entry-jul" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Aug</label>
+                                <input type="number" id="budget-entry-aug" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Sep</label>
+                                <input type="number" id="budget-entry-sep" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Okt</label>
+                                <input type="number" id="budget-entry-okt" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Nov</label>
+                                <input type="number" id="budget-entry-nov" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: #666;">Dez</label>
+                                <input type="number" id="budget-entry-dez" class="form-control" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.5rem; text-align: right;">
+                            <strong>Gesamt: <span id="budget-entry-total">0,00 EUR</span></strong>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="budget-entry-notes" class="form-control" rows="2" placeholder="Optionale Notizen"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('budget-entry-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Dokument-Vorschau Modal -->
     <div id="dokument-preview-modal" class="modal-overlay">
         <div class="modal" style="max-width: 900px; max-height: 90vh;">
@@ -2663,6 +3310,343 @@
             </div>
             <div class="modal-body" style="padding: 0; height: 70vh;">
                 <iframe id="dokument-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workspace-Formular Modal -->
+    <div id="workspace-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <form onsubmit="App.saveWorkspace(event)">
+                <div class="modal-header">
+                    <h2 id="workspace-modal-title">Neuer Workspace</h2>
+                    <button type="button" class="modal-close" onclick="App.hideModal('workspace-form-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="workspace-id">
+
+                    <div class="form-group">
+                        <label class="form-label">Name *</label>
+                        <input type="text" id="workspace-name" class="form-control" required placeholder="z.B. Buchhaltung, Projektleitung">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="workspace-description" class="form-control" rows="2" placeholder="Optionale Beschreibung"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" style="margin-bottom: 0.75rem;">Zugriff auf Bereiche</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-dashboard"> Dashboard
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-projekte"> Projekte
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-rechnungen"> Rechnungen
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-bewegungen"> Bewegungen
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-lieferanten"> Lieferanten
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-mitglieder"> Mitglieder
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-einnahmen"> Einnahmen
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="workspace-access-konfiguration"> Konfiguration
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="workspace-rechnungen-nur-zugewiesene">
+                            <span>Bei Rechnungen: Nur zugewiesene anzeigen</span>
+                        </label>
+                        <small style="color: #666; display: block; margin-top: 0.25rem; margin-left: 1.5rem;">
+                            Aktivieren Sie dies, wenn User nur Rechnungen sehen sollen, die ihnen zugewiesen wurden.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('workspace-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Workspace-User Modal -->
+    <div id="workspace-users-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="workspace-users-title">Benutzer im Workspace</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('workspace-users-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1rem;">
+                    <label class="form-label">Benutzer hinzufügen</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="email" id="workspace-add-user-email" class="form-control" placeholder="E-Mail-Adresse eingeben">
+                        <button type="button" class="btn btn-primary" onclick="App.addUserToCurrentWorkspace()">Hinzufugen</button>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;">
+                        Der Benutzer muss sich bereits einmal angemeldet haben.
+                    </small>
+                </div>
+
+                <div style="margin-top: 1.5rem;">
+                    <label class="form-label">Zugewiesene Benutzer</label>
+                    <div id="workspace-users-list" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Wird dynamisch geladen -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('workspace-users-modal')">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mitglied-Formular Modal -->
+    <div id="member-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <form onsubmit="App.saveMember(event)">
+                <div class="modal-header">
+                    <h2 id="member-modal-title">Neues Mitglied</h2>
+                    <button type="button" class="modal-close" onclick="App.hideModal('member-form-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="member-id">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Nachname *</label>
+                            <input type="text" id="member-last-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vorname</label>
+                            <input type="text" id="member-first-name" class="form-control">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Geschlecht</label>
+                            <select id="member-gender" class="form-control">
+                                <option value="">-</option>
+                                <option value="m">Männlich</option>
+                                <option value="f">Weiblich</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sprache</label>
+                            <select id="member-language" class="form-control">
+                                <option value="">-</option>
+                                <option value="de">Deutsch</option>
+                                <option value="it">Italienisch</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Geburtsjahr</label>
+                            <input type="number" id="member-birth-year" class="form-control" min="1900" max="2020">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Anschrift</label>
+                        <input type="text" id="member-address" class="form-control">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">PLZ</label>
+                            <input type="text" id="member-postal-code" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ort</label>
+                            <input type="text" id="member-city" class="form-control">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">E-Mail</label>
+                            <input type="email" id="member-email" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Telefon</label>
+                            <input type="text" id="member-phone" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Steuernummer</label>
+                        <input type="text" id="member-tax-number" class="form-control">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Mitgliedsbeitrag</label>
+                            <input type="number" id="member-fee" class="form-control" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Spende</label>
+                            <input type="number" id="member-donation" class="form-control" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Beitrittsdatum</label>
+                            <input type="date" id="member-join-date" class="form-control">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Zahlungsart</label>
+                            <input type="text" id="member-payment-method" class="form-control" placeholder="z.B. Überweisung, Bar...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hashtag/Kategorie</label>
+                            <input type="text" id="member-hashtag" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="member-notes" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="member-active" checked>
+                            Aktives Mitglied
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('member-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mitglieder-Import Modal -->
+    <div id="member-import-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Mitglieder aus Excel importieren</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('member-import-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: #666;">
+                    Laden Sie eine Excel-Datei mit Mitgliederdaten hoch. Die Spalten werden automatisch gemappt.
+                </p>
+
+                <div class="form-group">
+                    <label class="form-label">Excel-Datei (.xlsx, .xls)</label>
+                    <input type="file" id="member-import-file" class="form-control" accept=".xlsx,.xls" style="padding: 0.5rem;">
+                </div>
+
+                <div id="member-import-preview" style="display: none; margin-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem;">Vorschau (erste 5 Zeilen):</h4>
+                    <div id="member-import-preview-table" style="overflow-x: auto; max-height: 200px;"></div>
+                    <p id="member-import-count" style="margin-top: 0.5rem; color: #666;"></p>
+                </div>
+
+                <div id="member-import-result" style="display: none; margin-top: 1rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('member-import-modal')">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="member-import-btn" onclick="App.importMembersFromExcel()" disabled>
+                    Importieren
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zahlung zuweisen Modal -->
+    <div id="member-payment-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Zahlung zuweisen</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('member-payment-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="payment-member-id">
+
+                <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <strong id="payment-member-name">Mitglied</strong>
+                    <span id="payment-member-fee" style="float: right; color: #666;"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">DATEV-Buchung auswählen (Konto 6401550)</label>
+                    <select id="payment-datev-buchung" class="form-control" onchange="App.selectDatevBuchung(this.value)">
+                        <option value="">-- Buchung auswählen --</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Jahr</label>
+                        <input type="number" id="payment-year" class="form-control" value="2026">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Betrag</label>
+                        <input type="number" id="payment-amount" class="form-control" step="0.01">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Zahlungsdatum</label>
+                    <input type="date" id="payment-date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notizen</label>
+                    <input type="text" id="payment-notes" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('member-payment-modal')">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="App.saveMemberPayment()">Zahlung speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nicht zugeordnete Zahlungen Modal -->
+    <div id="unmatched-payments-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Nicht zugeordnete Mitgliedsbeiträge</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('unmatched-payments-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <p style="margin-bottom: 1rem; color: #666;">
+                    DATEV-Buchungen auf Konto 6401550, die noch keinem Mitglied zugewiesen sind.
+                    Klicken Sie auf "Zuweisen" um eine Buchung mit einem Mitglied zu verknüpfen.
+                </p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Buchungstext</th>
+                            <th style="text-align: right;">Betrag</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="unmatched-payments-body">
+                        <!-- Wird dynamisch geladen -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

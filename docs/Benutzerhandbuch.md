@@ -1,15 +1,18 @@
 # Benutzerhandbuch - Projektsoftware Kunst Meran
 
 **Für Mitarbeiter**
-**Stand:** Juni 2026
+**Stand:** Juli 2026
+**Version:** 2.0.0
 
 ---
 
 ## Anmeldung
 
-1. Öffnen Sie das Portal im Browser
-2. Geben Sie Ihren Benutzernamen und Ihr Passwort ein
+1. Öffnen Sie das Portal im Browser: https://kunstmeran.vercel.app
+2. Geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein
 3. Klicken Sie auf "Anmelden"
+
+**Hinweis:** Die Anmeldung erfolgt über Supabase Auth. Bei Problemen wenden Sie sich an Barbara.
 
 ---
 
@@ -24,12 +27,12 @@ Nach der Anmeldung sehen Sie das Dashboard mit:
 
 ---
 
-## Rechnungen
+## EK-Rechnungen (DATEV-Buchungen)
 
 ### Rechnungsübersicht öffnen
 
 1. Klicken Sie links auf "EK-Rechnungen"
-2. Sie sehen alle Rechnungen die einem Projekt zugeordnet sind
+2. Sie sehen alle DATEV-Buchungen die einem Projekt zugeordnet sind
 
 ### Rechnungen filtern
 
@@ -41,18 +44,19 @@ Nutzen Sie die Filter oben:
 | Projekt | Nur Rechnungen eines bestimmten Projekts |
 | Lieferant | Nur Rechnungen eines Lieferanten |
 | Abgabestelle | Gemeinde, Region, Provinz |
+| PDF-Status | Zugewiesen / Nicht zugewiesen |
 
 ### Rechnung bearbeiten
 
 1. Klicken Sie auf "Details" bei einer Rechnung
 2. Sie können folgendes ändern:
    - **Kontrolliert** - Wurde die Rechnung geprüft?
-   - **Bezahlt** - Wurde die Rechnung bezahlt?
+   - **Bezahlt** - Wurde die Rechnung bezahlt? (mit Datum)
    - **Kostentyp** - Personal, Material, Dienstleistung, etc.
    - **Abgabestelle** - Gemeinde, Region, Provinz
    - **Notizen** - Freies Textfeld
 
-### Mehrere Rechnungen bearbeiten
+### Mehrere Rechnungen bearbeiten (Batch)
 
 1. Setzen Sie Häkchen bei den gewünschten Rechnungen
 2. Oder: Klicken Sie auf das Häkchen im Tabellenkopf (alle auswählen)
@@ -62,12 +66,25 @@ Nutzen Sie die Filter oben:
    - "Als bezahlt" - Alle als bezahlt markieren
    - "Gemeinde/Region/Provinz" - Abgabestelle setzen
 
+### DATEV-Bewegung suchen
+
+1. Nutzen Sie das Suchfeld "DATEV-Bewegung suchen"
+2. Tippen Sie den Dokumentnamen oder die Nummer ein
+3. Die Ergebnisse werden als Dropdown angezeigt
+4. Klicken Sie auf einen Eintrag um ihn auszuwählen
+
 ### PDF-Rechnung ansehen
 
 1. Klicken Sie auf das PDF-Symbol in der Zeile
 2. Die Rechnung öffnet sich in einem neuen Tab
 
-**Hinweis:** Wenn kein PDF-Symbol erscheint, wurde die Rechnungsdatei noch nicht abgelegt.
+**Hinweis:** Wenn kein PDF-Symbol erscheint, wurde die Rechnungsdatei noch nicht hochgeladen.
+
+### PDF einer Rechnung zuweisen
+
+1. Nutzen Sie das PDF-Suchfeld in der Zeile
+2. Wählen Sie die passende PDF aus der Liste
+3. Die Verknüpfung wird automatisch gespeichert
 
 ---
 
@@ -76,7 +93,7 @@ Nutzen Sie die Filter oben:
 ### Lieferantenliste öffnen
 
 1. Klicken Sie links auf "Lieferanten"
-2. Sie sehen alle Lieferanten mit Partita IVA
+2. Sie sehen alle Lieferanten mit Partita IVA und Rechnungsübersicht
 
 ### Lieferantenname bearbeiten
 
@@ -86,7 +103,7 @@ Falls ein Lieferantenname fehlt oder falsch ist:
 2. Geben Sie den korrekten Namen ein
 3. Klicken Sie auf OK
 
-Der Name wird gespeichert und erscheint bei allen Rechnungen dieses Lieferanten.
+Der Name wird in Supabase gespeichert und erscheint bei allen Rechnungen dieses Lieferanten.
 
 ### Rechnungen eines Lieferanten anzeigen
 
@@ -105,7 +122,7 @@ Der Name wird gespeichert und erscheint bei allen Rechnungen dieses Lieferanten.
    - Anzahl Rechnungen
    - Status (offen/kontrolliert/bezahlt)
 
-### Projekte
+### Projekt-IDs (2026)
 
 | Nr. | Projekt |
 |-----|---------|
@@ -160,32 +177,21 @@ Wenn neue Daten importiert wurden:
 - Klicken Sie auf "Aktualisieren" oder
 - Drücken Sie F5
 
-### Status-Daten
-Ihre Änderungen (kontrolliert, bezahlt, Notizen) werden automatisch gespeichert.
-
-**Wichtig:**
-- Verwenden Sie immer denselben Browser
-- Löschen Sie keine Browser-Daten
-- Nutzen Sie kein privates/Inkognito-Fenster
+### Datenspeicherung
+Ihre Änderungen werden automatisch in Supabase gespeichert und sind auf allen Geräten verfügbar.
 
 ---
 
 ## Häufige Fragen
 
 ### Warum sehe ich keine Rechnungen?
-- Möglicherweise wurde noch kein Import durchgeführt
+- Möglicherweise wurde noch kein DATEV-Import durchgeführt
 - Oder die Rechnungen haben keine gültige Projekt-ID
 - Kontaktieren Sie Barbara
 
 ### Warum fehlt die PDF-Datei?
-- Die PDF wurde noch nicht abgelegt
-- Oder der Dateiname stimmt nicht
-- Kontaktieren Sie Barbara
-
-### Meine Änderungen sind weg?
-- Haben Sie den Browser gewechselt?
-- Wurden Browser-Daten gelöscht?
-- Status-Daten sind browser-spezifisch
+- Die PDF wurde noch nicht hochgeladen
+- Nutzen Sie den PDF-Upload um neue PDFs hinzuzufügen
 
 ### Wie exportiere ich nach Excel?
 1. CSV-Export durchführen

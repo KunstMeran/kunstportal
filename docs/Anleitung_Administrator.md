@@ -1,40 +1,31 @@
 # Anleitung für Administratoren - Projektsoftware Kunst Meran
 
 **Zielgruppe:** Barbara, IT-Verantwortliche
-**Stand:** Juni 2026
+**Stand:** Juli 2026
+**Version:** 2.0.0
 
 ---
 
 ## Schnellstart
 
 Die Projektsoftware besteht aus:
-1. **Web-Portal** - Hier sehen und bearbeiten Mitarbeiter die Rechnungen
-2. **Import-Skript** - Importiert neue Daten aus DATEV
-3. **Archiv-Skript** - Archiviert abgeschlossene Jahre
+1. **Web-Portal** (Vercel) - Hier sehen und bearbeiten Mitarbeiter die Rechnungen
+2. **Backend** (Supabase) - Datenbank, Authentifizierung, PDF-Speicher
+3. **DATEV-Import** - Import von Excel-Exporten direkt im Browser
+
+**Zugang:** https://kunstmeran.vercel.app
 
 ---
 
-## Ordnerstruktur
+## Aktuelle Infrastruktur
 
-```
-Projektsoftware/
-│
-├── DATEV Exporte/          ← Hier DATEV-Dateien ablegen
-│   └── Controlling - Kunst Meran.xls
-│
-├── EK-Rechnungen/          ← Hier PDF-Rechnungen ablegen
-│   └── [PartitaIVA]_[Rechnungsnummer].pdf
-│
-├── scripts/                ← Hier sind die Skripte
-│   ├── import_datev.vbs    ← DATEV importieren
-│   └── archiviere_jahr.vbs ← Jahr archivieren
-│
-├── data/                   ← Automatisch generierte Daten
-│   ├── buchungen.json      ← Aktuelle Daten
-│   └── backups/            ← Automatische Sicherungen
-│
-└── app.html                ← Das Web-Portal
-```
+| Komponente | Service | Status |
+|------------|---------|--------|
+| Frontend | Vercel | Production |
+| Datenbank | Supabase (PostgreSQL) | Production |
+| Auth | Supabase Auth | Production |
+| PDF-Speicher | Supabase Storage | Production |
+| Geplant | Hetzner | Migration geplant |
 
 ---
 
@@ -50,129 +41,115 @@ Projektsoftware/
    - In DATEV: Export als Excel-Datei (.xls oder .xlsx)
    - Alle Buchungen für die gewünschten Projekte (2601-2607)
 
-2. **Datei speichern**
-   - Speichern unter: `DATEV Exporte/Controlling - Kunst Meran.xls`
-   - Die alte Datei wird überschrieben (Backup wird automatisch erstellt)
+2. **Im Web-Portal importieren**
+   - Anmelden als Administrator
+   - Gehen Sie zu "Konfiguration" > "DATEV Import"
+   - Wählen Sie das Jahr aus
+   - Laden Sie die Excel-Datei hoch
+   - Klicken Sie auf "Importieren"
 
-3. **Import ausführen**
-   - Doppelklick auf: `scripts/import_datev.vbs`
-   - Warten bis Erfolgsmeldung erscheint
-   - Bei Fehlern: Debug-Log unter `data/import_debug.log` prüfen
+3. **Ergebnis prüfen**
+   - Das System zeigt an: "X neu importiert, Y bereits vorhanden"
+   - Duplikate werden automatisch erkannt und übersprungen
 
-4. **Portal aktualisieren**
-   - Im Browser: F5 drücken oder "Aktualisieren" Button klicken
+**Hinweis:** Der Import erfolgt direkt in die Supabase-Datenbank. Alte VBS-Skripte werden nicht mehr benötigt.
 
 ---
 
-### 2. PDF-Rechnungen ablegen
+### 2. Lieferanten importieren/aktualisieren
+
+**Wann:** Wenn neue Lieferanten aus DATEV hinzukommen
+
+**Schritte:**
+
+1. **Lieferanten-Excel vorbereiten**
+   - Spalten: Fornitore Nr, Fornitore Name, Partita IVA
+
+2. **Im Web-Portal importieren**
+   - Gehen Sie zu "Konfiguration" > "Lieferanten Import"
+   - Laden Sie die Excel-Datei hoch
+   - Das System matched automatisch mit bestehenden Einträgen
+
+3. **Lieferantennamen synchronisieren**
+   - Gehen Sie zu "Lieferanten"
+   - Klicken Sie auf "Namen synchronisieren"
+   - Bestehende DATEV-Buchungen werden mit den Lieferantennamen aktualisiert
+
+---
+
+### 3. PDF-Rechnungen hochladen
 
 **Wann:** Sobald neue Rechnungen eingehen
 
-**Dateiname-Format:**
+**Einzelner Upload:**
+1. Gehen Sie zu "EK-Rechnungen"
+2. Finden Sie die passende Buchung
+3. Klicken Sie auf das Upload-Symbol
+4. Wählen Sie die PDF-Datei
+
+**Massen-Upload:**
+1. Gehen Sie zu "Konfiguration" > "PDF Mass-Upload"
+2. Ziehen Sie mehrere PDFs in den Upload-Bereich (Drag & Drop)
+3. Das System zeigt an: "X neu, Y bereits vorhanden, Z Fehler"
+4. PDFs werden in Supabase Storage gespeichert
+
+**Dateinamenskonvention (empfohlen):**
 ```
 [PartitaIVA]_[Rechnungsnummer].pdf
 ```
 
-**Beispiele:**
+Beispiele:
 | DATEV Rechnungsnr. | PartitaIVA | PDF-Dateiname |
 |-------------------|------------|---------------|
 | 52/2026 | IT01234567890 | IT01234567890_52.2026.pdf |
 | FT-001 | IT00987654321 | IT00987654321_FT-001.pdf |
 
-**Wichtig:**
-- `/` in der Rechnungsnummer wird zu `.`
-- Keine Leerzeichen im Dateinamen
-- Groß-/Kleinschreibung beachten
-
----
-
-### 3. Jahr archivieren (Jahresende)
-
-**Wann:** Am Ende jedes Jahres, bevor neue Daten importiert werden
-
-**Schritte:**
-
-1. **Archiv-Skript ausführen**
-   - Doppelklick auf: `scripts/archiviere_jahr.vbs`
-   - Jahr eingeben (z.B. "2025")
-   - Bestätigen
-
-2. **Ergebnis**
-   - Neue Datei: `data/buchungen_2025.json`
-   - Alte Jahre können im Portal über das Dropdown angezeigt werden
-
-3. **Neues Jahr starten**
-   - Neuen DATEV-Export nur mit Daten des neuen Jahres erstellen
-   - Import ausführen wie gewohnt
-
 ---
 
 ## Benutzerverwaltung
 
-### Aktuelle Benutzer
+### Benutzer in Supabase verwalten
 
-| Benutzername | Passwort | Berechtigung |
-|--------------|----------|--------------|
-| Admin | KunstMeran2026 | Alle Funktionen |
-| Mitarbeiter1 | Test123 | Rechnungen bearbeiten |
-
-### Passwort ändern
-
-Die Passwörter sind in `js/auth.js` definiert:
-
-```javascript
-// Zeile ca. 10-20
-const USERS = {
-    'Admin': { password: 'KunstMeran2026', role: 'admin', name: 'Administrator' },
-    'Mitarbeiter1': { password: 'Test123', role: 'user', name: 'Mitarbeiter 1' }
-};
-```
-
-**Zum Ändern:**
-1. Datei `js/auth.js` mit Texteditor öffnen
-2. Passwort ändern
-3. Speichern
+1. Öffnen Sie das Supabase Dashboard: https://supabase.com/dashboard
+2. Wählen Sie das Projekt "kunstmeran"
+3. Gehen Sie zu "Authentication" > "Users"
 
 ### Neuen Benutzer anlegen
 
-In `js/auth.js` hinzufügen:
-```javascript
-'NeuerName': { password: 'NeuesPasswort', role: 'user', name: 'Anzeigename' }
-```
+1. Klicken Sie auf "Add user" > "Create new user"
+2. Geben Sie E-Mail und Passwort ein
+3. Der Benutzer kann sich sofort anmelden
+
+### Passwort zurücksetzen
+
+1. Im Supabase Dashboard: "Authentication" > "Users"
+2. Klicken Sie auf den Benutzer
+3. "Send password recovery email" oder "Update password"
+
+### Benutzerrollen
+
+Rollen werden in der `users`-Tabelle in Supabase gespeichert:
+
+| Rolle | Berechtigung |
+|-------|--------------|
+| admin | Alle Funktionen inkl. Konfiguration |
+| user | Rechnungen ansehen und bearbeiten |
 
 ---
 
-## Server-Setup (Lokaler Server)
+## Konfiguration (Admin-Bereich)
 
-### Option A: Python (einfachste Lösung)
+### Kostentypen verwalten
+- Gehen Sie zu "Konfiguration" > "Kostentypen"
+- Hier können Sie Kostentypen hinzufügen/bearbeiten (Personal, Material, etc.)
 
-**Voraussetzung:** Python installiert (python.org)
+### Abgabestellen verwalten
+- Gehen Sie zu "Konfiguration" > "Abgabestellen"
+- Gemeinde, Region, Provinz konfigurieren
 
-**Schritte:**
-
-1. **Startskript erstellen** - Datei `start_server.bat`:
-```batch
-@echo off
-cd /d "C:\Pfad\zur\Projektsoftware"
-echo Server laeuft auf http://192.168.x.x:8080
-echo Druecke Strg+C zum Beenden
-python -m http.server 8080 --bind 0.0.0.0
-```
-
-2. **Server starten**
-   - Doppelklick auf `start_server.bat`
-   - Fenster offen lassen
-
-3. **Zugriff für Mitarbeiter**
-   - IP-Adresse des Servers ermitteln: `ipconfig`
-   - Mitarbeiter öffnen: `http://[IP-ADRESSE]:8080/app.html`
-
-### Option B: IIS (Windows Server)
-
-1. IIS-Rolle aktivieren
-2. Neue Website erstellen
-3. Physischer Pfad: Projektsoftware-Ordner
-4. Port: 8080 (oder 80)
+### Mitarbeiter verwalten
+- Gehen Sie zu "Konfiguration" > "Mitarbeiter"
+- Stundensätze und Zuweisungen einstellen
 
 ---
 
@@ -181,80 +158,109 @@ python -m http.server 8080 --bind 0.0.0.0
 ### "Keine Rechnungen gefunden"
 
 **Ursachen:**
-- buchungen.json existiert nicht → Import ausführen
+- DATEV-Import wurde noch nicht durchgeführt
 - Rechnungen haben keine gültige Projekt-ID (2601-2607)
 
 **Lösung:**
-1. Import-Skript ausführen
-2. Debug-Log prüfen: `data/import_debug.log`
+1. DATEV-Import durchführen
+2. In Supabase prüfen: Tabelle `datev_bookings`
 
 ### "Lieferantennamen fehlen"
 
-**Ursache:** DATEV-Export enthält keine Spalte "Denominazione"
+**Ursache:** DATEV-Export enthält keine Lieferantennamen
 
 **Lösung:**
-- Im Portal: Stift-Symbol klicken und Namen manuell eingeben
-- Namen werden lokal gespeichert und bleiben erhalten
+- Lieferanten-Import durchführen
+- Oder: Im Portal einzelne Namen manuell eingeben (Stift-Symbol)
 
 ### "PDF wird nicht angezeigt"
 
 **Ursachen:**
-- PDF-Dateiname stimmt nicht mit DATEV-Daten überein
-- Datei fehlt im EK-Rechnungen-Ordner
+- PDF wurde noch nicht hochgeladen
+- PDF ist keiner Buchung zugewiesen
 
 **Lösung:**
-1. In buchungen.json prüfen welcher Dateiname erwartet wird
-2. PDF entsprechend umbenennen
+1. PDF über Mass-Upload hochladen
+2. In der Rechnungszeile die PDF zuweisen
 
-### Status-Daten verloren
+### "Login funktioniert nicht"
 
-**Ursache:** Status wird im Browser-Speicher (localStorage) gespeichert
-
-**Wichtig:**
-- Immer gleichen Browser verwenden
-- Kein privates/Inkognito-Fenster
-- Browser-Daten nicht löschen
+**Lösung:**
+1. Prüfen ob Benutzer in Supabase existiert
+2. Passwort zurücksetzen
+3. Browser-Cache leeren
 
 ---
 
 ## Backup-Strategie
 
-### Automatisch (vor jedem Import)
-- Speicherort: `data/backups/`
-- Behält letzte 10 Versionen
-- Dateiname: `buchungen_backup_YYYYMMDD_HHMMSS.json`
+### Automatisch (Supabase)
+- Supabase erstellt tägliche Backups (Free Tier: 7 Tage)
+- Point-in-Time Recovery verfügbar (Pro Plan)
 
 ### Manuell empfohlen
-Regelmäßig sichern:
-1. `data/buchungen.json`
-2. `EK-Rechnungen/` Ordner
-3. `DATEV Exporte/` Ordner
+Regelmäßig exportieren:
+1. CSV-Export der Rechnungen (im Portal)
+2. Supabase: SQL-Dump über Dashboard
 
-### Status-Daten sichern
-Die Status-Daten (kontrolliert, bezahlt, etc.) sind im Browser gespeichert.
-Export: Im Portal → CSV Export enthält alle Status-Informationen
+### PDF-Dateien
+- Alle PDFs sind in Supabase Storage gespeichert
+- Bucket: `invoices`
+- Können über Dashboard heruntergeladen werden
 
 ---
 
 ## Checkliste: Monatlicher Workflow
 
-- [ ] DATEV-Export erstellen (nur neue Buchungen oder Komplett)
-- [ ] Export speichern unter `DATEV Exporte/Controlling - Kunst Meran.xls`
-- [ ] Neue PDF-Rechnungen in `EK-Rechnungen/` ablegen
-- [ ] `import_datev.vbs` ausführen
-- [ ] Portal öffnen und Daten prüfen
-- [ ] Bei Problemen: Debug-Log prüfen
+- [ ] DATEV-Export erstellen
+- [ ] Im Portal: DATEV-Import durchführen
+- [ ] Neue PDF-Rechnungen hochladen (Mass-Upload)
+- [ ] PDFs den Buchungen zuweisen
+- [ ] Bei Bedarf: Lieferantennamen ergänzen
+- [ ] CSV-Export zur Sicherung
 
 ## Checkliste: Jahresende
 
 - [ ] Letzte DATEV-Daten importieren
-- [ ] `archiviere_jahr.vbs` ausführen
-- [ ] Archiv-Datei prüfen (buchungen_YYYY.json)
-- [ ] Neuen DATEV-Export für neues Jahr vorbereiten
-- [ ] Backup aller Daten erstellen
+- [ ] Alle PDFs hochladen und zuweisen
+- [ ] CSV-Export des gesamten Jahres
+- [ ] Neues Jahr in DATEV vorbereiten
+
+---
+
+## Supabase Dashboard
+
+**URL:** https://supabase.com/dashboard
+
+### Wichtige Tabellen
+
+| Tabelle | Inhalt |
+|---------|--------|
+| `datev_bookings` | Alle DATEV-Buchungen |
+| `suppliers` | Lieferantenstammdaten |
+| `projects` | Projektdefinitionen |
+| `users` | Benutzerkonten |
+| `cost_types` | Kostentypen-Konfiguration |
+
+### Storage Buckets
+
+| Bucket | Inhalt |
+|--------|--------|
+| `invoices` | PDF-Rechnungen |
+
+---
+
+## Geplante Migration: Hetzner
+
+Die Supabase-Lösung ist temporär. Geplant ist eine Migration auf Hetzner mit:
+- Eigener PostgreSQL-Datenbank
+- Eigener Auth-Lösung
+- Eigener Storage-Lösung
+
+Bei der Migration werden alle Daten übernommen.
 
 ---
 
 ## Kontakt
 
-Bei technischen Fragen: [Controlling Solutions]
+Bei technischen Fragen: Controlling Solutions

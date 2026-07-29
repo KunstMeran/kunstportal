@@ -12,12 +12,18 @@ const App = {
 
     // Pagination
     currentRechnungenPage: 1,
-    rechnungenPerPage: 20,
+    rechnungenPerPage: 10,
     filteredRechnungen: [],
 
     // Sortierung
     currentSortColumn: 'datum',
     currentSortDirection: 'desc',
+
+    // Spaltenbreiten (wird aus localStorage geladen)
+    columnWidths: {},
+
+    // Berechtigungen des aktuellen Users
+    userPermissions: null,
 
     /**
      * App initialisieren
@@ -30,8 +36,17 @@ const App = {
         // Benutzerinfo laden
         await this.loadUserInfo();
 
+        // Berechtigungen laden
+        await this.loadUserPermissions();
+
+        // Gespeicherte Einstellungen laden
+        this.loadUserSettings();
+
         // Navigation Setup
         this.setupNavigation();
+
+        // Navigation nach Berechtigungen filtern
+        this.applyNavigationPermissions();
 
         // Tab Setup
         this.setupTabs();
@@ -47,10 +62,172 @@ const App = {
 
         // Letzte View wiederherstellen oder Dashboard laden
         const lastView = localStorage.getItem('lastView') || 'dashboard';
-        this.showView(lastView);
+        if (this.hasAccessToView(lastView)) {
+            this.showView(lastView);
+        } else {
+            this.showFirstAllowedView();
+        }
 
         // Click-Effekte aktivieren
         this.setupClickEffects();
+    },
+
+    /**
+     * Berechtigungen des aktuellen Users laden
+     */
+    loadUserPermissions: async function() {
+        try {
+            if (typeof DataManager.getCurrentUserPermissions === 'function') {
+                this.userPermissions = await DataManager.getCurrentUserPermissions();
+                console.log('User-Berechtigungen geladen:', this.userPermissions);
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Berechtigungen:', error);
+        }
+        // Fallback: Vollzugriff wenn keine Berechtigungen
+        if (!this.userPermissions) {
+            this.userPermissions = {
+                access_dashboard: true, access_projekte: true, access_rechnungen: true,
+                access_bewegungen: true, access_lieferanten: true, access_mitglieder: true,
+                access_einnahmen: true, access_konfiguration: true, rechnungen_nur_zugewiesene: false
+            };
+        }
+    },
+
+    /**
+     * Navigation basierend auf Berechtigungen ein-/ausblenden
+     */
+    applyNavigationPermissions: function() {
+        if (!this.userPermissions) return;
+
+        const viewMap = {
+            'dashboard': 'access_dashboard', 'projekte': 'access_projekte',
+            'rechnungen': 'access_rechnungen', 'bewegungen': 'access_bewegungen',
+            'lieferanten': 'access_lieferanten', 'mitglieder': 'access_mitglieder',
+            'einnahmen': 'access_einnahmen', 'konfiguration': 'access_konfiguration'
+        };
+
+        document.querySelectorAll('.nav-item[data-view]').forEach(navItem => {
+            const viewName = navItem.getAttribute('data-view');
+            const permKey = viewMap[viewName];
+            if (permKey && this.userPermissions[permKey] === false) {
+                navItem.style.display = 'none';
+            }
+        });
+    },
+
+    /**
+     * Prüft ob User Zugriff auf View hat
+     */
+    hasAccessToView: function(viewName) {
+        if (!this.userPermissions) return true;
+        const viewMap = {
+            'dashboard': 'access_dashboard', 'projekte': 'access_projekte',
+            'rechnungen': 'access_rechnungen', 'bewegungen': 'access_bewegungen',
+            'lieferanten': 'access_lieferanten', 'mitglieder': 'access_mitglieder',
+            'einnahmen': 'access_einnahmen', 'konfiguration': 'access_konfiguration'
+        };
+        const permKey = viewMap[viewName];
+        return !permKey || this.userPermissions[permKey] !== false;
+    },
+
+    /**
+     * Erste erlaubte View anzeigen
+     */
+    showFirstAllowedView: function() {
+        const views = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration'];
+        for (const view of views) {
+            if (this.hasAccessToView(view)) {
+                this.showView(view);
+                return;
+            }
+        }
+    },
+
+    /**
+     * Benutzereinstellungen aus localStorage laden
+     */
+    loadUserSettings: function() {
+        // Pagination-Einstellung
+        const savedPageSize = localStorage.getItem('rechnungenPerPage');
+        if (savedPageSize) {
+            this.rechnungenPerPage = parseInt(savedPageSize, 10);
+        }
+
+        // Spaltenbreiten laden
+        const savedColumnWidths = localStorage.getItem('columnWidths');
+        if (savedColumnWidths) {
+            this.columnWidths = JSON.parse(savedColumnWidths);
+        }
+
+        // Page-Size Dropdown aktualisieren (wenn vorhanden)
+        setTimeout(() => {
+            const pageSizeSelect = document.getElementById('page-size-select');
+            if (pageSizeSelect) {
+                pageSizeSelect.value = this.rechnungenPerPage;
+            }
+        }, 100);
+    },
+
+    /**
+     * Resizable Spalten initialisieren
+     */
+    setupResizableColumns: function() {
+        const table = document.querySelector('#view-rechnungen table');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('thead th');
+
+        headers.forEach((th, index) => {
+            // Skip sticky columns (# und Checkbox)
+            if (index < 2) return;
+
+            // Resize handle erstellen
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            th.appendChild(resizeHandle);
+
+            // Gespeicherte Breite anwenden
+            const columnKey = `col-${index}`;
+            if (this.columnWidths[columnKey]) {
+                th.style.width = this.columnWidths[columnKey] + 'px';
+                th.style.minWidth = this.columnWidths[columnKey] + 'px';
+            }
+
+            let startX, startWidth;
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+
+                document.body.classList.add('resizing-columns');
+                resizeHandle.classList.add('resizing');
+
+                const onMouseMove = (e) => {
+                    const diff = e.pageX - startX;
+                    const newWidth = Math.max(50, startWidth + diff);
+                    th.style.width = newWidth + 'px';
+                    th.style.minWidth = newWidth + 'px';
+                };
+
+                const onMouseUp = () => {
+                    document.body.classList.remove('resizing-columns');
+                    resizeHandle.classList.remove('resizing');
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+
+                    // Spaltenbreite speichern
+                    this.columnWidths[columnKey] = th.offsetWidth;
+                    localStorage.setItem('columnWidths', JSON.stringify(this.columnWidths));
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
     },
 
     /**
@@ -225,6 +402,11 @@ const App = {
                 // Tab-Content aktualisieren
                 document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
                 document.getElementById('tab-' + tabId).classList.add('active');
+
+                // Workspaces laden wenn Tab geöffnet wird
+                if (tabId === 'workspaces') {
+                    this.loadWorkspaces();
+                }
             });
         });
     },
@@ -294,6 +476,12 @@ const App = {
                 break;
             case 'einnahmen':
                 this.loadEinnahmen();
+                break;
+            case 'budgetplanung':
+                await this.loadBudgetplanung();
+                break;
+            case 'mitglieder':
+                await this.loadMembers();
                 break;
             case 'import':
                 await this.loadImportStatistics();
@@ -962,7 +1150,11 @@ const App = {
                 pdfExists: r.pdfExists,
                 filePath: r.filePath,
                 isDatev: true,
-                rechnungId: r.id
+                rechnungId: r.id,
+                workflowStatus: r.workflowStatus || 'neu',
+                bezahltAm: r.bezahltAm || null,
+                kontrolliertAm: r.kontrolliertAm || null,
+                invoiceId: r.invoiceId || null
             })),
             ...geplanteKosten.map(k => ({
                 id: k.id,
@@ -1009,6 +1201,18 @@ const App = {
                     valA = a.typ || '';
                     valB = b.typ || '';
                     break;
+                case 'bezahlt':
+                    // Sortiere nach Status (bezahlt > kontrolliert > neu) und dann nach Datum
+                    const statusOrder = { 'bezahlt': 3, 'kontrolliert': 2, 'uploaded': 1, 'neu': 0 };
+                    valA = statusOrder[a.workflowStatus] || 0;
+                    valB = statusOrder[b.workflowStatus] || 0;
+                    if (valA !== valB) {
+                        return this.projectCostsSortDirection === 'asc' ? valA - valB : valB - valA;
+                    }
+                    // Bei gleichem Status nach Bezahlt-Datum sortieren
+                    valA = a.bezahltAm ? new Date(a.bezahltAm) : new Date(0);
+                    valB = b.bezahltAm ? new Date(b.bezahltAm) : new Date(0);
+                    return this.projectCostsSortDirection === 'asc' ? valA - valB : valB - valA;
                 case 'betrag':
                     valA = a.betrag || 0;
                     valB = b.betrag || 0;
@@ -1070,6 +1274,35 @@ const App = {
                 ? `<span class="badge" style="background: #e3f2fd; color: #1565c0;">${k.kostentyp}</span>`
                 : '<span style="color: #999;">-</span>';
 
+            // Bezahlt-Status mit editierbarem Datum
+            let bezahltCell = '';
+            if (k.isDatev && k.invoiceId) {
+                if (k.workflowStatus === 'bezahlt' && k.bezahltAm) {
+                    // Bezahlt - Datum anzeigen mit Edit-Möglichkeit
+                    bezahltCell = `
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <span class="badge" style="background: #e8f5e9; color: #2e7d32;">✓</span>
+                            <input type="date"
+                                   value="${k.bezahltAm}"
+                                   style="font-size: 0.75rem; padding: 0.1rem; border: 1px solid #ddd; border-radius: 3px; width: 110px;"
+                                   onchange="App.updateBezahltDatum('${k.invoiceId}', this.value)">
+                        </div>`;
+                } else if (k.workflowStatus === 'kontrolliert') {
+                    // Kontrolliert - Button zum Bezahlt-Markieren
+                    bezahltCell = `
+                        <button class="btn btn-sm" style="background: #fff3e0; color: #e65100; font-size: 0.7rem; padding: 0.15rem 0.4rem;"
+                                onclick="App.markAsBezahltFromProject('${k.invoiceId}')" title="Als bezahlt markieren">
+                            Offen
+                        </button>`;
+                } else {
+                    // Neu/Uploaded - noch nicht kontrolliert
+                    bezahltCell = '<span style="color: #999; font-size: 0.8rem;">-</span>';
+                }
+            } else {
+                // Manuelle Kosten oder ohne Invoice
+                bezahltCell = '<span style="color: #999; font-size: 0.8rem;">-</span>';
+            }
+
             // Aktionen
             let aktionen = '-';
             if (k.pdfExists && k.filePath) {
@@ -1087,6 +1320,7 @@ const App = {
                 <td>${k.beschreibung}</td>
                 <td>${kostentypBadge}</td>
                 <td>${typBadge}</td>
+                <td>${bezahltCell}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(k.betrag)}</td>
                 <td>${aktionen}</td>
             `;
@@ -1106,7 +1340,7 @@ const App = {
                 const istRow = document.createElement('tr');
                 istRow.style.background = '#fef3f3';
                 istRow.innerHTML = `
-                    <td colspan="8" style="text-align: right;">IST-Summe (${istKosten.length} Buchungen):</td>
+                    <td colspan="9" style="text-align: right;">IST-Summe (${istKosten.length} Buchungen):</td>
                     <td style="text-align: right; font-weight: 600; color: #e74c3c;">${this.formatCurrency(istSumme)}</td>
                     <td></td>
                 `;
@@ -1118,7 +1352,7 @@ const App = {
                 const geplantRow = document.createElement('tr');
                 geplantRow.style.background = '#fffbf0';
                 geplantRow.innerHTML = `
-                    <td colspan="8" style="text-align: right;">Geplant-Summe (${geplantKosten.length} Einträge):</td>
+                    <td colspan="9" style="text-align: right;">Geplant-Summe (${geplantKosten.length} Einträge):</td>
                     <td style="text-align: right; font-weight: 600; color: #f57f17;">${this.formatCurrency(geplantSumme)}</td>
                     <td></td>
                 `;
@@ -1131,7 +1365,7 @@ const App = {
                 sumRow.style.background = '#f8f9fa';
                 sumRow.style.fontWeight = '600';
                 sumRow.innerHTML = `
-                    <td colspan="8" style="text-align: right;">Gesamt (IST + Geplant):</td>
+                    <td colspan="9" style="text-align: right;">Gesamt (IST + Geplant):</td>
                     <td style="text-align: right;">${this.formatCurrency(istSumme + geplantSumme)}</td>
                     <td></td>
                 `;
@@ -1302,9 +1536,12 @@ const App = {
             for (const id of this.selectedCostIds) {
                 const cost = this.allProjectCosts.find(c => c.id === id);
                 if (cost) {
-                    if (cost.isDatev && cost.rechnungId) {
-                        // DATEV-Buchung: In Supabase Kostentyp speichern
-                        await DataManager.updateInvoiceKostentyp(cost.rechnungId, kostentypName);
+                    if (cost.isDatev && cost.invoiceId) {
+                        // DATEV-Buchung mit Supabase-Invoice: Kostentyp in invoices-Tabelle speichern
+                        await DataManager.updateInvoiceKostentyp(cost.invoiceId, kostentypName);
+                    } else if (cost.isDatev && !cost.invoiceId) {
+                        // DATEV-Buchung ohne Invoice: Kostentyp lokal speichern (localStorage fallback)
+                        DataManager.setKostentyp(cost.rechnungId || cost.id, kostentypName);
                     } else if (!cost.isDatev && cost.costId) {
                         // Manuelle Kosten: costTypeName aktualisieren
                         await DataManager.updateCost(cost.costId, { costTypeName: kostentypName });
@@ -1322,6 +1559,59 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Zuweisen des Kostentyps:', error);
             alert('Fehler beim Zuweisen: ' + error.message);
+        }
+    },
+
+    /**
+     * Aktualisiert das Bezahlt-Datum einer Rechnung
+     */
+    async updateBezahltDatum(invoiceId, datum) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    bezahlt_am: datum || null
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Gespeichert', 'Bezahlt-Datum aktualisiert');
+
+            // Daten neu laden
+            await this.loadProjectData(this.currentProjectId);
+
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren:', error);
+            this.showToast('error', 'Fehler', error.message);
+        }
+    },
+
+    /**
+     * Markiert eine Rechnung als bezahlt (aus der Projekt-Ansicht)
+     */
+    async markAsBezahltFromProject(invoiceId) {
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({
+                    status: 'bezahlt',
+                    bezahlt_am: heute
+                })
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Bezahlt', 'Rechnung als bezahlt markiert');
+
+            // Daten neu laden
+            await this.loadProjectData(this.currentProjectId);
+
+        } catch (error) {
+            console.error('Fehler beim Markieren:', error);
+            this.showToast('error', 'Fehler', error.message);
         }
     },
 
@@ -2307,6 +2597,7 @@ const App = {
 
     loadConfiguration: async function() {
         await this.loadCostTypes();
+        await this.loadKontenplan();
         this.loadSuppliers();
         await this.loadUsers();
         this.loadExportTab();
@@ -2406,6 +2697,164 @@ const App = {
             } catch (error) {
                 alert('Fehler beim Löschen: ' + error.message);
             }
+        }
+    },
+
+    // ==========================================
+    // KONTENPLAN (Chart of Accounts)
+    // ==========================================
+
+    kontenplanCache: [],
+
+    loadKontenplan: async function() {
+        const container = document.getElementById('kontenplan-list');
+        if (!container) return;
+
+        container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Lade Kontenplan...</td></tr>';
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('chart_of_accounts')
+                .select('*')
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+
+            this.kontenplanCache = data || [];
+            this.renderKontenplan(this.kontenplanCache);
+        } catch (error) {
+            console.error('Fehler beim Laden des Kontenplans:', error);
+            container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler beim Laden. Bitte Migration ausführen.</td></tr>';
+        }
+    },
+
+    renderKontenplan: function(accounts) {
+        const container = document.getElementById('kontenplan-list');
+        if (!container) return;
+
+        if (!accounts || accounts.length === 0) {
+            container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Keine Konten definiert</td></tr>';
+            return;
+        }
+
+        const dbLabels = {
+            'UMSATZ': '<span class="badge" style="background: #27ae60; color: white;">Umsatz</span>',
+            'DB1_KOSTEN': '<span class="badge" style="background: #3498db; color: white;">DB1</span>',
+            'DB2_KOSTEN': '<span class="badge" style="background: #f39c12; color: white;">DB2</span>',
+            'DB3_KOSTEN': '<span class="badge" style="background: #e74c3c; color: white;">DB3</span>',
+            'NEUTRAL': '<span class="badge" style="background: #95a5a6; color: white;">Neutral</span>'
+        };
+
+        container.innerHTML = accounts.map(acc => `
+            <tr>
+                <td><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${acc.konto_pattern}</code></td>
+                <td>${acc.konto_name || '-'}</td>
+                <td>${acc.kategorie || '-'}</td>
+                <td>${dbLabels[acc.db_zuordnung] || acc.db_zuordnung}</td>
+                <td>${acc.ist_projektbezogen ? '✓' : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten">✎</button>
+                    <button class="btn btn-sm btn-danger" onclick="App.deleteAccount('${acc.id}')" title="Löschen">×</button>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    filterKontenplan: function() {
+        const searchTerm = (document.getElementById('kontenplan-search')?.value || '').toLowerCase();
+        const dbFilter = document.getElementById('kontenplan-filter-db')?.value || '';
+
+        let filtered = this.kontenplanCache;
+
+        if (searchTerm) {
+            filtered = filtered.filter(acc =>
+                (acc.konto_pattern || '').toLowerCase().includes(searchTerm) ||
+                (acc.konto_name || '').toLowerCase().includes(searchTerm) ||
+                (acc.kategorie || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (dbFilter) {
+            filtered = filtered.filter(acc => acc.db_zuordnung === dbFilter);
+        }
+
+        this.renderKontenplan(filtered);
+    },
+
+    showNewAccountModal: function() {
+        document.getElementById('account-form').reset();
+        document.getElementById('account-form-id').value = '';
+        document.getElementById('account-modal-title').textContent = 'Neues Konto';
+        this.showModal('account-form-modal');
+    },
+
+    editAccount: function(id) {
+        const account = this.kontenplanCache.find(a => a.id === id);
+        if (!account) return;
+
+        document.getElementById('account-form-id').value = account.id;
+        document.getElementById('account-pattern').value = account.konto_pattern || '';
+        document.getElementById('account-name').value = account.konto_name || '';
+        document.getElementById('account-kategorie').value = account.kategorie || '';
+        document.getElementById('account-db-zuordnung').value = account.db_zuordnung || 'NEUTRAL';
+        document.getElementById('account-projektbezogen').checked = account.ist_projektbezogen || false;
+        document.getElementById('account-beschreibung').value = account.beschreibung || '';
+
+        document.getElementById('account-modal-title').textContent = 'Konto bearbeiten';
+        this.showModal('account-form-modal');
+    },
+
+    saveAccount: async function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('account-form-id').value;
+        const accountData = {
+            konto_pattern: document.getElementById('account-pattern').value.trim(),
+            konto_name: document.getElementById('account-name').value.trim() || null,
+            kategorie: document.getElementById('account-kategorie').value.trim() || null,
+            db_zuordnung: document.getElementById('account-db-zuordnung').value,
+            ist_projektbezogen: document.getElementById('account-projektbezogen').checked,
+            beschreibung: document.getElementById('account-beschreibung').value.trim() || null
+        };
+
+        try {
+            if (id) {
+                // Update
+                const { error } = await supabaseClient
+                    .from('chart_of_accounts')
+                    .update(accountData)
+                    .eq('id', id);
+                if (error) throw error;
+            } else {
+                // Insert
+                const { error } = await supabaseClient
+                    .from('chart_of_accounts')
+                    .insert([accountData]);
+                if (error) throw error;
+            }
+
+            this.hideModal('account-form-modal');
+            await this.loadKontenplan();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
+        }
+    },
+
+    deleteAccount: async function(id) {
+        if (!confirm('Konto wirklich löschen?')) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('chart_of_accounts')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            await this.loadKontenplan();
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            alert('Fehler beim Löschen: ' + (error.message || 'Unbekannter Fehler'));
         }
     },
 
@@ -2688,6 +3137,9 @@ const App = {
     // RECHNUNGEN (DATEV)
     // ==========================================
 
+    // Aktive Abgabestellen (für Dropdown in Rechnungen-Tabelle)
+    activeAbgabestellen: [],
+
     loadRechnungen: async function() {
         // Statistiken aktualisieren
         const rechnungen = await DataManager.getRechnungenMitStatus();
@@ -2707,11 +3159,25 @@ const App = {
                 'Letzte Aktualisierung: ' + this.formatDate(lastUpdate);
         }
 
+        // Aktive Abgabestellen laden (für Dropdown)
+        try {
+            this.activeAbgabestellen = await DataManager.getActiveAbgabestellen();
+        } catch (error) {
+            console.error('Fehler beim Laden der Abgabestellen:', error);
+            this.activeAbgabestellen = [];
+        }
+
         // Filter-Dropdowns befüllen
         await this.populateRechnungenFilters();
 
         // Rechnungen anzeigen
         await this.filterRechnungen();
+
+        // Resizable Spalten initialisieren (nur einmal)
+        if (!this._resizableColumnsInitialized) {
+            this.setupResizableColumns();
+            this._resizableColumnsInitialized = true;
+        }
     },
 
     populateRechnungenFilters: async function() {
@@ -2736,6 +3202,7 @@ const App = {
     selectedRechnungen: new Set(),
 
     filterRechnungen: async function() {
+        const volltextSuche = document.getElementById('bewegungen-volltext-suche')?.value?.toLowerCase().trim() || '';
         const statusFilter = document.getElementById('rechnung-filter-status').value;
         const projektFilter = document.getElementById('rechnung-filter-projekt').value;
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
@@ -2747,6 +3214,28 @@ const App = {
         const datumBis = document.getElementById('rechnung-filter-datum-bis')?.value || '';
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
+
+        // Volltextsuche anwenden (durchsucht alle relevanten Felder)
+        if (volltextSuche) {
+            rechnungen = rechnungen.filter(r => {
+                const searchFields = [
+                    r.dokumentNr,
+                    r.fornitoreName,
+                    r.partitaIva,
+                    r.betrag?.toString(),
+                    r.betragNetto?.toString(),
+                    r.notizen,
+                    r.buchungstext,
+                    r.kostentyp,
+                    r.abgabestelle,
+                    r.kontoNr,
+                    r.gegenkontoNr,
+                    this.formatDate(r.datum || r.belegdatum)
+                ];
+                const searchString = searchFields.filter(Boolean).join(' ').toLowerCase();
+                return searchString.includes(volltextSuche);
+            });
+        }
 
         // Filter anwenden
         if (statusFilter) {
@@ -2814,6 +3303,15 @@ const App = {
     reloadRechnungenKeepState: async function() {
         this._keepCurrentPage = true;
         await this.filterRechnungen();
+    },
+
+    // Volltextsuche leeren
+    clearBewegungssuche: function() {
+        const searchField = document.getElementById('bewegungen-volltext-suche');
+        if (searchField) {
+            searchField.value = '';
+            this.filterRechnungen();
+        }
     },
 
     renderRechnungenPage: function() {
@@ -2936,9 +3434,6 @@ const App = {
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(mwst)}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(gesamt)}</td>
                 <td><span class="status-badge ${r.workflowStatus}">${r.workflowStatus}</span></td>
-                <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
-                <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
-                <td>${r.abgabestelle ? `<span class="abgabestelle-badge ${r.abgabestelle}">${r.abgabestelle}</span>` : '-'}</td>
                 <td>${r.pdfExists ?
                     `<div style="display: flex; align-items: center; gap: 0.25rem;">
                         <a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>
@@ -2950,20 +3445,27 @@ const App = {
                     (() => {
                         const pdfDropdownId = `pdf-dropdown-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
                         const uploadInputId = `upload-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
-                        return `<div style="display: flex; align-items: center; gap: 0.25rem;">
+                        const dropZoneId = `dropzone-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
+                        return `<div class="pdf-drop-zone" id="${dropZoneId}"
+                                    data-partita-iva="${r.partitaIva}"
+                                    data-dokument-nr="${r.dokumentNr}"
+                                    style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; border: 2px dashed transparent; border-radius: 4px; transition: all 0.2s;"
+                                    ondragover="App.handlePdfDragOver(event, '${dropZoneId}')"
+                                    ondragleave="App.handlePdfDragLeave(event, '${dropZoneId}')"
+                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva}', '${r.dokumentNr}')">
                                     <div class="pdf-search-container" style="position: relative; min-width: 200px;">
                                         <input type="text"
                                                id="input-${pdfDropdownId}"
                                                class="form-control pdf-search-input"
                                                style="font-size: 0.75rem; padding: 0.25rem;"
-                                               placeholder="PDF suchen..."
+                                               placeholder="PDF suchen oder hierhin ziehen..."
                                                onfocus="App.showPdfDropdown('${pdfDropdownId}')"
                                                oninput="App.filterPdfDropdown('${pdfDropdownId}', this.value)">
                                         <div id="${pdfDropdownId}" class="pdf-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
                                             ${this.getPdfDropdownItems(r.partitaIva, r.dokumentNr)}
                                         </div>
                                     </div>
-                                    <input type="file" id="${uploadInputId}" accept=".pdf" style="display: none;"
+                                    <input type="file" id="${uploadInputId}" accept=".pdf" style="display: none;" multiple
                                            onchange="App.uploadPdfForBuchung('${r.partitaIva}', '${r.dokumentNr}', this)">
                                     <button class="btn btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.7rem; background: #4CAF50; color: white;"
                                             onclick="document.getElementById('${uploadInputId}').click()" title="PDF hochladen">
@@ -2972,6 +3474,9 @@ const App = {
                                 </div>`;
                     })()
                 }</td>
+                <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
+                <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
+                <td>${this.getAbgabestelleDropdown(r.invoiceId, r.funding_source_id)}</td>
                 <td>
                     <input type="text"
                            class="form-control"
@@ -3160,18 +3665,67 @@ const App = {
     },
 
     /**
-     * Direkter PDF-Upload für eine Buchung
+     * Drag & Drop Handler für PDF-Upload in Zeile
      */
-    uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement) {
-        const file = inputElement.files[0];
-        if (!file) return;
+    handlePdfDragOver: function(event, dropZoneId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const dropZone = document.getElementById(dropZoneId);
+        if (dropZone) {
+            dropZone.style.borderColor = '#4CAF50';
+            dropZone.style.background = '#e8f5e9';
+        }
+    },
 
+    handlePdfDragLeave: function(event, dropZoneId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const dropZone = document.getElementById(dropZoneId);
+        if (dropZone) {
+            dropZone.style.borderColor = 'transparent';
+            dropZone.style.background = 'transparent';
+        }
+    },
+
+    handlePdfDrop: async function(event, partitaIva, dokumentNr) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Reset drop zone styling
+        const dropZones = document.querySelectorAll('.pdf-drop-zone');
+        dropZones.forEach(zone => {
+            zone.style.borderColor = 'transparent';
+            zone.style.background = 'transparent';
+        });
+
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+
+        // Filtere nur PDF-Dateien
+        const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+
+        if (pdfFiles.length === 0) {
+            this.showToast('error', 'Fehler', 'Bitte nur PDF-Dateien hochladen');
+            return;
+        }
+
+        // Upload alle PDFs
+        for (const file of pdfFiles) {
+            await this.uploadPdfFile(partitaIva, dokumentNr, file);
+        }
+    },
+
+    /**
+     * Hilfsfunktion für PDF-Upload (von Drag & Drop oder File Input)
+     */
+    uploadPdfFile: async function(partitaIva, dokumentNr, file) {
         try {
-            this.showToast('info', 'Upload...', 'PDF wird hochgeladen...');
+            this.showToast('info', 'Upload...', `${file.name} wird hochgeladen...`);
 
             // Dateiname generieren: 2026_PartitaIva_DokumentNr.pdf
             const year = new Date().getFullYear();
-            const newFileName = `${year}_${partitaIva}_${dokumentNr}.pdf`;
+            const timestamp = Date.now();
+            const newFileName = `${year}_${partitaIva}_${dokumentNr}_${timestamp}.pdf`;
             const filePath = `invoices/${newFileName}`;
 
             // Upload zu Supabase Storage
@@ -3196,17 +3750,29 @@ const App = {
 
             if (dbError) throw dbError;
 
-            this.showToast('success', 'Hochgeladen', `PDF wurde hochgeladen und verknüpft`);
-
-            // Input zurücksetzen
-            inputElement.value = '';
-
+            this.showToast('success', 'Hochgeladen', `${file.name} wurde hochgeladen und verknüpft`);
             await this.reloadRechnungenKeepState();
 
         } catch (error) {
             console.error('Fehler beim Upload:', error);
             this.showToast('error', 'Fehler', `Upload fehlgeschlagen: ${error.message}`);
         }
+    },
+
+    /**
+     * Direkter PDF-Upload für eine Buchung (über File-Input)
+     */
+    uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement) {
+        const files = inputElement.files;
+        if (!files || files.length === 0) return;
+
+        // Upload alle ausgewählten PDFs
+        for (const file of files) {
+            await this.uploadPdfFile(partitaIva, dokumentNr, file);
+        }
+
+        // Input zurücksetzen
+        inputElement.value = '';
     },
 
     /**
@@ -3432,6 +3998,14 @@ const App = {
             this.currentRechnungenPage = Math.max(1, Math.min(totalPages, page));
         }
 
+        this.renderRechnungenPage();
+    },
+
+    changePageSize: function(size) {
+        this.rechnungenPerPage = parseInt(size, 10);
+        this.currentRechnungenPage = 1;
+        // Speichere Einstellung im localStorage
+        localStorage.setItem('rechnungenPerPage', this.rechnungenPerPage);
         this.renderRechnungenPage();
     },
 
@@ -3947,6 +4521,51 @@ const App = {
         }
     },
 
+    /**
+     * Aktualisiert die Abgabestelle einer Rechnung inline (aus Tabellen-Dropdown)
+     */
+    updateAbgabestelleInline: async function(invoiceId, fundingSourceId) {
+        try {
+            if (!invoiceId) {
+                console.warn('Keine invoiceId für Abgabestelle-Update');
+                return;
+            }
+
+            await DataManager.updateInvoiceFundingSource(invoiceId, fundingSourceId || null);
+
+            this.showToast('success', 'Gespeichert', 'Abgabestelle wurde aktualisiert');
+
+            // Einnahmeplanung neu laden falls sichtbar (um Budget-Übersicht zu aktualisieren)
+            if (document.getElementById('view-einnahmen')?.classList.contains('active')) {
+                await this.loadEinnahmen();
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern der Abgabestelle:', error);
+            this.showToast('error', 'Fehler', `Abgabestelle konnte nicht gespeichert werden: ${error.message}`);
+        }
+    },
+
+    /**
+     * Generiert Abgabestellen-Dropdown-HTML für eine Rechnung
+     */
+    getAbgabestelleDropdown: function(invoiceId, currentFundingSourceId) {
+        if (!invoiceId) {
+            return '<span style="color: #999;">-</span>';
+        }
+
+        let options = '<option value="">- Keine -</option>';
+        this.activeAbgabestellen.forEach(ab => {
+            const selected = currentFundingSourceId === ab.id ? 'selected' : '';
+            options += `<option value="${ab.id}" ${selected}>${ab.code} - ${ab.name}</option>`;
+        });
+
+        return `<select class="form-control abgabestelle-select"
+                        style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
+                        onchange="App.updateAbgabestelleInline('${invoiceId}', this.value)">
+                    ${options}
+                </select>`;
+    },
+
     updateRechnungProjekt: function() {
         const rechnungId = document.getElementById('rd-rechnung-id').value;
         const projektId = document.getElementById('rd-projekt').value;
@@ -3984,6 +4603,9 @@ const App = {
     // PDF PREVIEW
     // ==========================================
 
+    // Aktuelle PDF-Preview Daten für Entverknüpfen
+    currentPdfPreviewData: null,
+
     showPdfPreview: async function(partitaIva, dokumentNr, filePath = null) {
         try {
             document.getElementById('pdf-preview-title').textContent = `${partitaIva} - ${dokumentNr}`;
@@ -3996,12 +4618,15 @@ const App = {
 
             this.showModal('pdf-preview-modal');
 
+            // Speichere Daten für eventuelles Entverknüpfen
+            this.currentPdfPreviewData = { partitaIva, dokumentNr, filePath: null, invoiceId: null };
+
             // Wenn filePath bereits übergeben wurde, direkt nutzen
             if (!filePath || filePath === '') {
                 // Sonst: Hole Invoice aus Supabase
                 const { data: invoices, error } = await SupabaseService.client
                     .from('invoices')
-                    .select('file_path')
+                    .select('id, file_path')
                     .eq('partita_iva', partitaIva)
                     .eq('invoice_number', dokumentNr)
                     .limit(1);
@@ -4013,7 +4638,21 @@ const App = {
                 }
 
                 filePath = invoices[0].file_path;
+                this.currentPdfPreviewData.invoiceId = invoices[0].id;
+            } else {
+                // Hole Invoice-ID separat
+                const { data: invoices } = await SupabaseService.client
+                    .from('invoices')
+                    .select('id')
+                    .eq('partita_iva', partitaIva)
+                    .eq('invoice_number', dokumentNr)
+                    .limit(1);
+                if (invoices && invoices.length > 0) {
+                    this.currentPdfPreviewData.invoiceId = invoices[0].id;
+                }
             }
+
+            this.currentPdfPreviewData.filePath = filePath;
 
             // Hole signierte URL von Supabase Storage
             console.log('Lade PDF von Pfad:', filePath);
@@ -4034,7 +4673,35 @@ const App = {
             console.error('Problematischer Pfad:', filePath);
             document.getElementById('pdf-preview-frame').style.display = 'none';
             document.getElementById('pdf-preview-error').style.display = '';
-            document.getElementById('pdf-preview-error').textContent = `Fehler beim Laden: ${error.message} (Pfad: ${filePath})`;
+            document.getElementById('pdf-preview-error-details').textContent = `Pfad: ${filePath || 'unbekannt'}`;
+
+            // Entverknüpfen-Button nur anzeigen wenn wir eine Invoice-ID haben
+            const unlinkBtn = document.getElementById('pdf-unlink-btn');
+            if (unlinkBtn) {
+                unlinkBtn.style.display = this.currentPdfPreviewData?.invoiceId ? '' : 'none';
+            }
+        }
+    },
+
+    /**
+     * Entfernt die fehlerhafte PDF-Verknüpfung aus dem Preview-Modal heraus
+     */
+    unlinkCurrentPdf: async function() {
+        if (!this.currentPdfPreviewData?.invoiceId) {
+            this.showToast('error', 'Fehler', 'Keine Invoice-ID gefunden');
+            return;
+        }
+
+        if (!confirm('Möchten Sie die fehlerhafte PDF-Verknüpfung wirklich entfernen?')) {
+            return;
+        }
+
+        try {
+            await this.unlinkPdfFromDatev(this.currentPdfPreviewData.invoiceId);
+            this.hideModal('pdf-preview-modal');
+        } catch (error) {
+            console.error('Fehler beim Entverknüpfen:', error);
+            this.showToast('error', 'Fehler', error.message);
         }
     },
 
@@ -5007,11 +5674,158 @@ const App = {
         // Projektübersicht laden
         this.loadReportingProjekte(jahr);
 
-        // Deckungsbeitragsrechnung laden
+        // Deckungsbeitragsrechnung laden (klassisch)
         this.loadDeckungsbeitrag(jahr);
 
         // Kosten nach Kategorie laden
         this.loadKostenKategorien(jahr);
+
+        // Neue DB-Projekt-Ansicht laden
+        this.loadDeckungsbeitragProjekte();
+    },
+
+    // Cache für DB-Ergebnisse
+    dbErgebnisseCache: null,
+
+    /**
+     * Deckungsbeiträge pro Projekt laden (Supabase-basiert)
+     */
+    loadDeckungsbeitragProjekte: async function() {
+        const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
+        const tbody = document.getElementById('db-projekte-table-body');
+        const tfoot = document.getElementById('db-projekte-table-footer');
+        const allgemeinContainer = document.getElementById('db-allgemein-container');
+
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 2rem;"><span style="color: #3498db;">Berechne Deckungsbeiträge...</span></td></tr>';
+
+        try {
+            const startDate = `${jahr}-01-01`;
+            const endDate = `${jahr}-12-31`;
+
+            const ergebnisse = await SupabaseDataAdapter.calculateContributionMargins(startDate, endDate);
+            this.dbErgebnisseCache = ergebnisse;
+
+            // Tabelle rendern
+            tbody.innerHTML = '';
+
+            const projekte = Object.values(ergebnisse.projekte);
+            if (projekte.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 2rem; color: #666;">Keine Projekte mit Ausstellungsdaten gefunden. Bitte start_date und end_date in den Projekten setzen.</td></tr>';
+                return;
+            }
+
+            // Sortieren nach DB3 absteigend
+            projekte.sort((a, b) => b.db3 - a.db3);
+
+            let sumUmsatz = 0, sumDirekt = 0, sumDb1 = 0, sumStruktur = 0, sumDb2 = 0, sumFix = 0, sumDb3 = 0;
+
+            projekte.forEach(p => {
+                sumUmsatz += p.umsatz;
+                sumDirekt += p.db1_kosten;
+                sumDb1 += p.db1;
+                sumStruktur += p.db2_kosten_anteil;
+                sumDb2 += p.db2;
+                sumFix += p.db3_kosten_anteil;
+                sumDb3 += p.db3;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${p.projekt.name}</strong></td>
+                    <td style="text-align: center;">${p.tage}</td>
+                    <td style="text-align: center;">${(p.anteil * 100).toFixed(1)}%</td>
+                    <td style="text-align: right;">${this.formatCurrency(p.umsatz)}</td>
+                    <td style="text-align: right; color: #e74c3c;">${this.formatCurrency(p.db1_kosten)}</td>
+                    <td style="text-align: right; background: #e3f2fd; font-weight: 500;">${this.formatCurrency(p.db1)}</td>
+                    <td style="text-align: right; color: #e74c3c;">${this.formatCurrency(p.db2_kosten_anteil)}</td>
+                    <td style="text-align: right; background: #fff3e0; font-weight: 500;">${this.formatCurrency(p.db2)}</td>
+                    <td style="text-align: right; color: #e74c3c;">${this.formatCurrency(p.db3_kosten_anteil)}</td>
+                    <td style="text-align: right; background: #e8f5e9; font-weight: 600; ${p.db3 < 0 ? 'color: #e74c3c;' : 'color: #27ae60;'}">${this.formatCurrency(p.db3)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Footer mit Summen
+            if (tfoot) {
+                tfoot.innerHTML = `
+                    <tr>
+                        <td>SUMME</td>
+                        <td style="text-align: center;">${ergebnisse.zeitraum.totalDays}</td>
+                        <td style="text-align: center;">100%</td>
+                        <td style="text-align: right;">${this.formatCurrency(sumUmsatz)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(sumDirekt)}</td>
+                        <td style="text-align: right; background: #e3f2fd;">${this.formatCurrency(sumDb1)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(sumStruktur)}</td>
+                        <td style="text-align: right; background: #fff3e0;">${this.formatCurrency(sumDb2)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(sumFix)}</td>
+                        <td style="text-align: right; background: #e8f5e9;">${this.formatCurrency(sumDb3)}</td>
+                    </tr>
+                `;
+            }
+
+            // Nicht-projektbezogene Einnahmen anzeigen
+            if (allgemeinContainer) {
+                const allgUmsatz = ergebnisse.nichtProjektbezogen.umsatz || 0;
+                const allgKosten = ergebnisse.nichtProjektbezogen.kosten || 0;
+                const gesamtDb3 = ergebnisse.gesamt.db3 || 0;
+
+                allgemeinContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #666;">Allg. Einnahmen</div>
+                            <div style="font-size: 1.25rem; font-weight: 600;">${this.formatCurrency(allgUmsatz)}</div>
+                            <div style="font-size: 0.75rem; color: #999;">Mitgliedsbeiträge, Förderungen ohne Projektzuordnung</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #666;">Allg. Kosten</div>
+                            <div style="font-size: 1.25rem; font-weight: 600;">${this.formatCurrency(allgKosten)}</div>
+                            <div style="font-size: 0.75rem; color: #999;">Kosten ohne Projektzuordnung</div>
+                        </div>
+                        <div style="background: ${gesamtDb3 >= 0 ? '#d4edda' : '#f8d7da'}; padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #666;">Gesamt-DB3 (alle Projekte)</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: ${gesamtDb3 >= 0 ? '#27ae60' : '#e74c3c'};">${this.formatCurrency(gesamtDb3)}</div>
+                            <div style="font-size: 0.75rem; color: #999;">Nach Abzug aller Gemeinkosten</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+        } catch (error) {
+            console.error('Fehler bei Deckungsbeitragsberechnung:', error);
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: #e74c3c;">
+                Fehler: ${error.message}<br>
+                <small>Bitte prüfen Sie, ob die chart_of_accounts Tabelle existiert (Migration ausführen).</small>
+            </td></tr>`;
+        }
+    },
+
+    /**
+     * DB-Ergebnisse als CSV exportieren
+     */
+    exportDbCsv: function() {
+        if (!this.dbErgebnisseCache) {
+            alert('Bitte zuerst die Berechnung starten (Aktualisieren klicken).');
+            return;
+        }
+
+        const ergebnisse = this.dbErgebnisseCache;
+        let csv = '\uFEFF'; // BOM für Excel
+        csv += 'Projekt;Tage;Anteil;Umsatz;Direkte Kosten;DB1;Strukturkosten;DB2;Fixkosten;DB3\n';
+
+        Object.values(ergebnisse.projekte).forEach(p => {
+            csv += `"${p.projekt.name}";${p.tage};${(p.anteil * 100).toFixed(1)}%;${p.umsatz.toFixed(2)};${p.db1_kosten.toFixed(2)};${p.db1.toFixed(2)};${p.db2_kosten_anteil.toFixed(2)};${p.db2.toFixed(2)};${p.db3_kosten_anteil.toFixed(2)};${p.db3.toFixed(2)}\n`;
+        });
+
+        // Summenzeile
+        const g = ergebnisse.gesamt;
+        csv += `"SUMME";${ergebnisse.zeitraum.totalDays};100%;${g.umsatz.toFixed(2)};${g.db1_kosten.toFixed(2)};${g.db1.toFixed(2)};${g.db2_kosten.toFixed(2)};${g.db2.toFixed(2)};${g.db3_kosten.toFixed(2)};${g.db3.toFixed(2)}\n`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Deckungsbeitraege_${ergebnisse.zeitraum.startDate.substring(0, 4)}.csv`;
+        link.click();
     },
 
     loadReportingProjekte: function(jahr) {
@@ -5205,30 +6019,53 @@ const App = {
     // EINNAHMENPLANUNG
     // ==========================================
 
-    loadEinnahmen: function() {
+    loadEinnahmen: async function() {
         const jahr = document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear();
-        const einnahmen = DataManager.getEinnahmen(parseInt(jahr));
 
-        // Summary aktualisieren
-        const summary = DataManager.getEinnahmenSummary(parseInt(jahr));
-        document.getElementById('einnahmen-bestaetigt').textContent = this.formatCurrency(summary.bestaetigt);
-        document.getElementById('einnahmen-erwartet').textContent = this.formatCurrency(summary.erwartet);
-        document.getElementById('einnahmen-unsicher').textContent = this.formatCurrency(summary.unsicher);
-        document.getElementById('einnahmen-gesamt').textContent = this.formatCurrency(summary.gesamt);
+        try {
+            // Lade Funding Sources aus Supabase
+            const fundingSources = await DataManager.getFundingSources(parseInt(jahr));
 
-        this.allEinnahmen = einnahmen;
-        this.filterEinnahmen();
+            // Berechne Ausgaben für jede Funding Source
+            for (const fs of fundingSources) {
+                const expenses = await DataManager.getFundingSourceExpenses(fs.id);
+                fs.ausgaben = expenses.totalBrutto;
+                fs.rechnungenCount = expenses.count;
+                fs.verfuegbar = fs.amount - expenses.totalBrutto;
+            }
+
+            // Summary aktualisieren
+            const totalBudget = fundingSources.reduce((sum, fs) => sum + fs.amount, 0);
+            const totalAusgaben = fundingSources.reduce((sum, fs) => sum + (fs.ausgaben || 0), 0);
+            const zugesagt = fundingSources.filter(fs => fs.status === 'zugesagt' || fs.status === 'eingegangen')
+                                          .reduce((sum, fs) => sum + fs.amount, 0);
+            const offen = fundingSources.filter(fs => fs.status === 'offen' || fs.status === 'beantragt')
+                                       .reduce((sum, fs) => sum + fs.amount, 0);
+
+            document.getElementById('einnahmen-bestaetigt').textContent = this.formatCurrency(zugesagt);
+            document.getElementById('einnahmen-erwartet').textContent = this.formatCurrency(offen);
+            document.getElementById('einnahmen-unsicher').textContent = this.formatCurrency(totalAusgaben);
+            document.getElementById('einnahmen-gesamt').textContent = this.formatCurrency(totalBudget);
+
+            // Labels anpassen
+            document.querySelector('#einnahmen-bestaetigt + .stat-label').textContent = 'Zugesagt';
+            document.querySelector('#einnahmen-erwartet + .stat-label').textContent = 'Offen/Beantragt';
+            document.querySelector('#einnahmen-unsicher + .stat-label').textContent = 'Ausgaben';
+            document.querySelector('#einnahmen-gesamt + .stat-label').textContent = 'Budget Gesamt';
+
+            this.allEinnahmen = fundingSources;
+            this.filterEinnahmen();
+        } catch (error) {
+            console.error('Fehler beim Laden der Einnahmen:', error);
+            this.showToast('error', 'Fehler', 'Einnahmen konnten nicht geladen werden');
+        }
     },
 
     filterEinnahmen: function() {
-        const typ = document.getElementById('einnahmen-filter-typ')?.value || '';
         const status = document.getElementById('einnahmen-filter-status')?.value || '';
 
         let filtered = this.allEinnahmen || [];
 
-        if (typ) {
-            filtered = filtered.filter(e => e.typ === typ);
-        }
         if (status) {
             filtered = filtered.filter(e => e.status === status);
         }
@@ -5241,155 +6078,198 @@ const App = {
         if (!tbody) return;
 
         tbody.innerHTML = '';
-        let summePlan = 0, summeIst = 0;
-
-        const typLabels = {
-            'zuschuss_provinz': 'Zuschuss Provinz',
-            'zuschuss_gemeinde': 'Zuschuss Gemeinde',
-            'zuschuss_region': 'Zuschuss Region',
-            'zuschuss_stiftung': 'Zuschuss Stiftung',
-            'sponsoring': 'Sponsoring',
-            'spende': 'Spende',
-            'mitgliedsbeitrag': 'Mitgliedsbeitrag',
-            'erloese': 'Erlöse',
-            'sonstige': 'Sonstige'
-        };
+        let summeBudget = 0, summeAusgaben = 0, summeVerfuegbar = 0;
 
         const statusColors = {
-            'bestaetigt': '#27ae60',
+            'zugesagt': '#27ae60',
             'eingegangen': '#27ae60',
-            'erwartet': '#f39c12',
-            'unsicher': '#95a5a6',
-            'abgesagt': '#e74c3c'
+            'beantragt': '#f39c12',
+            'offen': '#95a5a6',
+            'abgelehnt': '#e74c3c'
         };
 
         const statusLabels = {
-            'bestaetigt': 'Bestätigt',
+            'zugesagt': 'Zugesagt',
             'eingegangen': 'Eingegangen',
-            'erwartet': 'Erwartet',
-            'unsicher': 'Unsicher',
-            'abgesagt': 'Abgesagt'
+            'beantragt': 'Beantragt',
+            'offen': 'Offen',
+            'abgelehnt': 'Abgelehnt'
         };
 
         einnahmen.forEach(e => {
-            summePlan += parseFloat(e.betragPlan) || 0;
-            summeIst += parseFloat(e.betragIst) || 0;
+            summeBudget += e.amount || 0;
+            summeAusgaben += e.ausgaben || 0;
+            summeVerfuegbar += e.verfuegbar || 0;
 
-            const dok = DataManager.getEinnahmeDokument(e.id);
+            const verfuegbarStyle = e.verfuegbar < 0 ? 'color: #e74c3c; font-weight: bold;' : '';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${e.quelle}</strong></td>
-                <td>${typLabels[e.typ] || e.typ}</td>
-                <td style="text-align: right;">${this.formatCurrency(e.betragPlan)}</td>
-                <td style="text-align: right;">${e.betragIst ? this.formatCurrency(e.betragIst) : '-'}</td>
+                <td><strong>${e.code}</strong></td>
                 <td>
-                    <span style="background: ${statusColors[e.status]}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                    <div>${e.name}</div>
+                    ${e.source ? `<small style="color: #666;">${e.source}</small>` : ''}
+                </td>
+                <td style="text-align: right;">${this.formatCurrency(e.amount)}</td>
+                <td style="text-align: right;">${e.ausgaben ? this.formatCurrency(e.ausgaben) : '-'}
+                    ${e.rechnungenCount ? `<br><small style="color: #666;">${e.rechnungenCount} Rechnungen</small>` : ''}
+                </td>
+                <td style="text-align: right; ${verfuegbarStyle}">${this.formatCurrency(e.verfuegbar || e.amount)}</td>
+                <td>
+                    <span style="background: ${statusColors[e.status] || '#95a5a6'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
                         ${statusLabels[e.status] || e.status}
                     </span>
                 </td>
                 <td style="text-align: center;">
-                    ${dok ? `<button class="btn btn-outline btn-sm" onclick="App.showDokumentPreview(${e.id})" title="${dok.name}">📄</button>` :
-                           `<span style="color: #ccc;">-</span>`}
+                    ${e.is_abgabestelle ?
+                        '<span style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Aktiv</span>' :
+                        '<span style="color: #ccc;">-</span>'}
                 </td>
-                <td>${e.faellig ? new Date(e.faellig).toLocaleDateString('de-DE') : '-'}</td>
+                <td style="text-align: center;">
+                    ${e.document_path ?
+                        `<button class="btn btn-outline btn-sm" onclick="App.showFundingDocument('${e.id}')" title="Dokument anzeigen">📄</button>` :
+                        '<span style="color: #ccc;">-</span>'}
+                </td>
                 <td>
-                    <button class="btn btn-outline btn-sm" onclick="App.editEinnahme(${e.id})">Bearbeiten</button>
-                    <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme(${e.id})" style="color: #e74c3c;">Löschen</button>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button class="btn btn-outline btn-sm" onclick="App.editEinnahme('${e.id}')">✏️</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme('${e.id}')" style="color: #e74c3c;">🗑️</button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
         });
 
         // Summen aktualisieren
-        document.getElementById('einnahmen-summe-plan').textContent = this.formatCurrency(summePlan);
-        document.getElementById('einnahmen-summe-ist').textContent = this.formatCurrency(summeIst);
+        document.getElementById('einnahmen-summe-budget').textContent = this.formatCurrency(summeBudget);
+        document.getElementById('einnahmen-summe-ausgaben').textContent = this.formatCurrency(summeAusgaben);
+        document.getElementById('einnahmen-summe-verfuegbar').textContent = this.formatCurrency(summeVerfuegbar);
     },
 
     showNewEinnahmeForm: function() {
         document.getElementById('einnahme-modal-title').textContent = 'Neue Einnahme';
         document.getElementById('einnahme-id').value = '';
+        document.getElementById('einnahme-code').value = '';
+        document.getElementById('einnahme-name').value = '';
         document.getElementById('einnahme-quelle').value = '';
-        document.getElementById('einnahme-typ').value = '';
         document.getElementById('einnahme-jahr').value = new Date().getFullYear();
-        document.getElementById('einnahme-betrag-plan').value = '';
-        document.getElementById('einnahme-betrag-ist').value = '';
-        document.getElementById('einnahme-status').value = 'unsicher';
-        document.getElementById('einnahme-faellig').value = '';
-        document.getElementById('einnahme-konto').value = '';
+        document.getElementById('einnahme-betrag').value = '';
+        document.getElementById('einnahme-status').value = 'offen';
+        document.getElementById('einnahme-abgabestelle').checked = false;
         document.getElementById('einnahme-dokument').value = '';
         document.getElementById('einnahme-dokument-vorschau').innerHTML = '';
         document.getElementById('einnahme-notizen').value = '';
 
+        // Generiere automatisch den nächsten Code
+        this.generateNextEinnahmeCode();
+
         this.showModal('einnahme-form-modal');
     },
 
-    editEinnahme: function(id) {
-        const einnahmen = DataManager.getEinnahmen();
-        const e = einnahmen.find(x => x.id === id);
-        if (!e) return;
+    generateNextEinnahmeCode: async function() {
+        const jahr = document.getElementById('einnahme-jahr').value;
+        const fundingSources = await DataManager.getFundingSources(parseInt(jahr));
 
-        document.getElementById('einnahme-modal-title').textContent = 'Einnahme bearbeiten';
-        document.getElementById('einnahme-id').value = e.id;
-        document.getElementById('einnahme-quelle').value = e.quelle || '';
-        document.getElementById('einnahme-typ').value = e.typ || '';
-        document.getElementById('einnahme-jahr').value = e.jahr || new Date().getFullYear();
-        document.getElementById('einnahme-betrag-plan').value = e.betragPlan || '';
-        document.getElementById('einnahme-betrag-ist').value = e.betragIst || '';
-        document.getElementById('einnahme-status').value = e.status || 'unsicher';
-        document.getElementById('einnahme-faellig').value = e.faellig || '';
-        document.getElementById('einnahme-konto').value = e.konto || '';
-        document.getElementById('einnahme-dokument').value = '';
-        document.getElementById('einnahme-notizen').value = e.notizen || '';
+        // Finde höchste Nummer
+        let maxNum = 0;
+        fundingSources.forEach(fs => {
+            const match = fs.code.match(new RegExp(`^${jahr}-(\\d+)$`));
+            if (match) {
+                maxNum = Math.max(maxNum, parseInt(match[1]));
+            }
+        });
 
-        // Dokumentvorschau
-        const dok = DataManager.getEinnahmeDokument(id);
-        const vorschau = document.getElementById('einnahme-dokument-vorschau');
-        if (dok) {
-            vorschau.innerHTML = `<div style="padding: 0.5rem; background: #e8f4fd; border-radius: 4px;">
-                📄 <strong>${dok.name}</strong> (${(dok.size / 1024).toFixed(1)} KB)
-                <button type="button" class="btn btn-outline btn-sm" onclick="App.showDokumentPreview(${id})" style="margin-left: 0.5rem;">Anzeigen</button>
-            </div>`;
-        } else {
-            vorschau.innerHTML = '';
+        document.getElementById('einnahme-code').value = `${jahr}-${String(maxNum + 1).padStart(2, '0')}`;
+    },
+
+    editEinnahme: async function(id) {
+        try {
+            const fs = await DataManager.getFundingSourceById(id);
+            if (!fs) {
+                alert('Einnahme nicht gefunden');
+                return;
+            }
+
+            document.getElementById('einnahme-modal-title').textContent = 'Einnahme bearbeiten';
+            document.getElementById('einnahme-id').value = fs.id;
+            document.getElementById('einnahme-code').value = fs.code || '';
+            document.getElementById('einnahme-name').value = fs.name || '';
+            document.getElementById('einnahme-quelle').value = fs.source || '';
+            document.getElementById('einnahme-jahr').value = fs.year || new Date().getFullYear();
+            document.getElementById('einnahme-betrag').value = fs.amount || '';
+            document.getElementById('einnahme-status').value = fs.status || 'offen';
+            document.getElementById('einnahme-abgabestelle').checked = fs.is_abgabestelle || false;
+            document.getElementById('einnahme-notizen').value = fs.notes || '';
+            document.getElementById('einnahme-dokument').value = '';
+
+            // Dokumentvorschau
+            const vorschau = document.getElementById('einnahme-dokument-vorschau');
+            if (fs.document_path) {
+                vorschau.innerHTML = `<div style="padding: 0.5rem; background: #e8f4fd; border-radius: 4px;">
+                    📄 <strong>Dokument hinterlegt</strong>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="App.showFundingSourceDocument('${fs.id}')" style="margin-left: 0.5rem;">Anzeigen</button>
+                </div>`;
+            } else {
+                vorschau.innerHTML = '';
+            }
+
+            this.showModal('einnahme-form-modal');
+        } catch (error) {
+            console.error('Fehler beim Laden der Einnahme:', error);
+            alert('Fehler beim Laden: ' + error.message);
         }
-
-        this.showModal('einnahme-form-modal');
     },
 
     async saveEinnahme(event) {
         event.preventDefault();
 
         const id = document.getElementById('einnahme-id').value;
-        const einnahme = {
-            id: id ? parseInt(id) : null,
-            quelle: document.getElementById('einnahme-quelle').value,
-            typ: document.getElementById('einnahme-typ').value,
-            jahr: parseInt(document.getElementById('einnahme-jahr').value),
-            betragPlan: parseFloat(document.getElementById('einnahme-betrag-plan').value) || 0,
-            betragIst: parseFloat(document.getElementById('einnahme-betrag-ist').value) || 0,
+        const fundingSource = {
+            code: document.getElementById('einnahme-code').value,
+            name: document.getElementById('einnahme-name').value,
+            source: document.getElementById('einnahme-quelle').value,
+            year: parseInt(document.getElementById('einnahme-jahr').value),
+            amount: parseFloat(document.getElementById('einnahme-betrag').value) || 0,
             status: document.getElementById('einnahme-status').value,
-            faellig: document.getElementById('einnahme-faellig').value,
-            konto: document.getElementById('einnahme-konto').value,
-            notizen: document.getElementById('einnahme-notizen').value
+            is_abgabestelle: document.getElementById('einnahme-abgabestelle').checked,
+            notes: document.getElementById('einnahme-notizen').value
         };
 
-        const saved = DataManager.saveEinnahme(einnahme);
+        try {
+            let saved;
+            if (id) {
+                // Update
+                saved = await DataManager.updateFundingSource(id, fundingSource);
+            } else {
+                // Insert
+                saved = await DataManager.addFundingSource(fundingSource);
+            }
 
-        // Dokument speichern falls hochgeladen
-        const fileInput = document.getElementById('einnahme-dokument');
-        if (fileInput.files.length > 0) {
-            await DataManager.saveEinnahmeDokument(saved.id, fileInput.files[0]);
+            // Dokument hochladen falls vorhanden
+            const fileInput = document.getElementById('einnahme-dokument');
+            if (fileInput.files.length > 0 && saved) {
+                // TODO: Dokument zu Supabase Storage hochladen
+                // Für jetzt speichern wir nur den Pfad
+                console.log('Dokument-Upload noch nicht implementiert');
+            }
+
+            this.hideModal('einnahme-form-modal');
+            await this.loadEinnahmen();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            alert('Fehler beim Speichern: ' + error.message);
         }
-
-        this.hideModal('einnahme-form-modal');
-        this.loadEinnahmen();
     },
 
-    deleteEinnahme: function(id) {
-        if (confirm('Einnahme wirklich löschen?')) {
-            DataManager.deleteEinnahme(id);
-            this.loadEinnahmen();
+    deleteEinnahme: async function(id) {
+        if (confirm('Einnahme wirklich löschen? Verknüpfte Rechnungen werden von dieser Abgabestelle entfernt.')) {
+            try {
+                await DataManager.deleteFundingSource(id);
+                await this.loadEinnahmen();
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error);
+                alert('Fehler beim Löschen: ' + error.message);
+            }
         }
     },
 
@@ -5433,21 +6313,572 @@ const App = {
         this.showModal('dokument-preview-modal');
     },
 
-    exportEinnahmenCSV: function() {
+    exportEinnahmenCSV: async function() {
         const jahr = document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear();
-        const einnahmen = DataManager.getEinnahmen(parseInt(jahr));
 
-        let csv = '\uFEFF';
-        csv += 'Quelle;Typ;Jahr;Betrag Plan;Betrag IST;Status;Fällig;Konto;Notizen\n';
+        try {
+            const fundingSources = await DataManager.getFundingSources(parseInt(jahr));
 
-        einnahmen.forEach(e => {
-            csv += `"${e.quelle}";"${e.typ}";"${e.jahr}";"${e.betragPlan}";"${e.betragIst || ''}";"${e.status}";"${e.faellig || ''}";"${e.konto || ''}";"${e.notizen || ''}"\n`;
+            let csv = '\uFEFF';
+            csv += 'Code;Name;Geldgeber;Jahr;Budget;Status;Abgabestelle;Notizen\n';
+
+            fundingSources.forEach(fs => {
+                csv += `"${fs.code}";"${fs.name}";"${fs.source || ''}";"${fs.year}";"${fs.amount}";"${fs.status}";"${fs.is_abgabestelle ? 'Ja' : 'Nein'}";"${fs.notes || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Einnahmen_${jahr}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        } catch (error) {
+            console.error('Fehler beim Export:', error);
+            alert('Fehler beim Export: ' + error.message);
+        }
+    },
+
+    // ==========================================
+    // MITGLIEDER-VERWALTUNG
+    // ==========================================
+
+    membersData: [],
+    memberPaymentsData: [],
+    filteredMembers: [],
+    memberImportData: null,
+
+    loadMembers: async function() {
+        const year = parseInt(document.getElementById('members-filter-year')?.value || new Date().getFullYear());
+        document.getElementById('members-year-label').textContent = year;
+
+        try {
+            // Mitglieder laden
+            this.membersData = await DataManager.getMembers(true);
+
+            // Zahlungen für das Jahr laden
+            this.memberPaymentsData = await DataManager.getMemberPaymentsByYear(year);
+
+            // Zahlungs-Map erstellen (member_id -> payment)
+            const paymentMap = new Map();
+            this.memberPaymentsData.forEach(p => {
+                paymentMap.set(p.member_id, p);
+            });
+
+            // Mitglieder mit Zahlungsstatus anreichern
+            this.membersData = this.membersData.map(m => {
+                const payment = paymentMap.get(m.id);
+                return {
+                    ...m,
+                    payment: payment || null,
+                    isPaid: !!payment
+                };
+            });
+
+            // Statistiken berechnen
+            const totalMembers = this.membersData.length;
+            const paidMembers = this.membersData.filter(m => m.isPaid).length;
+            const unpaidMembers = totalMembers - paidMembers;
+            const totalAmount = this.memberPaymentsData.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+
+            document.getElementById('members-total').textContent = totalMembers;
+            document.getElementById('members-paid').textContent = paidMembers;
+            document.getElementById('members-unpaid').textContent = unpaidMembers;
+            document.getElementById('members-amount').textContent = this.formatCurrency(totalAmount);
+
+            this.filterMembers();
+        } catch (error) {
+            console.error('Fehler beim Laden der Mitglieder:', error);
+            this.showToast('error', 'Fehler', 'Mitglieder konnten nicht geladen werden');
+        }
+    },
+
+    filterMembers: function() {
+        const paidFilter = document.getElementById('members-filter-paid')?.value || '';
+        const searchFilter = (document.getElementById('members-filter-search')?.value || '').toLowerCase();
+
+        this.filteredMembers = this.membersData.filter(m => {
+            // Zahlungsstatus-Filter
+            if (paidFilter === 'paid' && !m.isPaid) return false;
+            if (paidFilter === 'unpaid' && m.isPaid) return false;
+
+            // Suche
+            if (searchFilter) {
+                const searchStr = `${m.last_name} ${m.first_name} ${m.email || ''} ${m.city || ''}`.toLowerCase();
+                if (!searchStr.includes(searchFilter)) return false;
+            }
+
+            return true;
+        });
+
+        this.renderMembersTable();
+    },
+
+    renderMembersTable: function() {
+        const tbody = document.getElementById('members-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        if (this.filteredMembers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666; padding: 2rem;">Keine Mitglieder gefunden</td></tr>';
+            return;
+        }
+
+        this.filteredMembers.forEach((m, index) => {
+            const tr = document.createElement('tr');
+
+            const paidBadge = m.isPaid
+                ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Bezahlt</span>'
+                : '<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Offen</span>';
+
+            const paymentDate = m.payment?.payment_date ? this.formatDate(m.payment.payment_date) : '-';
+            const datevBuchung = m.payment?.datev_buchungstext
+                ? `<span title="${m.payment.datev_buchungstext}" style="max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.payment.datev_buchungstext}</span>`
+                : '-';
+
+            tr.innerHTML = `
+                <td>${m.member_number || index + 1}</td>
+                <td><strong>${m.last_name}</strong></td>
+                <td>${m.first_name || ''}</td>
+                <td>${m.city || ''}</td>
+                <td>${m.email ? `<a href="mailto:${m.email}">${m.email}</a>` : '-'}</td>
+                <td style="text-align: right;">${this.formatCurrency(m.membership_fee || 0)}</td>
+                <td style="text-align: center;">${paidBadge}</td>
+                <td>${paymentDate}</td>
+                <td>${datevBuchung}</td>
+                <td>
+                    <div style="display: flex; gap: 0.25rem;">
+                        ${!m.isPaid ? `<button class="btn btn-sm btn-success" onclick="App.showPaymentModal('${m.id}')" title="Zahlung zuweisen">€</button>` : ''}
+                        ${m.isPaid ? `<button class="btn btn-sm btn-outline" onclick="App.removeMemberPayment('${m.id}')" title="Zahlung entfernen" style="color: #e74c3c;">✕</button>` : ''}
+                        <button class="btn btn-sm btn-outline" onclick="App.editMember('${m.id}')" title="Bearbeiten">✏️</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    },
+
+    showNewMemberForm: function() {
+        document.getElementById('member-modal-title').textContent = 'Neues Mitglied';
+        document.getElementById('member-id').value = '';
+        document.getElementById('member-last-name').value = '';
+        document.getElementById('member-first-name').value = '';
+        document.getElementById('member-gender').value = '';
+        document.getElementById('member-language').value = '';
+        document.getElementById('member-birth-year').value = '';
+        document.getElementById('member-address').value = '';
+        document.getElementById('member-postal-code').value = '';
+        document.getElementById('member-city').value = '';
+        document.getElementById('member-email').value = '';
+        document.getElementById('member-phone').value = '';
+        document.getElementById('member-tax-number').value = '';
+        document.getElementById('member-fee').value = '';
+        document.getElementById('member-donation').value = '';
+        document.getElementById('member-join-date').value = '';
+        document.getElementById('member-payment-method').value = '';
+        document.getElementById('member-hashtag').value = '';
+        document.getElementById('member-notes').value = '';
+        document.getElementById('member-active').checked = true;
+
+        this.showModal('member-form-modal');
+    },
+
+    editMember: async function(id) {
+        try {
+            const member = await DataManager.getMemberById(id);
+            if (!member) {
+                alert('Mitglied nicht gefunden');
+                return;
+            }
+
+            document.getElementById('member-modal-title').textContent = 'Mitglied bearbeiten';
+            document.getElementById('member-id').value = member.id;
+            document.getElementById('member-last-name').value = member.last_name || '';
+            document.getElementById('member-first-name').value = member.first_name || '';
+            document.getElementById('member-gender').value = member.gender || '';
+            document.getElementById('member-language').value = member.language || '';
+            document.getElementById('member-birth-year').value = member.birth_year || '';
+            document.getElementById('member-address').value = member.address || '';
+            document.getElementById('member-postal-code').value = member.postal_code || '';
+            document.getElementById('member-city').value = member.city || '';
+            document.getElementById('member-email').value = member.email || '';
+            document.getElementById('member-phone').value = member.phone || '';
+            document.getElementById('member-tax-number').value = member.tax_number || '';
+            document.getElementById('member-fee').value = member.membership_fee || '';
+            document.getElementById('member-donation').value = member.donation || '';
+            document.getElementById('member-join-date').value = member.join_date || '';
+            document.getElementById('member-payment-method').value = member.payment_method || '';
+            document.getElementById('member-hashtag').value = member.hashtag || '';
+            document.getElementById('member-notes').value = member.notes || '';
+            document.getElementById('member-active').checked = member.is_active !== false;
+
+            this.showModal('member-form-modal');
+        } catch (error) {
+            console.error('Fehler beim Laden des Mitglieds:', error);
+            alert('Fehler: ' + error.message);
+        }
+    },
+
+    saveMember: async function(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('member-id').value;
+        const memberData = {
+            last_name: document.getElementById('member-last-name').value,
+            first_name: document.getElementById('member-first-name').value,
+            gender: document.getElementById('member-gender').value || null,
+            language: document.getElementById('member-language').value || null,
+            birth_year: document.getElementById('member-birth-year').value ? parseInt(document.getElementById('member-birth-year').value) : null,
+            address: document.getElementById('member-address').value || null,
+            postal_code: document.getElementById('member-postal-code').value || null,
+            city: document.getElementById('member-city').value || null,
+            email: document.getElementById('member-email').value || null,
+            phone: document.getElementById('member-phone').value || null,
+            tax_number: document.getElementById('member-tax-number').value || null,
+            membership_fee: parseFloat(document.getElementById('member-fee').value) || 0,
+            donation: parseFloat(document.getElementById('member-donation').value) || 0,
+            join_date: document.getElementById('member-join-date').value || null,
+            payment_method: document.getElementById('member-payment-method').value || null,
+            hashtag: document.getElementById('member-hashtag').value || null,
+            notes: document.getElementById('member-notes').value || null,
+            is_active: document.getElementById('member-active').checked
+        };
+
+        try {
+            if (id) {
+                await DataManager.updateMember(id, memberData);
+                this.showToast('success', 'Gespeichert', 'Mitglied wurde aktualisiert');
+            } else {
+                await DataManager.addMember(memberData);
+                this.showToast('success', 'Erstellt', 'Neues Mitglied wurde angelegt');
+            }
+
+            this.hideModal('member-form-modal');
+            await this.loadMembers();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            alert('Fehler: ' + error.message);
+        }
+    },
+
+    showPaymentModal: function(memberId) {
+        const member = this.membersData.find(m => m.id === memberId);
+        if (!member) return;
+
+        const year = parseInt(document.getElementById('members-filter-year')?.value || new Date().getFullYear());
+
+        document.getElementById('payment-member-id').value = memberId;
+        document.getElementById('payment-member-name').textContent = `${member.last_name}, ${member.first_name || ''}`;
+        document.getElementById('payment-member-fee').textContent = `Beitrag: ${this.formatCurrency(member.membership_fee || 0)}`;
+        document.getElementById('payment-year').value = year;
+        document.getElementById('payment-amount').value = member.membership_fee || '';
+        document.getElementById('payment-date').value = '';
+        document.getElementById('payment-notes').value = '';
+
+        // DATEV-Buchungen für Konto 6401550 laden
+        this.populatePaymentDatevDropdown();
+
+        this.showModal('member-payment-modal');
+    },
+
+    populatePaymentDatevDropdown: function() {
+        const select = document.getElementById('payment-datev-buchung');
+        select.innerHTML = '<option value="">-- Buchung auswählen --</option>';
+
+        // DATEV-Buchungen für Mitgliedsbeitrags-Konto holen
+        const buchungen = DataManager.getDatevBuchungenForKonto('6401550');
+
+        // Bereits zugewiesene Buchungen ausschließen
+        const assignedBuchungIds = new Set(this.memberPaymentsData.map(p => p.datev_buchung_id));
+
+        const availableBuchungen = buchungen.filter(b => !assignedBuchungIds.has(b.rechnungId));
+
+        availableBuchungen.forEach(b => {
+            const datum = this.formatDate(b.buchungsdatum || b.belegdatum);
+            const text = b.buchungstext || b.beschreibung || 'Ohne Text';
+            const betrag = this.formatCurrency(Math.abs(b.betrag || 0));
+            select.innerHTML += `<option value="${b.rechnungId}" data-betrag="${Math.abs(b.betrag || 0)}" data-datum="${b.buchungsdatum || b.belegdatum}" data-text="${text}">${datum} | ${text} | ${betrag}</option>`;
+        });
+    },
+
+    selectDatevBuchung: function(buchungId) {
+        if (!buchungId) return;
+
+        const select = document.getElementById('payment-datev-buchung');
+        const option = select.querySelector(`option[value="${buchungId}"]`);
+        if (option) {
+            document.getElementById('payment-amount').value = option.dataset.betrag || '';
+            document.getElementById('payment-date').value = option.dataset.datum || '';
+        }
+    },
+
+    saveMemberPayment: async function() {
+        const memberId = document.getElementById('payment-member-id').value;
+        const datevBuchungId = document.getElementById('payment-datev-buchung').value;
+        const datevOption = document.getElementById('payment-datev-buchung').selectedOptions[0];
+
+        const paymentData = {
+            member_id: memberId,
+            year: parseInt(document.getElementById('payment-year').value),
+            amount: parseFloat(document.getElementById('payment-amount').value) || 0,
+            payment_date: document.getElementById('payment-date').value || null,
+            datev_buchung_id: datevBuchungId || null,
+            datev_buchungstext: datevOption?.dataset?.text || null,
+            notes: document.getElementById('payment-notes').value || null
+        };
+
+        try {
+            await DataManager.addMemberPayment(paymentData);
+            this.showToast('success', 'Gespeichert', 'Zahlung wurde zugewiesen');
+            this.hideModal('member-payment-modal');
+            await this.loadMembers();
+        } catch (error) {
+            console.error('Fehler beim Speichern der Zahlung:', error);
+            alert('Fehler: ' + error.message);
+        }
+    },
+
+    removeMemberPayment: async function(memberId) {
+        const member = this.membersData.find(m => m.id === memberId);
+        if (!member || !member.payment) return;
+
+        if (!confirm(`Zahlung für ${member.last_name} wirklich entfernen?`)) return;
+
+        try {
+            await DataManager.deleteMemberPayment(member.payment.id);
+            this.showToast('success', 'Entfernt', 'Zahlung wurde entfernt');
+            await this.loadMembers();
+        } catch (error) {
+            console.error('Fehler beim Entfernen der Zahlung:', error);
+            alert('Fehler: ' + error.message);
+        }
+    },
+
+    showUnmatchedPayments: function() {
+        const tbody = document.getElementById('unmatched-payments-body');
+        tbody.innerHTML = '';
+
+        // DATEV-Buchungen für Mitgliedsbeitrags-Konto holen
+        const buchungen = DataManager.getDatevBuchungenForKonto('6401550');
+
+        // Bereits zugewiesene Buchungen
+        const assignedBuchungIds = new Set(this.memberPaymentsData.map(p => p.datev_buchung_id));
+
+        const unmatchedBuchungen = buchungen.filter(b => !assignedBuchungIds.has(b.rechnungId));
+
+        if (unmatchedBuchungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #27ae60; padding: 2rem;">Alle Buchungen sind zugewiesen!</td></tr>';
+        } else {
+            unmatchedBuchungen.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${this.formatDate(b.buchungsdatum || b.belegdatum)}</td>
+                    <td>${b.buchungstext || b.beschreibung || '-'}</td>
+                    <td style="text-align: right;">${this.formatCurrency(Math.abs(b.betrag || 0))}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="App.assignPaymentToMember('${b.rechnungId}', '${(b.buchungstext || '').replace(/'/g, "\\'")}', ${Math.abs(b.betrag || 0)}, '${b.buchungsdatum || b.belegdatum || ''}')">
+                            Zuweisen
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        this.showModal('unmatched-payments-modal');
+    },
+
+    assignPaymentToMember: function(buchungId, buchungstext, betrag, datum) {
+        // Modal schließen und Mitglieder-Auswahl zeigen
+        this.hideModal('unmatched-payments-modal');
+
+        // Einfache Auswahl via Prompt (später evtl. schöneres Modal)
+        const memberOptions = this.membersData
+            .filter(m => !m.isPaid)
+            .map(m => `${m.last_name}, ${m.first_name || ''} (${this.formatCurrency(m.membership_fee || 0)})`);
+
+        if (memberOptions.length === 0) {
+            alert('Keine Mitglieder mit offenen Zahlungen gefunden.');
+            return;
+        }
+
+        const memberList = this.membersData.filter(m => !m.isPaid);
+        let options = memberList.map((m, i) => `${i + 1}. ${m.last_name}, ${m.first_name || ''}`).join('\n');
+
+        const input = prompt(`Buchung: ${buchungstext}\nBetrag: ${this.formatCurrency(betrag)}\n\nMitglied auswählen (Nummer eingeben):\n\n${options}`);
+
+        if (input) {
+            const index = parseInt(input) - 1;
+            if (index >= 0 && index < memberList.length) {
+                const selectedMember = memberList[index];
+                const year = parseInt(document.getElementById('members-filter-year')?.value || new Date().getFullYear());
+
+                DataManager.addMemberPayment({
+                    member_id: selectedMember.id,
+                    year: year,
+                    amount: betrag,
+                    payment_date: datum,
+                    datev_buchung_id: buchungId,
+                    datev_buchungstext: buchungstext
+                }).then(() => {
+                    this.showToast('success', 'Zugewiesen', `Zahlung wurde ${selectedMember.last_name} zugewiesen`);
+                    this.loadMembers();
+                }).catch(err => {
+                    alert('Fehler: ' + err.message);
+                });
+            }
+        }
+    },
+
+    showMemberImportModal: function() {
+        document.getElementById('member-import-file').value = '';
+        document.getElementById('member-import-preview').style.display = 'none';
+        document.getElementById('member-import-result').style.display = 'none';
+        document.getElementById('member-import-btn').disabled = true;
+        this.memberImportData = null;
+
+        // File-Change-Listener
+        document.getElementById('member-import-file').onchange = (e) => this.previewMemberImport(e);
+
+        this.showModal('member-import-modal');
+    },
+
+    previewMemberImport: async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            if (json.length === 0) {
+                alert('Die Datei enthält keine Daten.');
+                return;
+            }
+
+            // Spalten-Mapping (flexibel)
+            const columnMap = {
+                'Nachname': 'last_name',
+                'Vorname': 'first_name',
+                'Art der M': 'gender',  // Art der Mitgliedschaft / Geschlecht
+                'N': 'member_number',   // Nummer
+                'p': 'language',        // Sprache (sp)
+                'Anschrift': 'address',
+                'CAP': 'postal_code',
+                'Ort': 'city',
+                'E-Mail': 'email',
+                'Telefon': 'phone',
+                'Geburtsjahr': 'birth_year',
+                'StrNr': 'tax_number',
+                'StNr': 'tax_number',
+                'Beitrag': 'membership_fee',
+                'Spende': 'donation',
+                'Datum B': 'join_date',
+                'Zahlungsart': 'payment_method',
+                'Hashtag': 'hashtag',
+                'Info': 'notes'
+            };
+
+            // Daten transformieren
+            this.memberImportData = json.map(row => {
+                const mapped = {};
+                Object.keys(row).forEach(key => {
+                    // Exaktes Match oder Teilmatch
+                    let targetKey = null;
+                    for (const [searchKey, mappedKey] of Object.entries(columnMap)) {
+                        if (key === searchKey || key.includes(searchKey)) {
+                            targetKey = mappedKey;
+                            break;
+                        }
+                    }
+                    if (targetKey) {
+                        mapped[targetKey] = row[key];
+                    }
+                });
+                return mapped;
+            }).filter(m => m.last_name); // Nur Zeilen mit Nachname
+
+            // Vorschau anzeigen
+            const previewDiv = document.getElementById('member-import-preview-table');
+            const previewData = this.memberImportData.slice(0, 5);
+
+            let tableHtml = '<table style="font-size: 0.8rem;"><thead><tr>';
+            tableHtml += '<th>Nachname</th><th>Vorname</th><th>Ort</th><th>E-Mail</th><th>Beitrag</th>';
+            tableHtml += '</tr></thead><tbody>';
+
+            previewData.forEach(m => {
+                tableHtml += `<tr>
+                    <td>${m.last_name || ''}</td>
+                    <td>${m.first_name || ''}</td>
+                    <td>${m.city || ''}</td>
+                    <td>${m.email || ''}</td>
+                    <td>${m.membership_fee || ''}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+
+            previewDiv.innerHTML = tableHtml;
+            document.getElementById('member-import-count').textContent = `${this.memberImportData.length} Mitglieder erkannt`;
+            document.getElementById('member-import-preview').style.display = 'block';
+            document.getElementById('member-import-btn').disabled = false;
+
+        } catch (error) {
+            console.error('Fehler beim Lesen der Datei:', error);
+            alert('Fehler beim Lesen der Datei: ' + error.message);
+        }
+    },
+
+    importMembersFromExcel: async function() {
+        if (!this.memberImportData || this.memberImportData.length === 0) {
+            alert('Keine Daten zum Importieren');
+            return;
+        }
+
+        try {
+            const result = await DataManager.importMembers(this.memberImportData);
+
+            document.getElementById('member-import-result').innerHTML = `
+                <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
+                    <strong>Import erfolgreich!</strong><br>
+                    ${result.count} Mitglieder wurden importiert.
+                </div>
+            `;
+            document.getElementById('member-import-result').style.display = 'block';
+            document.getElementById('member-import-btn').disabled = true;
+
+            // Nach 2 Sekunden Modal schließen und Liste aktualisieren
+            setTimeout(() => {
+                this.hideModal('member-import-modal');
+                this.loadMembers();
+            }, 2000);
+
+        } catch (error) {
+            console.error('Fehler beim Import:', error);
+            document.getElementById('member-import-result').innerHTML = `
+                <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
+                    <strong>Import fehlgeschlagen!</strong><br>
+                    ${error.message}
+                </div>
+            `;
+            document.getElementById('member-import-result').style.display = 'block';
+        }
+    },
+
+    exportMembersCSV: function() {
+        const year = document.getElementById('members-filter-year')?.value || new Date().getFullYear();
+
+        let csv = '\uFEFF'; // BOM für Excel
+        csv += 'Nachname;Vorname;Geschlecht;Anschrift;PLZ;Ort;E-Mail;Telefon;Geburtsjahr;Steuernummer;Beitrag;Spende;Beitrittsdatum;Zahlungsart;Bezahlt;Zahlungsdatum;Notizen\n';
+
+        this.filteredMembers.forEach(m => {
+            csv += `"${m.last_name}";"${m.first_name || ''}";"${m.gender || ''}";"${m.address || ''}";"${m.postal_code || ''}";"${m.city || ''}";"${m.email || ''}";"${m.phone || ''}";"${m.birth_year || ''}";"${m.tax_number || ''}";"${m.membership_fee || 0}";"${m.donation || 0}";"${m.join_date || ''}";"${m.payment_method || ''}";"${m.isPaid ? 'Ja' : 'Nein'}";"${m.payment?.payment_date || ''}";"${m.notes || ''}"\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `Einnahmen_${jahr}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `Mitglieder_${year}_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     },
 
@@ -6108,6 +7539,617 @@ const App = {
         } catch (error) {
             console.error('❌ Fehler bei automatischer Verknüpfung:', error);
             return { linked: 0, total: 0 };
+        }
+    },
+
+    // ==========================================
+    // BUDGETPLANUNG
+    // ==========================================
+
+    budgetEntriesData: [],
+    budgetIstData: {},
+
+    loadBudgetplanung: async function() {
+        const year = parseInt(document.getElementById('budget-year-filter')?.value || new Date().getFullYear());
+        const showVorjahr = document.getElementById('budget-show-vorjahr')?.checked || false;
+
+        try {
+            // Budget-Einträge laden
+            this.budgetEntriesData = await DataManager.getBudgetEntries(year, showVorjahr);
+
+            // IST-Daten aus DATEV-Buchungen laden
+            await this.loadBudgetIstData(year);
+
+            // Tabellen rendern
+            this.renderBudgetKontenTable(year, showVorjahr);
+            this.renderBudgetProjekteTable(year);
+
+            // Notizen laden
+            const notes = await DataManager.getBudgetNotes(year);
+            document.getElementById('budget-notizen-text').value = notes;
+
+            // Statistiken aktualisieren
+            this.updateBudgetStats(year);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Budgetplanung:', error);
+            this.showToast('error', 'Fehler', 'Budgetplanung konnte nicht geladen werden');
+        }
+    },
+
+    loadBudgetIstData: async function(year) {
+        try {
+            // DATEV-Buchungen für das Jahr laden
+            const { data: buchungen, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('konto_nr, datum, betrag')
+                .eq('import_year', year);
+
+            if (error) throw error;
+
+            // Nach Konto und Monat gruppieren
+            this.budgetIstData = {};
+            const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
+            (buchungen || []).forEach(b => {
+                if (!b.konto_nr || !b.datum) return;
+
+                const konto = b.konto_nr;
+                const monat = new Date(b.datum).getMonth(); // 0-11
+
+                if (!this.budgetIstData[konto]) {
+                    this.budgetIstData[konto] = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
+                }
+
+                this.budgetIstData[konto][months[monat]] += parseFloat(b.betrag) || 0;
+                this.budgetIstData[konto].total += parseFloat(b.betrag) || 0;
+            });
+
+        } catch (error) {
+            console.error('Fehler beim Laden der IST-Daten:', error);
+            this.budgetIstData = {};
+        }
+    },
+
+    renderBudgetKontenTable: function(year, showVorjahr) {
+        const tbody = document.getElementById('budget-konten-body');
+        const entries = this.budgetEntriesData.filter(e => e.fiscal_year === year);
+        const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
+        if (entries.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #666; padding: 2rem;">
+                Keine Budget-Einträge für ${year}. Klicken Sie auf "+ Budget hinzufügen" um zu beginnen.
+            </td></tr>`;
+            return;
+        }
+
+        let html = '';
+        const totals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
+
+        entries.forEach(entry => {
+            const rowTotal = months.reduce((sum, m) => sum + (parseFloat(entry[m]) || 0), 0);
+            months.forEach(m => totals[m] += parseFloat(entry[m]) || 0);
+
+            html += `<tr>
+                <td><strong>${entry.konto_nr}</strong></td>
+                <td>${entry.description}</td>
+                ${months.map(m => `<td style="text-align: right;">${this.formatNumber(entry[m])}</td>`).join('')}
+                <td style="text-align: right; font-weight: bold;">${this.formatNumber(rowTotal)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${entry.id}')">Bearbeiten</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.deleteBudgetEntry('${entry.id}')" style="color: #dc3545;">Löschen</button>
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html;
+
+        // Summen aktualisieren
+        const yearTotal = months.reduce((sum, m) => sum + totals[m], 0);
+        months.forEach(m => document.getElementById(`budget-total-${m}`).textContent = this.formatNumber(totals[m]));
+        document.getElementById('budget-total-year').textContent = this.formatNumber(yearTotal);
+
+        // IST-Summen
+        const istTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
+        Object.values(this.budgetIstData).forEach(konto => {
+            months.forEach(m => istTotals[m] += konto[m] || 0);
+        });
+        const istYearTotal = months.reduce((sum, m) => sum + istTotals[m], 0);
+        months.forEach(m => document.getElementById(`ist-total-${m}`).textContent = this.formatNumber(istTotals[m]));
+        document.getElementById('ist-total-year').textContent = this.formatNumber(istYearTotal);
+
+        // Differenz
+        months.forEach(m => {
+            const diff = totals[m] - istTotals[m];
+            document.getElementById(`diff-total-${m}`).textContent = this.formatNumber(diff);
+        });
+        document.getElementById('diff-total-year').textContent = this.formatNumber(yearTotal - istYearTotal);
+    },
+
+    renderBudgetProjekteTable: async function(year) {
+        const tbody = document.getElementById('budget-projekte-body');
+
+        try {
+            const projects = await DataManager.getProjects();
+            const rechnungen = await DataManager.getRechnungenMitStatus();
+
+            let html = '';
+            let totalBudget = 0, totalForecast = 0, totalIst = 0;
+
+            projects.forEach(project => {
+                const budget = project.budget || 0;
+                const projektRechnungen = rechnungen.filter(r => String(r.projektId) === String(project.datevId) && !r.isSupabaseOnly);
+                const ist = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+                const verfuegbar = budget - ist;
+                const prozent = budget > 0 ? Math.round((ist / budget) * 100) : 0;
+                const barColor = prozent > 90 ? '#e74c3c' : prozent > 70 ? '#f39c12' : '#27ae60';
+
+                totalBudget += budget;
+                totalIst += ist;
+
+                if (budget > 0 || ist > 0) {
+                    html += `<tr>
+                        <td><strong>${project.name}</strong></td>
+                        <td><span class="badge badge-${project.status === 'laufend' ? 'success' : 'secondary'}">${project.status || 'laufend'}</span></td>
+                        <td style="text-align: right;">${this.formatCurrency(budget)}</td>
+                        <td style="text-align: right;">-</td>
+                        <td style="text-align: right;">${this.formatCurrency(ist)}</td>
+                        <td style="text-align: right; ${verfuegbar < 0 ? 'color: #dc3545;' : ''}">${this.formatCurrency(verfuegbar)}</td>
+                        <td style="width: 120px;">
+                            <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
+                                <div style="background: ${barColor}; height: 100%; width: ${Math.min(prozent, 100)}%;"></div>
+                            </div>
+                            <small>${prozent}%</small>
+                        </td>
+                    </tr>`;
+                }
+            });
+
+            tbody.innerHTML = html || '<tr><td colspan="7" style="text-align: center; color: #666;">Keine Projekte mit Budget gefunden</td></tr>';
+
+            // Footer aktualisieren
+            document.getElementById('budget-projekte-total-budget').textContent = this.formatCurrency(totalBudget);
+            document.getElementById('budget-projekte-total-ist').textContent = this.formatCurrency(totalIst);
+            document.getElementById('budget-projekte-total-available').textContent = this.formatCurrency(totalBudget - totalIst);
+
+        } catch (error) {
+            console.error('Fehler beim Rendern der Projekt-Budgets:', error);
+            tbody.innerHTML = '<tr><td colspan="7" style="color: red;">Fehler beim Laden</td></tr>';
+        }
+    },
+
+    updateBudgetStats: function(year) {
+        const entries = this.budgetEntriesData.filter(e => e.fiscal_year === year);
+        const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
+        const totalBudget = entries.reduce((sum, e) => sum + months.reduce((s, m) => s + (parseFloat(e[m]) || 0), 0), 0);
+        const totalIst = Object.values(this.budgetIstData).reduce((sum, k) => sum + (k.total || 0), 0);
+
+        document.getElementById('budget-total').textContent = this.formatCurrency(totalBudget);
+        document.getElementById('budget-forecast').textContent = this.formatCurrency(totalBudget); // Gleich wie Budget für jetzt
+        document.getElementById('budget-ist').textContent = this.formatCurrency(totalIst);
+        document.getElementById('budget-available').textContent = this.formatCurrency(totalBudget - totalIst);
+    },
+
+    showBudgetEntryModal: async function(entryId = null) {
+        const modal = document.getElementById('budget-entry-modal');
+        const title = document.getElementById('budget-entry-modal-title');
+
+        // Formular zurücksetzen
+        document.getElementById('budget-entry-id').value = '';
+        document.getElementById('budget-entry-konto').value = '';
+        document.getElementById('budget-entry-description').value = '';
+        document.getElementById('budget-entry-projekt').value = '';
+        document.getElementById('budget-entry-type').value = 'budget';
+        document.getElementById('budget-entry-notes').value = '';
+        ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
+            document.getElementById(`budget-entry-${m}`).value = '0';
+        });
+        document.getElementById('budget-entry-total').textContent = '0,00 EUR';
+
+        // Projekte-Dropdown füllen
+        const projektSelect = document.getElementById('budget-entry-projekt');
+        const projects = await DataManager.getProjects();
+        projektSelect.innerHTML = '<option value="">-- Kein Projekt --</option>' +
+            projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+        // Event-Listener für automatische Summenberechnung
+        ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
+            document.getElementById(`budget-entry-${m}`).oninput = () => this.updateBudgetEntryTotal();
+        });
+
+        if (entryId) {
+            title.textContent = 'Budget-Eintrag bearbeiten';
+            const entry = await DataManager.getBudgetEntryById(entryId);
+            if (entry) {
+                document.getElementById('budget-entry-id').value = entry.id;
+                document.getElementById('budget-entry-konto').value = entry.konto_nr || '';
+                document.getElementById('budget-entry-description').value = entry.description || '';
+                document.getElementById('budget-entry-projekt').value = entry.projekt_id || '';
+                document.getElementById('budget-entry-type').value = entry.entry_type || 'budget';
+                document.getElementById('budget-entry-notes').value = entry.notes || '';
+                ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
+                    document.getElementById(`budget-entry-${m}`).value = entry[m] || 0;
+                });
+                this.updateBudgetEntryTotal();
+            }
+        } else {
+            title.textContent = 'Neuer Budget-Eintrag';
+        }
+
+        modal.classList.add('active');
+    },
+
+    updateBudgetEntryTotal: function() {
+        const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+        const total = months.reduce((sum, m) => sum + (parseFloat(document.getElementById(`budget-entry-${m}`).value) || 0), 0);
+        document.getElementById('budget-entry-total').textContent = this.formatCurrency(total);
+    },
+
+    saveBudgetEntry: async function(event) {
+        event.preventDefault();
+        const year = parseInt(document.getElementById('budget-year-filter')?.value || new Date().getFullYear());
+        const entryId = document.getElementById('budget-entry-id').value;
+
+        const entryData = {
+            konto_nr: document.getElementById('budget-entry-konto').value.trim(),
+            description: document.getElementById('budget-entry-description').value.trim(),
+            projekt_id: document.getElementById('budget-entry-projekt').value || null,
+            entry_type: document.getElementById('budget-entry-type').value,
+            notes: document.getElementById('budget-entry-notes').value.trim() || null,
+            fiscal_year: year,
+            jan: parseFloat(document.getElementById('budget-entry-jan').value) || 0,
+            feb: parseFloat(document.getElementById('budget-entry-feb').value) || 0,
+            mar: parseFloat(document.getElementById('budget-entry-mar').value) || 0,
+            apr: parseFloat(document.getElementById('budget-entry-apr').value) || 0,
+            mai: parseFloat(document.getElementById('budget-entry-mai').value) || 0,
+            jun: parseFloat(document.getElementById('budget-entry-jun').value) || 0,
+            jul: parseFloat(document.getElementById('budget-entry-jul').value) || 0,
+            aug: parseFloat(document.getElementById('budget-entry-aug').value) || 0,
+            sep: parseFloat(document.getElementById('budget-entry-sep').value) || 0,
+            okt: parseFloat(document.getElementById('budget-entry-okt').value) || 0,
+            nov: parseFloat(document.getElementById('budget-entry-nov').value) || 0,
+            dez: parseFloat(document.getElementById('budget-entry-dez').value) || 0
+        };
+
+        try {
+            if (entryId) {
+                await DataManager.updateBudgetEntry(entryId, entryData);
+                this.showToast('success', 'Gespeichert', 'Budget-Eintrag wurde aktualisiert');
+            } else {
+                await DataManager.addBudgetEntry(entryData);
+                this.showToast('success', 'Erstellt', 'Budget-Eintrag wurde erstellt');
+            }
+            this.hideModal('budget-entry-modal');
+            await this.loadBudgetplanung();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('error', 'Fehler', 'Budget-Eintrag konnte nicht gespeichert werden');
+        }
+    },
+
+    editBudgetEntry: function(entryId) {
+        this.showBudgetEntryModal(entryId);
+    },
+
+    deleteBudgetEntry: async function(entryId) {
+        if (!confirm('Möchten Sie diesen Budget-Eintrag wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteBudgetEntry(entryId);
+            this.showToast('success', 'Gelöscht', 'Budget-Eintrag wurde gelöscht');
+            await this.loadBudgetplanung();
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('error', 'Fehler', 'Budget-Eintrag konnte nicht gelöscht werden');
+        }
+    },
+
+    saveBudgetNotizen: async function() {
+        const year = parseInt(document.getElementById('budget-year-filter')?.value || new Date().getFullYear());
+        const notes = document.getElementById('budget-notizen-text').value;
+
+        try {
+            await DataManager.saveBudgetNotes(year, notes);
+            this.showToast('success', 'Gespeichert', 'Notizen wurden gespeichert');
+        } catch (error) {
+            console.error('Fehler beim Speichern der Notizen:', error);
+            this.showToast('error', 'Fehler', 'Notizen konnten nicht gespeichert werden');
+        }
+    },
+
+    exportBudgetCSV: function() {
+        // TODO: CSV-Export implementieren
+        this.showToast('info', 'Info', 'CSV-Export wird noch implementiert');
+    },
+
+    formatNumber: function(value) {
+        if (value === null || value === undefined || isNaN(value)) return '0';
+        return Math.round(value).toLocaleString('de-DE');
+    },
+
+    // ==========================================
+    // WORKSPACE-VERWALTUNG
+    // ==========================================
+
+    workspacesData: [],
+    currentWorkspaceId: null,
+
+    loadWorkspaces: async function() {
+        try {
+            this.workspacesData = await DataManager.getWorkspaces();
+            this.renderWorkspacesList();
+        } catch (error) {
+            console.error('Fehler beim Laden der Workspaces:', error);
+            this.showToast('error', 'Fehler', 'Workspaces konnten nicht geladen werden');
+        }
+    },
+
+    renderWorkspacesList: function() {
+        const container = document.getElementById('workspaces-list');
+        if (!container) return;
+
+        if (this.workspacesData.length === 0) {
+            container.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: #666;">
+                    <p>Noch keine Workspaces vorhanden.</p>
+                    <p style="font-size: 0.875rem;">Erstellen Sie einen Workspace, um Benutzerberechtigungen zu verwalten.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const accessLabels = {
+            access_dashboard: 'Dashboard',
+            access_projekte: 'Projekte',
+            access_rechnungen: 'Rechnungen',
+            access_bewegungen: 'Bewegungen',
+            access_lieferanten: 'Lieferanten',
+            access_mitglieder: 'Mitglieder',
+            access_einnahmen: 'Einnahmen',
+            access_konfiguration: 'Konfiguration'
+        };
+
+        container.innerHTML = this.workspacesData.map(ws => {
+            const accessList = Object.entries(accessLabels)
+                .filter(([key]) => ws[key])
+                .map(([, label]) => label);
+
+            const accessText = accessList.length > 0 ? accessList.join(', ') : 'Kein Zugriff';
+
+            return `
+                <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                            ${ws.name}
+                            ${!ws.is_active ? '<span style="color: #999; font-weight: normal;">(inaktiv)</span>' : ''}
+                        </div>
+                        ${ws.description ? `<div style="font-size: 0.875rem; color: #666; margin-bottom: 0.25rem;">${ws.description}</div>` : ''}
+                        <div style="font-size: 0.75rem; color: #888;">
+                            Zugriff: ${accessText}
+                            ${ws.rechnungen_nur_zugewiesene ? ' | Nur zugewiesene Rechnungen' : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-sm btn-outline" onclick="App.showWorkspaceUsersModal('${ws.id}')" title="Benutzer verwalten">
+                            Benutzer
+                        </button>
+                        <button class="btn btn-sm btn-outline" onclick="App.editWorkspace('${ws.id}')" title="Bearbeiten">
+                            Bearbeiten
+                        </button>
+                        <button class="btn btn-sm btn-outline" onclick="App.deleteWorkspace('${ws.id}')" title="Löschen" style="color: #dc3545;">
+                            Löschen
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    showWorkspaceModal: function(workspaceId = null) {
+        const modal = document.getElementById('workspace-form-modal');
+        const title = document.getElementById('workspace-modal-title');
+
+        // Formular zurücksetzen
+        document.getElementById('workspace-id').value = '';
+        document.getElementById('workspace-name').value = '';
+        document.getElementById('workspace-description').value = '';
+        document.getElementById('workspace-access-dashboard').checked = false;
+        document.getElementById('workspace-access-projekte').checked = false;
+        document.getElementById('workspace-access-rechnungen').checked = false;
+        document.getElementById('workspace-access-bewegungen').checked = false;
+        document.getElementById('workspace-access-lieferanten').checked = false;
+        document.getElementById('workspace-access-mitglieder').checked = false;
+        document.getElementById('workspace-access-einnahmen').checked = false;
+        document.getElementById('workspace-access-konfiguration').checked = false;
+        document.getElementById('workspace-rechnungen-nur-zugewiesene').checked = false;
+
+        if (workspaceId) {
+            title.textContent = 'Workspace bearbeiten';
+            const ws = this.workspacesData.find(w => w.id === workspaceId);
+            if (ws) {
+                document.getElementById('workspace-id').value = ws.id;
+                document.getElementById('workspace-name').value = ws.name || '';
+                document.getElementById('workspace-description').value = ws.description || '';
+                document.getElementById('workspace-access-dashboard').checked = ws.access_dashboard;
+                document.getElementById('workspace-access-projekte').checked = ws.access_projekte;
+                document.getElementById('workspace-access-rechnungen').checked = ws.access_rechnungen;
+                document.getElementById('workspace-access-bewegungen').checked = ws.access_bewegungen;
+                document.getElementById('workspace-access-lieferanten').checked = ws.access_lieferanten;
+                document.getElementById('workspace-access-mitglieder').checked = ws.access_mitglieder;
+                document.getElementById('workspace-access-einnahmen').checked = ws.access_einnahmen;
+                document.getElementById('workspace-access-konfiguration').checked = ws.access_konfiguration;
+                document.getElementById('workspace-rechnungen-nur-zugewiesene').checked = ws.rechnungen_nur_zugewiesene;
+            }
+        } else {
+            title.textContent = 'Neuer Workspace';
+        }
+
+        modal.classList.add('active');
+    },
+
+    editWorkspace: function(workspaceId) {
+        this.showWorkspaceModal(workspaceId);
+    },
+
+    saveWorkspace: async function(event) {
+        event.preventDefault();
+
+        const workspaceId = document.getElementById('workspace-id').value;
+        const workspaceData = {
+            name: document.getElementById('workspace-name').value.trim(),
+            description: document.getElementById('workspace-description').value.trim() || null,
+            access_dashboard: document.getElementById('workspace-access-dashboard').checked,
+            access_projekte: document.getElementById('workspace-access-projekte').checked,
+            access_rechnungen: document.getElementById('workspace-access-rechnungen').checked,
+            access_bewegungen: document.getElementById('workspace-access-bewegungen').checked,
+            access_lieferanten: document.getElementById('workspace-access-lieferanten').checked,
+            access_mitglieder: document.getElementById('workspace-access-mitglieder').checked,
+            access_einnahmen: document.getElementById('workspace-access-einnahmen').checked,
+            access_konfiguration: document.getElementById('workspace-access-konfiguration').checked,
+            rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,
+            is_active: true
+        };
+
+        try {
+            if (workspaceId) {
+                await DataManager.updateWorkspace(workspaceId, workspaceData);
+                this.showToast('success', 'Gespeichert', 'Workspace wurde aktualisiert');
+            } else {
+                await DataManager.addWorkspace(workspaceData);
+                this.showToast('success', 'Erstellt', 'Workspace wurde erstellt');
+            }
+
+            this.hideModal('workspace-form-modal');
+            await this.loadWorkspaces();
+        } catch (error) {
+            console.error('Fehler beim Speichern des Workspace:', error);
+            this.showToast('error', 'Fehler', 'Workspace konnte nicht gespeichert werden');
+        }
+    },
+
+    deleteWorkspace: async function(workspaceId) {
+        const ws = this.workspacesData.find(w => w.id === workspaceId);
+        if (!ws) return;
+
+        if (!confirm(`Möchten Sie den Workspace "${ws.name}" wirklich löschen?\n\nAlle Benutzer werden aus diesem Workspace entfernt.`)) {
+            return;
+        }
+
+        try {
+            await DataManager.deleteWorkspace(workspaceId);
+            this.showToast('success', 'Gelöscht', 'Workspace wurde gelöscht');
+            await this.loadWorkspaces();
+        } catch (error) {
+            console.error('Fehler beim Löschen des Workspace:', error);
+            this.showToast('error', 'Fehler', 'Workspace konnte nicht gelöscht werden');
+        }
+    },
+
+    showWorkspaceUsersModal: async function(workspaceId) {
+        this.currentWorkspaceId = workspaceId;
+        const ws = this.workspacesData.find(w => w.id === workspaceId);
+
+        document.getElementById('workspace-users-title').textContent = `Benutzer in "${ws?.name || 'Workspace'}"`;
+        document.getElementById('workspace-add-user-email').value = '';
+
+        // User-Liste laden
+        await this.loadWorkspaceUsers(workspaceId);
+
+        document.getElementById('workspace-users-modal').classList.add('active');
+    },
+
+    loadWorkspaceUsers: async function(workspaceId) {
+        const container = document.getElementById('workspace-users-list');
+
+        try {
+            const userWorkspaces = await DataManager.getUserWorkspaces(workspaceId);
+
+            if (userWorkspaces.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: #666; background: #f9f9f9; border-radius: 4px;">
+                        Keine Benutzer zugewiesen
+                    </div>
+                `;
+                return;
+            }
+
+            // User-Details laden (falls verfügbar)
+            const users = await DataManager.getUsers();
+            const userMap = new Map(users.map(u => [u.id, u]));
+
+            container.innerHTML = userWorkspaces.map(uw => {
+                const user = userMap.get(uw.user_id);
+                const displayName = user?.email || user?.name || uw.user_id;
+
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #eee;">
+                        <div>
+                            <div style="font-weight: 500;">${displayName}</div>
+                            ${uw.is_admin ? '<span style="font-size: 0.75rem; color: #007bff;">Workspace-Admin</span>' : ''}
+                        </div>
+                        <button class="btn btn-sm btn-outline" onclick="App.removeUserFromWorkspace('${uw.user_id}', '${workspaceId}')" style="color: #dc3545;">
+                            Entfernen
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Fehler beim Laden der Workspace-User:', error);
+            container.innerHTML = '<div style="color: red; padding: 1rem;">Fehler beim Laden</div>';
+        }
+    },
+
+    addUserToCurrentWorkspace: async function() {
+        const emailInput = document.getElementById('workspace-add-user-email');
+        const email = emailInput.value.trim();
+
+        if (!email) {
+            this.showToast('warning', 'Hinweis', 'Bitte geben Sie eine E-Mail-Adresse ein');
+            return;
+        }
+
+        if (!this.currentWorkspaceId) {
+            this.showToast('error', 'Fehler', 'Kein Workspace ausgewählt');
+            return;
+        }
+
+        try {
+            // User per E-Mail finden
+            const users = await DataManager.getUsers();
+            const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+
+            if (!user) {
+                this.showToast('error', 'Nicht gefunden', 'Benutzer mit dieser E-Mail wurde nicht gefunden. Der Benutzer muss sich zuerst anmelden.');
+                return;
+            }
+
+            await DataManager.addUserToWorkspace(user.id, this.currentWorkspaceId, false);
+            this.showToast('success', 'Hinzugefügt', `${email} wurde zum Workspace hinzugefügt`);
+            emailInput.value = '';
+            await this.loadWorkspaceUsers(this.currentWorkspaceId);
+        } catch (error) {
+            console.error('Fehler beim Hinzufügen des Users:', error);
+            if (error.message?.includes('duplicate') || error.code === '23505') {
+                this.showToast('warning', 'Bereits vorhanden', 'Dieser Benutzer ist bereits im Workspace');
+            } else {
+                this.showToast('error', 'Fehler', 'Benutzer konnte nicht hinzugefügt werden');
+            }
+        }
+    },
+
+    removeUserFromWorkspace: async function(userId, workspaceId) {
+        if (!confirm('Möchten Sie diesen Benutzer wirklich aus dem Workspace entfernen?')) {
+            return;
+        }
+
+        try {
+            await DataManager.removeUserFromWorkspace(userId, workspaceId);
+            this.showToast('success', 'Entfernt', 'Benutzer wurde aus dem Workspace entfernt');
+            await this.loadWorkspaceUsers(workspaceId);
+        } catch (error) {
+            console.error('Fehler beim Entfernen des Users:', error);
+            this.showToast('error', 'Fehler', 'Benutzer konnte nicht entfernt werden');
         }
     },
 

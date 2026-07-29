@@ -1,322 +1,476 @@
 # Technische Dokumentation - Projektsoftware Kunst Meran
 
-**Version:** 1.0.0
-**Stand:** Juni 2026
+**Version:** 2.0.0
+**Stand:** Juli 2026
 **Autor:** Controlling Solutions
 
 ---
 
 ## 1. Systemarchitektur
 
-### 1.1 Ordnerstruktur
+### 1.1 Übersicht
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Frontend                              │
+│                     (Vercel Hosting)                         │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐ │
+│  │ app.html│  │ auth.js │  │ app.js  │  │ data-adapter.js │ │
+│  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘ │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ HTTPS
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Supabase Backend                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ PostgreSQL   │  │ Auth         │  │ Storage      │       │
+│  │ (Datenbank)  │  │ (Anmeldung)  │  │ (PDFs)       │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 Ordnerstruktur
 
 ```
 Projektsoftware/
-├── app.html                    # Hauptanwendung (Single Page Application)
+├── index.html                    # Login-Seite
+├── app.html                      # Hauptanwendung (SPA)
+│
 ├── css/
-│   └── style.css               # Stylesheet
+│   └── style.css                 # Stylesheet
+│
 ├── js/
-│   ├── app.js                  # UI-Logik & Event-Handling
-│   ├── auth.js                 # Authentifizierung
-│   └── data.js                 # Datenverwaltung & Business-Logik
-├── data/
-│   ├── buchungen.json          # Aktuelle DATEV-Daten (generiert)
-│   ├── buchungen_2025.json     # Jahresarchiv (optional)
-│   └── backups/                # Automatische Backups (max. 10)
-├── scripts/
-│   ├── import_datev.vbs        # DATEV-Import-Skript
-│   └── archiviere_jahr.vbs     # Jahresarchivierung
-├── DATEV Exporte/
-│   └── Controlling - Kunst Meran.xls  # Input: DATEV-Export
-└── EK-Rechnungen/
-    └── *.pdf                   # Rechnungs-PDFs
+│   ├── config.js                 # Umgebungskonfiguration & Feature Flags
+│   ├── auth.js                   # Authentifizierung (Supabase Auth)
+│   ├── supabase-client.js        # Supabase API Service Layer
+│   ├── data.js                   # Datenverwaltung & Business-Logik
+│   ├── data-adapter.js           # Daten-Transformation (Supabase ↔ UI)
+│   ├── storage-service.js        # localStorage Fallback
+│   ├── excel-import-service.js   # DATEV & Lieferanten Excel-Import
+│   ├── migration.js              # Datenmigration (localStorage → Supabase)
+│   └── app.js                    # UI-Logik & Event-Handling
+│
+├── docs/                         # Dokumentation
+├── supabase-migrations/          # Datenbank-Migrationen
+├── vercel.json                   # Vercel-Konfiguration
+└── supabase-schema.sql           # Datenbank-Schema
 ```
 
-### 1.2 Datenfluss
+### 1.3 Datenfluss
 
 ```
-DATEV Export (.xls)
+DATEV Export (.xlsx)
         │
         ▼
-import_datev.vbs ──► Backup erstellen
+excel-import-service.js ──► Duplikate prüfen
         │
         ▼
-buchungen.json ◄──── PDF-Matching (EK-Rechnungen/)
+Supabase: datev_bookings
         │
         ▼
-Web-Anwendung (app.html)
+data-adapter.js ──► UI-Format transformieren
         │
         ▼
-localStorage (Status-Daten)
+app.js ──► Rendering
+        │
+        ▼
+Benutzer-Änderungen
+        │
+        ▼
+supabase-client.js ──► API Calls
+        │
+        ▼
+Supabase PostgreSQL
 ```
 
 ---
 
 ## 2. Komponenten
 
-### 2.1 Import-Skript (import_datev.vbs)
+### 2.1 config.js
 
-**Zweck:** Konvertiert DATEV Excel-Export zu JSON
+**Zweck:** Zentrale Konfiguration und Feature Flags
+
+```javascript
+const Config = {
+    supabase: {
+        url: 'https://xxx.supabase.co',
+        anonKey: 'xxx'
+    },
+    app: {
+        name: 'Projektsoftware Kunst Meran',
+        version: '2.0.0'
+    },
+    features: {
+        useSupabase: true,    // false = localStorage-Modus
+        enableRealtime: false,
+        enableBackups: true
+    }
+};
+```
+
+### 2.2 auth.js
+
+**Zweck:** Authentifizierung über Supabase Auth
 
 **Funktionen:**
-- Excel-Datei lesen via COM-Objekt
-- Spalten automatisch erkennen (deutsch/italienisch)
-- PDF-Dateien im EK-Rechnungen-Ordner scannen
-- JSON mit UTF-8 Encoding generieren
-- Automatisches Backup vor Überschreiben
-- Alte Backups aufräumen (behält letzte 10)
+- `handleLogin()` - Login mit E-Mail/Passwort
+- `logout()` - Session beenden
+- `checkAuth()` - Auth-Status prüfen
+- `getCurrentUser()` - Benutzerinfo laden
+- `isAdmin()` - Admin-Rechte prüfen
 
-**Erkannte Spalten:**
-| Spalte | Deutsch | Italienisch |
-|--------|---------|-------------|
-| Lieferant | Lieferant | Fornitore |
-| Partita IVA | Steuernummer | Partita IVA |
-| Rechnungsnr. | Belegnummer | Numero documento |
-| Datum | Datum | Data |
-| Betrag Netto | Netto | Imponibile |
-| MwSt | MwSt | IVA |
-| Projekt-ID | (letzte Spalte) | (letzte Spalte) |
+**Fallback:** Bei `useSupabase: false` wird localStorage verwendet.
 
-**Ausführung:**
-```
-Doppelklick auf: scripts/import_datev.vbs
-```
+### 2.3 supabase-client.js
 
-### 2.2 Archivierungs-Skript (archiviere_jahr.vbs)
-
-**Zweck:** Erstellt Jahresarchiv für abgeschlossene Jahre
-
-**Funktionen:**
-- Fragt Jahr ab (Default: Vorjahr)
-- Kopiert buchungen.json zu buchungen_JAHR.json
-- Warnt bei existierendem Archiv
-
-**Ausführung:**
-```
-Doppelklick auf: scripts/archiviere_jahr.vbs
-```
-
-### 2.3 Web-Anwendung (app.html)
-
-**Technologie:** Vanilla JavaScript (keine Frameworks)
+**Zweck:** API Service Layer für alle Supabase-Operationen
 
 **Module:**
 
-| Datei | Verantwortlichkeit |
-|-------|-------------------|
-| data.js | Datenladen, -speichern, Business-Logik |
-| auth.js | Login/Logout, Benutzerrollen |
-| app.js | UI-Rendering, Event-Handler |
+| Bereich | Methoden |
+|---------|----------|
+| Auth | signIn, signOut, getCurrentUser, getSession |
+| Users | getUserProfile, getAllUsers |
+| Projects | getProjects, getProject, createProject, updateProject, deleteProject |
+| Budget | getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem |
+| Costs | getCosts, createCost, updateCost, deleteCost |
+| Funding | getFundingSources, createFundingSource, updateFundingSource |
+| Realtime | subscribeToProjects, subscribeToCosts, unsubscribe |
+
+### 2.4 excel-import-service.js
+
+**Zweck:** Import von DATEV-Buchungen und Lieferanten aus Excel
+
+**Funktionen:**
+- `importDatevBookings(file, year)` - DATEV Excel importieren
+- `importSuppliers(file)` - Lieferanten-Stammdaten importieren
+- `syncSupplierNames()` - Lieferantennamen mit Buchungen synchronisieren
+- `parseExcelFile(file)` - SheetJS Parser
+
+**Features:**
+- Automatische Spalten-Erkennung (deutsch/italienisch)
+- Duplikat-Erkennung (partita_iva + dokument_nr + datum + betrag)
+- Lieferanten-Matching für Partita IVA Lookup
+
+### 2.5 data-adapter.js
+
+**Zweck:** Transformation zwischen Supabase-Format und UI-Format
+
+**Funktionen:**
+- Konvertierung von snake_case (DB) zu camelCase (JS)
+- Aggregation von Projekt-Statistiken
+- Filter- und Such-Logik
+
+### 2.6 app.js
+
+**Zweck:** UI-Rendering und Event-Handling
+
+**Hauptbereiche:**
+- Navigation & View-Switching
+- Rechnungstabelle mit Pagination (20 pro Seite)
+- Sortierung & Filtering
+- Batch-Operationen (Mehrfachauswahl)
+- PDF-Suche und -Zuweisung
+- DATEV-Bewegung-Suche
 
 ---
 
-## 3. Datenstrukturen
+## 3. Datenbank-Schema (Supabase PostgreSQL)
 
-### 3.1 buchungen.json
+### 3.1 Haupttabellen
 
+```sql
+-- Benutzer
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    username TEXT,
+    email TEXT UNIQUE,
+    role TEXT DEFAULT 'user',
+    hourly_rate DECIMAL
+);
+
+-- Projekte
+CREATE TABLE projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'active',
+    location TEXT,
+    start_date DATE,
+    end_date DATE,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- DATEV-Buchungen
+CREATE TABLE datev_bookings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    partita_iva TEXT,
+    fornitore_nr TEXT,
+    fornitore_name TEXT,
+    dokument_nr TEXT NOT NULL,
+    dokument_typ TEXT,
+    betrag DECIMAL,
+    betrag_netto DECIMAL,
+    betrag_mwst DECIMAL,
+    datum DATE NOT NULL,
+    projekt_id TEXT,
+    import_year INTEGER,
+    source_file TEXT,
+    pdf_path TEXT,
+    kontrolliert BOOLEAN DEFAULT FALSE,
+    bezahlt BOOLEAN DEFAULT FALSE,
+    bezahlt_datum DATE,
+    kostentyp TEXT,
+    abgabestelle TEXT,
+    notizen TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Lieferanten
+CREATE TABLE suppliers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    partita_iva TEXT UNIQUE,
+    fornitore_nr TEXT,
+    fornitore_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Kostentypen
+CREATE TABLE cost_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Budget-Positionen
+CREATE TABLE budget_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id),
+    category TEXT,
+    description TEXT,
+    planned_amount DECIMAL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Kosten
+CREATE TABLE costs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id),
+    budget_item_id UUID REFERENCES budget_items(id),
+    description TEXT,
+    amount DECIMAL,
+    date DATE,
+    cost_type TEXT,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Finanzierungsquellen
+CREATE TABLE funding_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id),
+    name TEXT,
+    amount DECIMAL,
+    status TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 3.2 Row Level Security (RLS)
+
+Alle Tabellen haben RLS aktiviert. Beispiel-Policies:
+
+```sql
+-- Authentifizierte Benutzer können lesen
+CREATE POLICY "Users can view datev_bookings"
+ON datev_bookings FOR SELECT
+TO authenticated
+USING (true);
+
+-- Authentifizierte Benutzer können schreiben
+CREATE POLICY "Users can insert datev_bookings"
+ON datev_bookings FOR INSERT
+TO authenticated
+WITH CHECK (true);
+```
+
+### 3.3 Storage Bucket
+
+```
+Bucket: invoices
+├── [partita_iva]_[dokument_nr].pdf
+└── ...
+```
+
+---
+
+## 4. API-Endpunkte (Supabase)
+
+### 4.1 REST API
+
+Base URL: `https://[project-id].supabase.co/rest/v1`
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | /datev_bookings | Alle Buchungen |
+| POST | /datev_bookings | Neue Buchung |
+| PATCH | /datev_bookings?id=eq.{id} | Buchung aktualisieren |
+| GET | /suppliers | Alle Lieferanten |
+| GET | /projects | Alle Projekte |
+
+### 4.2 Auth API
+
+Base URL: `https://[project-id].supabase.co/auth/v1`
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| POST | /token?grant_type=password | Login |
+| POST | /logout | Logout |
+| GET | /user | Aktueller Benutzer |
+
+### 4.3 Storage API
+
+Base URL: `https://[project-id].supabase.co/storage/v1`
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| POST | /object/invoices/{filename} | PDF hochladen |
+| GET | /object/public/invoices/{filename} | PDF abrufen |
+| DELETE | /object/invoices/{filename} | PDF löschen |
+
+---
+
+## 5. Deployment
+
+### 5.1 Vercel (Frontend)
+
+**Repository:** Sophie0301/kunstmeran
+
+**Deployment:**
+```bash
+vercel --prod
+```
+
+**vercel.json:**
 ```json
 {
-  "lastUpdate": "2026-06-22T14:30:00.000Z",
-  "sourceFile": "Controlling - Kunst Meran.xls",
-  "buchungen": [
-    {
-      "id": 1,
-      "partitaIva": "IT01234567890",
-      "fornitoreNr": "10001",
-      "fornitoreName": "Firma XYZ S.r.l.",
-      "dokumentNr": "52/2026",
-      "dokumentTyp": "FT",
-      "betrag": 1500.00,
-      "betragNetto": 1229.51,
-      "betragMwst": 270.49,
-      "datum": "2026-03-15",
-      "projektId": "2601",
-      "pdfFile": "IT01234567890_52.2026.pdf",
-      "pdfExists": true,
-      "istGutschrift": false
-    }
-  ],
-  "lieferanten": [
-    {
-      "partitaIva": "IT01234567890",
-      "nummer": "10001",
-      "name": "Firma XYZ S.r.l.",
-      "anzahlRechnungen": 5
-    }
-  ],
-  "projekte": {
-    "2601": { "name": "Complice", "summe": 15000.00 },
-    "2602": { "name": "Animacies", "summe": 8500.00 }
-  },
-  "stats": {
-    "anzahlBuchungen": 150,
-    "anzahlLieferanten": 45,
-    "anzahlPDFs": 120
-  }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/$1" }
+  ]
 }
 ```
 
-### 3.2 localStorage (Status-Daten)
+### 5.2 Supabase (Backend)
 
-**Key:** `kunstMeran_rechnungStatus`
+**Projekt:** adhzwaxzozujmaeexyej
+**Region:** Frankfurt (eu-central-1)
 
-```json
-{
-  "IT01234567890_52.2026": {
-    "kontrolliert": true,
-    "bezahlt": false,
-    "kostentyp": "material",
-    "abgabestelle": "gemeinde",
-    "notizen": "Warten auf Lieferung"
-  }
-}
-```
-
-**Key:** `kunstMeran_lieferantenNamen`
-
-```json
-{
-  "IT01234567890": "Manuell erfasster Name"
-}
+**Migrationen anwenden:**
+```bash
+supabase db push
 ```
 
 ---
 
-## 4. Projekt-IDs
+## 6. Feature Flags
 
-| ID | Projekt | Status |
-|----|---------|--------|
-| 2601 | Complice | aktiv |
-| 2602 | Animacies | aktiv |
-| 2603 | Stadtraum Meran | aktiv |
-| 2604 | Wanderausstellung | aktiv |
-| 2605 | Konzertreihe | aktiv |
-| 2606 | Menschenbilder | aktiv |
-| 2607 | Rahmenprogramm | aktiv |
+In `config.js`:
 
-**Wichtig:** Nur Rechnungen mit Projekt-ID 2601-2607 werden in der Rechnungsübersicht angezeigt.
+| Flag | Beschreibung |
+|------|--------------|
+| `useSupabase` | true = Supabase, false = localStorage |
+| `enableRealtime` | Realtime-Subscriptions (deaktiviert) |
+| `enableBackups` | Automatische Backups |
 
 ---
 
-## 5. Authentifizierung
+## 7. Authentifizierung
 
-### 5.1 Benutzer
+### 7.1 Flow
 
-| Benutzername | Passwort | Rolle |
-|--------------|----------|-------|
-| Admin | KunstMeran2026 | admin |
-| Mitarbeiter1 | Test123 | user |
+```
+1. Benutzer gibt E-Mail + Passwort ein
+2. auth.js ruft SupabaseService.signIn() auf
+3. Supabase Auth validiert Credentials
+4. JWT-Token wird im Browser gespeichert
+5. Alle API-Calls enthalten Authorization Header
+6. RLS Policies prüfen Berechtigungen
+```
 
-### 5.2 Berechtigungen
+### 7.2 Rollen
 
-| Funktion | Admin | User |
-|----------|-------|------|
-| Rechnungen ansehen | ✓ | ✓ |
-| Status ändern | ✓ | ✓ |
-| CSV Export | ✓ | ✓ |
-| Projekte verwalten | ✓ | ✗ |
-| Einstellungen | ✓ | ✗ |
+| Rolle | Berechtigung |
+|-------|--------------|
+| admin | Alle Funktionen |
+| user | Lesen + eigene Änderungen |
 
 ---
 
-## 6. PDF-Verknüpfung
+## 8. Geplante Migration: Hetzner
 
-### 6.1 Dateinamenskonvention
+### 8.1 Ziel-Architektur
 
 ```
-Format: [PartitaIVA]_[Rechnungsnummer].pdf
-
-Beispiele:
-- IT01234567890_52.2026.pdf
-- IT00987654321_FT-2026-001.pdf
+Hetzner VPS
+├── PostgreSQL (Datenbank)
+├── Node.js Backend (Express/Fastify)
+├── Nginx (Reverse Proxy)
+└── MinIO (S3-kompatibler Storage)
 ```
 
-**Konvertierungsregeln:**
-- `/` wird zu `.` (52/2026 → 52.2026)
-- Leerzeichen werden entfernt
-- Sonderzeichen werden beibehalten
+### 8.2 Migrations-Strategie
 
-### 6.2 Matching-Logik
+1. PostgreSQL-Schema exportieren
+2. Daten mit pg_dump migrieren
+3. Storage-Dateien zu MinIO kopieren
+4. Auth-System ersetzen (z.B. Passport.js)
+5. API-Endpunkte anpassen
+6. Frontend-Config aktualisieren
+
+---
+
+## 9. Externe Abhängigkeiten
+
+| Library | Version | Zweck |
+|---------|---------|-------|
+| @supabase/supabase-js | 2.x | Supabase Client |
+| SheetJS (xlsx) | 0.18.x | Excel-Parsing |
+
+CDN-Einbindung in app.html:
+```html
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+```
+
+---
+
+## 10. Fehlerbehandlung
+
+### 10.1 API-Fehler
+
+Alle Supabase-Calls werfen bei Fehlern Exceptions:
 
 ```javascript
-// In import_datev.vbs
-pdfFileName = partitaIva & "_" & Replace(dokumentNr, "/", ".") & ".pdf"
-pdfExists = FileExists(pdfPath & "\" & pdfFileName)
+try {
+    const { data, error } = await SupabaseService.client
+        .from('datev_bookings')
+        .select('*');
+    if (error) throw error;
+} catch (error) {
+    console.error('Fehler:', error.message);
+}
 ```
 
----
+### 10.2 Häufige Fehler
 
-## 7. Backup-System
-
-### 7.1 Automatische Backups
-
-- **Trigger:** Vor jedem Import (import_datev.vbs)
-- **Speicherort:** data/backups/
-- **Format:** buchungen_backup_YYYYMMDD_HHMMSS.json
-- **Retention:** Letzte 10 Backups
-
-### 7.2 Jahresarchive
-
-- **Trigger:** Manuell (archiviere_jahr.vbs)
-- **Speicherort:** data/
-- **Format:** buchungen_YYYY.json
-- **Abruf:** Jahr-Dropdown in Rechnungsübersicht
-
----
-
-## 8. Server-Deployment
-
-### 8.1 Lokaler Server (empfohlen)
-
-**Voraussetzungen:**
-- Windows Server mit Netzwerkfreigabe
-- Python 3.x oder IIS
-
-**Setup mit Python:**
-```batch
-cd C:\Projektsoftware
-python -m http.server 8080
-```
-
-**Zugriff:**
-```
-http://[SERVER-IP]:8080/app.html
-```
-
-### 8.2 Hetzner Cloud (optional)
-
-- Server: CX23 (4,49 EUR/Monat)
-- VPN-Tunnel erforderlich
-- Ruben für Setup kontaktieren
-
----
-
-## 9. Fehlerbehebung
-
-### 9.1 Import-Skript
-
-| Problem | Ursache | Lösung |
-|---------|---------|--------|
-| "Excel nicht gefunden" | Excel nicht installiert | Excel installieren oder LibreOffice |
-| "Keine Buchungen" | Falsche Spaltenstruktur | Debug-Log prüfen (data/import_debug.log) |
-| "Lieferantennamen fehlen" | Spalte nicht erkannt | "Denominazione" Spalte prüfen |
-
-### 9.2 Web-Anwendung
-
-| Problem | Ursache | Lösung |
-|---------|---------|--------|
-| "Keine Rechnungen" | JSON nicht geladen | F5 drücken, Console prüfen |
-| Status geht verloren | Anderer Browser | Gleichen Browser verwenden |
-| PDFs öffnen nicht | Falscher Pfad | Dateinamen-Konvention prüfen |
-
----
-
-## 10. Erweiterungsmöglichkeiten
-
-1. **Datenbank-Backend:** SQLite oder PostgreSQL für persistente Speicherung
-2. **Multi-User:** Server-seitige Session-Verwaltung
-3. **API:** REST-API für Integration mit anderen Systemen
-4. **Automatisierung:** Windows Task Scheduler für regelmäßige Imports
+| Fehler | Ursache | Lösung |
+|--------|---------|--------|
+| 401 Unauthorized | Session abgelaufen | Neu anmelden |
+| 403 Forbidden | RLS Policy fehlt | Policy hinzufügen |
+| 23505 Duplicate key | Duplikat-Eintrag | Wird beim Import ignoriert |
 
 ---
 
@@ -324,4 +478,4 @@ http://[SERVER-IP]:8080/app.html
 
 **Entwicklung:** Controlling Solutions
 **Projekt:** Kunsthaus Meran Kostenanalyse
-**Repository:** Lokal (kein Git-Repository)
+**Repository:** github.com/Sophie0301/kunstmeran
