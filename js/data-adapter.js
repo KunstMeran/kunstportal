@@ -165,7 +165,92 @@ const SupabaseDataAdapter = {
         DataManager.getBudgetNotes = this.getBudgetNotes.bind(this);
         DataManager.saveBudgetNotes = this.saveBudgetNotes.bind(this);
 
+        // DATEV-Buchungen aus Supabase laden statt aus JSON-Datei
+        DataManager._loadBuchungenJSONOriginal = DataManager.loadBuchungenJSON;
+        DataManager.loadBuchungenJSON = this.loadBuchungenFromSupabase.bind(this);
+
+        DataManager._getDatevBuchungenOriginal = DataManager.getDatevBuchungen;
+        DataManager.getDatevBuchungen = this.getDatevBuchungenFromCache.bind(this);
+
+        // Cache für DATEV-Buchungen
+        this.datevBuchungenCache = [];
+
         console.log('✅ Supabase Data Adapter aktiviert');
+    },
+
+    /**
+     * DATEV-Buchungen aus Supabase laden
+     * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
+     */
+    async loadBuchungenFromSupabase(jahr = null) {
+        try {
+            console.log('📤 Lade DATEV-Buchungen aus Supabase...');
+
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('*')
+                .order('datum', { ascending: false });
+
+            if (error) throw error;
+
+            // Konvertieren zu lokalem Format
+            this.datevBuchungenCache = (data || []).map(b => ({
+                id: b.id,
+                partitaIva: b.partita_iva || '',
+                partitaIvaCliente: b.partita_iva_cliente || '',
+                fornitoreNr: b.fornitore_nr || '',
+                fornitoreName: b.fornitore_name || '',
+                dokumentNr: b.dokument_nr || '',
+                dokumentTyp: b.dokument_typ || 'F',
+                istGutschrift: b.ist_gutschrift || false,
+                betrag: parseFloat(b.betrag) || 0,
+                betragNetto: parseFloat(b.betrag_netto) || 0,
+                betragMwst: parseFloat(b.betrag_mwst) || 0,
+                betragGesamt: parseFloat(b.betrag_gesamt) || 0,
+                mwstTyp: b.mwst_typ || null,
+                datum: b.datum,
+                projektId: b.projekt_id || null,
+                beschreibung: b.beschreibung || '',
+                kategorie: b.kategorie || '',
+                konto: b.konto_nr || null,
+                // Supabase-spezifisch
+                rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
+                importYear: b.import_year,
+                linkedInvoiceId: b.linked_invoice_id
+            }));
+
+            console.log(`✅ ${this.datevBuchungenCache.length} DATEV-Buchungen aus Supabase geladen`);
+
+            // Für Kompatibilität: Auch in localStorage speichern
+            const compatData = {
+                buchungen: this.datevBuchungenCache,
+                lieferanten: [],
+                projekte: {},
+                lastUpdate: new Date().toISOString()
+            };
+            DataManager.save(DataManager.KEYS.DATEV_BUCHUNGEN, compatData);
+
+            return compatData;
+
+        } catch (error) {
+            console.error('Fehler beim Laden der DATEV-Buchungen aus Supabase:', error);
+            // Fallback auf localStorage
+            return DataManager._loadBuchungenJSONOriginal ? DataManager._loadBuchungenJSONOriginal(jahr) : null;
+        }
+    },
+
+    /**
+     * DATEV-Buchungen aus Cache abrufen
+     */
+    getDatevBuchungenFromCache() {
+        // Wenn Cache leer, versuche aus localStorage
+        if (this.datevBuchungenCache.length === 0) {
+            const data = DataManager.load(DataManager.KEYS.DATEV_BUCHUNGEN);
+            if (data && data.buchungen) {
+                this.datevBuchungenCache = data.buchungen;
+            }
+        }
+        return this.datevBuchungenCache;
     },
 
     /**

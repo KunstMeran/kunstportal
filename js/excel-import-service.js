@@ -8,11 +8,13 @@ const ExcelImportService = {
 
     /**
      * Parse Excel-Datei für DATEV-Buchungen
-     * Erwartet Spalten: siehe buchungen.json Struktur
+     * Jahr wird automatisch aus dem Datum jeder Buchung erkannt
+     * @param {File} file - Excel-Datei
+     * @param {number} year - Optional: Wird ignoriert, Jahr kommt aus Datum
      */
-    async importDatevBookings(file, year) {
+    async importDatevBookings(file, year = null) {
         try {
-            console.log('📤 Importiere DATEV-Buchungen für Jahr:', year);
+            console.log('📤 Importiere DATEV-Buchungen (Jahr wird aus Datum erkannt)');
 
             // Excel-Datei parsen mit SheetJS
             const data = await this.parseExcelFile(file);
@@ -44,13 +46,12 @@ const ExcelImportService = {
             }
             console.log(`📇 ${supplierMap.size} Lieferanten für Matching geladen`);
 
-            // 1. Prüfe, welche Buchungen bereits existieren
+            // 1. Prüfe, welche Buchungen bereits existieren (alle Jahre, da Jahr aus Datum kommt)
             // Erweiterter Key: partita_iva + dokument_nr + datum + betrag + konto_nr + fornitore_name + beschreibung
             // Dies ermöglicht auch den Import von Buchungen ohne Dokument-Nr. (z.B. Mitgliedsbeiträge)
             const { data: existingBookings, error: fetchError } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name, beschreibung')
-                .eq('import_year', year);
+                .select('partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name, beschreibung');
 
             if (fetchError) throw fetchError;
 
@@ -60,11 +61,11 @@ const ExcelImportService = {
                 )
             );
 
-            console.log(`✅ ${existingBookings.length} Buchungen bereits vorhanden für Jahr ${year}`);
+            console.log(`✅ ${existingBookings.length} Buchungen bereits in Datenbank`);
 
-            // 2. Filter neue Buchungen
+            // 2. Filter neue Buchungen (Jahr wird aus Datum erkannt)
             const newBookings = data
-                .map(row => this.mapRowToDatevBooking(row, year, file.name, supplierMap))
+                .map(row => this.mapRowToDatevBooking(row, null, file.name, supplierMap))
                 .filter(booking => {
                     // Überspringe Zeilen ohne Datum (NOT NULL Constraint)
                     if (!booking.datum) {
@@ -300,8 +301,12 @@ const ExcelImportService = {
             }
         }
 
+        // Datum parsen und Jahr extrahieren
+        const datum = this.parseDate(row['Data documento']) || this.parseDate(row['Data registrazione']);
+        const importYear = datum ? new Date(datum).getFullYear() : new Date().getFullYear();
+
         return {
-            import_year: year,
+            import_year: importYear, // Jahr aus Datum automatisch erkannt
             import_file_name: fileName,
 
             // DATEV-Spalten-Mapping
@@ -324,7 +329,7 @@ const ExcelImportService = {
             mwst_typ: null,
 
             // Daten
-            datum: this.parseDate(row['Data documento']) || this.parseDate(row['Data registrazione']),
+            datum: datum,
             projekt_id: row['Centro di costo'] || null,
             beschreibung: row['Descrizione movimento'] || null,
             kategorie: row['Descrizione conto'] || null

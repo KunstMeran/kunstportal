@@ -1583,10 +1583,14 @@ const DataManager = {
         const gueltigeProjektIds = Object.keys(KUNST_MERAN_PROJEKTE).map(id => String(id));
 
         const result = buchungen
-            // NUR Rechnungen mit gültiger Projekt-ID anzeigen
+            // Zeige Buchungen die entweder:
+            // 1. Eine Dokument-Nr haben (= Rechnung)
+            // 2. Oder eine gültige Projekt-ID haben
             .filter(buchung => {
+                const hatDokumentNr = buchung.dokumentNr && String(buchung.dokumentNr).trim() !== '';
                 const projektId = String(buchung.projektId || '').trim();
-                return projektId !== '' && gueltigeProjektIds.includes(projektId);
+                const hatGueltigeProjektId = projektId !== '' && gueltigeProjektIds.includes(projektId);
+                return hatDokumentNr || hatGueltigeProjektId;
             })
             .map(buchung => {
                 const rechnungId = buchung.partitaIva + '_' + buchung.dokumentNr;
