@@ -181,43 +181,72 @@ const SupabaseDataAdapter = {
     /**
      * DATEV-Buchungen aus Supabase laden
      * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
+     * Reichert Buchungen mit Lieferantennamen aus suppliers-Tabelle an
      */
     async loadBuchungenFromSupabase(jahr = null) {
         try {
             console.log('📤 Lade DATEV-Buchungen aus Supabase...');
 
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('*')
-                .order('datum', { ascending: false });
+            // Buchungen und Lieferanten parallel laden
+            const [bookingsResult, suppliersResult] = await Promise.all([
+                SupabaseService.client
+                    .from('datev_bookings')
+                    .select('*')
+                    .order('datum', { ascending: false }),
+                SupabaseService.client
+                    .from('suppliers')
+                    .select('partita_iva, fornitore_name')
+            ]);
 
-            if (error) throw error;
+            if (bookingsResult.error) throw bookingsResult.error;
 
-            // Konvertieren zu lokalem Format
-            this.datevBuchungenCache = (data || []).map(b => ({
-                id: b.id,
-                partitaIva: b.partita_iva || '',
-                partitaIvaCliente: b.partita_iva_cliente || '',
-                fornitoreNr: b.fornitore_nr || '',
-                fornitoreName: b.fornitore_name || '',
-                dokumentNr: b.dokument_nr || '',
-                dokumentTyp: b.dokument_typ || 'F',
-                istGutschrift: b.ist_gutschrift || false,
-                betrag: parseFloat(b.betrag) || 0,
-                betragNetto: parseFloat(b.betrag_netto) || 0,
-                betragMwst: parseFloat(b.betrag_mwst) || 0,
-                betragGesamt: parseFloat(b.betrag_gesamt) || 0,
-                mwstTyp: b.mwst_typ || null,
-                datum: b.datum,
-                projektId: b.projekt_id || null,
-                beschreibung: b.beschreibung || '',
-                kategorie: b.kategorie || '',
-                konto: b.konto_nr || null,
-                // Supabase-spezifisch
-                rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
-                importYear: b.import_year,
-                linkedInvoiceId: b.linked_invoice_id
-            }));
+            // Lieferanten-Map erstellen für schnellen Lookup
+            const supplierMap = new Map();
+            if (suppliersResult.data) {
+                suppliersResult.data.forEach(s => {
+                    if (s.partita_iva && s.fornitore_name) {
+                        supplierMap.set(s.partita_iva, s.fornitore_name);
+                    }
+                });
+            }
+            console.log(`📇 ${supplierMap.size} Lieferanten für Namen-Lookup geladen`);
+
+            // Konvertieren zu lokalem Format mit Lieferantennamen-Anreicherung
+            this.datevBuchungenCache = (bookingsResult.data || []).map(b => {
+                // Lieferantenname: Aus Buchung oder aus suppliers-Tabelle
+                let fornitoreName = b.fornitore_name || '';
+                if ((!fornitoreName || fornitoreName === 'Unbekannt') && b.partita_iva) {
+                    const supplierName = supplierMap.get(b.partita_iva);
+                    if (supplierName) {
+                        fornitoreName = supplierName;
+                    }
+                }
+
+                return {
+                    id: b.id,
+                    partitaIva: b.partita_iva || '',
+                    partitaIvaCliente: b.partita_iva_cliente || '',
+                    fornitoreNr: b.fornitore_nr || '',
+                    fornitoreName: fornitoreName,
+                    dokumentNr: b.dokument_nr || '',
+                    dokumentTyp: b.dokument_typ || 'F',
+                    istGutschrift: b.ist_gutschrift || false,
+                    betrag: parseFloat(b.betrag) || 0,
+                    betragNetto: parseFloat(b.betrag_netto) || 0,
+                    betragMwst: parseFloat(b.betrag_mwst) || 0,
+                    betragGesamt: parseFloat(b.betrag_gesamt) || 0,
+                    mwstTyp: b.mwst_typ || null,
+                    datum: b.datum,
+                    projektId: b.projekt_id || null,
+                    beschreibung: b.beschreibung || '',
+                    kategorie: b.kategorie || '',
+                    konto: b.konto_nr || null,
+                    // Supabase-spezifisch
+                    rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
+                    importYear: b.import_year,
+                    linkedInvoiceId: b.linked_invoice_id
+                };
+            });
 
             console.log(`✅ ${this.datevBuchungenCache.length} DATEV-Buchungen aus Supabase geladen`);
 

@@ -4,6 +4,26 @@
  * Version: 3.0.0
  */
 
+// Icon Helper - liefert SVG-Icon als HTML
+const Icons = {
+    document: '<img src="icons/01-document.svg" alt="" class="icon">',
+    sync: '<img src="icons/02-sync.svg" alt="" class="icon">',
+    data: '<img src="icons/03-data.svg" alt="" class="icon">',
+    upload: '<img src="icons/04-upload.svg" alt="" class="icon">',
+    company: '<img src="icons/05-company.svg" alt="" class="icon">',
+    trend: '<img src="icons/06-trend.svg" alt="" class="icon">',
+    close: '<img src="icons/07-close.svg" alt="" class="icon-sm">',
+    check: '<img src="icons/08-check.svg" alt="" class="icon">',
+    edit: '<img src="icons/09-edit.svg" alt="" class="icon">',
+    warning: '<img src="icons/10-warning.svg" alt="" class="icon">',
+    preview: '<img src="icons/11-preview.svg" alt="" class="icon">',
+    delete: '<img src="icons/12-delete.svg" alt="" class="icon">',
+    image: '<img src="icons/13-image.svg" alt="" class="icon">',
+    attachment: '<img src="icons/14-attachment.svg" alt="" class="icon">',
+    success: '<img src="icons/15-success.svg" alt="" class="icon">',
+    error: '<img src="icons/16-error.svg" alt="" class="icon">'
+};
+
 const App = {
     currentView: 'dashboard',
     currentProjectId: null,
@@ -1308,7 +1328,7 @@ const App = {
             if (k.pdfExists && k.filePath) {
                 aktionen = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${k.filePath}')">PDF</button>`;
             } else if (!k.isDatev && k.costId) {
-                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.editCost('${k.costId}')">✏️</button>`;
+                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.editCost('${k.costId}')"${Icons.edit}</button>`;
             }
 
             row.innerHTML = `
@@ -2858,7 +2878,7 @@ const App = {
                 <td>${dbLabels[acc.db_zuordnung] || acc.db_zuordnung}</td>
                 <td>${acc.ist_projektbezogen ? '✓' : '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten">✎</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten"${Icons.edit}</button>
                     <button class="btn btn-sm btn-danger" onclick="App.deleteAccount('${acc.id}')" title="Löschen">×</button>
                 </td>
             </tr>
@@ -3549,7 +3569,7 @@ const App = {
                         ${r.invoiceId ? `<button class="btn btn-sm"
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
                                 onclick="App.unlinkPdfFromDatev('${r.invoiceId}')"
-                                title="PDF-Verknüpfung trennen">✕</button>` : ''}
+                                title="PDF-Verknüpfung trennen"${Icons.close}</button>` : ''}
                     </div>` :
                     (() => {
                         const pdfDropdownId = `pdf-dropdown-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
@@ -5553,7 +5573,7 @@ const App = {
                     <span>${icon}</span>
                     <a href="${a.url}" target="_blank" style="flex: 1; color: #2196F3;">${a.name}</a>
                     <button type="button" class="btn btn-sm" style="padding: 0.1rem 0.3rem; color: #e74c3c;"
-                            onclick="App.removeInventarAnhang(${idx})" title="Entfernen">✕</button>
+                            onclick="App.removeInventarAnhang(${idx})" title="Entfernen"${Icons.close}</button>
                 </div>
             `;
         }).join('');
@@ -6613,8 +6633,8 @@ const App = {
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
-                        <button class="btn btn-outline btn-sm" onclick="App.editEinnahme('${e.id}')">✏️</button>
-                        <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme('${e.id}')" style="color: #e74c3c;">🗑️</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.editEinnahme('${e.id}')"${Icons.edit}</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme('${e.id}')" style="color: #e74c3c;"${Icons.delete}</button>
                     </div>
                 </td>
             `;
@@ -6929,8 +6949,8 @@ const App = {
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         ${!m.isPaid ? `<button class="btn btn-sm btn-success" onclick="App.showPaymentModal('${m.id}')" title="Zahlung zuweisen">€</button>` : ''}
-                        ${m.isPaid ? `<button class="btn btn-sm btn-outline" onclick="App.removeMemberPayment('${m.id}')" title="Zahlung entfernen" style="color: #e74c3c;">✕</button>` : ''}
-                        <button class="btn btn-sm btn-outline" onclick="App.editMember('${m.id}')" title="Bearbeiten">✏️</button>
+                        ${m.isPaid ? `<button class="btn btn-sm btn-outline" onclick="App.removeMemberPayment('${m.id}')" title="Zahlung entfernen" style="color: #e74c3c;"${Icons.close}</button>` : ''}
+                        <button class="btn btn-sm btn-outline" onclick="App.editMember('${m.id}')" title="Bearbeiten"${Icons.edit}</button>
                     </div>
                 </td>
             `;
@@ -7609,7 +7629,7 @@ const App = {
                             <div class="file-list-item-meta ${statusClass}">${statusText} • ${sizeKB} KB</div>
                         </div>
                     </div>
-                    <button class="file-list-item-remove" onclick="App.removePendingFile(${index})" title="Entfernen">✕</button>
+                    <button class="file-list-item-remove" onclick="App.removePendingFile(${index})" title="Entfernen"${Icons.close}</button>
                 </div>
             `;
         }).join('');
@@ -7735,6 +7755,13 @@ const App = {
             'Upload abgeschlossen',
             message
         );
+
+        // Automatische Verknüpfung mit DATEV-Buchungen
+        const linkResult = await this.autoLinkInvoicesAfterImport();
+        if (linkResult.linked > 0) {
+            this.showToast('success', 'Verknüpfungen erstellt',
+                `${linkResult.linked} PDFs automatisch mit DATEV verknüpft`);
+        }
 
         this.cancelMassUpload();
         this.loadRechnungen(); // Liste neu laden
@@ -7953,62 +7980,61 @@ const App = {
     /**
      * Automatische Verknüpfung nach DATEV-Import
      * Sucht nach hochgeladenen PDFs, die zu importierten Buchungen passen
+     * Flexibles Matching: Sucht Dokument-Nr irgendwo im Dateinamen
      */
     autoLinkInvoicesAfterImport: async function() {
         try {
             console.log('🔗 Suche nach verknüpfbaren PDFs...');
 
-            // 1. Alle DATEV-Buchungen mit Partita IVA holen
+            // 1. Alle DATEV-Buchungen mit Dokument-Nr holen
             const { data: datevBookings, error: datevError } = await SupabaseService.client
                 .from('datev_bookings')
                 .select('id, partita_iva, dokument_nr')
-                .not('partita_iva', 'is', null);
+                .not('dokument_nr', 'is', null);
 
             if (datevError) throw datevError;
 
-            // 2. Alle unverknüpften Invoices holen
+            // 2. Alle unverknüpften Invoices holen (ohne linked_datev_id)
             const { data: unlinkedInvoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
                 .select('id, file_name, partita_iva, invoice_number')
-                .is('partita_iva', null)
-                .is('invoice_number', null);
+                .is('linked_datev_id', null);
 
             if (invoiceError) throw invoiceError;
 
-            console.log(`📊 ${datevBookings.length} DATEV-Buchungen, ${unlinkedInvoices.length} unverknüpfte PDFs`);
+            console.log(`📊 ${datevBookings.length} DATEV-Buchungen mit Dok-Nr, ${unlinkedInvoices.length} unverknüpfte PDFs`);
 
-            // 3. Matching durchführen
+            // 3. Flexibles Matching durchführen
             let linked = 0;
             for (const invoice of unlinkedInvoices) {
-                // Versuche aus Dateinamen zu extrahieren
                 const filename = invoice.file_name || '';
-                const parts = filename.replace(/\.pdf$/i, '').split('_');
+                const filenameClean = filename.replace(/\.pdf$/i, '').toUpperCase();
 
-                // Format: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum
-                if (parts.length >= 4) {
-                    const partitaIva = parts[1];
-                    const dokumentNr = parts[3];
+                // Suche Buchung deren Dokument-Nr im Dateinamen vorkommt
+                const matching = datevBookings.find(b => {
+                    if (!b.dokument_nr) return false;
+                    const dokNr = b.dokument_nr.toUpperCase();
+                    // Exakte Suche: Dokument-Nr muss als ganzes Wort vorkommen
+                    // z.B. "2026_IT123_F12345_Lieferant" enthält "F12345"
+                    return filenameClean.includes(dokNr) ||
+                           filenameClean.includes(dokNr.replace(/^F/, '')) || // Ohne F-Prefix
+                           filenameClean.includes(dokNr.replace(/^0+/, '')); // Ohne führende Nullen
+                });
 
-                    // Suche passende DATEV-Buchung
-                    const matching = datevBookings.find(b =>
-                        b.partita_iva === partitaIva &&
-                        b.dokument_nr === dokumentNr
-                    );
+                if (matching) {
+                    // Verknüpfung erstellen: linked_datev_id setzen
+                    const { error: updateError } = await SupabaseService.client
+                        .from('invoices')
+                        .update({
+                            partita_iva: matching.partita_iva,
+                            invoice_number: matching.dokument_nr,
+                            linked_datev_id: matching.id
+                        })
+                        .eq('id', invoice.id);
 
-                    if (matching) {
-                        // Verknüpfung erstellen
-                        const { error: updateError } = await SupabaseService.client
-                            .from('invoices')
-                            .update({
-                                partita_iva: partitaIva,
-                                invoice_number: dokumentNr
-                            })
-                            .eq('id', invoice.id);
-
-                        if (!updateError) {
-                            linked++;
-                            console.log(`✅ Verknüpft: ${filename} → ${partitaIva}_${dokumentNr}`);
-                        }
+                    if (!updateError) {
+                        linked++;
+                        console.log(`✅ Verknüpft: ${filename} → ${matching.partita_iva}_${matching.dokument_nr}`);
                     }
                 }
             }
