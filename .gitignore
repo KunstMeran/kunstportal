@@ -44,10 +44,6 @@ EK-Rechnungen/
 # Lokale Scripte
 scripts/
 
-# Logos (werden separat verwaltet)
-logo.png
-logo_weiss.png
-logo_weiss_grauer_ring.png
 
 # Sonstige lokale Dateien
 Monatsbilanz_Master.xlsx
