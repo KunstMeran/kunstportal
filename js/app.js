@@ -8004,41 +8004,47 @@ const App = {
 
             console.log(`📊 ${datevBookings.length} DATEV-Buchungen mit Dok-Nr, ${unlinkedInvoices.length} unverknüpfte PDFs`);
 
-            // 3. Flexibles Matching durchführen
+            // 3. Striktes Matching durchführen
+            // Dateinamen-Format: 2026_IT00100340215_92.pdf oder IT00100340215_92.pdf
             let linked = 0;
             for (const invoice of unlinkedInvoices) {
                 const filename = invoice.file_name || '';
                 const filenameClean = filename.replace(/\.pdf$/i, '').toUpperCase();
 
-                // Suche Buchung deren Dokument-Nr oder Partita IVA im Dateinamen vorkommt
-                const matching = datevBookings.find(b => {
-                    if (!b.dokument_nr) return false;
-                    const dokNr = b.dokument_nr.toUpperCase();
-                    const partitaIva = (b.partita_iva || '').toUpperCase();
+                // Extrahiere Partita IVA und Dokument-Nr aus Dateinamen
+                // Format: [timestamp_][jahr_]PartitaIVA_DokumentNr.pdf
+                const parts = filenameClean.split('_');
 
-                    // Methode 1: Partita IVA + Dokument-Nr im Dateinamen
-                    // z.B. "IT00100340215_92.pdf" enthält beide
-                    if (partitaIva && filenameClean.includes(partitaIva) && filenameClean.includes(dokNr)) {
-                        return true;
-                    }
+                // Finde Partita IVA (beginnt mit IT, DE, AT, CF oder ist numerisch mit 11+ Ziffern)
+                let filePartitaIva = null;
+                let fileDokumentNr = null;
 
-                    // Methode 2: Kombinierte ID im Dateinamen
-                    // z.B. "IT00100340215_92.pdf" matcht "IT00100340215_92"
-                    const kombinierteId = `${partitaIva}_${dokNr}`;
-                    if (filenameClean.includes(kombinierteId)) {
-                        return true;
-                    }
-
-                    // Methode 3: Nur Dokument-Nr (wenn eindeutig genug, min 4 Zeichen)
-                    if (dokNr.length >= 4) {
-                        if (filenameClean.includes(dokNr) ||
-                            filenameClean.includes(dokNr.replace(/^F/, '')) ||
-                            filenameClean.includes(dokNr.replace(/^0+/, ''))) {
-                            return true;
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    // Partita IVA erkennen
+                    if (part.match(/^(IT|DE|AT|CF)\d+$/) || part.match(/^\d{11,}$/)) {
+                        filePartitaIva = part;
+                        // Das nächste Teil ist die Dokument-Nr
+                        if (i + 1 < parts.length) {
+                            fileDokumentNr = parts[i + 1];
                         }
+                        break;
                     }
+                }
 
-                    return false;
+                if (!filePartitaIva || !fileDokumentNr) {
+                    console.log(`⚠️ Konnte Partita IVA/Dok-Nr nicht aus Dateiname extrahieren: ${filename}`);
+                    continue;
+                }
+
+                // Suche exakte Übereinstimmung in DATEV-Buchungen
+                const matching = datevBookings.find(b => {
+                    if (!b.dokument_nr || !b.partita_iva) return false;
+                    const dokNr = b.dokument_nr.toUpperCase();
+                    const partitaIva = b.partita_iva.toUpperCase();
+
+                    // Exakte Übereinstimmung von Partita IVA UND Dokument-Nr
+                    return partitaIva === filePartitaIva && dokNr === fileDokumentNr;
                 });
 
                 if (matching) {
