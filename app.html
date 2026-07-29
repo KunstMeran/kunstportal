@@ -338,17 +338,19 @@
                 <a href="#" class="nav-item" data-view="zeiterfassung">
                     <span>Zeiterfassung</span>
                 </a>
+                <!-- Ausgeblendet: Sitzungen, Künstler, Adressen
                 <a href="#" class="nav-item" data-view="sitzungen">
                     <span>Sitzungen</span>
                 </a>
                 <a href="#" class="nav-item" data-view="kuenstler">
                     <span>Künstler</span>
                 </a>
-                <a href="#" class="nav-item" data-view="inventar">
-                    <span>Inventar</span>
-                </a>
                 <a href="#" class="nav-item" data-view="adressen">
                     <span>Adressen</span>
+                </a>
+                -->
+                <a href="#" class="nav-item" data-view="inventar">
+                    <span>Inventar</span>
                 </a>
                 <a href="#" class="nav-item" data-view="reporting">
                     <span>Reporting</span>
@@ -3021,6 +3023,17 @@
                     <div class="form-group">
                         <label class="form-label">Beschreibung / Notizen</label>
                         <textarea id="inventar-beschreibung" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <!-- Anhänge / Dateien -->
+                    <div class="form-group">
+                        <label class="form-label">Anhänge (Bilder, Verträge, Dokumente)</label>
+                        <input type="file" id="inventar-dateien" class="form-control" multiple
+                               accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx">
+                        <small style="color: #666;">Mehrere Dateien möglich: PDF, Bilder, Word, Excel</small>
+                    </div>
+                    <div id="inventar-dateien-vorschau" style="margin-top: 0.5rem;">
+                        <!-- Vorhandene Anhänge werden hier angezeigt -->
                     </div>
                 </div>
                 <div class="modal-footer">

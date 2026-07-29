@@ -3189,13 +3189,17 @@ const App = {
             projektSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
         });
 
-        // Lieferanten-Filter
+        // Lieferanten-Filter (async wegen Supabase)
         const lieferantSelect = document.getElementById('rechnung-filter-lieferant');
         lieferantSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
-        const lieferanten = DataManager.getDatevLieferanten();
-        lieferanten.forEach(l => {
-            lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
-        });
+        const lieferanten = await DataManager.getDatevLieferanten();
+        if (Array.isArray(lieferanten)) {
+            lieferanten.forEach(l => {
+                if (l.name) {
+                    lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
+                }
+            });
+        }
     },
 
     // Ausgewählte Rechnungen (für Massenaktionen)
@@ -5397,8 +5401,13 @@ const App = {
         document.getElementById('inventar-form-id').value = '';
         document.getElementById('inventar-modal-title').textContent = 'Neuer Gegenstand';
         document.getElementById('inventar-nr').value = '';
+        document.getElementById('inventar-dateien-vorschau').innerHTML = '';
+        this.currentInventarAnhaenge = [];
         this.showModal('inventar-form-modal');
     },
+
+    // Temporärer Speicher für Anhänge des aktuellen Inventar-Eintrags
+    currentInventarAnhaenge: [],
 
     editInventar: function(id) {
         const i = DataManager.getInventar().find(x => x.id === id);
@@ -5415,12 +5424,80 @@ const App = {
         document.getElementById('inventar-wert').value = i.wert || '';
         document.getElementById('inventar-beschreibung').value = i.beschreibung || '';
 
+        // Vorhandene Anhänge anzeigen
+        this.currentInventarAnhaenge = i.anhaenge || [];
+        this.renderInventarAnhaenge();
+
         this.showModal('inventar-form-modal');
     },
 
-    saveInventar: function(event) {
+    renderInventarAnhaenge: function() {
+        const container = document.getElementById('inventar-dateien-vorschau');
+        if (!container) return;
+
+        if (this.currentInventarAnhaenge.length === 0) {
+            container.innerHTML = '<div style="color: #666; font-size: 0.85rem;">Keine Anhänge vorhanden</div>';
+            return;
+        }
+
+        container.innerHTML = this.currentInventarAnhaenge.map((a, idx) => {
+            const isImage = /\.(jpg|jpeg|png|gif)$/i.test(a.name);
+            const icon = isImage ? '🖼️' : (a.name.endsWith('.pdf') ? '📄' : '📎');
+            return `
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem; background: #f5f5f5; border-radius: 4px; margin-bottom: 0.3rem;">
+                    <span>${icon}</span>
+                    <a href="${a.url}" target="_blank" style="flex: 1; color: #2196F3;">${a.name}</a>
+                    <button type="button" class="btn btn-sm" style="padding: 0.1rem 0.3rem; color: #e74c3c;"
+                            onclick="App.removeInventarAnhang(${idx})" title="Entfernen">✕</button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    removeInventarAnhang: function(index) {
+        this.currentInventarAnhaenge.splice(index, 1);
+        this.renderInventarAnhaenge();
+    },
+
+    saveInventar: async function(event) {
         event.preventDefault();
         const id = document.getElementById('inventar-form-id').value;
+
+        // Neue Dateien hochladen
+        const dateienInput = document.getElementById('inventar-dateien');
+        const newFiles = dateienInput.files;
+
+        if (newFiles.length > 0) {
+            this.showToast('info', 'Upload', `${newFiles.length} Datei(en) werden hochgeladen...`);
+
+            for (const file of newFiles) {
+                try {
+                    const inventarId = id || Date.now().toString();
+                    const fileName = `inventar/${inventarId}/${Date.now()}_${file.name}`;
+
+                    const { data, error } = await SupabaseService.client.storage
+                        .from('documents')
+                        .upload(fileName, file);
+
+                    if (error) throw error;
+
+                    // URL generieren
+                    const { data: urlData } = SupabaseService.client.storage
+                        .from('documents')
+                        .getPublicUrl(fileName);
+
+                    this.currentInventarAnhaenge.push({
+                        name: file.name,
+                        path: fileName,
+                        url: urlData.publicUrl,
+                        uploadedAt: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error('Fehler beim Upload:', error);
+                    this.showToast('error', 'Upload-Fehler', `Datei ${file.name} konnte nicht hochgeladen werden`);
+                }
+            }
+        }
 
         const item = {
             id: id ? parseInt(id) : null,
@@ -5431,12 +5508,14 @@ const App = {
             zustand: document.getElementById('inventar-zustand').value,
             anschaffung: document.getElementById('inventar-anschaffung').value,
             wert: parseFloat(document.getElementById('inventar-wert').value) || 0,
-            beschreibung: document.getElementById('inventar-beschreibung').value
+            beschreibung: document.getElementById('inventar-beschreibung').value,
+            anhaenge: this.currentInventarAnhaenge
         };
 
         DataManager.saveInventar(item);
         this.hideModal('inventar-form-modal');
         this.loadInventar();
+        this.showToast('success', 'Gespeichert', 'Inventar-Eintrag wurde gespeichert');
     },
 
     deleteInventar: function(id) {
@@ -6153,7 +6232,7 @@ const App = {
         document.getElementById('einnahme-name').value = '';
         document.getElementById('einnahme-quelle').value = '';
         document.getElementById('einnahme-jahr').value = new Date().getFullYear();
-        document.getElementById('einnahme-betrag').value = '';
+        document.getElementById('einnahme-betrag-plan').value = '';
         document.getElementById('einnahme-status').value = 'offen';
         document.getElementById('einnahme-abgabestelle').checked = false;
         document.getElementById('einnahme-dokument').value = '';
