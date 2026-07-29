@@ -85,21 +85,79 @@ const ExcelImportService = {
                 };
             }
 
-            // 3. Import in Supabase
-            const { data: insertedData, error: insertError } = await SupabaseService.client
-                .from('datev_bookings')
-                .insert(newBookings)
-                .select();
+            // 3. Duplikate innerhalb der Batch entfernen
+            const uniqueNewBookings = [];
+            const seenInBatch = new Set();
+            for (const booking of newBookings) {
+                const key = `${booking.partita_iva || ''}_${booking.dokument_nr}_${booking.datum}_${booking.betrag}`;
+                if (!seenInBatch.has(key)) {
+                    seenInBatch.add(key);
+                    uniqueNewBookings.push(booking);
+                }
+            }
 
-            if (insertError) throw insertError;
+            const batchDuplicates = newBookings.length - uniqueNewBookings.length;
+            if (batchDuplicates > 0) {
+                console.log(`🔄 ${batchDuplicates} Duplikate innerhalb der Datei entfernt`);
+            }
 
-            console.log(`✅ ${insertedData.length} Buchungen erfolgreich importiert`);
+            // 4. Import in Supabase - einzeln um Duplikat-Fehler abzufangen
+            let successCount = 0;
+            let duplicateDbCount = 0;
+            const errors = [];
 
+            // Batch-Import in Chunks von 50 für bessere Performance
+            const chunkSize = 50;
+            for (let i = 0; i < uniqueNewBookings.length; i += chunkSize) {
+                const chunk = uniqueNewBookings.slice(i, i + chunkSize);
+
+                const { data: insertedChunk, error: insertError } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .insert(chunk)
+                    .select();
+
+                if (insertError) {
+                    // Bei Duplikat-Fehler: Einzeln importieren
+                    if (insertError.code === '23505') { // unique_violation
+                        console.log(`⚠️ Duplikat in Chunk ${i}-${i+chunkSize}, importiere einzeln...`);
+                        for (const booking of chunk) {
+                            const { data: singleInsert, error: singleError } = await SupabaseService.client
+                                .from('datev_bookings')
+                                .insert(booking)
+                                .select();
+
+                            if (singleError) {
+                                if (singleError.code === '23505') {
+                                    duplicateDbCount++;
+                                } else {
+                                    errors.push(singleError.message);
+                                }
+                            } else if (singleInsert) {
+                                successCount += singleInsert.length;
+                            }
+                        }
+                    } else {
+                        errors.push(insertError.message);
+                    }
+                } else if (insertedChunk) {
+                    successCount += insertedChunk.length;
+                }
+            }
+
+            console.log(`✅ ${successCount} Buchungen erfolgreich importiert`);
+            if (duplicateDbCount > 0) {
+                console.log(`🔄 ${duplicateDbCount} Duplikate in Datenbank gefunden`);
+            }
+
+            const totalSkipped = (data.length - newBookings.length) + batchDuplicates + duplicateDbCount;
             return {
-                success: true,
-                imported: insertedData.length,
-                skipped: data.length - newBookings.length,
-                message: `${insertedData.length} neue Buchungen importiert, ${data.length - newBookings.length} bereits vorhanden`
+                success: errors.length === 0,
+                imported: successCount,
+                skipped: totalSkipped,
+                batchDuplicates: batchDuplicates,
+                dbDuplicates: duplicateDbCount,
+                errors: errors.length > 0 ? errors : undefined,
+                message: `${successCount} neue Buchungen importiert, ${totalSkipped} übersprungen`
             };
 
         } catch (error) {

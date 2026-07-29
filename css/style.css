@@ -92,6 +92,12 @@ h4 { font-size: 1.1rem; }
     margin-bottom: var(--spacing-sm);
 }
 
+.login-logo-img {
+    max-width: 180px;
+    height: auto;
+    margin-bottom: var(--spacing-sm);
+}
+
 .login-subtitle {
     color: var(--color-gray-medium);
     margin-bottom: var(--spacing-xl);
@@ -219,6 +225,11 @@ h4 { font-size: 1.1rem; }
     margin-bottom: var(--spacing-xl);
     padding-bottom: var(--spacing-md);
     border-bottom: 1px solid var(--color-gray-dark);
+}
+
+.sidebar-logo-img {
+    max-width: 140px;
+    height: auto;
 }
 
 .sidebar-nav {
@@ -389,6 +400,34 @@ th {
     color: var(--color-gray-dark);
     font-size: 0.875rem;
     text-transform: uppercase;
+    position: relative;
+}
+
+/* Resizable Column Handle */
+th .resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background-color 0.2s;
+}
+
+th .resize-handle:hover,
+th .resize-handle.resizing {
+    background-color: var(--color-primary);
+}
+
+/* Resizing state */
+body.resizing-columns {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
+body.resizing-columns * {
+    cursor: col-resize !important;
 }
 
 th.sortable {
