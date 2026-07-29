@@ -5907,6 +5907,302 @@ const App = {
         link.click();
     },
 
+    // ==========================================
+    // KONTENPLAN REPORT - Kosten ohne Kostenstelle
+    // ==========================================
+
+    // Cache für Kontenplan-Bezeichnungen (DE/IT)
+    kontenplanBezeichnungen: {},
+
+    /**
+     * Kontenplan-Report laden - zeigt Kosten ohne Projekt-Zuweisung
+     */
+    loadKontenplanReport: async function() {
+        const tbody = document.getElementById('kontenplan-report-body');
+        const tfoot = document.getElementById('kontenplan-report-footer');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;"><span class="loading"></span> Lade Daten...</td></tr>';
+
+        try {
+            const jahr = parseInt(document.getElementById('reporting-jahr').value) || new Date().getFullYear();
+            const vorjahr = jahr - 1;
+            const nurMitBuchungen = document.getElementById('kontenplan-nur-mit-buchungen')?.checked ?? true;
+
+            // Buchungen ohne Kostenstelle für aktuelles Jahr und Vorjahr laden
+            const [buchungenAktuell, buchungenVorjahr] = await Promise.all([
+                this.getBuchungenOhneKostenstelle(jahr),
+                this.getBuchungenOhneKostenstelle(vorjahr)
+            ]);
+
+            // Nach Konto gruppieren
+            const kontenAktuell = this.gruppiereNachKonto(buchungenAktuell);
+            const kontenVorjahr = this.gruppiereNachKonto(buchungenVorjahr);
+
+            // Alle Konten sammeln
+            const alleKonten = new Set([...Object.keys(kontenAktuell), ...Object.keys(kontenVorjahr)]);
+
+            // Kontenplan-Bezeichnungen laden (falls noch nicht geladen)
+            if (Object.keys(this.kontenplanBezeichnungen).length === 0) {
+                await this.ladeKontenplanBezeichnungen();
+            }
+
+            // Sortieren nach Kontonummer
+            const sortierteKonten = Array.from(alleKonten).sort((a, b) => a.localeCompare(b));
+
+            tbody.innerHTML = '';
+            let summeAktuell = 0;
+            let summeVorjahr = 0;
+            let anzahlGesamt = 0;
+
+            sortierteKonten.forEach(konto => {
+                const aktuell = kontenAktuell[konto] || { summe: 0, anzahl: 0 };
+                const vorjahrData = kontenVorjahr[konto] || { summe: 0, anzahl: 0 };
+
+                // Filter: nur Konten mit Buchungen anzeigen
+                if (nurMitBuchungen && aktuell.anzahl === 0 && vorjahrData.anzahl === 0) {
+                    return;
+                }
+
+                const differenz = aktuell.summe - vorjahrData.summe;
+                const bezeichnung = this.kontenplanBezeichnungen[konto] || {};
+
+                summeAktuell += aktuell.summe;
+                summeVorjahr += vorjahrData.summe;
+                anzahlGesamt += aktuell.anzahl;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${konto}</strong></td>
+                    <td>${bezeichnung.de || '-'}</td>
+                    <td style="color: #666; font-style: italic;">${bezeichnung.it || '-'}</td>
+                    <td style="text-align: right;">${this.formatCurrency(aktuell.summe)}</td>
+                    <td style="text-align: right; color: #666;">${this.formatCurrency(vorjahrData.summe)}</td>
+                    <td style="text-align: right; color: ${differenz >= 0 ? '#e74c3c' : '#27ae60'};">
+                        ${differenz >= 0 ? '+' : ''}${this.formatCurrency(differenz)}
+                    </td>
+                    <td style="text-align: center;">${aktuell.anzahl}</td>
+                `;
+                row.style.cursor = 'pointer';
+                row.onclick = () => this.zeigeBuchungenFuerKonto(konto, jahr);
+                tbody.appendChild(row);
+            });
+
+            if (sortierteKonten.length === 0 || tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">Keine Buchungen ohne Kostenstelle gefunden</td></tr>';
+            }
+
+            // Footer mit Summen
+            const summeDiff = summeAktuell - summeVorjahr;
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="3">SUMME (${tbody.children.length} Konten)</td>
+                    <td style="text-align: right;">${this.formatCurrency(summeAktuell)}</td>
+                    <td style="text-align: right;">${this.formatCurrency(summeVorjahr)}</td>
+                    <td style="text-align: right; color: ${summeDiff >= 0 ? '#e74c3c' : '#27ae60'};">
+                        ${summeDiff >= 0 ? '+' : ''}${this.formatCurrency(summeDiff)}
+                    </td>
+                    <td style="text-align: center;">${anzahlGesamt}</td>
+                </tr>
+            `;
+
+            // Cache für Export speichern
+            this.kontenplanReportCache = {
+                jahr,
+                vorjahr,
+                kontenAktuell,
+                kontenVorjahr,
+                summeAktuell,
+                summeVorjahr
+            };
+
+        } catch (error) {
+            console.error('Fehler beim Laden des Kontenplan-Reports:', error);
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
+        }
+    },
+
+    /**
+     * Buchungen ohne Kostenstelle für ein Jahr laden
+     */
+    getBuchungenOhneKostenstelle: async function(jahr) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('konto_nr, betrag, datum, fornitore_name, dokument_nr')
+                .eq('import_year', jahr)
+                .or('projekt_id.is.null,projekt_id.eq.')
+                .order('konto_nr', { ascending: true });
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Buchungen:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Buchungen nach Konto gruppieren
+     */
+    gruppiereNachKonto: function(buchungen) {
+        const gruppen = {};
+        buchungen.forEach(b => {
+            const konto = b.konto_nr || 'OHNE_KONTO';
+            if (!gruppen[konto]) {
+                gruppen[konto] = { summe: 0, anzahl: 0, buchungen: [] };
+            }
+            gruppen[konto].summe += parseFloat(b.betrag) || 0;
+            gruppen[konto].anzahl++;
+            gruppen[konto].buchungen.push(b);
+        });
+        return gruppen;
+    },
+
+    /**
+     * Kontenplan-Bezeichnungen aus chart_of_accounts oder lokaler Datei laden
+     */
+    ladeKontenplanBezeichnungen: async function() {
+        try {
+            // Versuche aus chart_of_accounts zu laden
+            const { data, error } = await SupabaseService.client
+                .from('chart_of_accounts')
+                .select('konto_pattern, konto_name, beschreibung');
+
+            if (!error && data) {
+                data.forEach(row => {
+                    // Pattern ohne % als Schlüssel
+                    const konto = row.konto_pattern.replace('%', '');
+                    this.kontenplanBezeichnungen[konto] = {
+                        de: row.konto_name || '',
+                        it: row.beschreibung || ''
+                    };
+                });
+            }
+
+            // Zusätzlich: Statische Bezeichnungen für gängige Konten
+            this.ergaenzeStandardKontenbezeichnungen();
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Kontenbezeichnungen:', error);
+            this.ergaenzeStandardKontenbezeichnungen();
+        }
+    },
+
+    /**
+     * Standard-Kontenbezeichnungen für gängige DATEV-Konten
+     */
+    ergaenzeStandardKontenbezeichnungen: function() {
+        const standard = {
+            '6001': { de: 'Erlöse Lieferungen/Leistungen', it: 'Ricavi consegne/prestazioni' },
+            '6400': { de: 'Sonstige betriebliche Erträge', it: 'Altri proventi operativi' },
+            '6401': { de: 'Zuschüsse und Beiträge', it: 'Sovvenzioni e contributi' },
+            '680': { de: 'Materialkosten', it: 'Costi materiali' },
+            '690': { de: 'Dienstleistungen', it: 'Servizi' },
+            '6901': { de: 'Verwaltung', it: 'Amministrazione' },
+            '6902': { de: 'Werbung/Marketing', it: 'Pubblicità/Marketing' },
+            '700': { de: 'Miete/Strukturen', it: 'Affitto/Strutture' },
+            '710': { de: 'Personalkosten', it: 'Costi del personale' },
+            '720': { de: 'Abschreibungen', it: 'Ammortamenti' },
+            '850': { de: 'Zinsen', it: 'Interessi' }
+        };
+
+        // Nur hinzufügen wenn nicht bereits vorhanden
+        Object.keys(standard).forEach(konto => {
+            if (!this.kontenplanBezeichnungen[konto]) {
+                this.kontenplanBezeichnungen[konto] = standard[konto];
+            }
+        });
+    },
+
+    /**
+     * Zeigt Detail-Buchungen für ein Konto
+     */
+    zeigeBuchungenFuerKonto: function(konto, jahr) {
+        if (!this.kontenplanReportCache) return;
+
+        const kontoData = this.kontenplanReportCache.kontenAktuell[konto];
+        if (!kontoData || !kontoData.buchungen) return;
+
+        const bezeichnung = this.kontenplanBezeichnungen[konto] || {};
+        let html = `
+            <h3>Konto ${konto}: ${bezeichnung.de || 'Unbekannt'}</h3>
+            <p style="color: #666;">${bezeichnung.it || ''}</p>
+            <table style="width: 100%; margin-top: 1rem;">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Lieferant</th>
+                        <th>Beleg-Nr.</th>
+                        <th style="text-align: right;">Betrag</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        kontoData.buchungen.forEach(b => {
+            html += `
+                <tr>
+                    <td>${this.formatDate(b.datum)}</td>
+                    <td>${b.fornitore_name || '-'}</td>
+                    <td>${b.dokument_nr || '-'}</td>
+                    <td style="text-align: right;">${this.formatCurrency(b.betrag)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: bold; background: #f5f5f5;">
+                        <td colspan="3">Summe (${kontoData.anzahl} Buchungen)</td>
+                        <td style="text-align: right;">${this.formatCurrency(kontoData.summe)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+
+        // Einfaches Modal anzeigen
+        alert(`Konto ${konto}: ${kontoData.anzahl} Buchungen, Summe: ${this.formatCurrency(kontoData.summe)}\n\nDetails werden in Konsole ausgegeben.`);
+        console.log('Buchungen für Konto ' + konto + ':', kontoData.buchungen);
+    },
+
+    /**
+     * Kontenplan-Report als CSV exportieren
+     */
+    exportKontenplanCsv: function() {
+        if (!this.kontenplanReportCache) {
+            alert('Bitte zuerst den Report laden (Aktualisieren klicken).');
+            return;
+        }
+
+        const cache = this.kontenplanReportCache;
+        let csv = '\uFEFF'; // BOM für Excel
+        csv += `Kontenplan - Kosten ohne Kostenstelle\n`;
+        csv += `Jahr: ${cache.jahr} vs. Vorjahr: ${cache.vorjahr}\n\n`;
+        csv += 'Konto;Bezeichnung (DE);Bezeichnung (IT);Aktuelles Jahr;Vorjahr;Differenz;Anzahl Buchungen\n';
+
+        const alleKonten = new Set([...Object.keys(cache.kontenAktuell), ...Object.keys(cache.kontenVorjahr)]);
+        const sortiert = Array.from(alleKonten).sort();
+
+        sortiert.forEach(konto => {
+            const aktuell = cache.kontenAktuell[konto] || { summe: 0, anzahl: 0 };
+            const vorjahr = cache.kontenVorjahr[konto] || { summe: 0, anzahl: 0 };
+            const diff = aktuell.summe - vorjahr.summe;
+            const bez = this.kontenplanBezeichnungen[konto] || {};
+
+            csv += `"${konto}";"${bez.de || ''}";"${bez.it || ''}";${aktuell.summe.toFixed(2)};${vorjahr.summe.toFixed(2)};${diff.toFixed(2)};${aktuell.anzahl}\n`;
+        });
+
+        csv += `\n"SUMME";"";"";"${cache.summeAktuell.toFixed(2)}";"${cache.summeVorjahr.toFixed(2)}";"${(cache.summeAktuell - cache.summeVorjahr).toFixed(2)}";\n`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Kontenplan_ohne_Kostenstelle_${cache.jahr}.csv`;
+        link.click();
+    },
+
     loadReportingProjekte: function(jahr) {
         const tbody = document.getElementById('reporting-projekte-table');
         const tfoot = document.getElementById('reporting-projekte-footer');

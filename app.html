@@ -1239,7 +1239,7 @@
                 </div>
 
                 <!-- Kosten nach Kategorie -->
-                <div class="card">
+                <div class="card" style="margin-bottom: 1.5rem;">
                     <div class="card-header">
                         <h3 class="card-title">Kosten nach Kategorie</h3>
                     </div>
@@ -1256,6 +1256,46 @@
                             <tbody id="reporting-kategorien-table">
                                 <!-- Wird dynamisch geladen -->
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Kontenplan - Kosten ohne Kostenstelle -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Kontenplan - Nicht zugewiesene Kosten</h3>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <label style="font-size: 0.85rem; color: #666;">
+                                <input type="checkbox" id="kontenplan-nur-mit-buchungen" checked onchange="App.loadKontenplanReport()">
+                                Nur Konten mit Buchungen
+                            </label>
+                            <button class="btn btn-outline btn-sm" onclick="App.exportKontenplanCsv()">CSV Export</button>
+                            <button class="btn btn-outline btn-sm" onclick="App.loadKontenplanReport()">Aktualisieren</button>
+                        </div>
+                    </div>
+                    <p style="padding: 0.5rem 1rem; color: #666; font-size: 0.85rem; background: #f9f9f9; margin: 0;">
+                        Zeigt nur Buchungen <strong>ohne Kostenstelle/Projekt-Zuweisung</strong> - diese sind nicht in der Projekt-Abrechnung enthalten.
+                    </p>
+                    <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                        <table>
+                            <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+                                <tr>
+                                    <th style="width: 80px;">Konto</th>
+                                    <th>Bezeichnung (DE)</th>
+                                    <th>Bezeichnung (IT)</th>
+                                    <th style="text-align: right;">Aktuelles Jahr</th>
+                                    <th style="text-align: right;">Vorjahr</th>
+                                    <th style="text-align: right;">Differenz</th>
+                                    <th style="text-align: center;">Anzahl</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kontenplan-report-body">
+                                <tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
+                                    Klicken Sie auf "Aktualisieren" um den Kontenplan zu laden
+                                </td></tr>
+                            </tbody>
+                            <tfoot id="kontenplan-report-footer" style="font-weight: bold; background: #f5f5f5;">
+                            </tfoot>
                         </table>
                     </div>
                 </div>
