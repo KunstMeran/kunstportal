@@ -15,9 +15,15 @@ Stand: 2026-07-29
 
 ---
 
-## 🚨 Blockierend
+## 🚨 Blockierend / Ausstehende Migrationen
 
-*Keine blockierenden Issues*
+### In Supabase SQL Editor ausführen:
+1. **`import-kontenplan-bezeichnungen.sql`** - Kontenbezeichnungen (DE/IT) importieren
+2. **`documents` Bucket erstellen** - Für Inventar-Anhänge:
+   ```sql
+   INSERT INTO storage.buckets (id, name, public)
+   VALUES ('documents', 'documents', false);
+   ```
 
 ---
 
@@ -93,7 +99,8 @@ Stand: 2026-07-29
 - [ ] **Sponsoren wie Lieferanten**: Ansicht mit Vorjahresvergleich
 
 ### Inventar
-- [ ] **Anhänge zum Inventar**: Dokumente/Dateien an Inventar-Einträge anhängen
+- [x] **Anhänge zum Inventar**: Dokumente/Dateien an Inventar-Einträge anhängen (implementiert)
+  - WICHTIG: `documents` Bucket in Supabase Storage erstellen!
 
 ### Projekte / Workflow
 - [ ] **Projekt in Projekt hinterlegen**: Ideen sammeln, sodass Barbara eine Nachricht bekommt
@@ -109,6 +116,12 @@ Stand: 2026-07-29
 ---
 
 ## ✅ Erledigte Aufgaben
+
+### Kontenplan & Reporting (erledigt 2026-07-29)
+- [x] **Kontenplan-Report**: Kosten pro Konto mit DE/IT Bezeichnungen, Vorjahresvergleich
+- [x] **Kontenplan-Import**: `import-kontenplan-bezeichnungen.sql` (200+ Konten aus Excel)
+- [x] **Hinweise in Konfiguration**: Warnung wenn DATEV-Konten ohne DB-Zuweisung
+- [x] **Schnell-Zuweisung**: Button zum schnellen Hinzufügen fehlender Konten
 
 ### Supabase RLS Policies (erledigt 2026-07-29)
 - [x] **cost_types Tabelle**: RLS Policies hinzufügen (SELECT, INSERT, UPDATE, DELETE)

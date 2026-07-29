@@ -31,6 +31,30 @@ desktop.ini
 # Local data backups
 data/backups/
 
+# Legacy data files (now in Supabase)
+data/buchungen.json
+data/sample_data.json
+
+# DATEV Exporte (lokale Daten)
+DATEV Exporte/
+
+# EK-Rechnungen (PDFs in Supabase Storage)
+EK-Rechnungen/
+
+# Lokale Scripte
+scripts/
+
+# Logos (werden separat verwaltet)
+logo.png
+logo_weiss.png
+logo_weiss_grauer_ring.png
+
+# Sonstige lokale Dateien
+Monatsbilanz_Master.xlsx
+Hetzner*.pdf
+Hetzner*.html
+_ul
+
 # Excel temporäre Dateien
 ~$*.xlsx
 ~$*.xls

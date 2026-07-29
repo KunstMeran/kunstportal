@@ -45,16 +45,18 @@ const ExcelImportService = {
             console.log(`📇 ${supplierMap.size} Lieferanten für Matching geladen`);
 
             // 1. Prüfe, welche Buchungen bereits existieren
+            // Erweiterter Key: partita_iva + dokument_nr + datum + betrag + konto_nr + fornitore_name + beschreibung
+            // Dies ermöglicht auch den Import von Buchungen ohne Dokument-Nr. (z.B. Mitgliedsbeiträge)
             const { data: existingBookings, error: fetchError } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('partita_iva, dokument_nr, datum, betrag')
+                .select('partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name, beschreibung')
                 .eq('import_year', year);
 
             if (fetchError) throw fetchError;
 
             const existingKeys = new Set(
                 existingBookings.map(b =>
-                    `${b.partita_iva || ''}_${b.dokument_nr}_${b.datum}_${b.betrag}`
+                    `${b.partita_iva || ''}_${b.dokument_nr || ''}_${b.datum}_${b.betrag}_${b.konto_nr || ''}_${(b.fornitore_name || '').substring(0, 30)}_${(b.beschreibung || '').substring(0, 30)}`
                 )
             );
 
@@ -70,7 +72,7 @@ const ExcelImportService = {
                         return false;
                     }
 
-                    const key = `${booking.partita_iva || ''}_${booking.dokument_nr}_${booking.datum}_${booking.betrag}`;
+                    const key = `${booking.partita_iva || ''}_${booking.dokument_nr || ''}_${booking.datum}_${booking.betrag}_${booking.konto_nr || ''}_${(booking.fornitore_name || '').substring(0, 30)}_${(booking.beschreibung || '').substring(0, 30)}`;
                     return !existingKeys.has(key);
                 });
 
@@ -89,7 +91,7 @@ const ExcelImportService = {
             const uniqueNewBookings = [];
             const seenInBatch = new Set();
             for (const booking of newBookings) {
-                const key = `${booking.partita_iva || ''}_${booking.dokument_nr}_${booking.datum}_${booking.betrag}`;
+                const key = `${booking.partita_iva || ''}_${booking.dokument_nr || ''}_${booking.datum}_${booking.betrag}_${booking.konto_nr || ''}_${(booking.fornitore_name || '').substring(0, 30)}_${(booking.beschreibung || '').substring(0, 30)}`;
                 if (!seenInBatch.has(key)) {
                     seenInBatch.add(key);
                     uniqueNewBookings.push(booking);
