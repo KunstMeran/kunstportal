@@ -7806,7 +7806,6 @@ const App = {
      */
     importDatevBookings: async function() {
         const fileInput = document.getElementById('datev-file-input');
-        const yearSelect = document.getElementById('import-year');
         const resultDiv = document.getElementById('datev-import-result');
 
         if (!fileInput.files || fileInput.files.length === 0) {
@@ -7815,13 +7814,13 @@ const App = {
         }
 
         const file = fileInput.files[0];
-        const year = parseInt(yearSelect.value);
 
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = '<div style="color: #666;">⏳ Import läuft...</div>';
 
         try {
-            const result = await ExcelImportService.importDatevBookings(file, year);
+            // Jahr wird automatisch aus dem Datum jeder Buchung erkannt
+            const result = await ExcelImportService.importDatevBookings(file);
 
             if (result.success) {
                 resultDiv.innerHTML = `
