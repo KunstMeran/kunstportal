@@ -66,6 +66,44 @@ h2 { font-size: 1.5rem; }
 h3 { font-size: 1.25rem; }
 h4 { font-size: 1.1rem; }
 
+/* --- Icons --- */
+.icon {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.icon-sm {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.icon-lg {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+/* Icons in Buttons anpassen */
+.btn .icon,
+.btn .icon-sm {
+    margin-right: 0.25rem;
+}
+
+.btn-sm .icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Icons in Card-Titeln */
+.card-title .icon {
+    margin-right: 0.5rem;
+}
+
 /* --- Login Page --- */
 .login-container {
     min-height: 100vh;
@@ -793,8 +831,15 @@ textarea.form-control {
 }
 
 .file-name::before {
-    content: "📄";
-    font-size: 1.5rem;
+    content: "";
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background-image: url('../icons/01-document.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    vertical-align: middle;
+    margin-right: 0.5rem;
 }
 
 .file-remove {

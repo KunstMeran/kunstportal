@@ -517,7 +517,7 @@
                             Aktualisieren
                         </button>
                         <button class="btn btn-outline btn-sm" onclick="App.updateSupplierNames()" title="Lieferantennamen aus Suppliers-Tabelle aktualisieren">
-                            🔄 Lieferanten sync
+                            <img src="icons/02-sync.svg" alt="" class="icon"> Lieferanten sync
                         </button>
                         <button class="btn btn-primary btn-sm" onclick="App.exportRechnungenCSV()">
                             CSV Export
@@ -1707,7 +1707,7 @@
                     <!-- DATEV Buchungen Import -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">📊 DATEV-Buchungen importieren</h3>
+                            <h3 class="card-title"><img src="icons/03-data.svg" alt="" class="icon"> DATEV-Buchungen importieren</h3>
                         </div>
                         <div class="card-body">
                             <p style="color: #666; margin-bottom: 1rem;">
@@ -1726,7 +1726,7 @@
                             </div>
 
                             <button class="btn btn-primary btn-block" onclick="App.importDatevBookings()">
-                                📤 DATEV-Buchungen importieren
+                                <img src="icons/04-upload.svg" alt="" class="icon"> DATEV-Buchungen importieren
                             </button>
 
                             <div id="datev-import-result" style="margin-top: 1rem; display: none;"></div>
@@ -1736,7 +1736,7 @@
                     <!-- Lieferanten Import -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">🏢 Lieferanten importieren</h3>
+                            <h3 class="card-title"><img src="icons/05-company.svg" alt="" class="icon"> Lieferanten importieren</h3>
                         </div>
                         <div class="card-body">
                             <p style="color: #666; margin-bottom: 1rem;">
@@ -1754,7 +1754,7 @@
                             </div>
 
                             <button class="btn btn-primary btn-block" onclick="App.importSuppliers()">
-                                📤 Lieferanten importieren
+                                <img src="icons/04-upload.svg" alt="" class="icon"> Lieferanten importieren
                             </button>
 
                             <div id="supplier-import-result" style="margin-top: 1rem; display: none;"></div>
@@ -1765,7 +1765,7 @@
                 <!-- Import-Statistik -->
                 <div class="card" style="margin-top: 1.5rem;">
                     <div class="card-header">
-                        <h3 class="card-title">📈 Import-Statistik</h3>
+                        <h3 class="card-title"><img src="icons/06-trend.svg" alt="" class="icon"> Import-Statistik</h3>
                     </div>
                     <div class="card-body">
                         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
@@ -1790,7 +1790,7 @@
                         <button class="btn btn-outline"
                                 onclick="App.loadImportStatistics()"
                                 style="margin-top: 1rem;">
-                            🔄 Statistik aktualisieren
+                            <img src="icons/02-sync.svg" alt="" class="icon"> Statistik aktualisieren
                         </button>
                     </div>
                 </div>
@@ -2452,7 +2452,7 @@
                             </div>
                             <div id="invoice-file-preview" class="file-preview" style="display: none;">
                                 <span class="file-name"></span>
-                                <button type="button" class="file-remove" onclick="App.removeInvoiceFile()">✕</button>
+                                <button type="button" class="file-remove" onclick="App.removeInvoiceFile()"><img src="icons/07-close.svg" alt="Entfernen" class="icon-sm"></button>
                             </div>
                         </div>
                     </div>
