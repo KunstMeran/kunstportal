@@ -389,18 +389,42 @@ const ExcelImportService = {
     },
 
     /**
-     * Helper: Decimal parsen
+     * Helper: Decimal parsen (europäisches Format: 1.234,56)
      */
     parseDecimal(value) {
-        if (!value) return null;
+        if (value === null || value === undefined || value === '') return null;
+
+        // Wenn bereits eine Zahl, direkt zurückgeben
         if (typeof value === 'number') return value;
 
-        // Entferne Tausender-Trennzeichen und ersetze Komma durch Punkt
-        const cleaned = String(value)
-            .replace(/\./g, '')  // Tausender-Punkt entfernen
-            .replace(',', '.');   // Komma zu Punkt
+        let str = String(value).trim();
 
-        const parsed = parseFloat(cleaned);
+        // Prüfe ob europäisches Format (Komma als Dezimaltrennzeichen)
+        // Europäisch: 1.234,56 oder 1234,56
+        // US/UK: 1,234.56 oder 1234.56
+
+        const hasComma = str.includes(',');
+        const hasDot = str.includes('.');
+
+        if (hasComma && hasDot) {
+            // Beide vorhanden - prüfe welches zuletzt kommt
+            const lastComma = str.lastIndexOf(',');
+            const lastDot = str.lastIndexOf('.');
+
+            if (lastComma > lastDot) {
+                // Europäisch: 1.234,56 - Komma ist Dezimaltrennzeichen
+                str = str.replace(/\./g, '').replace(',', '.');
+            } else {
+                // US: 1,234.56 - Punkt ist Dezimaltrennzeichen
+                str = str.replace(/,/g, '');
+            }
+        } else if (hasComma && !hasDot) {
+            // Nur Komma: 1234,56 - europäisches Dezimaltrennzeichen
+            str = str.replace(',', '.');
+        }
+        // Wenn nur Punkt, ist es bereits im richtigen Format
+
+        const parsed = parseFloat(str);
         return isNaN(parsed) ? null : parsed;
     },
 
