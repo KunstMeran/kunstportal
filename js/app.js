@@ -1301,7 +1301,7 @@ const App = {
                     // Bezahlt - Datum anzeigen mit Edit-Möglichkeit
                     bezahltCell = `
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <span class="badge" style="background: #e8f5e9; color: #2e7d32;">✓</span>
+                            <span class="badge" style="background: #e8f5e9; color: #2e7d32;">${Icons.check}</span>
                             <input type="date"
                                    value="${k.bezahltAm}"
                                    style="font-size: 0.75rem; padding: 0.1rem; border: 1px solid #ddd; border-radius: 3px; width: 110px;"
@@ -2796,7 +2796,7 @@ const App = {
 
                 hinweisContainer.innerHTML = `
                     <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                        <h4 style="margin: 0 0 0.5rem; color: #856404;">⚠️ ${ohneZuweisung.length} Konten ohne DB-Zuweisung</h4>
+                        <h4 style="margin: 0 0 0.5rem; color: #856404;">${Icons.warning} ${ohneZuweisung.length} Konten ohne DB-Zuweisung</h4>
                         <p style="margin: 0 0 0.75rem; font-size: 0.875rem; color: #856404;">
                             Diese Konten werden in DATEV-Buchungen verwendet, haben aber keine Zuordnung zu einer DB-Stufe:
                         </p>
@@ -2876,9 +2876,9 @@ const App = {
                 <td>${acc.konto_name || '-'}</td>
                 <td>${acc.kategorie || '-'}</td>
                 <td>${dbLabels[acc.db_zuordnung] || acc.db_zuordnung}</td>
-                <td>${acc.ist_projektbezogen ? '✓' : '-'}</td>
+                <td>${acc.ist_projektbezogen ? Icons.check : '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten"${Icons.edit}</button>
+                    <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten">${Icons.edit}</button>
                     <button class="btn btn-sm btn-danger" onclick="App.deleteAccount('${acc.id}')" title="Löschen">×</button>
                 </td>
             </tr>
@@ -3539,7 +3539,7 @@ const App = {
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
                                 onclick="App.unlinkInvoiceFromDatev('${r.invoiceId}')"
                                 title="Verknüpfung trennen">
-                            ✕
+                            ${Icons.close}
                         </button>
                     </div>`;
             } else {
@@ -3617,7 +3617,7 @@ const App = {
                 <td>
                     <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
                         ${r.workflowStatus === 'uploaded' ?
-                            `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'kontrolliert')" title="Als kontrolliert markieren">✓</button>` :
+                            `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'kontrolliert')" title="Als kontrolliert markieren">${Icons.check}</button>` :
                         r.workflowStatus === 'kontrolliert' && DataManager.isAdmin() ?
                             `<button class="btn btn-sm btn-success" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'bezahlt')" title="Als bezahlt markieren">€</button>` :
                         ''}
@@ -3715,7 +3715,7 @@ const App = {
                         <button onclick="event.stopPropagation(); App.previewPdfFromStorage('${filePath}')"
                                 style="margin-left: 0.5rem; padding: 0.1rem 0.4rem; font-size: 0.7rem; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer;"
                                 title="PDF anzeigen">
-                            👁
+                            ${Icons.preview}
                         </button>
                     </div>`;
         }).join('');
@@ -4955,7 +4955,7 @@ const App = {
                 <td>
                     <span style="${nameStyle}"><strong>${displayName}</strong></span>
                     <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="event.stopPropagation(); App.editLieferantName('${l.partitaIva}')" title="Name bearbeiten">
-                        ✎
+                        ${Icons.edit}
                     </button>
                 </td>
                 <td>${l.partitaIva}</td>
@@ -5029,7 +5029,7 @@ const App = {
                                 <td style="padding: 0.4rem; text-align: right;">${this.formatCurrency(brutto)}</td>
                                 <td style="padding: 0.4rem; text-align: center;">
                                     ${r.pdfExists ?
-                                        `<a href="#" onclick="event.preventDefault(); App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')" style="color: #2196F3;">📄</a>` :
+                                        `<a href="#" onclick="event.preventDefault(); App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')" style="color: #2196F3;">${Icons.document}</a>` :
                                         '<span style="color: #ccc;">-</span>'
                                     }
                                 </td>
@@ -5567,13 +5567,13 @@ const App = {
 
         container.innerHTML = this.currentInventarAnhaenge.map((a, idx) => {
             const isImage = /\.(jpg|jpeg|png|gif)$/i.test(a.name);
-            const icon = isImage ? '🖼️' : (a.name.endsWith('.pdf') ? '📄' : '📎');
+            const icon = isImage ? Icons.image : (a.name.endsWith('.pdf') ? Icons.document : Icons.attachment);
             return `
                 <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem; background: #f5f5f5; border-radius: 4px; margin-bottom: 0.3rem;">
                     <span>${icon}</span>
                     <a href="${a.url}" target="_blank" style="flex: 1; color: #2196F3;">${a.name}</a>
                     <button type="button" class="btn btn-sm" style="padding: 0.1rem 0.3rem; color: #e74c3c;"
-                            onclick="App.removeInventarAnhang(${idx})" title="Entfernen"${Icons.close}</button>
+                            onclick="App.removeInventarAnhang(${idx})" title="Entfernen">${Icons.close}</button>
                 </div>
             `;
         }).join('');
@@ -6628,13 +6628,13 @@ const App = {
                 </td>
                 <td style="text-align: center;">
                     ${e.document_path ?
-                        `<button class="btn btn-outline btn-sm" onclick="App.showFundingDocument('${e.id}')" title="Dokument anzeigen">📄</button>` :
+                        `<button class="btn btn-outline btn-sm" onclick="App.showFundingDocument('${e.id}')" title="Dokument anzeigen">${Icons.document}</button>` :
                         '<span style="color: #ccc;">-</span>'}
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
-                        <button class="btn btn-outline btn-sm" onclick="App.editEinnahme('${e.id}')"${Icons.edit}</button>
-                        <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme('${e.id}')" style="color: #e74c3c;"${Icons.delete}</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.editEinnahme('${e.id}')">${Icons.edit}</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.deleteEinnahme('${e.id}')" style="color: #e74c3c;">${Icons.delete}</button>
                     </div>
                 </td>
             `;
@@ -6707,7 +6707,7 @@ const App = {
             const vorschau = document.getElementById('einnahme-dokument-vorschau');
             if (fs.document_path) {
                 vorschau.innerHTML = `<div style="padding: 0.5rem; background: #e8f4fd; border-radius: 4px;">
-                    📄 <strong>Dokument hinterlegt</strong>
+                    ${Icons.document} <strong>Dokument hinterlegt</strong>
                     <button type="button" class="btn btn-outline btn-sm" onclick="App.showFundingSourceDocument('${fs.id}')" style="margin-left: 0.5rem;">Anzeigen</button>
                 </div>`;
             } else {
@@ -6802,7 +6802,7 @@ const App = {
             frame.srcdoc = `
                 <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: sans-serif;">
                     <div style="text-align: center;">
-                        <p style="font-size: 48px;">📄</p>
+                        <p style="font-size: 48px;"><img src="icons/01-document.svg" alt="" style="width: 48px; height: 48px;"></p>
                         <p><strong>${dok.name}</strong></p>
                         <p>${(dok.size / 1024).toFixed(1)} KB</p>
                         <a href="${dok.data}" download="${dok.name}" style="color: #3498db;">Herunterladen</a>
@@ -6949,8 +6949,8 @@ const App = {
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         ${!m.isPaid ? `<button class="btn btn-sm btn-success" onclick="App.showPaymentModal('${m.id}')" title="Zahlung zuweisen">€</button>` : ''}
-                        ${m.isPaid ? `<button class="btn btn-sm btn-outline" onclick="App.removeMemberPayment('${m.id}')" title="Zahlung entfernen" style="color: #e74c3c;"${Icons.close}</button>` : ''}
-                        <button class="btn btn-sm btn-outline" onclick="App.editMember('${m.id}')" title="Bearbeiten"${Icons.edit}</button>
+                        ${m.isPaid ? `<button class="btn btn-sm btn-outline" onclick="App.removeMemberPayment('${m.id}')" title="Zahlung entfernen" style="color: #e74c3c;">${Icons.close}</button>` : ''}
+                        <button class="btn btn-sm btn-outline" onclick="App.editMember('${m.id}')" title="Bearbeiten">${Icons.edit}</button>
                     </div>
                 </td>
             `;
@@ -7623,13 +7623,13 @@ const App = {
             return `
                 <div class="file-list-item">
                     <div class="file-list-item-info">
-                        <span class="file-list-item-icon" style="cursor: pointer;" onclick="App.previewPendingPdf(${index})" title="PDF öffnen">📄</span>
+                        <span class="file-list-item-icon" style="cursor: pointer;" onclick="App.previewPendingPdf(${index})" title="PDF öffnen">${Icons.document}</span>
                         <div class="file-list-item-details">
                             <div class="file-list-item-name">${item.file.name}</div>
                             <div class="file-list-item-meta ${statusClass}">${statusText} • ${sizeKB} KB</div>
                         </div>
                     </div>
-                    <button class="file-list-item-remove" onclick="App.removePendingFile(${index})" title="Entfernen"${Icons.close}</button>
+                    <button class="file-list-item-remove" onclick="App.removePendingFile(${index})" title="Entfernen">${Icons.close}</button>
                 </div>
             `;
         }).join('');
@@ -7852,7 +7852,7 @@ const App = {
             if (result.success) {
                 resultDiv.innerHTML = `
                     <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
-                        <strong>✅ Import erfolgreich</strong><br>
+                        <strong>${Icons.success} Import erfolgreich</strong><br>
                         ${result.message}
                     </div>`;
                 this.showToast('success', 'Import erfolgreich', result.message);
@@ -7878,7 +7878,7 @@ const App = {
             console.error('Import-Fehler:', error);
             resultDiv.innerHTML = `
                 <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
-                    <strong>❌ Import fehlgeschlagen</strong><br>
+                    <strong>${Icons.error} Import fehlgeschlagen</strong><br>
                     ${error.message}
                 </div>`;
             this.showToast('error', 'Import fehlgeschlagen', error.message);
@@ -7911,7 +7911,7 @@ const App = {
             if (result.success) {
                 resultDiv.innerHTML = `
                     <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
-                        <strong>✅ Import erfolgreich</strong><br>
+                        <strong>${Icons.success} Import erfolgreich</strong><br>
                         ${result.message}
                     </div>`;
                 this.showToast('success', 'Import erfolgreich', result.message);
@@ -7925,7 +7925,7 @@ const App = {
             console.error('Import-Fehler:', error);
             resultDiv.innerHTML = `
                 <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
-                    <strong>❌ Import fehlgeschlagen</strong><br>
+                    <strong>${Icons.error} Import fehlgeschlagen</strong><br>
                     ${error.message}
                 </div>`;
             this.showToast('error', 'Import fehlgeschlagen', error.message);
@@ -8010,15 +8010,35 @@ const App = {
                 const filename = invoice.file_name || '';
                 const filenameClean = filename.replace(/\.pdf$/i, '').toUpperCase();
 
-                // Suche Buchung deren Dokument-Nr im Dateinamen vorkommt
+                // Suche Buchung deren Dokument-Nr oder Partita IVA im Dateinamen vorkommt
                 const matching = datevBookings.find(b => {
                     if (!b.dokument_nr) return false;
                     const dokNr = b.dokument_nr.toUpperCase();
-                    // Exakte Suche: Dokument-Nr muss als ganzes Wort vorkommen
-                    // z.B. "2026_IT123_F12345_Lieferant" enthält "F12345"
-                    return filenameClean.includes(dokNr) ||
-                           filenameClean.includes(dokNr.replace(/^F/, '')) || // Ohne F-Prefix
-                           filenameClean.includes(dokNr.replace(/^0+/, '')); // Ohne führende Nullen
+                    const partitaIva = (b.partita_iva || '').toUpperCase();
+
+                    // Methode 1: Partita IVA + Dokument-Nr im Dateinamen
+                    // z.B. "IT00100340215_92.pdf" enthält beide
+                    if (partitaIva && filenameClean.includes(partitaIva) && filenameClean.includes(dokNr)) {
+                        return true;
+                    }
+
+                    // Methode 2: Kombinierte ID im Dateinamen
+                    // z.B. "IT00100340215_92.pdf" matcht "IT00100340215_92"
+                    const kombinierteId = `${partitaIva}_${dokNr}`;
+                    if (filenameClean.includes(kombinierteId)) {
+                        return true;
+                    }
+
+                    // Methode 3: Nur Dokument-Nr (wenn eindeutig genug, min 4 Zeichen)
+                    if (dokNr.length >= 4) {
+                        if (filenameClean.includes(dokNr) ||
+                            filenameClean.includes(dokNr.replace(/^F/, '')) ||
+                            filenameClean.includes(dokNr.replace(/^0+/, ''))) {
+                            return true;
+                        }
+                    }
+
+                    return false;
                 });
 
                 if (matching) {
@@ -8668,15 +8688,15 @@ const App = {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
 
-        const icons = {
-            success: '✅',
-            error: '❌',
-            warning: '⚠️',
-            info: 'ℹ️'
+        const toastIcons = {
+            success: Icons.success,
+            error: Icons.error,
+            warning: Icons.warning,
+            info: Icons.data
         };
 
         toast.innerHTML = `
-            <span class="toast-icon">${icons[type] || icons.info}</span>
+            <span class="toast-icon">${toastIcons[type] || toastIcons.info}</span>
             <div class="toast-content">
                 <div class="toast-title">${title}</div>
                 ${message ? `<div class="toast-message">${message}</div>` : ''}
