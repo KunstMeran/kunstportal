@@ -2722,10 +2722,115 @@ const App = {
 
             this.kontenplanCache = data || [];
             this.renderKontenplan(this.kontenplanCache);
+
+            // Prüfe auf Konten ohne Zuweisung in den DATEV-Buchungen
+            await this.pruefeKontenOhneZuweisung();
         } catch (error) {
             console.error('Fehler beim Laden des Kontenplans:', error);
             container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler beim Laden. Bitte Migration ausführen.</td></tr>';
         }
+    },
+
+    /**
+     * Prüft welche Konten in den DATEV-Buchungen vorkommen, aber keine DB-Zuweisung haben
+     */
+    pruefeKontenOhneZuweisung: async function() {
+        const hinweisContainer = document.getElementById('kontenplan-hinweise');
+        if (!hinweisContainer) return;
+
+        try {
+            // Alle eindeutigen Kontonummern aus DATEV-Buchungen laden
+            const { data: buchungen, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('konto_nr')
+                .not('konto_nr', 'is', null);
+
+            if (error) throw error;
+
+            // Eindeutige Konten sammeln
+            const verwendeteKonten = new Set();
+            buchungen.forEach(b => {
+                if (b.konto_nr) verwendeteKonten.add(b.konto_nr);
+            });
+
+            // Prüfen welche Konten keine Zuweisung haben
+            const zugewiesenePatterns = this.kontenplanCache.map(k => k.konto_pattern.replace('%', ''));
+            const ohneZuweisung = [];
+
+            verwendeteKonten.forEach(konto => {
+                const hatZuweisung = zugewiesenePatterns.some(pattern => konto.startsWith(pattern));
+                if (!hatZuweisung) {
+                    ohneZuweisung.push(konto);
+                }
+            });
+
+            if (ohneZuweisung.length > 0) {
+                // Kontenbezeichnungen laden
+                const { data: bezeichnungen } = await SupabaseService.client
+                    .from('konto_bezeichnungen')
+                    .select('konto_nr, beschreibung_de, beschreibung_it')
+                    .in('konto_nr', ohneZuweisung.slice(0, 20));
+
+                const bezMap = {};
+                (bezeichnungen || []).forEach(b => { bezMap[b.konto_nr] = b; });
+
+                hinweisContainer.innerHTML = `
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem; color: #856404;">⚠️ ${ohneZuweisung.length} Konten ohne DB-Zuweisung</h4>
+                        <p style="margin: 0 0 0.75rem; font-size: 0.875rem; color: #856404;">
+                            Diese Konten werden in DATEV-Buchungen verwendet, haben aber keine Zuordnung zu einer DB-Stufe:
+                        </p>
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background: rgba(0,0,0,0.05);">
+                                        <th style="padding: 0.3rem; text-align: left;">Konto</th>
+                                        <th style="padding: 0.3rem; text-align: left;">Bezeichnung (DE)</th>
+                                        <th style="padding: 0.3rem; text-align: left;">Bezeichnung (IT)</th>
+                                        <th style="padding: 0.3rem;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${ohneZuweisung.slice(0, 20).map(konto => {
+                                        const bez = bezMap[konto] || {};
+                                        return `
+                                            <tr>
+                                                <td style="padding: 0.3rem;"><code>${konto}</code></td>
+                                                <td style="padding: 0.3rem;">${bez.beschreibung_de || '-'}</td>
+                                                <td style="padding: 0.3rem; color: #666; font-style: italic;">${bez.beschreibung_it || '-'}</td>
+                                                <td style="padding: 0.3rem;">
+                                                    <button class="btn btn-sm btn-primary" onclick="App.schnellZuweisung('${konto}', '${(bez.beschreibung_de || '').replace(/'/g, "\\'")}')" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">
+                                                        + Hinzufügen
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                    ${ohneZuweisung.length > 20 ? `<tr><td colspan="4" style="padding: 0.3rem; color: #666;">... und ${ohneZuweisung.length - 20} weitere</td></tr>` : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else {
+                hinweisContainer.innerHTML = '';
+            }
+        } catch (error) {
+            console.error('Fehler beim Prüfen der Konten:', error);
+        }
+    },
+
+    /**
+     * Schnell-Zuweisung: Öffnet Modal mit vorausgefüllten Daten
+     */
+    schnellZuweisung: function(kontoNr, beschreibung) {
+        document.getElementById('account-form').reset();
+        document.getElementById('account-form-id').value = '';
+        document.getElementById('account-modal-title').textContent = 'Konto hinzufügen';
+        document.getElementById('account-pattern').value = kontoNr + '%';
+        document.getElementById('account-name').value = beschreibung || '';
+        document.getElementById('account-db').value = 'NEUTRAL';
+        this.showModal('account-form-modal');
     },
 
     renderKontenplan: function(accounts) {
@@ -6060,28 +6165,29 @@ const App = {
     },
 
     /**
-     * Kontenplan-Bezeichnungen aus chart_of_accounts oder lokaler Datei laden
+     * Kontenplan-Bezeichnungen aus konto_bezeichnungen Tabelle laden
      */
     ladeKontenplanBezeichnungen: async function() {
         try {
-            // Versuche aus chart_of_accounts zu laden
+            // Aus konto_bezeichnungen Tabelle laden (DATEV Kontenplan)
             const { data, error } = await SupabaseService.client
-                .from('chart_of_accounts')
-                .select('konto_pattern, konto_name, beschreibung');
+                .from('konto_bezeichnungen')
+                .select('konto_nr, beschreibung_de, beschreibung_it');
 
             if (!error && data) {
                 data.forEach(row => {
-                    // Pattern ohne % als Schlüssel
-                    const konto = row.konto_pattern.replace('%', '');
-                    this.kontenplanBezeichnungen[konto] = {
-                        de: row.konto_name || '',
-                        it: row.beschreibung || ''
+                    this.kontenplanBezeichnungen[row.konto_nr] = {
+                        de: row.beschreibung_de || '',
+                        it: row.beschreibung_it || ''
                     };
                 });
+                console.log(`${data.length} Kontenbezeichnungen geladen`);
             }
 
-            // Zusätzlich: Statische Bezeichnungen für gängige Konten
-            this.ergaenzeStandardKontenbezeichnungen();
+            // Fallback: Standard-Bezeichnungen
+            if (Object.keys(this.kontenplanBezeichnungen).length === 0) {
+                this.ergaenzeStandardKontenbezeichnungen();
+            }
 
         } catch (error) {
             console.error('Fehler beim Laden der Kontenbezeichnungen:', error);
