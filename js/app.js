@@ -3618,14 +3618,16 @@ const App = {
                         const pdfDropdownId = `pdf-dropdown-${safeId}`;
                         const uploadInputId = `upload-${safeId}`;
                         const dropZoneId = `dropzone-${safeId}`;
+                        // Für Upload: DB-ID verwenden wenn vorhanden (zuverlässiger als partitaIva_dokumentNr)
+                        const uploadId = r.id ? `id:${r.id}` : r.rechnungId;
                         return `<div class="pdf-drop-zone" id="${dropZoneId}"
-                                    data-partita-iva="${r.partitaIva}"
-                                    data-dokument-nr="${r.dokumentNr}"
-                                    data-rechnung-id="${r.rechnungId}"
+                                    data-partita-iva="${r.partitaIva || ''}"
+                                    data-dokument-nr="${r.dokumentNr || ''}"
+                                    data-rechnung-id="${uploadId}"
                                     style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; border: 2px dashed transparent; border-radius: 4px; transition: all 0.2s;"
                                     ondragover="App.handlePdfDragOver(event, '${dropZoneId}')"
                                     ondragleave="App.handlePdfDragLeave(event, '${dropZoneId}')"
-                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva}', '${r.dokumentNr}', '${r.rechnungId}')">
+                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva || ''}', '${r.dokumentNr || ''}', '${uploadId}')">
                                     <div class="pdf-search-container" style="position: relative; min-width: 200px;">
                                         <input type="text"
                                                id="input-${pdfDropdownId}"
@@ -3639,9 +3641,9 @@ const App = {
                                         </div>
                                     </div>
                                     <input type="file" id="${uploadInputId}" accept=".pdf" style="display: none;" multiple
-                                           onchange="App.uploadPdfForBuchung('${r.partitaIva}', '${r.dokumentNr}', this, '${r.rechnungId}')">
+                                           onchange="App.uploadPdfForBuchung('${r.partitaIva || ''}', '${r.dokumentNr || ''}', this, '${uploadId}')">
                                     <button class="btn btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.7rem; background: #4CAF50; color: white;"
-                                            onclick="document.getElementById('${uploadInputId}').click()" title="PDF hochladen">
+                                            onclick="console.log('🔘 Upload-Button geklickt, ID:', '${uploadInputId}'); var el = document.getElementById('${uploadInputId}'); if(el) { el.click(); } else { console.error('❌ Input nicht gefunden:', '${uploadInputId}'); }" title="PDF hochladen">
                                         ↑
                                     </button>
                                 </div>`;
@@ -3894,6 +3896,7 @@ const App = {
      * Unterstützt auch Buchungen ohne dokumentNr - dann wird rechnungId verwendet
      */
     uploadPdfFile: async function(partitaIva, dokumentNr, file, rechnungId = null) {
+        console.log('📤 uploadPdfFile aufgerufen:', { partitaIva, dokumentNr, fileName: file.name, rechnungId });
         try {
             this.showToast('info', 'Upload...', `${file.name} wird hochgeladen...`);
 
@@ -3901,15 +3904,19 @@ const App = {
             const year = new Date().getFullYear();
             const timestamp = Date.now();
             // Bei fehlender dokumentNr: eindeutige ID aus rechnungId oder Timestamp
-            const docNrPart = dokumentNr || rechnungId || timestamp;
+            // WICHTIG: Doppelpunkte aus rechnungId entfernen (ungültig in Dateinamen)
+            const safeRechnungId = rechnungId ? rechnungId.replace(/:/g, '-') : null;
+            const docNrPart = dokumentNr || safeRechnungId || timestamp;
             const newFileName = `${year}_${partitaIva || 'NODOC'}_${docNrPart}_${timestamp}.pdf`;
             const filePath = `invoices/${newFileName}`;
+            console.log('📤 Generierter Dateiname:', newFileName);
 
             // Upload zu Supabase Storage
             const { data: uploadData, error: uploadError } = await SupabaseService.client.storage
                 .from('invoices')
                 .upload(filePath, file, { upsert: true });
 
+            console.log('📤 Storage Upload Ergebnis:', { uploadData, uploadError });
             if (uploadError) throw uploadError;
 
             // Invoice-Eintrag in Datenbank erstellen
@@ -3925,22 +3932,72 @@ const App = {
                 .select()
                 .single();
 
+            console.log('📤 Invoice DB Insert Ergebnis:', { invoiceData, dbError });
             if (dbError) throw dbError;
 
             // Wenn wir eine rechnungId haben, verknüpfe mit der datev_bookings Tabelle
             if (rechnungId && invoiceData) {
-                const [pIva, ...dNrParts] = rechnungId.split('_');
-                const dNr = dNrParts.join('_');
+                console.log('📤 Verknüpfe mit datev_bookings, rechnungId:', rechnungId);
+                let linkData = null;
+                let linkError = null;
 
-                // linked_invoice_id in datev_bookings setzen
-                await SupabaseService.client
-                    .from('datev_bookings')
-                    .update({ linked_invoice_id: invoiceData.id })
-                    .eq('partita_iva', pIva)
-                    .eq('dokument_nr', dNr);
+                // Prüfe ob ID-Format (id:UUID) oder altes Format (partitaIva_dokumentNr)
+                if (rechnungId.startsWith('id:')) {
+                    const dbId = rechnungId.substring(3);
+                    console.log('📤 Verknüpfe via DB-ID:', dbId, 'Invoice-ID:', invoiceData.id);
+
+                    // linked_invoice_id in datev_bookings setzen (per ID)
+                    const result = await SupabaseService.client
+                        .from('datev_bookings')
+                        .update({ linked_invoice_id: invoiceData.id })
+                        .eq('id', dbId)
+                        .select();
+                    linkData = result.data;
+                    linkError = result.error;
+
+                    // Falls kein Match gefunden wurde, logge Warnung
+                    if (!linkData || linkData.length === 0) {
+                        console.warn('⚠️ Keine DATEV-Buchung mit ID gefunden:', dbId);
+                    }
+                } else {
+                    // Format: partitaIva_dokumentNr (kann auch _dokumentNr sein wenn partitaIva leer)
+                    const [pIva, ...dNrParts] = rechnungId.split('_');
+                    const dNr = dNrParts.join('_');
+                    console.log('📤 Verknüpfe via partitaIva/dokumentNr:', { pIva, dNr });
+
+                    // linked_invoice_id in datev_bookings setzen (per partitaIva + dokumentNr)
+                    // Wenn partitaIva leer ist, suche nach leerer partita_iva ODER null
+                    let query = SupabaseService.client
+                        .from('datev_bookings')
+                        .update({ linked_invoice_id: invoiceData.id });
+
+                    if (pIva && pIva.trim() !== '') {
+                        query = query.eq('partita_iva', pIva);
+                    } else {
+                        // Leere partita_iva: match auf leer oder null
+                        query = query.or('partita_iva.is.null,partita_iva.eq.');
+                    }
+                    query = query.eq('dokument_nr', dNr);
+
+                    const result = await query.select();
+                    linkData = result.data;
+                    linkError = result.error;
+
+                    if (!linkData || linkData.length === 0) {
+                        console.warn('⚠️ Keine DATEV-Buchung mit partitaIva/dokumentNr gefunden:', { pIva, dNr });
+                    }
+                }
+
+                console.log('📤 Verknüpfung Ergebnis:', { linkData, linkError, matchCount: linkData?.length || 0 });
+
+                if (linkError) {
+                    console.error('❌ Verknüpfungsfehler:', linkError);
+                }
+            } else {
+                console.log('📤 Keine Verknüpfung (rechnungId oder invoiceData fehlt):', { rechnungId, invoiceData });
             }
 
-            this.showToast('success', 'Hochgeladen', `${file.name} wurde hochgeladen${dokumentNr ? ' und verknüpft' : ''}`);
+            this.showToast('success', 'Hochgeladen', `${file.name} wurde hochgeladen und verknüpft`);
             await this.reloadRechnungenKeepState();
 
         } catch (error) {
@@ -3953,8 +4010,13 @@ const App = {
      * Direkter PDF-Upload für eine Buchung (über File-Input)
      */
     uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement, rechnungId = null) {
+        console.log('📤 uploadPdfForBuchung aufgerufen:', { partitaIva, dokumentNr, rechnungId });
         const files = inputElement.files;
-        if (!files || files.length === 0) return;
+        if (!files || files.length === 0) {
+            console.log('📤 Keine Dateien ausgewählt');
+            return;
+        }
+        console.log('📤 Dateien ausgewählt:', files.length);
 
         // Upload alle ausgewählten PDFs
         for (const file of files) {
@@ -4502,31 +4564,50 @@ const App = {
             const heute = new Date().toISOString();
 
             for (const rechnungId of this.selectedRechnungen) {
-                // Prüfe ob es eine Invoice-ID ist (nur Zahlen) oder partitaIva_dokumentNr
-                const isInvoiceId = /^\d+$/.test(rechnungId);
+                console.log('Archiviere:', rechnungId);
 
-                if (isInvoiceId) {
-                    // Supabase-only Invoice (PDF ohne DATEV-Match)
-                    await SupabaseService.client
+                // Format 1: "id:123" - Datenbank-ID (für DATEV-Buchungen ohne dokumentNr)
+                if (rechnungId.startsWith('id:')) {
+                    const dbId = rechnungId.substring(3);
+                    const { error } = await SupabaseService.client
+                        .from('datev_bookings')
+                        .update({
+                            archived: true,
+                            archived_at: heute
+                        })
+                        .eq('id', dbId);
+                    if (error) console.error('Archiv-Fehler (id:):', error);
+                }
+                // Format 2: Nur Zahlen - Supabase-only Invoice (PDF ohne DATEV-Match)
+                else if (/^\d+$/.test(rechnungId)) {
+                    const { error } = await SupabaseService.client
                         .from('invoices')
                         .update({
                             archived: true,
                             archived_at: heute
                         })
                         .eq('id', rechnungId);
-                } else {
-                    // DATEV-Buchung
+                    if (error) console.error('Archiv-Fehler (invoice):', error);
+                }
+                // Format 3: "partitaIva_dokumentNr" - DATEV-Buchung mit Rechnungsnummer
+                else {
                     const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                     const dokumentNr = dokumentNrParts.join('_');
 
-                    await SupabaseService.client
-                        .from('datev_bookings')
-                        .update({
-                            archived: true,
-                            archived_at: heute
-                        })
-                        .eq('partita_iva', partitaIva)
-                        .eq('dokument_nr', dokumentNr);
+                    // Nur archivieren wenn dokumentNr vorhanden ist
+                    if (dokumentNr) {
+                        const { error } = await SupabaseService.client
+                            .from('datev_bookings')
+                            .update({
+                                archived: true,
+                                archived_at: heute
+                            })
+                            .eq('partita_iva', partitaIva)
+                            .eq('dokument_nr', dokumentNr);
+                        if (error) console.error('Archiv-Fehler (partita_dokumentNr):', error);
+                    } else {
+                        console.warn('Kann nicht archivieren ohne dokumentNr:', rechnungId);
+                    }
                 }
             }
 

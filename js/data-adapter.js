@@ -272,7 +272,8 @@ const SupabaseDataAdapter = {
                     // Änderungsdatum
                     updatedAt: b.updated_at || null,
                     // Supabase-spezifisch
-                    rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
+                    // Bei fehlender dokumentNr: id:-Format verwenden für zuverlässige Identifikation
+                    rechnungId: b.dokument_nr ? `${b.partita_iva || ''}_${b.dokument_nr}` : `id:${b.id}`,
                     importYear: b.import_year,
                     linkedInvoiceId: b.linked_invoice_id
                 };
@@ -782,11 +783,39 @@ const SupabaseDataAdapter = {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
                 const buchungDocNrNorm = normalizeDocNr(buchung.dokumentNr);
 
-                // WICHTIG: Kein Matching wenn keine Rechnungsnummer vorhanden!
+                // Erst prüfen: Hat diese Buchung eine direkte linked_invoice_id?
+                // Das funktioniert AUCH ohne Rechnungsnummer!
+                let matchingInvoice = null;
+                if (buchung.linkedInvoiceId) {
+                    matchingInvoice = supabaseInvoices.find(inv => inv.id === buchung.linkedInvoiceId);
+                }
+
+                // WICHTIG: Kein Partita IVA + DokumentNr Matching wenn keine Rechnungsnummer vorhanden!
                 // Sonst würde ein PDF bei allen Buchungen ohne Nummer erscheinen
+                // Aber: linked_invoice_id Matching ist OK und wurde bereits oben geprüft
                 if (!buchung.dokumentNr || buchung.dokumentNr.trim() === '') {
                     // Lieferantenname aus suppliers-Tabelle holen
                     const supplierName = supplierMap.get(buchung.partitaIva);
+
+                    // Falls direkte Verknüpfung via linked_invoice_id gefunden wurde
+                    if (matchingInvoice) {
+                        matchedInvoiceIds.add(matchingInvoice.id);
+                        return {
+                            ...buchung,
+                            fornitoreName: supplierName || buchung.fornitoreName,
+                            invoiceId: matchingInvoice.id,
+                            filePath: matchingInvoice.file_path,
+                            fileName: matchingInvoice.file_name,
+                            uploadedAt: matchingInvoice.created_at,
+                            pdfExists: true,
+                            status: matchingInvoice.status,
+                            notes: matchingInvoice.notes,
+                            kostentyp: matchingInvoice.kostentyp || '',
+                            funding_source_id: matchingInvoice.funding_source_id
+                        };
+                    }
+
+                    // Keine Verknüpfung gefunden
                     return {
                         ...buchung,
                         fornitoreName: supplierName || buchung.fornitoreName,
@@ -794,27 +823,30 @@ const SupabaseDataAdapter = {
                     };
                 }
 
-                const matchingInvoice = supabaseInvoices.find(inv => {
-                    // Partita IVA muss übereinstimmen
-                    if (inv.partita_iva !== buchung.partitaIva) return false;
+                // Falls keine direkte Verknüpfung: Über Partita IVA + Dokumentnr. suchen
+                if (!matchingInvoice) {
+                    matchingInvoice = supabaseInvoices.find(inv => {
+                        // Partita IVA muss übereinstimmen
+                        if (inv.partita_iva !== buchung.partitaIva) return false;
 
-                    // Invoice muss auch eine Rechnungsnummer haben
-                    if (!inv.invoice_number || inv.invoice_number.trim() === '') return false;
+                        // Invoice muss auch eine Rechnungsnummer haben
+                        if (!inv.invoice_number || inv.invoice_number.trim() === '') return false;
 
-                    // Exakter Match
-                    if (inv.invoice_number === buchung.dokumentNr) return true;
+                        // Exakter Match
+                        if (inv.invoice_number === buchung.dokumentNr) return true;
 
-                    // Normalisierter Match (ohne "/" Prefix)
-                    const invDocNrNorm = normalizeDocNr(inv.invoice_number);
-                    const isMatch = invDocNrNorm === buchungDocNrNorm;
+                        // Normalisierter Match (ohne "/" Prefix)
+                        const invDocNrNorm = normalizeDocNr(inv.invoice_number);
+                        const isMatch = invDocNrNorm === buchungDocNrNorm;
 
-                    // Debug für Slash-Fälle
-                    if (buchung.dokumentNr && buchung.dokumentNr.includes('/')) {
-                        console.log(`🔍 Slash-Match: DATEV="${buchung.dokumentNr}" (norm="${buchungDocNrNorm}") vs PDF="${inv.invoice_number}" (norm="${invDocNrNorm}") → ${isMatch ? '✅' : '❌'}`);
-                    }
+                        // Debug für Slash-Fälle
+                        if (buchung.dokumentNr && buchung.dokumentNr.includes('/')) {
+                            console.log(`🔍 Slash-Match: DATEV="${buchung.dokumentNr}" (norm="${buchungDocNrNorm}") vs PDF="${inv.invoice_number}" (norm="${invDocNrNorm}") → ${isMatch ? '✅' : '❌'}`);
+                        }
 
-                    return isMatch;
-                });
+                        return isMatch;
+                    });
+                }
 
                 // Lieferantenname aus suppliers-Tabelle holen
                 const supplierName = supplierMap.get(buchung.partitaIva);
@@ -825,7 +857,7 @@ const SupabaseDataAdapter = {
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
-                        id: matchingInvoice.id,
+                        // WICHTIG: buchung.id beibehalten (DATEV-Buchungs-ID), invoiceId ist PDF-ID
                         invoiceId: matchingInvoice.id,
                         filePath: matchingInvoice.file_path,
                         fileName: matchingInvoice.file_name,
