@@ -77,6 +77,9 @@ const App = {
         // Mass Upload Setup
         this.setupMassUpload();
 
+        // Import-Tab PDF Upload Setup
+        this.setupImportPdfUpload();
+
         // DATEV-Daten laden
         await this.loadDatevData();
 
@@ -3337,10 +3340,12 @@ const App = {
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
         const kostentypFilter = document.getElementById('rechnung-filter-kostentyp')?.value || '';
         const abgabestelleFilter = document.getElementById('rechnung-filter-abgabestelle').value;
+        const dokumentNrFilter = document.getElementById('rechnung-filter-dokumentnr')?.value?.toLowerCase().trim() || '';
         const pdfStatusFilter = document.getElementById('rechnung-filter-pdf-status')?.value || '';
         const datevStatusFilter = document.getElementById('rechnung-filter-datev-status')?.value || '';
         const datumVon = document.getElementById('rechnung-filter-datum-von')?.value || '';
         const datumBis = document.getElementById('rechnung-filter-datum-bis')?.value || '';
+        const geaendertAb = document.getElementById('rechnung-filter-geaendert-ab')?.value || '';
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
 
@@ -3380,6 +3385,11 @@ const App = {
                 r.partitaIva?.toLowerCase().includes(searchTerm)
             );
         }
+        if (dokumentNrFilter) {
+            rechnungen = rechnungen.filter(r =>
+                r.dokumentNr?.toLowerCase().includes(dokumentNrFilter)
+            );
+        }
         if (kostentypFilter) {
             rechnungen = rechnungen.filter(r => r.kostentyp === kostentypFilter);
         }
@@ -3409,6 +3419,14 @@ const App = {
                 if (datumVon && rechnungDatum < new Date(datumVon)) return false;
                 if (datumBis && rechnungDatum > new Date(datumBis + 'T23:59:59')) return false;
                 return true;
+            });
+        }
+        // Änderungsdatum-Filter
+        if (geaendertAb) {
+            const filterDate = new Date(geaendertAb);
+            rechnungen = rechnungen.filter(r => {
+                if (!r.updatedAt) return false;
+                return new Date(r.updatedAt) >= filterDate;
             });
         }
 
@@ -3456,7 +3474,7 @@ const App = {
         const endIndex = Math.min(startIndex + this.rechnungenPerPage, totalCount);
 
         if (totalCount === 0) {
-            tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; color: #666; padding: 2rem;">Keine Rechnungen gefunden. Bitte Import-Skript ausführen.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; color: #666; padding: 2rem;">Keine Rechnungen gefunden. Bitte Import-Skript ausführen.</td></tr>';
             document.getElementById('rechnungen-pagination').style.display = 'none';
             this.updateMassActionsBar();
             return;
@@ -3630,6 +3648,7 @@ const App = {
                 }</td>
                 <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
+                <td style="font-size: 0.75rem; color: #666;">${r.updatedAt ? this.formatDateTime(r.updatedAt) : '-'}</td>
                 <td>${this.getAbgabestelleDropdown(r.invoiceId, r.funding_source_id)}</td>
                 <td>
                     <input type="text"
@@ -4222,6 +4241,10 @@ const App = {
                 case 'bezahlt':
                     valA = a.bezahltAm ? new Date(a.bezahltAm) : new Date(0);
                     valB = b.bezahltAm ? new Date(b.bezahltAm) : new Date(0);
+                    break;
+                case 'geaendert':
+                    valA = a.updatedAt ? new Date(a.updatedAt) : new Date(0);
+                    valB = b.updatedAt ? new Date(b.updatedAt) : new Date(0);
                     break;
                 case 'abgabestelle':
                     valA = (a.abgabestelle || '').toLowerCase();
@@ -5235,6 +5258,12 @@ const App = {
         if (!dateString) return '-';
         const date = new Date(dateString);
         return date.toLocaleDateString('de-DE');
+    },
+
+    formatDateTime: function(dateTimeString) {
+        if (!dateTimeString) return '-';
+        const date = new Date(dateTimeString);
+        return date.toLocaleDateString('de-DE') + ' ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     },
 
     /**
@@ -8119,6 +8148,225 @@ const App = {
 
         console.log(`⚠️ Keine DATEV-Buchung gefunden für ${partitaIva}_${invoiceNumber}`);
         return null;
+    },
+
+    // ==========================================
+    // IMPORT-TAB PDF UPLOAD
+    // ==========================================
+
+    pendingImportPdfFiles: [],
+
+    setupImportPdfUpload: function() {
+        const uploadZone = document.getElementById('import-pdf-upload-zone');
+        const fileInput = document.getElementById('import-pdf-file-input');
+
+        if (!uploadZone || !fileInput) return;
+
+        // Dateien ausgewählt
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleImportPdfFiles(Array.from(e.target.files));
+            }
+        });
+
+        // Drag & Drop Events
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+
+            if (e.dataTransfer.files.length > 0) {
+                this.handleImportPdfFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+    },
+
+    handleImportPdfFiles: function(files) {
+        const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+
+        if (pdfFiles.length === 0) {
+            alert('Bitte nur PDF-Dateien hochladen.');
+            return;
+        }
+
+        this.pendingImportPdfFiles = pdfFiles.map(file => ({
+            file: file,
+            status: 'pending',
+            parsed: this.parseInvoiceFilename(file.name)
+        }));
+
+        this.showImportPdfPreview();
+    },
+
+    showImportPdfPreview: function() {
+        const uploadContent = document.querySelector('#import-pdf-upload-zone .upload-content');
+        const preview = document.getElementById('import-pdf-preview');
+
+        uploadContent.style.display = 'none';
+        preview.style.display = 'block';
+
+        document.getElementById('import-pdf-search').value = '';
+        this.renderImportPdfFileList();
+    },
+
+    renderImportPdfFileList: function(filterText = '') {
+        const fileList = document.getElementById('import-pdf-file-list');
+        const lowerFilter = filterText.toLowerCase();
+
+        const filteredFiles = this.pendingImportPdfFiles
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => !filterText || item.file.name.toLowerCase().includes(lowerFilter));
+
+        fileList.innerHTML = filteredFiles.map(({ item, index }) => {
+            const sizeKB = (item.file.size / 1024).toFixed(1);
+            const statusClass = item.parsed.valid ? '' : 'warning';
+
+            let statusText = '';
+            if (item.parsed.valid) {
+                statusText = `Partita IVA: ${item.parsed.partitaIva} • Rechnung: ${item.parsed.invoiceNumber}`;
+            } else {
+                statusText = 'Warnung: Dateiname nicht erkannt';
+            }
+
+            return `
+                <div class="file-list-item">
+                    <div class="file-list-item-info">
+                        <span class="file-list-item-icon" style="cursor: pointer;" onclick="App.previewImportPdf(${index})" title="PDF öffnen">${Icons.document}</span>
+                        <div class="file-list-item-details">
+                            <div class="file-list-item-name">${item.file.name}</div>
+                            <div class="file-list-item-meta ${statusClass}">${statusText} • ${sizeKB} KB</div>
+                        </div>
+                    </div>
+                    <button class="file-list-item-remove" onclick="App.removeImportPdfFile(${index})" title="Entfernen">${Icons.close}</button>
+                </div>
+            `;
+        }).join('');
+
+        if (filteredFiles.length === 0 && filterText) {
+            fileList.innerHTML = '<div style="text-align: center; color: #666; padding: 1rem;">Keine Dateien gefunden</div>';
+        }
+    },
+
+    filterImportPdfList: function() {
+        const searchInput = document.getElementById('import-pdf-search');
+        this.renderImportPdfFileList(searchInput.value);
+    },
+
+    previewImportPdf: function(index) {
+        const item = this.pendingImportPdfFiles[index];
+        if (!item) return;
+
+        const blobUrl = URL.createObjectURL(item.file);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    },
+
+    removeImportPdfFile: function(index) {
+        this.pendingImportPdfFiles.splice(index, 1);
+
+        if (this.pendingImportPdfFiles.length === 0) {
+            this.cancelImportPdfUpload();
+        } else {
+            const searchInput = document.getElementById('import-pdf-search');
+            this.renderImportPdfFileList(searchInput.value);
+        }
+    },
+
+    cancelImportPdfUpload: function() {
+        this.pendingImportPdfFiles = [];
+
+        const uploadContent = document.querySelector('#import-pdf-upload-zone .upload-content');
+        const preview = document.getElementById('import-pdf-preview');
+
+        uploadContent.style.display = 'flex';
+        preview.style.display = 'none';
+
+        document.getElementById('import-pdf-file-input').value = '';
+    },
+
+    startImportPdfUpload: async function() {
+        const btn = document.getElementById('import-pdf-upload-btn');
+        const btnText = document.getElementById('import-pdf-btn-text');
+        const progress = document.getElementById('import-pdf-progress');
+
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        progress.style.display = 'inline';
+
+        let uploaded = 0;
+        let alreadyExists = 0;
+        let errors = 0;
+        const total = this.pendingImportPdfFiles.length;
+
+        for (let i = 0; i < this.pendingImportPdfFiles.length; i++) {
+            const item = this.pendingImportPdfFiles[i];
+            progress.textContent = `${i + 1}/${total}...`;
+
+            try {
+                const uploadResult = await StorageService.uploadFile(
+                    item.file,
+                    'invoices',
+                    null
+                );
+
+                const datevBuchungId = this.findMatchingDatevBuchung(
+                    item.parsed.partitaIva,
+                    item.parsed.invoiceNumber
+                );
+
+                await DataManager.addInvoice({
+                    fileName: item.file.name,
+                    filePath: uploadResult.path,
+                    fileSize: item.file.size,
+                    partitaIva: item.parsed.partitaIva,
+                    invoiceNumber: item.parsed.invoiceNumber,
+                    status: 'uploaded',
+                    datevBuchungId: datevBuchungId
+                });
+
+                uploaded++;
+                console.log(`✅ ${item.file.name} hochgeladen${datevBuchungId ? ' (DATEV verknüpft)' : ''}`);
+
+            } catch (error) {
+                if (error.message && error.message.includes('already exists')) {
+                    alreadyExists++;
+                    console.log(`ℹ️ ${item.file.name} bereits vorhanden`);
+                } else {
+                    errors++;
+                    console.error(`❌ Fehler bei ${item.file.name}:`, error);
+                }
+            }
+        }
+
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        progress.style.display = 'none';
+
+        let message = `${uploaded} neu hochgeladen`;
+        if (alreadyExists > 0) message += `, ${alreadyExists} bereits vorhanden`;
+        if (errors > 0) message += `, ${errors} Fehler`;
+
+        this.showToast('success', 'Upload abgeschlossen', message);
+
+        // Automatische Verknüpfung mit DATEV-Buchungen
+        const linkResult = await this.autoLinkInvoicesAfterImport();
+        if (linkResult.linked > 0) {
+            this.showToast('success', 'Verknüpfungen erstellt',
+                `${linkResult.linked} PDFs automatisch mit DATEV verknüpft`);
+        }
+
+        this.cancelImportPdfUpload();
+
+        // Statistik aktualisieren
+        this.loadImportStatistics();
     },
 
     // ==========================================

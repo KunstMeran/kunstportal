@@ -365,7 +365,7 @@
                     <span>Mitglieder</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="import">
-                    <span>DATEV Import</span>
+                    <span>Import</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="konfiguration">
                     <span>Konfiguration</span>
@@ -627,6 +627,10 @@
                             <input type="text" id="rechnung-filter-lieferant" class="form-control" placeholder="Lieferant suchen..." oninput="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Rechnungsnr.</label>
+                            <input type="text" id="rechnung-filter-dokumentnr" class="form-control" placeholder="Nummer suchen..." oninput="App.filterRechnungen()">
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">PDF-Status</label>
                             <select id="rechnung-filter-pdf-status" class="form-control" onchange="App.filterRechnungen()">
                                 <option value="">Alle</option>
@@ -671,6 +675,10 @@
                         <div class="form-group">
                             <label class="form-label">Bis</label>
                             <input type="date" id="rechnung-filter-datum-bis" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Geändert ab</label>
+                            <input type="date" id="rechnung-filter-geaendert-ab" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
                     </div>
                     <!-- IVA-Hinweis -->
@@ -753,6 +761,9 @@
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('bezahlt')">
                                         Bezahlt <span class="sort-arrow">⇅</span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortRechnungen('geaendert')" title="Letzte Änderung">
+                                        Geändert <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('abgabestelle')">
                                         Abgabestelle <span class="sort-arrow">⇅</span>
@@ -1699,11 +1710,11 @@
                 </div>
             </div>
 
-            <!-- ==================== DATEV IMPORT ==================== -->
+            <!-- ==================== IMPORT ==================== -->
             <div id="view-import" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">DATEV Import</h1>
-                    <p style="color: #666; margin-top: 0.5rem;">Importieren Sie monatliche DATEV-Exporte und Lieferanten</p>
+                    <h1 class="page-title">Import</h1>
+                    <p style="color: #666; margin-top: 0.5rem;">DATEV-Buchungen, Lieferanten und Rechnungs-PDFs importieren</p>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
@@ -1795,6 +1806,49 @@
                                 style="margin-top: 1rem;">
                             <img src="icons/02-sync.svg" alt="" class="icon"> Statistik aktualisieren
                         </button>
+                    </div>
+                </div>
+
+                <!-- Rechnungs-PDFs Import -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h3 class="card-title"><img src="icons/14-attachment.svg" alt="" class="icon"> Rechnungs-PDFs importieren</h3>
+                    </div>
+                    <div class="card-body">
+                        <p style="color: #666; margin-bottom: 1rem;">
+                            Laden Sie Rechnungs-PDFs hoch. Das Format sollte sein: <strong>Jahr_PartitaIVA_Rechnungsnummer.pdf</strong> oder <strong>PartitaIVA_Rechnungsnummer.pdf</strong>
+                        </p>
+
+                        <div id="import-pdf-upload-zone" class="upload-zone" style="min-height: 200px;">
+                            <input type="file" id="import-pdf-file-input" accept=".pdf,application/pdf" multiple style="display: none;">
+                            <div class="upload-content">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p style="font-size: 1.1rem; margin: 1rem 0 0.5rem;">PDFs hier ablegen oder <span class="upload-link" onclick="document.getElementById('import-pdf-file-input').click()">klicken zum Auswählen</span></p>
+                                <small style="color: #666;">Mehrere Dateien gleichzeitig möglich</small>
+                            </div>
+                            <div id="import-pdf-preview" style="display: none;">
+                                <div style="margin-bottom: 0.75rem;">
+                                    <input type="text"
+                                           id="import-pdf-search"
+                                           class="form-control"
+                                           placeholder="Dateinamen filtern..."
+                                           oninput="App.filterImportPdfList()"
+                                           style="font-size: 0.85rem; padding: 0.5rem;">
+                                </div>
+                                <div id="import-pdf-file-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;"></div>
+                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                    <button class="btn btn-outline" onclick="App.cancelImportPdfUpload()">Abbrechen</button>
+                                    <button class="btn btn-primary" onclick="App.startImportPdfUpload()" id="import-pdf-upload-btn">
+                                        <span id="import-pdf-btn-text">Hochladen</span>
+                                        <span id="import-pdf-progress" style="display: none;"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

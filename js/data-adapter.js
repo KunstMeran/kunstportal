@@ -269,6 +269,8 @@ const SupabaseDataAdapter = {
                     bezahltVon: b.paid_by || null,
                     abgabestelle: b.abgabestelle || null,
                     abgabestelleAm: b.abgabestelle_am || null,
+                    // Änderungsdatum
+                    updatedAt: b.updated_at || null,
                     // Supabase-spezifisch
                     rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
                     importYear: b.import_year,
