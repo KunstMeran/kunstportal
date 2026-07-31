@@ -690,8 +690,12 @@ const SupabaseDataAdapter = {
      */
     async getRechnungenMitStatus() {
         try {
-            // 1. Original DATEV-Buchungen holen
-            const datevBuchungen = DataManager._getRechnungenMitStatusOriginal();
+            // 1. DATEV-Buchungen aus Supabase holen (NICHT aus JSON!)
+            // Erst aus Cache oder neu laden
+            if (!this.datevBuchungenCache || this.datevBuchungenCache.length === 0) {
+                await this.loadBuchungenFromSupabase();
+            }
+            const datevBuchungen = this.datevBuchungenCache || [];
 
             // 2. Supabase Invoices holen
             const supabaseInvoices = await this.getInvoices();
