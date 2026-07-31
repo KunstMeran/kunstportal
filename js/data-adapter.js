@@ -1399,7 +1399,7 @@ const SupabaseDataAdapter = {
                 .order('code', { ascending: true });
 
             if (year) {
-                query = query.eq('fiscal_year', year);
+                query = query.eq('year', year);
             }
 
             const { data, error } = await query;
@@ -1412,7 +1412,7 @@ const SupabaseDataAdapter = {
                 name: fs.name,
                 source: fs.source,
                 amount: parseFloat(fs.amount) || 0,
-                year: fs.fiscal_year,
+                year: fs.year,
                 isAbgabestelle: fs.is_abgabestelle,
                 status: fs.status,
                 notes: fs.notes,
@@ -1444,7 +1444,7 @@ const SupabaseDataAdapter = {
                 name: data.name,
                 source: data.source,
                 amount: parseFloat(data.amount) || 0,
-                year: data.fiscal_year,
+                year: data.year,
                 isAbgabestelle: data.is_abgabestelle,
                 status: data.status,
                 notes: data.notes,
@@ -1465,7 +1465,7 @@ const SupabaseDataAdapter = {
             if (!fiscalYear || isNaN(fiscalYear)) {
                 fiscalYear = new Date().getFullYear();
             }
-            console.log('addFundingSource - fiscal_year:', fiscalYear);
+            console.log('addFundingSource - year:', fiscalYear);
 
             const { data, error } = await SupabaseService.client
                 .from('funding_sources')
@@ -1474,7 +1474,7 @@ const SupabaseDataAdapter = {
                     name: fundingSource.name,
                     source: fundingSource.source || null,
                     amount: fundingSource.amount || 0,
-                    fiscal_year: fiscalYear,
+                    year: fiscalYear,
                     is_abgabestelle: fundingSource.isAbgabestelle || false,
                     status: fundingSource.status || 'offen',
                     notes: fundingSource.notes || null,
@@ -1494,7 +1494,7 @@ const SupabaseDataAdapter = {
                 name: data.name,
                 source: data.source,
                 amount: parseFloat(data.amount) || 0,
-                year: data.fiscal_year,
+                year: data.year,
                 isAbgabestelle: data.is_abgabestelle,
                 status: data.status,
                 notes: data.notes,
@@ -1513,7 +1513,7 @@ const SupabaseDataAdapter = {
             if (updates.name !== undefined) supabaseUpdates.name = updates.name;
             if (updates.source !== undefined) supabaseUpdates.source = updates.source;
             if (updates.amount !== undefined) supabaseUpdates.amount = updates.amount;
-            if (updates.year !== undefined) supabaseUpdates.fiscal_year = updates.year;
+            if (updates.year !== undefined) supabaseUpdates.year = updates.year;
             if (updates.isAbgabestelle !== undefined) supabaseUpdates.is_abgabestelle = updates.isAbgabestelle;
             if (updates.status !== undefined) supabaseUpdates.status = updates.status;
             if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
@@ -1537,7 +1537,7 @@ const SupabaseDataAdapter = {
                 name: data.name,
                 source: data.source,
                 amount: parseFloat(data.amount) || 0,
-                year: data.fiscal_year,
+                year: data.year,
                 isAbgabestelle: data.is_abgabestelle,
                 status: data.status,
                 notes: data.notes,
@@ -1580,7 +1580,7 @@ const SupabaseDataAdapter = {
                 .order('code', { ascending: true });
 
             if (year) {
-                query = query.eq('fiscal_year', year);
+                query = query.eq('year', year);
             }
 
             const { data, error } = await query;
@@ -1593,7 +1593,7 @@ const SupabaseDataAdapter = {
                 name: fs.name,
                 source: fs.source,
                 amount: parseFloat(fs.amount) || 0,
-                year: fs.fiscal_year,
+                year: fs.year,
                 label: `${fs.code} ${fs.name}` // Für Dropdown-Anzeige
             }));
         } catch (error) {
