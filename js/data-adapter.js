@@ -243,6 +243,14 @@ const SupabaseDataAdapter = {
                     beschreibung: b.beschreibung || '',
                     kategorie: b.kategorie || '',
                     konto: b.konto_nr || null,
+                    // Status-Felder aus Supabase
+                    workflowStatus: b.workflow_status || 'neu',
+                    kontrolliertAm: b.kontrolled_at || null,
+                    kontrolliertVon: b.kontrolled_by || null,
+                    bezahltAm: b.paid_at || null,
+                    bezahltVon: b.paid_by || null,
+                    abgabestelle: b.abgabestelle || null,
+                    abgabestelleAm: b.abgabestelle_am || null,
                     // Supabase-spezifisch
                     rechnungId: `${b.partita_iva || ''}_${b.dokument_nr || ''}`,
                     importYear: b.import_year,
