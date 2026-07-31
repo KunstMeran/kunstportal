@@ -3575,7 +3575,7 @@ const App = {
                            onchange="App.toggleRechnungSelection('${r.rechnungId}', this)">
                 </td>
                 <td>${this.formatDate(r.datum)}</td>
-                <td>${r.fornitoreName}${r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : ''}</td>
+                <td>${this.getLieferantCell(r)}</td>
                 <td>${r.dokumentNr}${typBadge}${geteiltBadge}</td>
                 <td>${projektCell}</td>
                 <td>${kostentypLabel}</td>
@@ -5230,6 +5230,102 @@ const App = {
         if (!dateString) return '-';
         const date = new Date(dateString);
         return date.toLocaleDateString('de-DE');
+    },
+
+    /**
+     * Generiert Lieferanten-Zelle mit Bearbeitungsmöglichkeit
+     * Zeigt Eingabefeld wenn Name fehlt oder auf Kontoname hinweist
+     */
+    getLieferantCell: function(r) {
+        const name = r.fornitoreName || '';
+        const sponsorInfo = r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : '';
+
+        // Prüfe ob der Name ein Kontoname ist (z.B. "Costi altri servizi")
+        const isKontoName = name.toLowerCase().startsWith('costi ') ||
+                           name.toLowerCase().startsWith('spese ') ||
+                           name === 'Unbekannt' ||
+                           name === '' ||
+                           !name;
+
+        if (isKontoName) {
+            // Bearbeitbares Feld anzeigen
+            const inputId = `lieferant-input-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            const beschreibungHint = r.beschreibung ? r.beschreibung.substring(0, 50) : '';
+            return `
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <input type="text"
+                           id="${inputId}"
+                           class="form-control"
+                           style="font-size: 0.75rem; padding: 0.25rem; min-width: 120px;"
+                           placeholder="${beschreibungHint || 'Lieferant eingeben...'}"
+                           value=""
+                           onchange="App.updateLieferantName('${r.rechnungId}', this.value)">
+                    <small style="color: #999; font-size: 0.65rem;">${name || 'Kein Lieferant'}</small>
+                </div>${sponsorInfo}`;
+        } else {
+            // Normaler Name mit Bearbeitungs-Icon
+            const inputId = `lieferant-edit-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            return `
+                <div style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span id="${inputId}-display">${name}</span>
+                    <button class="btn btn-sm"
+                            style="padding: 0.1rem 0.2rem; font-size: 0.6rem; background: transparent; border: none; cursor: pointer;"
+                            onclick="App.showLieferantEdit('${inputId}', '${r.rechnungId}', '${name.replace(/'/g, "\\'")}')"
+                            title="Lieferant bearbeiten">
+                        ${Icons.edit}
+                    </button>
+                </div>${sponsorInfo}`;
+        }
+    },
+
+    /**
+     * Zeigt Bearbeitungsfeld für Lieferantennamen
+     */
+    showLieferantEdit: function(inputId, rechnungId, currentName) {
+        const displayEl = document.getElementById(`${inputId}-display`);
+        if (!displayEl) return;
+
+        const parentDiv = displayEl.parentElement;
+        parentDiv.innerHTML = `
+            <input type="text"
+                   id="${inputId}"
+                   class="form-control"
+                   style="font-size: 0.75rem; padding: 0.25rem; min-width: 120px;"
+                   value="${currentName}"
+                   onblur="App.updateLieferantName('${rechnungId}', this.value)"
+                   onkeydown="if(event.key==='Enter'){this.blur();}">
+        `;
+        document.getElementById(inputId).focus();
+    },
+
+    /**
+     * Aktualisiert Lieferantenname in Supabase
+     */
+    updateLieferantName: async function(rechnungId, newName) {
+        if (!newName || !newName.trim()) return;
+
+        try {
+            // rechnungId Format: partitaIva_dokumentNr
+            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+            const dokumentNr = dokumentNrParts.join('_');
+
+            const { error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update({ fornitore_name: newName.trim() })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Gespeichert', `Lieferant: ${newName.trim()}`);
+
+            // Cache leeren und neu laden
+            await DataManager.clearCache();
+            this.loadRechnungen();
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Lieferantennamens:', error);
+            this.showToast('error', 'Fehler', 'Lieferant konnte nicht gespeichert werden');
+        }
     },
 
     getStatusBadge: function(status) {

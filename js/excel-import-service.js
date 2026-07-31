@@ -285,7 +285,29 @@ const ExcelImportService = {
      * Mapping für DATEV-Export Spalten
      */
     mapRowToDatevBooking(row, year, fileName, supplierMap) {
-        const fornitoreName = row['Denominazione'] || row['Descrizione conto'] || 'Unbekannt';
+        // Lieferantenname ermitteln:
+        // 1. Aus Denominazione (Firmenname)
+        // 2. Aus Descrizione movimento extrahieren (z.B. "Agnelli Mario - Honorarnote vom 29.04.2026")
+        // 3. Fallback: Descrizione conto (Kontoname wie "Costi altri servizi")
+        let fornitoreName = row['Denominazione'] || '';
+
+        // Falls kein Denominazione, versuche aus Descrizione movimento zu extrahieren
+        if (!fornitoreName && row['Descrizione movimento']) {
+            const descrizione = row['Descrizione movimento'].trim();
+            // Format: "Name - Beschreibung" oder "Name vom Datum"
+            const separators = [' - ', ' vom '];
+            for (const sep of separators) {
+                if (descrizione.includes(sep)) {
+                    fornitoreName = descrizione.split(sep)[0].trim();
+                    break;
+                }
+            }
+        }
+
+        // Fallback auf Kontoname
+        if (!fornitoreName) {
+            fornitoreName = row['Descrizione conto'] || 'Unbekannt';
+        }
 
         // Lookup Partita IVA und Fornitore Nr aus Lieferanten-Tabelle
         let partitaIva = null;
