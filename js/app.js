@@ -3446,6 +3446,10 @@ const App = {
     // Reload ohne Seite/Filter zurückzusetzen
     reloadRechnungenKeepState: async function() {
         this._keepCurrentPage = true;
+        // Cache invalidieren damit frische Daten geladen werden
+        if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+            SupabaseDataAdapter.invalidateCache();
+        }
         await this.filterRechnungen();
     },
 

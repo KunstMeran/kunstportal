@@ -314,6 +314,15 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Cache invalidieren - erzwingt Neuladen der Daten bei nächstem Aufruf
+     */
+    invalidateCache() {
+        console.log('🔄 Cache invalidiert');
+        this.datevBuchungenCache = [];
+        this._rechnungenMitStatusCache = null;
+    },
+
+    /**
      * PROJEKT-FUNKTIONEN
      */
 
