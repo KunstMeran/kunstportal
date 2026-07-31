@@ -340,8 +340,18 @@ const ExcelImportService = {
             dokument_nr: row['Numero documento'] || '',
             dokument_typ: 'F', // Standard: Fattura
 
-            // Gutschrift erkennen (negatives Importo)
-            ist_gutschrift: this.parseDecimal(row['Importo']) < 0,
+            // Gutschrift-Erkennung: NICHT einfach negatives Importo!
+            // Erlöskonten (600-679, 840) haben negative Beträge = Habenbuchung, KEINE Gutschrift
+            // Kostenkonten (680-850 außer 840) mit negativem Betrag = echte Gutschrift
+            ist_gutschrift: (() => {
+                const betrag = this.parseDecimal(row['Importo']);
+                const konto = String(row['Conto'] || '');
+                // Erlöskonten: 600-679 und 840 (Finanzerträge)
+                const isErloskonto = konto.startsWith('6') && konto.length >= 3 && parseInt(konto.substring(0, 2)) < 68;
+                const isFinanzErtrag = konto.startsWith('84');
+                // Nur bei Kostenkonten mit negativem Betrag = Gutschrift
+                return betrag < 0 && !isErloskonto && !isFinanzErtrag;
+            })(),
 
             // Beträge
             betrag: Math.abs(this.parseDecimal(row['Importo'])),

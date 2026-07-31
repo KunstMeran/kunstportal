@@ -3485,8 +3485,13 @@ const App = {
             const mwst = r.betragMwst !== undefined ? r.betragMwst : (r.betrag * 0.22);
             const gesamt = r.betragGesamt !== undefined ? r.betragGesamt : (r.betrag * 1.22);
 
-            // Gutschrift-Styling
-            const istGutschrift = r.istGutschrift || r.dokumentTyp === 'NC' || r.betrag < 0;
+            // Gutschrift-Erkennung: NICHT basierend auf negativem Betrag!
+            // Erlöskonten (600-699, 840) haben oft negative Beträge = Habenbuchung, aber KEINE Gutschrift
+            // Gutschrift nur wenn: dokumentTyp = 'NC' oder explizit istGutschrift gesetzt
+            const kontoNr = r.konto || '';
+            const isErloskonto = kontoNr.startsWith('6') && kontoNr.length >= 3 && parseInt(kontoNr.substring(0, 2)) < 68;
+            const isFinanzErtrag = kontoNr.startsWith('84'); // Finanzerträge
+            const istGutschrift = r.dokumentTyp === 'NC' || (r.istGutschrift && !isErloskonto && !isFinanzErtrag);
             const rowStyle = istGutschrift ? 'background: #e8f5e9;' : '';
             const betragStyle = istGutschrift ? 'color: #27ae60; font-weight: 500;' : '';
             const typBadge = istGutschrift
@@ -3576,7 +3581,7 @@ const App = {
                 </td>
                 <td>${this.formatDate(r.datum)}</td>
                 <td>${this.getLieferantCell(r)}</td>
-                <td>${r.dokumentNr}${typBadge}${geteiltBadge}</td>
+                <td>${this.getDokumentNrCell(r)}${typBadge}${geteiltBadge}</td>
                 <td>${projektCell}</td>
                 <td>${kostentypLabel}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(netto)}</td>
@@ -5325,6 +5330,89 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Lieferantennamens:', error);
             this.showToast('error', 'Fehler', 'Lieferant konnte nicht gespeichert werden');
+        }
+    },
+
+    /**
+     * Generiert Rechnungsnummer-Zelle mit Bearbeitungsmöglichkeit
+     */
+    getDokumentNrCell: function(r) {
+        const dokumentNr = r.dokumentNr || '';
+
+        if (!dokumentNr || dokumentNr.trim() === '') {
+            // Leere Rechnungsnummer: Eingabefeld anzeigen
+            const inputId = `docnr-input-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            return `
+                <input type="text"
+                       id="${inputId}"
+                       class="form-control"
+                       style="font-size: 0.75rem; padding: 0.25rem; min-width: 80px; background: #fff3cd;"
+                       placeholder="Nr. eingeben..."
+                       value=""
+                       onchange="App.updateDokumentNr('${r.rechnungId}', this.value)">`;
+        } else {
+            // Vorhandene Nummer mit Bearbeitungs-Icon
+            const inputId = `docnr-edit-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            return `
+                <div style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span id="${inputId}-display">${dokumentNr}</span>
+                    <button class="btn btn-sm"
+                            style="padding: 0.1rem 0.2rem; font-size: 0.6rem; background: transparent; border: none; cursor: pointer;"
+                            onclick="App.showDokumentNrEdit('${inputId}', '${r.rechnungId}', '${dokumentNr.replace(/'/g, "\\'")}')"
+                            title="Rechnungsnummer bearbeiten">
+                        ${Icons.edit}
+                    </button>
+                </div>`;
+        }
+    },
+
+    /**
+     * Zeigt Bearbeitungsfeld für Rechnungsnummer
+     */
+    showDokumentNrEdit: function(inputId, rechnungId, currentNr) {
+        const displayEl = document.getElementById(`${inputId}-display`);
+        if (!displayEl) return;
+
+        const parentDiv = displayEl.parentElement;
+        parentDiv.innerHTML = `
+            <input type="text"
+                   id="${inputId}"
+                   class="form-control"
+                   style="font-size: 0.75rem; padding: 0.25rem; min-width: 80px;"
+                   value="${currentNr}"
+                   onblur="App.updateDokumentNr('${rechnungId}', this.value)"
+                   onkeydown="if(event.key==='Enter'){this.blur();}">
+        `;
+        document.getElementById(inputId).focus();
+    },
+
+    /**
+     * Aktualisiert Rechnungsnummer in Supabase
+     */
+    updateDokumentNr: async function(rechnungId, newNr) {
+        if (!newNr || !newNr.trim()) return;
+
+        try {
+            // rechnungId Format: partitaIva_dokumentNr (alte Nummer)
+            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+            const oldDokumentNr = dokumentNrParts.join('_');
+
+            const { error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update({ dokument_nr: newNr.trim() })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', oldDokumentNr);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Gespeichert', `Rechnungsnr: ${newNr.trim()}`);
+
+            // Cache leeren und neu laden
+            await DataManager.clearCache();
+            this.loadRechnungen();
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren der Rechnungsnummer:', error);
+            this.showToast('error', 'Fehler', 'Rechnungsnummer konnte nicht gespeichert werden');
         }
     },
 

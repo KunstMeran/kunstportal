@@ -779,9 +779,24 @@ const SupabaseDataAdapter = {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
                 const buchungDocNrNorm = normalizeDocNr(buchung.dokumentNr);
 
+                // WICHTIG: Kein Matching wenn keine Rechnungsnummer vorhanden!
+                // Sonst würde ein PDF bei allen Buchungen ohne Nummer erscheinen
+                if (!buchung.dokumentNr || buchung.dokumentNr.trim() === '') {
+                    // Lieferantenname aus suppliers-Tabelle holen
+                    const supplierName = supplierMap.get(buchung.partitaIva);
+                    return {
+                        ...buchung,
+                        fornitoreName: supplierName || buchung.fornitoreName,
+                        pdfExists: false // Kein PDF-Matching ohne Rechnungsnummer
+                    };
+                }
+
                 const matchingInvoice = supabaseInvoices.find(inv => {
                     // Partita IVA muss übereinstimmen
                     if (inv.partita_iva !== buchung.partitaIva) return false;
+
+                    // Invoice muss auch eine Rechnungsnummer haben
+                    if (!inv.invoice_number || inv.invoice_number.trim() === '') return false;
 
                     // Exakter Match
                     if (inv.invoice_number === buchung.dokumentNr) return true;
