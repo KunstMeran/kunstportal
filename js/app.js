@@ -74,9 +74,6 @@ const App = {
         // File Upload Setup
         this.setupFileUpload();
 
-        // Mass Upload Setup
-        this.setupMassUpload();
-
         // Import-Tab PDF Upload Setup
         this.setupImportPdfUpload();
 
