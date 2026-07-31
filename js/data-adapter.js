@@ -723,6 +723,18 @@ const SupabaseDataAdapter = {
             // Matched Invoices tracken
             const matchedInvoiceIds = new Set();
 
+            // Debug: Zeige erste Invoices
+            if (supabaseInvoices.length > 0) {
+                console.log('📄 Beispiel Supabase Invoices:', supabaseInvoices.slice(0, 3).map(inv =>
+                    `partita_iva=${inv.partita_iva}, invoice_number=${inv.invoice_number}`
+                ));
+            }
+            if (datevBuchungen.length > 0) {
+                console.log('📋 Beispiel DATEV Buchungen:', datevBuchungen.slice(0, 3).map(b =>
+                    `partitaIva=${b.partitaIva}, dokumentNr=${b.dokumentNr}`
+                ));
+            }
+
             // DATEV-Buchungen mit Supabase-Daten anreichern
             const enrichedDatevBuchungen = datevBuchungen.map(buchung => {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
