@@ -1679,7 +1679,7 @@ const App = {
         });
     },
 
-    filterProjectCosts: function() {
+    filterProjectCosts: async function() {
         if (!this.currentProjectId) return;
 
         const categoryFilter = document.getElementById('fp-filter-category').value;
@@ -1690,7 +1690,8 @@ const App = {
         let costs = DataManager.getCostsByProject(this.currentProjectId);
 
         // DATEV-Buchungen für dieses Projekt holen (mit Status inkl. Kostentyp)
-        const datevBuchungen = DataManager.getRechnungenMitStatus().filter(b =>
+        const alleRechnungen = await DataManager.getRechnungenMitStatus();
+        const datevBuchungen = (alleRechnungen || []).filter(b =>
             String(b.projektId) === String(this.currentProjectId)
         );
 
@@ -2254,12 +2255,10 @@ const App = {
                 break;
         }
 
-        document.getElementById('preview-netto').textContent = this.formatCurrency(netto);
-        document.getElementById('preview-mwst').textContent = this.formatCurrency(mwst);
-        document.getElementById('preview-gesamt').textContent = this.formatCurrency(gesamt);
-
-        // Hinweis für Reverse Charge anzeigen
+        // Preview-Div aktualisieren (verwendet innerHTML, um spezielle Hinweise anzuzeigen)
         const previewDiv = document.getElementById('cost-mwst-preview');
+        if (!previewDiv) return;
+
         if (mwstType === 'netto_reverse') {
             previewDiv.style.background = '#fff3e0';
             previewDiv.innerHTML = `
@@ -10197,8 +10196,16 @@ const App = {
         const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
 
         // YTD-Monate berechnen (Jan bis Vormonat)
-        const currentMonth = new Date().getMonth(); // 0-11 (0=Jan, 6=Jul)
-        const ytdMonths = months.slice(0, currentMonth); // z.B. bei Juli (6): ['jan','feb','mar','apr','mai','jun']
+        const currentMonth = new Date().getMonth(); // 0-11
+        const ytdMonths = months.slice(0, currentMonth);
+
+        // Kontenplan laden für DB-Gruppierung
+        let chartOfAccounts = [];
+        try {
+            chartOfAccounts = await SupabaseDataAdapter.getChartOfAccounts();
+        } catch (error) {
+            console.warn('Kontenplan konnte nicht geladen werden:', error);
+        }
 
         // Konto-Notizen laden
         let kontoNotes = {};
@@ -10208,10 +10215,21 @@ const App = {
             console.warn('Konto-Notizen konnten nicht geladen werden:', error);
         }
 
-        // Alle Konten sammeln: aus Budget-Einträgen UND aus IST-Daten
+        // Hilfsfunktion: DB-Zuordnung für Konto finden
+        const getDbZuordnung = (kontoNr) => {
+            if (!kontoNr) return 'SONSTIGE';
+            for (const coa of chartOfAccounts) {
+                const pattern = (coa.konto_pattern || '').replace('%', '');
+                if (kontoNr.startsWith(pattern)) {
+                    return coa.db_zuordnung || 'SONSTIGE';
+                }
+            }
+            return 'SONSTIGE';
+        };
+
+        // Alle Konten sammeln
         const alleKonten = new Map();
 
-        // Budget-Einträge hinzufügen
         entries.forEach(entry => {
             const key = entry.konto_nr || entry.description;
             alleKonten.set(key, {
@@ -10220,11 +10238,11 @@ const App = {
                 budget: entry,
                 ist: this.budgetIstData[key] || null,
                 hasBudget: true,
-                id: entry.id
+                id: entry.id,
+                dbZuordnung: getDbZuordnung(entry.konto_nr)
             });
         });
 
-        // IST-Daten ohne Budget hinzufügen
         Object.keys(this.budgetIstData).forEach(konto => {
             if (!alleKonten.has(konto)) {
                 alleKonten.set(konto, {
@@ -10233,133 +10251,121 @@ const App = {
                     budget: null,
                     ist: this.budgetIstData[konto],
                     hasBudget: false,
-                    id: null
+                    id: null,
+                    dbZuordnung: getDbZuordnung(konto)
                 });
             }
         });
 
         if (alleKonten.size === 0) {
-            tbody.innerHTML = `<tr><td colspan="17" style="text-align: center; color: #666; padding: 2rem;">
+            tbody.innerHTML = `<tr><td colspan="18" style="text-align: center; color: #666; padding: 2rem;">
                 Keine Budget-Einträge oder IST-Daten für ${year}. Klicken Sie auf "+ Budget hinzufügen" um zu beginnen.
             </td></tr>`;
-            // Summen auf 0 setzen
-            months.forEach(m => {
-                const el = document.getElementById(`budget-total-${m}`);
-                if (el) el.textContent = '0';
-            });
-            const yearEl = document.getElementById('budget-total-year');
-            if (yearEl) yearEl.textContent = '0';
             return;
         }
 
-        let html = '';
-        const budgetTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
-        const istTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
+        // Nach DB-Gruppen sortieren
+        const dbGruppen = {
+            'UMSATZ': { label: '1. UMSÄTZE', color: '#e8f5e9', konten: [] },
+            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', color: '#fff3e0', konten: [] },
+            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', color: '#e3f2fd', konten: [] },
+            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', color: '#fce4ec', konten: [] },
+            'SONSTIGE': { label: '5. SONSTIGE', color: '#f5f5f5', konten: [] }
+        };
 
-        // Konten sortieren nach Konto-Nr
-        const sortedKonten = Array.from(alleKonten.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-
-        sortedKonten.forEach(([key, data]) => {
-            const budget = data.budget;
-            const ist = data.ist;
-
-            // Budget-Zeile
-            const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
-            const budgetYtd = budget ? ytdMonths.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
-            if (budget) {
-                months.forEach(m => budgetTotals[m] += parseFloat(budget[m]) || 0);
-            }
-
-            // IST-Zeile
-            const istRowTotal = ist ? ist.total : 0;
-            const istYtd = ist ? ytdMonths.reduce((sum, m) => sum + (ist[m] || 0), 0) : 0;
-            if (ist) {
-                months.forEach(m => istTotals[m] += ist[m] || 0);
-            }
-
-            // Differenz
-            const diffTotal = budgetRowTotal - istRowTotal;
-            const diffYtd = budgetYtd - istYtd;
-            const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
-            const diffYtdStyle = diffYtd < 0 ? 'color: #dc3545;' : (diffYtd > 0 ? 'color: #28a745;' : '');
-
-            // Notiz für dieses Konto
-            const note = kontoNotes[key] || '';
-            const noteEscaped = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            const keyEscaped = key.replace(/'/g, "\\'");
-
-            html += `<tr style="border-bottom: 2px solid #dee2e6;">
-                <td rowspan="3" style="vertical-align: middle;"><strong>${data.konto_nr}</strong></td>
-                <td style="text-align: right; background: #e3f2fd; font-weight: bold;">${budget ? this.formatNumber(budgetYtd) : '-'}</td>
-                ${months.map(m => `<td style="text-align: right; background: #f8f9fa;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
-                <td style="text-align: right; font-weight: bold; background: #f8f9fa;">${this.formatNumber(budgetRowTotal)}</td>
-                <td rowspan="3" style="vertical-align: middle;">
-                    <textarea class="form-control" style="font-size: 0.75rem; min-height: 60px; resize: vertical;"
-                              placeholder="Notiz..."
-                              onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"
-                    >${note}</textarea>
-                </td>
-                <td rowspan="3" style="vertical-align: middle;">
-                    ${data.hasBudget ? `
-                        <button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')" title="Bearbeiten">${Icons.edit}</button>
-                        <button class="btn btn-sm btn-outline" onclick="App.deleteBudgetEntry('${data.id}')" style="color: #dc3545;" title="Löschen">${Icons.delete}</button>
-                    ` : `
-                        <button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')" title="Budget hinzufügen">+ Budget</button>
-                    `}
-                </td>
-            </tr>
-            <tr>
-                <td style="text-align: right; background: #c8e6c9; color: #2e7d32; font-weight: bold;">${ist ? this.formatNumber(istYtd) : '-'}</td>
-                ${months.map(m => `<td style="text-align: right; color: #007bff;">${ist ? this.formatNumber(ist[m]) : '-'}</td>`).join('')}
-                <td style="text-align: right; font-weight: bold; color: #007bff;">${this.formatNumber(istRowTotal)}</td>
-            </tr>
-            <tr style="border-bottom: 3px solid #adb5bd;">
-                <td style="text-align: right; background: #ffe0b2; font-weight: bold; ${diffYtdStyle}">${this.formatNumber(diffYtd)}</td>
-                ${months.map(m => {
-                    const diff = (budget ? parseFloat(budget[m]) || 0 : 0) - (ist ? ist[m] || 0 : 0);
-                    const style = diff < 0 ? 'color: #dc3545;' : (diff > 0 ? 'color: #28a745;' : '');
-                    return `<td style="text-align: right; ${style}">${this.formatNumber(diff)}</td>`;
-                }).join('')}
-                <td style="text-align: right; font-weight: bold; ${diffStyle}">${this.formatNumber(diffTotal)}</td>
-            </tr>`;
+        Array.from(alleKonten.entries()).forEach(([key, data]) => {
+            const gruppe = dbGruppen[data.dbZuordnung] || dbGruppen['SONSTIGE'];
+            gruppe.konten.push({ key, ...data });
         });
+
+        let html = '';
+        let gesamtBudget = 0, gesamtIst = 0, gesamtBudgetYtd = 0, gesamtIstYtd = 0;
+
+        Object.entries(dbGruppen).forEach(([gruppenKey, gruppe]) => {
+            if (gruppe.konten.length === 0) return;
+
+            gruppe.konten.sort((a, b) => (a.konto_nr || '').localeCompare(b.konto_nr || ''));
+
+            // Gruppen-Header
+            html += `<tr style="background: ${gruppe.color};">
+                <td colspan="18" style="font-weight: bold; font-size: 1rem; padding: 0.75rem;">${gruppe.label}</td>
+            </tr>`;
+
+            let gruppenBudgetSum = 0, gruppenIstSum = 0, gruppenBudgetYtd = 0, gruppenIstYtd = 0;
+
+            gruppe.konten.forEach(data => {
+                const budget = data.budget;
+                const ist = data.ist;
+
+                const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+                const budgetYtd = budget ? ytdMonths.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+                const istRowTotal = ist ? ist.total : 0;
+                const istYtd = ist ? ytdMonths.reduce((sum, m) => sum + (ist[m] || 0), 0) : 0;
+
+                gruppenBudgetSum += budgetRowTotal;
+                gruppenIstSum += istRowTotal;
+                gruppenBudgetYtd += budgetYtd;
+                gruppenIstYtd += istYtd;
+
+                const diffTotal = budgetRowTotal - istRowTotal;
+                const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
+
+                const note = kontoNotes[data.key] || '';
+                const keyEscaped = data.key.replace(/'/g, "\\'");
+
+                html += `<tr>
+                    <td style="font-weight: 600; white-space: nowrap;">${data.konto_nr || '-'}</td>
+                    <td style="font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">${data.description || data.konto_nr}</td>
+                    <td style="text-align: right; background: #e3f2fd;">${this.formatNumber(budgetYtd)}</td>
+                    ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
+                    <td style="text-align: right; font-weight: bold;">${this.formatNumber(budgetRowTotal)}</td>
+                    <td><input type="text" class="form-control" style="font-size: 0.7rem; padding: 2px 4px; width: 80px;" placeholder="..." value="${note}" onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"></td>
+                    <td>${data.hasBudget ? `<button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')">${Icons.edit}</button>` : `<button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')">+</button>`}</td>
+                </tr>
+                <tr style="font-size: 0.75rem; color: #666; border-bottom: 1px solid #dee2e6;">
+                    <td></td>
+                    <td style="color: #007bff;">IST</td>
+                    <td style="text-align: right; background: #c8e6c9; color: #2e7d32;">${this.formatNumber(istYtd)}</td>
+                    ${months.map(m => `<td style="text-align: right; color: #007bff;">${ist ? this.formatNumber(ist[m]) : '-'}</td>`).join('')}
+                    <td style="text-align: right; color: #007bff; font-weight: bold;">${this.formatNumber(istRowTotal)}</td>
+                    <td style="${diffStyle}; font-weight: bold;">${diffTotal >= 0 ? '+' : ''}${this.formatNumber(diffTotal)}</td>
+                    <td></td>
+                </tr>`;
+            });
+
+            // Gruppen-Summe
+            const gruppenDiff = gruppenBudgetSum - gruppenIstSum;
+            const gruppenDiffStyle = gruppenDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
+
+            html += `<tr style="background: ${gruppe.color}; font-weight: bold; border-bottom: 2px solid #adb5bd;">
+                <td colspan="2">Summe ${gruppe.label.split('.')[1] || gruppe.label}</td>
+                <td style="text-align: right;">${this.formatNumber(gruppenBudgetYtd)}</td>
+                <td colspan="12"></td>
+                <td style="text-align: right;">${this.formatNumber(gruppenBudgetSum)}</td>
+                <td style="${gruppenDiffStyle}">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
+                <td></td>
+            </tr>`;
+
+            gesamtBudget += gruppenBudgetSum;
+            gesamtIst += gruppenIstSum;
+            gesamtBudgetYtd += gruppenBudgetYtd;
+            gesamtIstYtd += gruppenIstYtd;
+        });
+
+        // Gesamtsumme
+        const gesamtDiff = gesamtBudget - gesamtIst;
+        const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
+
+        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1.1rem;">
+            <td colspan="2">GESAMT</td>
+            <td style="text-align: right;">${this.formatNumber(gesamtBudgetYtd)}</td>
+            <td colspan="12"></td>
+            <td style="text-align: right;">${this.formatNumber(gesamtBudget)}</td>
+            <td style="${gesamtDiffStyle}">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
+            <td></td>
+        </tr>`;
 
         tbody.innerHTML = html;
-
-        // Summen aktualisieren
-        const budgetYearTotal = months.reduce((sum, m) => sum + budgetTotals[m], 0);
-        const budgetYtdTotal = ytdMonths.reduce((sum, m) => sum + budgetTotals[m], 0);
-        months.forEach(m => {
-            const el = document.getElementById(`budget-total-${m}`);
-            if (el) el.textContent = this.formatNumber(budgetTotals[m]);
-        });
-        const yearEl = document.getElementById('budget-total-year');
-        if (yearEl) yearEl.textContent = this.formatNumber(budgetYearTotal);
-        const budgetYtdEl = document.getElementById('budget-total-ytd');
-        if (budgetYtdEl) budgetYtdEl.textContent = this.formatNumber(budgetYtdTotal);
-
-        // IST-Summen
-        const istYearTotal = months.reduce((sum, m) => sum + istTotals[m], 0);
-        const istYtdTotal = ytdMonths.reduce((sum, m) => sum + istTotals[m], 0);
-        months.forEach(m => {
-            const el = document.getElementById(`ist-total-${m}`);
-            if (el) el.textContent = this.formatNumber(istTotals[m]);
-        });
-        const istYearEl = document.getElementById('ist-total-year');
-        if (istYearEl) istYearEl.textContent = this.formatNumber(istYearTotal);
-        const istYtdEl = document.getElementById('ist-total-ytd');
-        if (istYtdEl) istYtdEl.textContent = this.formatNumber(istYtdTotal);
-
-        // Differenz
-        months.forEach(m => {
-            const diff = budgetTotals[m] - istTotals[m];
-            const el = document.getElementById(`diff-total-${m}`);
-            if (el) el.textContent = this.formatNumber(diff);
-        });
-        const diffYearEl = document.getElementById('diff-total-year');
-        if (diffYearEl) diffYearEl.textContent = this.formatNumber(budgetYearTotal - istYearTotal);
-        const diffYtdEl = document.getElementById('diff-total-ytd');
-        if (diffYtdEl) diffYtdEl.textContent = this.formatNumber(budgetYtdTotal - istYtdTotal);
     },
 
     // Hilfsfunktion: Budget für bestehendes Konto aus IST-Daten hinzufügen

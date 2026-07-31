@@ -499,7 +499,7 @@ const SupabaseDataAdapter = {
                 category: this.mapCategoryToSupabase(costData.category),
                 description: costData.description || costData.supplier || 'Kosten',
                 amount: parseFloat(costData.amount) || 0,
-                cost_type: costData.type === 'effektiv' ? 'IST' : 'Provisorisch',
+                cost_type: (costData.type === 'effektiv' || costData.type === 'ist') ? 'IST' : 'Provisorisch',
                 date: costData.date || new Date().toISOString().split('T')[0],
                 supplier: costData.supplier || null,
                 invoice_number: costData.invoiceNumber || null,
@@ -527,7 +527,7 @@ const SupabaseDataAdapter = {
                 category: this.mapCategoryToSupabase(updates.category),
                 description: updates.description,
                 amount: parseFloat(updates.amount),
-                cost_type: updates.type === 'effektiv' ? 'IST' : 'Provisorisch',
+                cost_type: (updates.type === 'effektiv' || updates.type === 'ist') ? 'IST' : 'Provisorisch',
                 date: updates.date,
                 supplier: updates.supplier,
                 invoice_number: updates.invoiceNumber,
@@ -2343,6 +2343,90 @@ const SupabaseDataAdapter = {
             return users;
         } catch (error) {
             console.error('Fehler beim Laden der Auth-User:', error);
+            return [];
+        }
+    },
+
+    // ==========================================
+    // REPORTING-FUNKTIONEN
+    // ==========================================
+
+    /**
+     * Projektkosten für Reporting laden
+     * Lädt DATEV-Buchungen für ein spezifisches Projekt im Zeitraum
+     * @param {string} projectId - Projekt-ID
+     * @param {string} startDate - Startdatum (YYYY-MM-DD)
+     * @param {string} endDate - Enddatum (YYYY-MM-DD)
+     * @returns {Array} Array von Buchungen mit betrag_brutto/betrag_gesamt
+     */
+    async getProjectCosts(projectId, startDate, endDate) {
+        try {
+            // Projekt laden um datev_id zu bekommen
+            const { data: project, error: projectError } = await SupabaseService.client
+                .from('projects')
+                .select('datev_id')
+                .eq('id', projectId)
+                .single();
+
+            if (projectError) throw projectError;
+
+            if (!project || !project.datev_id) {
+                console.log(`⚠️ Projekt ${projectId} hat keine DATEV-ID`);
+                return [];
+            }
+
+            // DATEV-Buchungen für dieses Projekt laden
+            const { data: buchungen, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('*')
+                .eq('projekt_id', project.datev_id)
+                .gte('datum', startDate)
+                .lte('datum', endDate)
+                .or('archived.is.null,archived.eq.false');
+
+            if (error) throw error;
+
+            // Beträge berechnen (Brutto = Netto + MwSt)
+            return (buchungen || []).map(b => {
+                const netto = parseFloat(b.betrag) || 0;
+                const mwstRate = b.mwst_rate !== null ? parseFloat(b.mwst_rate) : 22;
+                const brutto = netto * (1 + mwstRate / 100);
+                return {
+                    ...b,
+                    betrag_netto: netto,
+                    betrag_brutto: brutto,
+                    betrag_gesamt: brutto
+                };
+            });
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Projektkosten:', error);
+            return [];
+        }
+    },
+
+    /**
+     * DATEV-Buchungen für Reporting laden (nach Zeitraum)
+     * @param {string} startDate - Startdatum (YYYY-MM-DD)
+     * @param {string} endDate - Enddatum (YYYY-MM-DD)
+     * @returns {Array} Array von DATEV-Buchungen
+     */
+    async getDatevBookings(startDate, endDate) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('*')
+                .gte('datum', startDate)
+                .lte('datum', endDate)
+                .or('archived.is.null,archived.eq.false')
+                .order('datum', { ascending: false });
+
+            if (error) throw error;
+
+            return data || [];
+
+        } catch (error) {
+            console.error('Fehler beim Laden der DATEV-Buchungen:', error);
             return [];
         }
     },
