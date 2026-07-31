@@ -3515,10 +3515,10 @@ const App = {
             // Geteilt-Badge
             const geteiltBadge = r.geteilt ? '<span class="badge" style="background: #ff9800; color: white; font-size: 0.6rem; margin-left: 0.25rem;" title="Geteilte Rechnung">GETEILT</span>' : '';
 
-            // Für Supabase-only oder nicht-gematchte: Verknüpfungs-Input generieren
+            // Für Supabase-only PDFs ohne DATEV-Match: Verknüpfungs-Input generieren
             let projektCell = '';
-            if (r.isSupabaseOnly || (!r.projektId && r.invoiceId)) {
-                // Input mit Datalist für Suchfunktion
+            if (r.isSupabaseOnly) {
+                // Nur Supabase-PDF ohne DATEV-Match: Input für DATEV-Verknüpfung
                 const datalistId = `datev-options-${r.invoiceId}`;
                 projektCell = `
                     <input type="text"
@@ -3530,20 +3530,40 @@ const App = {
                     <datalist id="${datalistId}">
                         ${this.getUnlinkedDatevOptionsAsDatalist()}
                     </datalist>`;
-            } else if (r.invoiceId && r.projektId) {
-                // Verknüpfte Rechnung: Zeige Projekt + Trennen-Button
-                projektCell = `
-                    <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <span>${projekt ? projekt.name : r.projektId}</span>
-                        <button class="btn btn-sm"
-                                style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
-                                onclick="App.unlinkInvoiceFromDatev('${r.invoiceId}')"
-                                title="Verknüpfung trennen">
-                            ${Icons.close}
-                        </button>
-                    </div>`;
+            } else if (r.projektId && projekt) {
+                // Hat Projekt: Zeige Projektname (mit Trennen-Button wenn Invoice)
+                if (r.invoiceId) {
+                    projektCell = `
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <span>${projekt.name}</span>
+                            <button class="btn btn-sm"
+                                    style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
+                                    onclick="App.unlinkInvoiceFromDatev('${r.invoiceId}')"
+                                    title="Verknüpfung trennen">
+                                ${Icons.close}
+                            </button>
+                        </div>`;
+                } else {
+                    projektCell = projekt.name;
+                }
             } else {
-                projektCell = projekt ? projekt.name : r.projektId;
+                // DATEV-Buchung ohne Projekt: Dropdown zur Projekt-Auswahl
+                const selectId = `projekt-select-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+                projektCell = `
+                    <select class="form-control"
+                            id="${selectId}"
+                            style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
+                            onchange="App.setProjektForRechnung('${r.rechnungId}', this.value)">
+                        <option value="">-- Projekt wählen --</option>
+                        <option value="strukturkosten">Strukturkosten</option>
+                        <option value="2601">Complice</option>
+                        <option value="2602">Animacies</option>
+                        <option value="2603">Stadtraum Meran</option>
+                        <option value="2604">Wanderausstellung</option>
+                        <option value="2605">Konzertreihe</option>
+                        <option value="2606">Menschenbilder</option>
+                        <option value="2607">Rahmenprogramm</option>
+                    </select>`;
             }
 
             row.innerHTML = `
@@ -4394,6 +4414,37 @@ const App = {
 
         this.clearSelection();
         this.loadRechnungen();
+    },
+
+    /**
+     * Projekt für eine DATEV-Buchung setzen
+     */
+    setProjektForRechnung: async function(rechnungId, projektId) {
+        if (!projektId) return;
+
+        try {
+            // rechnungId Format: partitaIva_dokumentNr oder nur ID
+            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+            const dokumentNr = dokumentNrParts.join('_');
+
+            // Update in Supabase
+            const { error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update({ projekt_id: projektId })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr);
+
+            if (error) throw error;
+
+            this.showToast('success', 'Projekt gesetzt', `Projekt wurde zugewiesen`);
+
+            // Daten neu laden
+            await DataManager.clearCache();
+            this.loadRechnungen();
+        } catch (error) {
+            console.error('Fehler beim Setzen des Projekts:', error);
+            this.showToast('error', 'Fehler', 'Projekt konnte nicht gesetzt werden');
+        }
     },
 
     massArchive: async function() {
