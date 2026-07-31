@@ -3353,6 +3353,25 @@ const App = {
                 }
             });
         }
+
+        // Abgabestelle-Filter mit aktiven Abgabestellen aus Einnahmeplanung
+        const abgabestelleSelect = document.getElementById('rechnung-filter-abgabestelle');
+        if (abgabestelleSelect) {
+            let html = `
+                <option value="">Alle</option>
+                <option value="gemeinde">Gemeinde</option>
+                <option value="region">Region</option>
+                <option value="provinz">Provinz</option>
+            `;
+            if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
+                html += `<optgroup label="Einnahmen">`;
+                this.activeAbgabestellen.forEach(ab => {
+                    html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
+                });
+                html += `</optgroup>`;
+            }
+            abgabestelleSelect.innerHTML = html;
+        }
     },
 
     // Ausgewählte Rechnungen (für Massenaktionen)
