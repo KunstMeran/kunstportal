@@ -3864,7 +3864,7 @@ const App = {
                 <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
                 <td style="font-size: 0.75rem; color: #666;">${r.updatedAt ? this.formatDateTime(r.updatedAt) : '-'}</td>
-                <td>${this.getAbgabestelleDropdown(r.invoiceId, r.funding_source_id)}</td>
+                <td>${this.getAbgabestelleDropdown(r.rechnungId, r.funding_source_id)}</td>
                 <td>
                     <input type="text"
                            class="form-control"
@@ -5259,14 +5259,29 @@ const App = {
             const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
             const dokumentNr = dokumentNrParts.join('_');
 
-            await SupabaseService.client
+            console.log('updateRechnungAbgabestelle:', { rechnungId, partitaIva, dokumentNr, abgabestelle });
+
+            const { data, error } = await SupabaseService.client
                 .from('datev_bookings')
                 .update({
                     abgabestelle: abgabestelle || null,
                     abgabestelle_am: abgabestelle ? heute : null
                 })
                 .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr);
+                .eq('dokument_nr', dokumentNr)
+                .select();
+
+            if (error) {
+                console.error('Supabase Update Error:', error);
+            } else {
+                console.log('Update result:', { rowsAffected: data?.length || 0, data });
+                if (!data || data.length === 0) {
+                    console.warn('WARNUNG: Keine datev_bookings Zeile gefunden!');
+                    this.showToast('warning', 'Hinweis', 'Lokal gespeichert, aber keine DATEV-Buchung gefunden');
+                } else {
+                    this.showToast('success', 'Gespeichert', `Abgabestelle für ${data.length} Buchung(en) aktualisiert`);
+                }
+            }
 
         } catch (error) {
             console.error('Fehler beim Speichern der Abgabestelle in Supabase:', error);
@@ -5388,19 +5403,34 @@ const App = {
             const [partitaIva, ...dokumentNrParts] = invoiceId.split('_');
             const dokumentNr = dokumentNrParts.join('_');
 
-            await SupabaseService.client
+            console.log('Updating datev_bookings:', { partitaIva, dokumentNr, abgabestelleValue });
+
+            const { data, error, count } = await SupabaseService.client
                 .from('datev_bookings')
                 .update({
                     abgabestelle: abgabestelleValue,
                     abgabestelle_am: abgabestelleValue ? heute : null
                 })
                 .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr);
+                .eq('dokument_nr', dokumentNr)
+                .select();
+
+            if (error) {
+                console.error('Supabase Update Error:', error);
+                throw error;
+            }
+
+            console.log('Update result:', { data, count, rowsAffected: data?.length || 0 });
+
+            if (!data || data.length === 0) {
+                console.warn('Keine Zeile in datev_bookings gefunden für:', { partitaIva, dokumentNr });
+                this.showToast('warning', 'Hinweis', 'Abgabestelle gespeichert (lokal), aber keine DATEV-Buchung gefunden');
+            } else {
+                this.showToast('success', 'Gespeichert', `Abgabestelle für ${data.length} Buchung(en) aktualisiert`);
+            }
 
             // 3. Invoice-Tabelle auch aktualisieren (falls vorhanden)
             await DataManager.updateInvoiceFundingSource(invoiceId, fundingSourceId || null);
-
-            this.showToast('success', 'Gespeichert', 'Abgabestelle wurde aktualisiert');
 
             // Einnahmeplanung neu laden falls sichtbar (um Budget-Übersicht zu aktualisieren)
             if (document.getElementById('view-einnahmen')?.classList.contains('active')) {
@@ -10535,15 +10565,16 @@ const App = {
 
     loadBudgetIstData: async function(year) {
         try {
-            // DATEV-Buchungen für das Jahr laden
+            // DATEV-Buchungen für das Jahr laden - mit konto_nr für DB-Zuordnung
             const { data: buchungen, error } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('kategorie, datum, betrag')
+                .select('konto_nr, kategorie, datum, betrag')
                 .eq('import_year', year);
 
             if (error) throw error;
 
-            // Nach Kategorie und Monat gruppieren (Kategorie = Kostenart/Konto)
+            // Nach konto_nr und Monat gruppieren (für DB-Zuordnung)
+            // Speichere sowohl konto_nr als auch kategorie für die Anzeige
             this.budgetIstData = {};
             this.budgetIstDataTotal = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
             const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
@@ -10551,23 +10582,35 @@ const App = {
             (buchungen || []).forEach(b => {
                 if (!b.datum) return;
 
-                const konto = b.kategorie || 'Sonstige';
+                // Primär nach konto_nr gruppieren (für DB-Zuordnung)
+                // Fallback auf kategorie wenn konto_nr fehlt
+                const kontoNr = b.konto_nr || '';
+                const kategorie = b.kategorie || 'Sonstige';
+                const key = kontoNr || kategorie; // konto_nr hat Priorität
+
                 const monat = new Date(b.datum).getMonth(); // 0-11
                 const betrag = parseFloat(b.betrag) || 0;
 
-                if (!this.budgetIstData[konto]) {
-                    this.budgetIstData[konto] = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
+                if (!this.budgetIstData[key]) {
+                    this.budgetIstData[key] = {
+                        jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0,
+                        konto_nr: kontoNr,
+                        kategorie: kategorie
+                    };
                 }
 
-                this.budgetIstData[konto][months[monat]] += betrag;
-                this.budgetIstData[konto].total += betrag;
+                this.budgetIstData[key][months[monat]] += betrag;
+                this.budgetIstData[key].total += betrag;
 
                 // Gesamtsummen
                 this.budgetIstDataTotal[months[monat]] += betrag;
                 this.budgetIstDataTotal.total += betrag;
             });
 
-            console.log('IST-Daten geladen:', Object.keys(this.budgetIstData).length, 'Kategorien');
+            console.log('IST-Daten geladen:', Object.keys(this.budgetIstData).length, 'Konten');
+            // Debug: Zeige ein paar Beispiele
+            const beispiele = Object.entries(this.budgetIstData).slice(0, 5);
+            console.log('IST-Daten Beispiele:', beispiele.map(([k, v]) => ({ key: k, konto_nr: v.konto_nr, kategorie: v.kategorie })));
 
         } catch (error) {
             console.error('Fehler beim Laden der IST-Daten:', error);
@@ -10606,12 +10649,15 @@ const App = {
             if (!kontoNr) return 'SONSTIGE';
             for (const coa of chartOfAccounts) {
                 const pattern = (coa.konto_pattern || '').replace('%', '');
-                if (kontoNr.startsWith(pattern)) {
+                if (pattern && kontoNr.startsWith(pattern)) {
                     return coa.db_zuordnung || 'SONSTIGE';
                 }
             }
             return 'SONSTIGE';
         };
+
+        // Debug: Zeige Kontenplan-Einträge mit DB-Zuordnung
+        console.log('Kontenplan für DB-Zuordnung:', chartOfAccounts.filter(c => c.db_zuordnung).map(c => ({ pattern: c.konto_pattern, db: c.db_zuordnung })));
 
         // Alle Konten sammeln
         const alleKonten = new Map();
@@ -10629,16 +10675,21 @@ const App = {
             });
         });
 
-        Object.keys(this.budgetIstData).forEach(konto => {
-            if (!alleKonten.has(konto)) {
-                alleKonten.set(konto, {
-                    konto_nr: konto,
-                    description: konto,
+        Object.keys(this.budgetIstData).forEach(key => {
+            if (!alleKonten.has(key)) {
+                const istData = this.budgetIstData[key];
+                // konto_nr und kategorie sind jetzt in den IST-Daten gespeichert
+                const kontoNr = istData.konto_nr || key;
+                const kategorie = istData.kategorie || key;
+
+                alleKonten.set(key, {
+                    konto_nr: kontoNr,
+                    description: kategorie,
                     budget: null,
-                    ist: this.budgetIstData[konto],
+                    ist: istData,
                     hasBudget: false,
                     id: null,
-                    dbZuordnung: getDbZuordnung(konto)
+                    dbZuordnung: getDbZuordnung(kontoNr)
                 });
             }
         });
