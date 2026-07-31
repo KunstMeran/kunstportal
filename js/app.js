@@ -10154,6 +10154,8 @@ const App = {
         document.getElementById('budget-entry-projekt').value = '';
         document.getElementById('budget-entry-type').value = 'budget';
         document.getElementById('budget-entry-notes').value = '';
+        document.getElementById('budget-entry-jahres-total').value = '0';
+        document.getElementById('budget-entry-deviation').style.display = 'none';
         ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
             document.getElementById(`budget-entry-${m}`).value = '0';
         });
@@ -10165,7 +10167,7 @@ const App = {
         projektSelect.innerHTML = '<option value="">-- Kein Projekt --</option>' +
             projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-        // Event-Listener für automatische Summenberechnung
+        // Event-Listener für automatische Summenberechnung bei Monats-Änderungen
         ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
             document.getElementById(`budget-entry-${m}`).oninput = () => this.updateBudgetEntryTotal();
         });
@@ -10184,6 +10186,10 @@ const App = {
                     document.getElementById(`budget-entry-${m}`).value = entry[m] || 0;
                 });
                 this.updateBudgetEntryTotal();
+                // Jahres-Total auf Summe der Monate setzen
+                const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+                const monthSum = months.reduce((sum, m) => sum + (parseFloat(entry[m]) || 0), 0);
+                document.getElementById('budget-entry-jahres-total').value = monthSum.toFixed(2);
             }
         } else {
             title.textContent = 'Neuer Budget-Eintrag';
@@ -10192,10 +10198,55 @@ const App = {
         modal.classList.add('active');
     },
 
+    closeBudgetEntryModal: function() {
+        const modal = document.getElementById('budget-entry-modal');
+        modal.classList.remove('active');
+    },
+
+    distributeBudgetToMonths: function() {
+        const jahresTotal = parseFloat(document.getElementById('budget-entry-jahres-total').value) || 0;
+        const monatsBetrag = jahresTotal / 12;
+        const monatsBetragRounded = Math.round(monatsBetrag * 100) / 100;
+
+        // Auf alle Monate verteilen
+        ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].forEach(m => {
+            document.getElementById(`budget-entry-${m}`).value = monatsBetragRounded.toFixed(2);
+        });
+
+        // Rest auf Dezember addieren für exakte Summe
+        const verteiltesSumme = monatsBetragRounded * 12;
+        const rest = jahresTotal - verteiltesSumme;
+        if (Math.abs(rest) > 0.001) {
+            const dezInput = document.getElementById('budget-entry-dez');
+            dezInput.value = (monatsBetragRounded + rest).toFixed(2);
+        }
+
+        this.updateBudgetEntryTotal();
+    },
+
     updateBudgetEntryTotal: function() {
         const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
-        const total = months.reduce((sum, m) => sum + (parseFloat(document.getElementById(`budget-entry-${m}`).value) || 0), 0);
-        document.getElementById('budget-entry-total').textContent = this.formatCurrency(total);
+        const monthsSum = months.reduce((sum, m) => sum + (parseFloat(document.getElementById(`budget-entry-${m}`).value) || 0), 0);
+        document.getElementById('budget-entry-total').textContent = this.formatCurrency(monthsSum);
+
+        // Abweichung vom Jahres-Total berechnen und anzeigen
+        const jahresTotal = parseFloat(document.getElementById('budget-entry-jahres-total').value) || 0;
+        const deviation = monthsSum - jahresTotal;
+        const deviationEl = document.getElementById('budget-entry-deviation');
+
+        if (jahresTotal > 0 && Math.abs(deviation) > 0.01) {
+            const isPositive = deviation > 0;
+            deviationEl.innerHTML = `
+                <strong style="color: ${isPositive ? '#e65100' : '#2e7d32'};">
+                    Abweichung: ${isPositive ? '+' : ''}${this.formatCurrency(deviation)}
+                </strong>
+                <br><small style="color: #666;">Plan: ${this.formatCurrency(jahresTotal)} | Monate: ${this.formatCurrency(monthsSum)}</small>
+            `;
+            deviationEl.style.display = 'block';
+            deviationEl.style.background = isPositive ? '#fff3e0' : '#e8f5e9';
+        } else {
+            deviationEl.style.display = 'none';
+        }
     },
 
     saveBudgetEntry: async function(event) {
@@ -10232,7 +10283,7 @@ const App = {
                 await DataManager.addBudgetEntry(entryData);
                 this.showToast('success', 'Erstellt', 'Budget-Eintrag wurde erstellt');
             }
-            this.hideModal('budget-entry-modal');
+            this.closeBudgetEntryModal();
             await this.loadBudgetplanung();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);

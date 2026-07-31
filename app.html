@@ -3344,20 +3344,21 @@
     </div>
 
     <!-- Budget-Eintrag Modal -->
-    <div id="budget-entry-modal" class="modal-overlay">
+    <div id="budget-entry-modal" class="modal-overlay" onclick="if(event.target===this) App.closeBudgetEntryModal()">
         <div class="modal" style="max-width: 800px;">
             <form onsubmit="App.saveBudgetEntry(event)">
                 <div class="modal-header">
                     <h2 id="budget-entry-modal-title">Neuer Budget-Eintrag</h2>
-                    <button type="button" class="modal-close" onclick="App.hideModal('budget-entry-modal')">&times;</button>
+                    <button type="button" class="modal-close" onclick="App.closeBudgetEntryModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="budget-entry-id">
 
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                    <!-- Kontonummer zuerst, dann Beschreibung -->
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Bilanzkonto *</label>
-                            <input type="text" id="budget-entry-konto" class="form-control" required placeholder="z.B. 6401550" list="budget-konten-list">
+                            <label class="form-label">Konto-Nr. *</label>
+                            <input type="text" id="budget-entry-konto" class="form-control" required placeholder="6401550" list="budget-konten-list">
                             <datalist id="budget-konten-list">
                                 <!-- Wird dynamisch geladen -->
                             </datalist>
@@ -3385,62 +3386,79 @@
                         </div>
                     </div>
 
+                    <!-- Gesamt-Betrag Eingabe mit automatischer Verteilung -->
+                    <div class="form-group" style="margin-bottom: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: end;">
+                            <div>
+                                <label class="form-label" style="font-weight: 600;">Jahres-Budget (EUR)</label>
+                                <input type="number" id="budget-entry-jahres-total" class="form-control" step="0.01" value="0"
+                                       oninput="App.distributeBudgetToMonths()" style="font-size: 1.1rem; font-weight: 600;">
+                                <small style="color: #666;">Eingabe verteilt gleichmäßig auf 12 Monate</small>
+                            </div>
+                            <div style="text-align: right;">
+                                <div id="budget-entry-deviation" style="display: none; padding: 0.5rem; border-radius: 4px;">
+                                    <!-- Abweichung wird hier angezeigt -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label">Monatliche Beträge (EUR)</label>
+                        <label class="form-label">Monatliche Beträge (EUR) <small style="color: #666;">- Feinanpassung</small></label>
                         <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem;">
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Jan</label>
-                                <input type="number" id="budget-entry-jan" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-jan" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Feb</label>
-                                <input type="number" id="budget-entry-feb" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-feb" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Mär</label>
-                                <input type="number" id="budget-entry-mar" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-mar" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Apr</label>
-                                <input type="number" id="budget-entry-apr" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-apr" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Mai</label>
-                                <input type="number" id="budget-entry-mai" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-mai" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Jun</label>
-                                <input type="number" id="budget-entry-jun" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-jun" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                         </div>
                         <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-top: 0.5rem;">
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Jul</label>
-                                <input type="number" id="budget-entry-jul" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-jul" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Aug</label>
-                                <input type="number" id="budget-entry-aug" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-aug" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Sep</label>
-                                <input type="number" id="budget-entry-sep" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-sep" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Okt</label>
-                                <input type="number" id="budget-entry-okt" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-okt" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Nov</label>
-                                <input type="number" id="budget-entry-nov" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-nov" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                             <div>
                                 <label style="font-size: 0.75rem; color: #666;">Dez</label>
-                                <input type="number" id="budget-entry-dez" class="form-control" step="0.01" value="0">
+                                <input type="number" id="budget-entry-dez" class="form-control budget-month-input" step="0.01" value="0">
                             </div>
                         </div>
                         <div style="margin-top: 0.5rem; text-align: right;">
-                            <strong>Gesamt: <span id="budget-entry-total">0,00 EUR</span></strong>
+                            <strong>Summe Monate: <span id="budget-entry-total">0,00 EUR</span></strong>
                         </div>
                     </div>
 
@@ -3450,7 +3468,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('budget-entry-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeBudgetEntryModal()">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
