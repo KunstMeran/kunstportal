@@ -3637,6 +3637,7 @@ const App = {
                         const uniqueId = r.id || r.rechnungId || `${r.partitaIva}-${rowNumber}`;
                         const safeId = String(uniqueId).replace(/[^a-zA-Z0-9-]/g, '');
                         const addPdfInputId = `add-pdf-${safeId}`;
+                        const dropZoneId = `dropzone-existing-${safeId}`;
                         const pdfCount = r.pdfCount || 1;
                         const linkedInvoices = r.linkedInvoices || [];
 
@@ -3650,14 +3651,18 @@ const App = {
                             pdfLinks = `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>`;
                         }
 
-                        return `<div style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
+                        return `<div class="pdf-drop-zone" id="${dropZoneId}"
+                                    style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; padding: 0.25rem; border: 2px dashed transparent; border-radius: 4px; transition: all 0.2s;"
+                                    ondragover="App.handlePdfDragOver(event, '${dropZoneId}')"
+                                    ondragleave="App.handlePdfDragLeave(event, '${dropZoneId}')"
+                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva || ''}', '${r.dokumentNr || ''}', '${uploadId}')">
                             ${pdfLinks}
                             <input type="file" id="${addPdfInputId}" accept=".pdf" style="display: none;" multiple
                                    onchange="App.uploadPdfForBuchung('${r.partitaIva || ''}', '${r.dokumentNr || ''}', this, '${uploadId}')">
                             <button class="btn btn-sm"
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #2196F3; color: white;"
                                 onclick="document.getElementById('${addPdfInputId}').click()"
-                                title="Weiteres PDF hinzufügen">+</button>
+                                title="Weiteres PDF hinzufügen (oder hierhin ziehen)">+</button>
                             ${r.invoiceId ? `<button class="btn btn-sm"
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
                                 onclick="App.unlinkPdfFromDatev('${r.invoiceId}')"
@@ -3976,6 +3981,19 @@ const App = {
             let bookingId = null;
             if (rechnungId && rechnungId.startsWith('id:')) {
                 bookingId = rechnungId.substring(3);
+            } else if (rechnungId && partitaIva && dokumentNr) {
+                // Bei partitaIva_dokumentNr Format: Booking-ID aus DB holen
+                const { data: booking } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .select('id')
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr)
+                    .limit(1)
+                    .single();
+                if (booking) {
+                    bookingId = booking.id;
+                    console.log('📤 Booking-ID aus DB geholt:', bookingId);
+                }
             }
 
             // Invoice-Eintrag in Datenbank erstellen (mit linked_booking_id wenn vorhanden)
@@ -3989,6 +4007,7 @@ const App = {
             // linked_booking_id hinzufügen wenn Buchung-ID bekannt
             if (bookingId) {
                 insertData.linked_booking_id = bookingId;
+                console.log('📤 linked_booking_id gesetzt:', bookingId);
             }
 
             const { data: invoiceData, error: dbError } = await SupabaseService.client
