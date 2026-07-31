@@ -3,8 +3,9 @@
 -- Description: Allows multiple PDF invoices to be linked to a single DATEV booking
 
 -- Add linked_booking_id column to invoices table
+-- WICHTIG: datev_bookings.id ist BIGINT (nicht UUID), daher BIGINT verwenden
 ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS linked_booking_id UUID REFERENCES datev_bookings(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS linked_booking_id BIGINT REFERENCES datev_bookings(id) ON DELETE SET NULL;
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_invoices_linked_booking_id ON invoices(linked_booking_id);
