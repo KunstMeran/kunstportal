@@ -7679,6 +7679,9 @@ const App = {
         }
     },
 
+    // Cache für Detail-Buchungen
+    dbDetailCache: {},
+
     loadDeckungsbeitrag: async function(jahr) {
         const tbody = document.getElementById('db-table-body');
         if (!tbody) return;
@@ -7689,54 +7692,131 @@ const App = {
             const startDate = `${jahr}-01-01`;
             const endDate = `${jahr}-12-31`;
 
-            // DB-Daten aus Supabase laden (nutzt die bereits vorhandene Berechnung)
-            const ergebnisse = await SupabaseDataAdapter.calculateContributionMargins(startDate, endDate);
-            const gesamt = ergebnisse.gesamt;
+            // Buchungen nach Konten gruppiert laden (für Details)
+            const { grouped, details } = await SupabaseDataAdapter.getBookingsGroupedByAccount(startDate, endDate);
+            this.dbDetailCache = details;
 
             // Einnahmen aus funding_sources laden
             const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
             const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
 
-            // Struktur der Deckungsbeitragsrechnung
+            // Echte Beträge aus gruppierten Buchungen berechnen
+            const getSum = (patterns, zuordnung) => {
+                let sum = 0;
+                for (const [pattern, data] of Object.entries(grouped)) {
+                    if (data.db_zuordnung === zuordnung) {
+                        sum += data.betrag;
+                    }
+                }
+                return sum;
+            };
+
+            const umsatzGesamt = getSum(null, 'UMSATZ');
+            const db1KostenGesamt = getSum(null, 'DB1_KOSTEN');
+            const db2KostenGesamt = getSum(null, 'DB2_KOSTEN');
+            const db3KostenGesamt = getSum(null, 'DB3_KOSTEN');
+
+            const db1 = umsatzGesamt - db1KostenGesamt;
+            const db2 = db1 - db2KostenGesamt;
+            const db3 = db2 - db3KostenGesamt;
+
+            // Struktur der Deckungsbeitragsrechnung mit echten Daten
             const rows = [
-                { type: 'header', label: '1. UMSÄTZE', konto: '' },
-                { type: 'detail', label: '   Erlöse Lieferungen/Leistungen', konto: '6001*', ist: gesamt.umsatz * 0.2, plan: einnahmenPlan * 0.2 },
-                { type: 'detail', label: '   Zuschüsse und Beiträge', konto: '6401*', ist: gesamt.umsatz * 0.7, plan: einnahmenPlan * 0.7 },
-                { type: 'detail', label: '   Sonstige betriebliche Erträge', konto: '6400*', ist: gesamt.umsatz * 0.1, plan: einnahmenPlan * 0.1 },
-                { type: 'sum', label: 'SUMME UMSÄTZE', ist: gesamt.umsatz, plan: einnahmenPlan },
-
-                { type: 'spacer' },
-                { type: 'header', label: '2. DIREKTE KOSTEN (DB1)', konto: '' },
-                { type: 'detail', label: '   (a) Materialkosten', konto: '680*', ist: gesamt.db1_kosten * 0.3, plan: 0 },
-                { type: 'detail', label: '   (b) Dienstleistungen (Ausst./Projekte)', konto: '690125*', ist: gesamt.db1_kosten * 0.7, plan: 0 },
-                { type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: gesamt.db1_kosten, plan: 0 },
-
-                { type: 'spacer' },
-                { type: 'result', label: '3. DECKUNGSBEITRAG 1 (DB1)', ist: gesamt.db1, plan: einnahmenPlan, highlight: true },
-
-                { type: 'spacer' },
-                { type: 'header', label: '4. STRUKTURKOSTEN (DB2)', konto: '' },
-                { type: 'detail', label: '   (a) Verwaltung', konto: '6901*', ist: gesamt.db2_kosten * 0.4, plan: 0 },
-                { type: 'detail', label: '   (b) Werbung/Marketing', konto: '6902*', ist: gesamt.db2_kosten * 0.6, plan: 0 },
-                { type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: gesamt.db2_kosten, plan: 0 },
-
-                { type: 'spacer' },
-                { type: 'result', label: '5. DECKUNGSBEITRAG 2 (DB2)', ist: gesamt.db2, plan: einnahmenPlan, highlight: true },
-
-                { type: 'spacer' },
-                { type: 'header', label: '6. FIXKOSTEN (DB3)', konto: '' },
-                { type: 'detail', label: '   (a) Miete/Strukturen', konto: '700*', ist: gesamt.db3_kosten * 0.3, plan: 0 },
-                { type: 'detail', label: '   (b) Gebäudekosten', konto: '69024*', ist: gesamt.db3_kosten * 0.2, plan: 0 },
-                { type: 'detail', label: '   (c) Personalkosten', konto: '710*', ist: gesamt.db3_kosten * 0.5, plan: 0 },
-                { type: 'sum', label: 'SUMME FIXKOSTEN', ist: gesamt.db3_kosten, plan: 0 },
-
-                { type: 'spacer' },
-                { type: 'result', label: '7. DECKUNGSBEITRAG 3 (DB3) / ERGEBNIS', ist: gesamt.db3, plan: einnahmenPlan, highlight: true, final: true }
+                { type: 'header', label: '1. UMSÄTZE', konto: '' }
             ];
 
+            // Umsatz-Konten dynamisch aus gruppierten Daten
+            for (const [pattern, data] of Object.entries(grouped)) {
+                if (data.db_zuordnung === 'UMSATZ' && data.betrag > 0) {
+                    rows.push({
+                        type: 'detail',
+                        label: data.konto_name || pattern,
+                        konto: pattern,
+                        ist: data.betrag,
+                        plan: 0,
+                        expandable: data.count > 0,
+                        pattern: pattern,
+                        count: data.count
+                    });
+                }
+            }
+            rows.push({ type: 'sum', label: 'SUMME UMSÄTZE', ist: umsatzGesamt, plan: einnahmenPlan });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'header', label: '2. DIREKTE KOSTEN (DB1)', konto: '' });
+
+            // DB1-Kosten dynamisch
+            for (const [pattern, data] of Object.entries(grouped)) {
+                if (data.db_zuordnung === 'DB1_KOSTEN' && data.betrag > 0) {
+                    rows.push({
+                        type: 'detail',
+                        label: data.konto_name || pattern,
+                        konto: pattern,
+                        ist: data.betrag,
+                        plan: 0,
+                        expandable: data.count > 0,
+                        pattern: pattern,
+                        count: data.count
+                    });
+                }
+            }
+            rows.push({ type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db1KostenGesamt, plan: 0 });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 1 (DB1)', ist: db1, plan: einnahmenPlan, highlight: true });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'header', label: '3. STRUKTURKOSTEN (DB2)', konto: '' });
+
+            // DB2-Kosten dynamisch
+            for (const [pattern, data] of Object.entries(grouped)) {
+                if (data.db_zuordnung === 'DB2_KOSTEN' && data.betrag > 0) {
+                    rows.push({
+                        type: 'detail',
+                        label: data.konto_name || pattern,
+                        konto: pattern,
+                        ist: data.betrag,
+                        plan: 0,
+                        expandable: data.count > 0,
+                        pattern: pattern,
+                        count: data.count
+                    });
+                }
+            }
+            rows.push({ type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db2KostenGesamt, plan: 0 });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 2 (DB2)', ist: db2, plan: einnahmenPlan, highlight: true });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'header', label: '4. FIXKOSTEN (DB3)', konto: '' });
+
+            // DB3-Kosten dynamisch
+            for (const [pattern, data] of Object.entries(grouped)) {
+                if (data.db_zuordnung === 'DB3_KOSTEN' && data.betrag > 0) {
+                    rows.push({
+                        type: 'detail',
+                        label: data.konto_name || pattern,
+                        konto: pattern,
+                        ist: data.betrag,
+                        plan: 0,
+                        expandable: data.count > 0,
+                        pattern: pattern,
+                        count: data.count
+                    });
+                }
+            }
+            rows.push({ type: 'sum', label: 'SUMME FIXKOSTEN', ist: db3KostenGesamt, plan: 0 });
+
+            rows.push({ type: 'spacer' });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 3 (DB3) / ERGEBNIS', ist: db3, plan: einnahmenPlan, highlight: true, final: true });
+
             tbody.innerHTML = '';
+            let rowIndex = 0;
+
             rows.forEach(r => {
                 const tr = document.createElement('tr');
+                tr.setAttribute('data-row-index', rowIndex);
 
                 if (r.type === 'spacer') {
                     tr.innerHTML = '<td colspan="5" style="height: 10px;"></td>';
@@ -7748,8 +7828,21 @@ const App = {
                     const finalStyle = r.final ? 'font-weight: bold; background: #d4edda; font-size: 1.1em;' : '';
 
                     tr.style.cssText = finalStyle || style;
+
+                    // Plus-Button für aufklappbare Details
+                    let expandBtn = '';
+                    if (r.expandable && r.count > 0) {
+                        expandBtn = `<button class="btn-expand" onclick="App.toggleDbDetails('${r.pattern}', this)"
+                                        style="background: #3498db; color: white; border: none; border-radius: 4px;
+                                               width: 22px; height: 22px; cursor: pointer; font-weight: bold;
+                                               margin-right: 8px; font-size: 14px; line-height: 1;">+</button>`;
+                    }
+
                     tr.innerHTML = `
-                        <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">${r.label}</td>
+                        <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">
+                            ${expandBtn}${r.label}
+                            ${r.count ? `<span style="color: #999; font-size: 0.85em; margin-left: 4px;">(${r.count})</span>` : ''}
+                        </td>
                         <td style="color: #666;">${r.konto || ''}</td>
                         <td style="text-align: right;">${r.ist !== undefined ? this.formatCurrency(r.ist) : ''}</td>
                         <td style="text-align: right;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
@@ -7757,8 +7850,13 @@ const App = {
                             ${r.plan ? this.formatCurrency(abw) : '-'}
                         </td>
                     `;
+
+                    if (r.pattern) {
+                        tr.setAttribute('data-pattern', r.pattern);
+                    }
                 }
                 tbody.appendChild(tr);
+                rowIndex++;
             });
         } catch (error) {
             console.error('Fehler beim Laden der Deckungsbeitragsrechnung:', error);
@@ -7767,6 +7865,79 @@ const App = {
                 <small>Bitte prüfen Sie, ob die chart_of_accounts Tabelle existiert.</small>
             </td></tr>`;
         }
+    },
+
+    /**
+     * Detail-Buchungen für ein Konto-Pattern ein-/ausklappen
+     */
+    toggleDbDetails: function(pattern, btn) {
+        const detailRowId = `db-detail-${pattern.replace('%', '')}`;
+        const existingRow = document.getElementById(detailRowId);
+
+        if (existingRow) {
+            // Zuklappen
+            existingRow.remove();
+            btn.textContent = '+';
+            btn.style.background = '#3498db';
+            return;
+        }
+
+        // Aufklappen - Details anzeigen
+        btn.textContent = '−';
+        btn.style.background = '#e74c3c';
+
+        const buchungen = this.dbDetailCache[pattern] || [];
+        const parentRow = btn.closest('tr');
+
+        const detailRow = document.createElement('tr');
+        detailRow.id = detailRowId;
+        detailRow.style.background = '#f9f9f9';
+
+        let detailHtml = `
+            <td colspan="5" style="padding: 0;">
+                <div style="padding: 10px 20px; max-height: 300px; overflow-y: auto;">
+                    <table style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #e0e0e0;">
+                                <th style="text-align: left; padding: 6px;">Datum</th>
+                                <th style="text-align: left; padding: 6px;">Konto</th>
+                                <th style="text-align: left; padding: 6px;">Buchungstext</th>
+                                <th style="text-align: right; padding: 6px;">Betrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        if (buchungen.length === 0) {
+            detailHtml += `<tr><td colspan="4" style="padding: 10px; color: #666;">Keine Buchungen gefunden</td></tr>`;
+        } else {
+            for (const b of buchungen) {
+                const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-';
+                const betrag = parseFloat(b.betrag) || 0;
+                detailHtml += `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 6px;">${datum}</td>
+                        <td style="padding: 6px;">${b.konto_nr}</td>
+                        <td style="padding: 6px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${b.buchungstext || '-'}
+                        </td>
+                        <td style="padding: 6px; text-align: right; ${betrag < 0 ? 'color: #e74c3c;' : ''}">
+                            ${this.formatCurrency(Math.abs(betrag))}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        detailHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            </td>
+        `;
+
+        detailRow.innerHTML = detailHtml;
+        parentRow.after(detailRow);
     },
 
     loadKostenKategorien: async function(jahr) {

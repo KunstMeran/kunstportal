@@ -2586,6 +2586,87 @@ const SupabaseDataAdapter = {
         }
     },
 
+    /**
+     * Buchungen nach Kontenplan-Pattern gruppiert laden
+     * Für Detail-Ansicht in der Deckungsbeitragsrechnung
+     */
+    async getBookingsGroupedByAccount(startDate, endDate) {
+        try {
+            // Kontenplan laden
+            const chartOfAccounts = await this.getChartOfAccounts();
+
+            // DATEV-Buchungen laden
+            const { data: buchungen, error } = await supabaseClient
+                .from('datev_bookings')
+                .select('*')
+                .gte('datum', startDate)
+                .lte('datum', endDate)
+                .order('datum', { ascending: false });
+
+            if (error) throw error;
+
+            // Nach Kontenplan-Pattern gruppieren
+            const grouped = {};
+            const details = {}; // Einzelbuchungen pro Pattern
+
+            // Initialisiere Gruppen aus Kontenplan
+            for (const coa of chartOfAccounts) {
+                grouped[coa.konto_pattern] = {
+                    konto_pattern: coa.konto_pattern,
+                    konto_name: coa.konto_name,
+                    kategorie: coa.kategorie,
+                    db_zuordnung: coa.db_zuordnung,
+                    ist_projektbezogen: coa.ist_projektbezogen,
+                    betrag: 0,
+                    count: 0
+                };
+                details[coa.konto_pattern] = [];
+            }
+
+            // Buchungen zuordnen
+            for (const b of buchungen || []) {
+                const kontoNr = b.konto_nr || '';
+                const betrag = parseFloat(b.betrag_gesamt || b.betrag) || 0;
+
+                // Passendes Pattern finden
+                let matchedPattern = null;
+                for (const coa of chartOfAccounts) {
+                    const pattern = coa.konto_pattern;
+                    if (pattern.includes('%')) {
+                        const prefix = pattern.replace('%', '');
+                        if (kontoNr.startsWith(prefix)) {
+                            matchedPattern = pattern;
+                            break;
+                        }
+                    } else if (kontoNr === pattern) {
+                        matchedPattern = pattern;
+                        break;
+                    }
+                }
+
+                if (matchedPattern && grouped[matchedPattern]) {
+                    grouped[matchedPattern].betrag += Math.abs(betrag);
+                    grouped[matchedPattern].count++;
+                    details[matchedPattern].push({
+                        id: b.id,
+                        datum: b.datum,
+                        konto_nr: kontoNr,
+                        buchungstext: b.buchungstext || b.text || '',
+                        betrag: betrag,
+                        projekt_id: b.projekt_id,
+                        lieferant: b.lieferant_name || ''
+                    });
+                }
+            }
+
+            return { grouped, details, chartOfAccounts };
+
+        } catch (error) {
+            console.error('Fehler beim Gruppieren der Buchungen:', error);
+            throw error;
+        }
+    },
+
     // =========================================================================
     // BUDGETPLANUNG-FUNKTIONEN
     // =========================================================================
