@@ -164,6 +164,8 @@ const SupabaseDataAdapter = {
         DataManager.deleteBudgetEntry = this.deleteBudgetEntry.bind(this);
         DataManager.getBudgetNotes = this.getBudgetNotes.bind(this);
         DataManager.saveBudgetNotes = this.saveBudgetNotes.bind(this);
+        DataManager.getBudgetKontoNotes = this.getBudgetKontoNotes.bind(this);
+        DataManager.saveBudgetKontoNote = this.saveBudgetKontoNote.bind(this);
 
         // DATEV-Buchungen aus Supabase laden statt aus JSON-Datei
         DataManager._loadBuchungenJSONOriginal = DataManager.loadBuchungenJSON;
@@ -2747,6 +2749,55 @@ const SupabaseDataAdapter = {
             return data;
         } catch (error) {
             console.error('Fehler beim Speichern der Budget-Notizen:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Lädt alle Konto-Notizen für ein Jahr
+     */
+    async getBudgetKontoNotes(year) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('budget_konto_notes')
+                .select('*')
+                .eq('fiscal_year', year);
+
+            if (error) throw error;
+
+            // Als Map zurückgeben: konto_nr -> notes
+            const notesMap = {};
+            (data || []).forEach(note => {
+                notesMap[note.konto_nr] = note.notes || '';
+            });
+            return notesMap;
+        } catch (error) {
+            console.error('Fehler beim Laden der Konto-Notizen:', error);
+            return {};
+        }
+    },
+
+    /**
+     * Speichert eine Konto-Notiz (upsert)
+     */
+    async saveBudgetKontoNote(kontoNr, year, notes) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('budget_konto_notes')
+                .upsert({
+                    konto_nr: kontoNr,
+                    fiscal_year: year,
+                    notes: notes
+                }, {
+                    onConflict: 'konto_nr,fiscal_year'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Speichern der Konto-Notiz:', error);
             throw error;
         }
     }

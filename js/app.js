@@ -9404,10 +9404,18 @@ const App = {
         }
     },
 
-    renderBudgetKontenTable: function(year, showVorjahr) {
+    renderBudgetKontenTable: async function(year, showVorjahr) {
         const tbody = document.getElementById('budget-konten-body');
         const entries = this.budgetEntriesData.filter(e => e.fiscal_year === year);
         const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
+        // Konto-Notizen laden
+        let kontoNotes = {};
+        try {
+            kontoNotes = await DataManager.getBudgetKontoNotes(year);
+        } catch (error) {
+            console.warn('Konto-Notizen konnten nicht geladen werden:', error);
+        }
 
         // Alle Konten sammeln: aus Budget-Einträgen UND aus IST-Daten
         const alleKonten = new Map();
@@ -9480,17 +9488,28 @@ const App = {
             const diffTotal = budgetRowTotal - istRowTotal;
             const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
 
+            // Notiz für dieses Konto
+            const note = kontoNotes[key] || '';
+            const noteEscaped = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const keyEscaped = key.replace(/'/g, "\\'");
+
             html += `<tr style="border-bottom: 2px solid #dee2e6;">
                 <td rowspan="3" style="vertical-align: middle;"><strong>${data.konto_nr}</strong></td>
                 <td style="background: #f8f9fa; font-size: 0.8rem;">Budget</td>
                 ${months.map(m => `<td style="text-align: right; background: #f8f9fa;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
                 <td style="text-align: right; font-weight: bold; background: #f8f9fa;">${this.formatNumber(budgetRowTotal)}</td>
                 <td rowspan="3" style="vertical-align: middle;">
+                    <textarea class="form-control" style="font-size: 0.75rem; min-height: 60px; resize: vertical;"
+                              placeholder="Notiz..."
+                              onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"
+                    >${note}</textarea>
+                </td>
+                <td rowspan="3" style="vertical-align: middle;">
                     ${data.hasBudget ? `
                         <button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')" title="Bearbeiten">${Icons.edit}</button>
                         <button class="btn btn-sm btn-outline" onclick="App.deleteBudgetEntry('${data.id}')" style="color: #dc3545;" title="Löschen">${Icons.delete}</button>
                     ` : `
-                        <button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${key}')" title="Budget hinzufügen">+ Budget</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')" title="Budget hinzufügen">+ Budget</button>
                     `}
                 </td>
             </tr>
@@ -9550,6 +9569,17 @@ const App = {
             if (kontoInput) kontoInput.value = kontoName;
             if (descInput) descInput.value = kontoName;
         }, 100);
+    },
+
+    // Speichert eine Konto-Notiz
+    saveBudgetKontoNote: async function(kontoNr, year, notes) {
+        try {
+            await DataManager.saveBudgetKontoNote(kontoNr, year, notes);
+            console.log('Konto-Notiz gespeichert:', kontoNr, year);
+        } catch (error) {
+            console.error('Fehler beim Speichern der Konto-Notiz:', error);
+            this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
+        }
     },
 
     renderBudgetProjekteTable: async function(year) {
