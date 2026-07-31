@@ -3164,13 +3164,16 @@ const App = {
     // EXCEL EXPORT
     // ==========================================
 
-    loadExportTab: function() {
-        const projects = DataManager.getProjects();
+    loadExportTab: async function() {
+        const projects = await DataManager.getProjects();
         const select = document.getElementById('export-project-select');
+        if (!select) return;
         select.innerHTML = '<option value="">-- Projekt wählen --</option>';
-        projects.forEach(p => {
-            select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-        });
+        if (projects && Array.isArray(projects)) {
+            projects.forEach(p => {
+                select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            });
+        }
     },
 
     exportAllToExcel: function() {
@@ -9363,32 +9366,41 @@ const App = {
             // DATEV-Buchungen für das Jahr laden
             const { data: buchungen, error } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('konto_nr, datum, betrag')
+                .select('kategorie, datum, betrag')
                 .eq('import_year', year);
 
             if (error) throw error;
 
-            // Nach Konto und Monat gruppieren
+            // Nach Kategorie und Monat gruppieren (Kategorie = Kostenart/Konto)
             this.budgetIstData = {};
+            this.budgetIstDataTotal = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
             const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
 
             (buchungen || []).forEach(b => {
-                if (!b.konto_nr || !b.datum) return;
+                if (!b.datum) return;
 
-                const konto = b.konto_nr;
+                const konto = b.kategorie || 'Sonstige';
                 const monat = new Date(b.datum).getMonth(); // 0-11
+                const betrag = parseFloat(b.betrag) || 0;
 
                 if (!this.budgetIstData[konto]) {
                     this.budgetIstData[konto] = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
                 }
 
-                this.budgetIstData[konto][months[monat]] += parseFloat(b.betrag) || 0;
-                this.budgetIstData[konto].total += parseFloat(b.betrag) || 0;
+                this.budgetIstData[konto][months[monat]] += betrag;
+                this.budgetIstData[konto].total += betrag;
+
+                // Gesamtsummen
+                this.budgetIstDataTotal[months[monat]] += betrag;
+                this.budgetIstDataTotal.total += betrag;
             });
+
+            console.log('IST-Daten geladen:', Object.keys(this.budgetIstData).length, 'Kategorien');
 
         } catch (error) {
             console.error('Fehler beim Laden der IST-Daten:', error);
             this.budgetIstData = {};
+            this.budgetIstDataTotal = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
         }
     },
 
@@ -9397,54 +9409,147 @@ const App = {
         const entries = this.budgetEntriesData.filter(e => e.fiscal_year === year);
         const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
 
-        if (entries.length === 0) {
+        // Alle Konten sammeln: aus Budget-Einträgen UND aus IST-Daten
+        const alleKonten = new Map();
+
+        // Budget-Einträge hinzufügen
+        entries.forEach(entry => {
+            const key = entry.konto_nr || entry.description;
+            alleKonten.set(key, {
+                konto_nr: entry.konto_nr,
+                description: entry.description,
+                budget: entry,
+                ist: this.budgetIstData[key] || null,
+                hasBudget: true,
+                id: entry.id
+            });
+        });
+
+        // IST-Daten ohne Budget hinzufügen
+        Object.keys(this.budgetIstData).forEach(konto => {
+            if (!alleKonten.has(konto)) {
+                alleKonten.set(konto, {
+                    konto_nr: konto,
+                    description: konto,
+                    budget: null,
+                    ist: this.budgetIstData[konto],
+                    hasBudget: false,
+                    id: null
+                });
+            }
+        });
+
+        if (alleKonten.size === 0) {
             tbody.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #666; padding: 2rem;">
-                Keine Budget-Einträge für ${year}. Klicken Sie auf "+ Budget hinzufügen" um zu beginnen.
+                Keine Budget-Einträge oder IST-Daten für ${year}. Klicken Sie auf "+ Budget hinzufügen" um zu beginnen.
             </td></tr>`;
+            // Summen auf 0 setzen
+            months.forEach(m => {
+                const el = document.getElementById(`budget-total-${m}`);
+                if (el) el.textContent = '0';
+            });
+            const yearEl = document.getElementById('budget-total-year');
+            if (yearEl) yearEl.textContent = '0';
             return;
         }
 
         let html = '';
-        const totals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
+        const budgetTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
+        const istTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
 
-        entries.forEach(entry => {
-            const rowTotal = months.reduce((sum, m) => sum + (parseFloat(entry[m]) || 0), 0);
-            months.forEach(m => totals[m] += parseFloat(entry[m]) || 0);
+        // Konten sortieren
+        const sortedKonten = Array.from(alleKonten.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-            html += `<tr>
-                <td><strong>${entry.konto_nr}</strong></td>
-                <td>${entry.description}</td>
-                ${months.map(m => `<td style="text-align: right;">${this.formatNumber(entry[m])}</td>`).join('')}
-                <td style="text-align: right; font-weight: bold;">${this.formatNumber(rowTotal)}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${entry.id}')">Bearbeiten</button>
-                    <button class="btn btn-sm btn-outline" onclick="App.deleteBudgetEntry('${entry.id}')" style="color: #dc3545;">Löschen</button>
+        sortedKonten.forEach(([key, data]) => {
+            const budget = data.budget;
+            const ist = data.ist;
+
+            // Budget-Zeile
+            const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+            if (budget) {
+                months.forEach(m => budgetTotals[m] += parseFloat(budget[m]) || 0);
+            }
+
+            // IST-Zeile
+            const istRowTotal = ist ? ist.total : 0;
+            if (ist) {
+                months.forEach(m => istTotals[m] += ist[m] || 0);
+            }
+
+            // Differenz
+            const diffTotal = budgetRowTotal - istRowTotal;
+            const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
+
+            html += `<tr style="border-bottom: 2px solid #dee2e6;">
+                <td rowspan="3" style="vertical-align: middle;"><strong>${data.konto_nr}</strong></td>
+                <td style="background: #f8f9fa; font-size: 0.8rem;">Budget</td>
+                ${months.map(m => `<td style="text-align: right; background: #f8f9fa;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
+                <td style="text-align: right; font-weight: bold; background: #f8f9fa;">${this.formatNumber(budgetRowTotal)}</td>
+                <td rowspan="3" style="vertical-align: middle;">
+                    ${data.hasBudget ? `
+                        <button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')" title="Bearbeiten">${Icons.edit}</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.deleteBudgetEntry('${data.id}')" style="color: #dc3545;" title="Löschen">${Icons.delete}</button>
+                    ` : `
+                        <button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${key}')" title="Budget hinzufügen">+ Budget</button>
+                    `}
                 </td>
+            </tr>
+            <tr>
+                <td style="color: #007bff; font-size: 0.8rem;">IST</td>
+                ${months.map(m => `<td style="text-align: right; color: #007bff;">${ist ? this.formatNumber(ist[m]) : '-'}</td>`).join('')}
+                <td style="text-align: right; font-weight: bold; color: #007bff;">${this.formatNumber(istRowTotal)}</td>
+            </tr>
+            <tr style="border-bottom: 3px solid #adb5bd;">
+                <td style="font-size: 0.8rem;">Diff</td>
+                ${months.map(m => {
+                    const diff = (budget ? parseFloat(budget[m]) || 0 : 0) - (ist ? ist[m] || 0 : 0);
+                    const style = diff < 0 ? 'color: #dc3545;' : (diff > 0 ? 'color: #28a745;' : '');
+                    return `<td style="text-align: right; ${style}">${this.formatNumber(diff)}</td>`;
+                }).join('')}
+                <td style="text-align: right; font-weight: bold; ${diffStyle}">${this.formatNumber(diffTotal)}</td>
             </tr>`;
         });
 
         tbody.innerHTML = html;
 
         // Summen aktualisieren
-        const yearTotal = months.reduce((sum, m) => sum + totals[m], 0);
-        months.forEach(m => document.getElementById(`budget-total-${m}`).textContent = this.formatNumber(totals[m]));
-        document.getElementById('budget-total-year').textContent = this.formatNumber(yearTotal);
+        const budgetYearTotal = months.reduce((sum, m) => sum + budgetTotals[m], 0);
+        months.forEach(m => {
+            const el = document.getElementById(`budget-total-${m}`);
+            if (el) el.textContent = this.formatNumber(budgetTotals[m]);
+        });
+        const yearEl = document.getElementById('budget-total-year');
+        if (yearEl) yearEl.textContent = this.formatNumber(budgetYearTotal);
 
         // IST-Summen
-        const istTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
-        Object.values(this.budgetIstData).forEach(konto => {
-            months.forEach(m => istTotals[m] += konto[m] || 0);
-        });
         const istYearTotal = months.reduce((sum, m) => sum + istTotals[m], 0);
-        months.forEach(m => document.getElementById(`ist-total-${m}`).textContent = this.formatNumber(istTotals[m]));
-        document.getElementById('ist-total-year').textContent = this.formatNumber(istYearTotal);
+        months.forEach(m => {
+            const el = document.getElementById(`ist-total-${m}`);
+            if (el) el.textContent = this.formatNumber(istTotals[m]);
+        });
+        const istYearEl = document.getElementById('ist-total-year');
+        if (istYearEl) istYearEl.textContent = this.formatNumber(istYearTotal);
 
         // Differenz
         months.forEach(m => {
-            const diff = totals[m] - istTotals[m];
-            document.getElementById(`diff-total-${m}`).textContent = this.formatNumber(diff);
+            const diff = budgetTotals[m] - istTotals[m];
+            const el = document.getElementById(`diff-total-${m}`);
+            if (el) el.textContent = this.formatNumber(diff);
         });
-        document.getElementById('diff-total-year').textContent = this.formatNumber(yearTotal - istYearTotal);
+        const diffYearEl = document.getElementById('diff-total-year');
+        if (diffYearEl) diffYearEl.textContent = this.formatNumber(budgetYearTotal - istYearTotal);
+    },
+
+    // Hilfsfunktion: Budget für bestehendes Konto aus IST-Daten hinzufügen
+    addBudgetForKonto: function(kontoName) {
+        // Formular öffnen und Konto-Name vorausfüllen
+        this.showNewBudgetEntryForm();
+        setTimeout(() => {
+            const kontoInput = document.getElementById('budget-entry-konto');
+            const descInput = document.getElementById('budget-entry-description');
+            if (kontoInput) kontoInput.value = kontoName;
+            if (descInput) descInput.value = kontoName;
+        }, 100);
     },
 
     renderBudgetProjekteTable: async function(year) {
