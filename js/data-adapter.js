@@ -771,6 +771,11 @@ const SupabaseDataAdapter = {
                     const dokumentNr = parsed.invoiceNumber || inv.invoice_number;
 
                     // Lieferantenname aus suppliers-Tabelle holen anhand Partita IVA
+                    // Debug: Erste paar Einträge prüfen
+                    if (supplierMap.size > 0 && !supplierMap.has(partitaIva)) {
+                        const sampleKeys = Array.from(supplierMap.keys()).slice(0, 3);
+                        console.log(`🔍 Suche Lieferant für ${partitaIva}, Beispiel-Keys in Map: ${sampleKeys.join(', ')}`);
+                    }
                     const supplierName = partitaIva ? supplierMap.get(partitaIva) : null;
                     const fornitoreName = supplierName || 'Unbekannt';
 
