@@ -10786,13 +10786,14 @@ const App = {
         }
 
         // Nach DB-Gruppen sortieren - mit monatlichen Summen
+        // Professionelles Farbschema mit guten Kontrasten
         const createMonthlyObj = () => ({ jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 });
         const dbGruppen = {
-            'UMSATZ': { label: '1. UMSÄTZE', sortOrder: 1, color: '#e8f5e9', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
-            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', sortOrder: 2, color: '#fff3e0', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
-            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', sortOrder: 3, color: '#e3f2fd', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
-            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', sortOrder: 4, color: '#fce4ec', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
-            'SONSTIGE': { label: '5. SONSTIGE', sortOrder: 5, color: '#f5f5f5', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() }
+            'UMSATZ': { label: '1. UMSÄTZE', sortOrder: 1, color: '#d4edda', borderColor: '#28a745', textColor: '#155724', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', sortOrder: 2, color: '#fff3cd', borderColor: '#ffc107', textColor: '#856404', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', sortOrder: 3, color: '#cce5ff', borderColor: '#007bff', textColor: '#004085', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', sortOrder: 4, color: '#f8d7da', borderColor: '#dc3545', textColor: '#721c24', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'SONSTIGE': { label: '5. SONSTIGE', sortOrder: 5, color: '#e2e3e5', borderColor: '#6c757d', textColor: '#383d41', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() }
         };
 
         // Konten in Gruppen einsortieren UND Summen vorberechnen
@@ -10874,27 +10875,27 @@ const App = {
 
             // Gruppen-Header: Budget-Zeile mit monatlichen Werten
             const gruppenId = gruppenKey.replace(/[^a-zA-Z0-9]/g, '');
-            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; font-weight: bold;" onclick="App.toggleBudgetGroup(this, '${gruppenId}')">
-                <td style="font-size: 1rem; padding: 0.5rem;">
-                    <span id="budget-expand-${gruppenId}" style="display: inline-block; width: 20px; text-align: center; font-weight: bold;">+</span>
+            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; border-left: 4px solid ${gruppe.borderColor};" onclick="App.toggleBudgetGroup(this, '${gruppenId}')">
+                <td style="font-size: 0.95rem; padding: 0.6rem 0.5rem; font-weight: 600; color: ${gruppe.textColor};">
+                    <span id="budget-expand-${gruppenId}" style="display: inline-block; width: 20px; text-align: center; font-size: 1.1rem;">+</span>
                     ${gruppe.label}
                 </td>
-                <td style="font-size: 0.8rem; color: #666;">(${gruppe.konten.length} Konten)</td>
-                <td style="text-align: right; background: #e3f2fd; font-weight: bold;">${this.formatNumber(gruppe.budgetYtd)}</td>
-                ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
-                <td style="text-align: right; font-weight: bold;">${this.formatNumber(gruppe.budgetSum)}</td>
+                <td style="font-size: 0.75rem; color: ${gruppe.textColor}; opacity: 0.8;">(${gruppe.konten.length})</td>
+                <td style="text-align: right; font-weight: 600; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; font-size: 0.8rem; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; font-weight: 700; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetSum)}</td>
                 <td></td>
                 <td></td>
             </tr>`;
 
             // Gruppen-Header: IST-Zeile mit monatlichen Werten
-            html += `<tr class="gruppe-ist-row" style="background: ${gruppe.color}; font-size: 0.8rem; border-bottom: 2px solid #999;">
+            html += `<tr class="gruppe-ist-row" style="background: linear-gradient(to bottom, ${gruppe.color}, #fff); font-size: 0.75rem; border-bottom: 2px solid ${gruppe.borderColor};">
+                <td style="padding-left: 2rem; color: #555; font-weight: 500;">IST</td>
                 <td></td>
-                <td style="color: #007bff; font-weight: 600;">IST</td>
-                <td style="text-align: right; background: #c8e6c9; color: #2e7d32; font-weight: bold;">${this.formatNumber(gruppe.istYtd)}</td>
-                ${months.map(m => `<td style="text-align: right; color: #007bff;">${this.formatNumber(gruppe.istMonthly[m])}</td>`).join('')}
-                <td style="text-align: right; color: #007bff; font-weight: bold;">${this.formatNumber(gruppe.istSum)}</td>
-                <td style="${gruppenDiffStyle}; font-weight: bold;">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
+                <td style="text-align: right; color: #17a2b8; font-weight: 600;">${this.formatNumber(gruppe.istYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; color: #17a2b8;">${this.formatNumber(gruppe.istMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; color: #17a2b8; font-weight: 600;">${this.formatNumber(gruppe.istSum)}</td>
+                <td style="${gruppenDiffStyle}; font-weight: 700;">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
                 <td></td>
             </tr>`;
 
@@ -10946,24 +10947,24 @@ const App = {
 
         // Gesamtsumme mit monatlichen Werten
         const gesamtDiff = gesamtBudget - gesamtIst;
-        const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
+        const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #ff6b6b;' : 'color: #51cf66;';
 
-        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1rem;" class="gruppe-header">
-            <td>GESAMT</td>
+        html += `<tr style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white; font-weight: 700; font-size: 0.95rem;" class="gruppe-header">
+            <td style="padding: 0.7rem 0.5rem; border-left: 4px solid #3498db;">GESAMT</td>
             <td></td>
-            <td style="text-align: right; background: #1a5276;">${this.formatNumber(gesamtBudgetYtd)}</td>
+            <td style="text-align: right;">${this.formatNumber(gesamtBudgetYtd)}</td>
             ${months.map(m => `<td style="text-align: right;">${this.formatNumber(gesamtBudgetMonthly[m])}</td>`).join('')}
-            <td style="text-align: right;">${this.formatNumber(gesamtBudget)}</td>
+            <td style="text-align: right; font-size: 1rem;">${this.formatNumber(gesamtBudget)}</td>
             <td></td>
             <td></td>
         </tr>
-        <tr style="background: #343a40; color: white; font-size: 0.9rem;">
+        <tr style="background: linear-gradient(135deg, #34495e, #2c3e50); color: #bdc3c7; font-size: 0.8rem;">
+            <td style="padding-left: 2rem;">IST</td>
             <td></td>
-            <td style="color: #5dade2;">IST</td>
-            <td style="text-align: right; background: #1e8449; color: white;">${this.formatNumber(gesamtIstYtd)}</td>
-            ${months.map(m => `<td style="text-align: right; color: #5dade2;">${this.formatNumber(gesamtIstMonthly[m])}</td>`).join('')}
-            <td style="text-align: right; color: #5dade2;">${this.formatNumber(gesamtIst)}</td>
-            <td style="${gesamtDiffStyle}; font-weight: bold;">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
+            <td style="text-align: right; color: #74b9ff;">${this.formatNumber(gesamtIstYtd)}</td>
+            ${months.map(m => `<td style="text-align: right; color: #74b9ff;">${this.formatNumber(gesamtIstMonthly[m])}</td>`).join('')}
+            <td style="text-align: right; color: #74b9ff; font-weight: 600;">${this.formatNumber(gesamtIst)}</td>
+            <td style="${gesamtDiffStyle}; font-weight: 700;">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
             <td></td>
         </tr>`;
 
