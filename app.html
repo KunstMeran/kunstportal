@@ -831,15 +831,19 @@
                 <!-- Lieferantenliste -->
                 <div class="card">
                     <div class="table-container">
-                        <table>
+                        <table id="lieferanten-table">
                             <thead>
                                 <tr>
                                     <th style="width: 30px;"></th>
                                     <th class="sortable" onclick="App.sortLieferanten('name')">
                                         Lieferant <span id="sort-icon-lieferant-name"></span>
                                     </th>
-                                    <th>Partita IVA</th>
-                                    <th>Adresse</th>
+                                    <th class="sortable" onclick="App.sortLieferanten('partitaIva')">
+                                        Partita IVA <span id="sort-icon-lieferant-partitaIva"></span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortLieferanten('adresse')">
+                                        Adresse <span id="sort-icon-lieferant-adresse"></span>
+                                    </th>
                                     <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('jahr')">
                                         <span id="th-lieferant-jahr">2026</span> <span id="sort-icon-lieferant-jahr"></span>
                                     </th>

@@ -5554,6 +5554,76 @@ const App = {
 
         // Tabelle rendern
         this.renderLieferantenTable(this.allLieferanten);
+
+        // Resizable Spalten initialisieren (nur einmal)
+        if (!this._lieferantenResizableInitialized) {
+            this.setupLieferantenResizableColumns();
+            this._lieferantenResizableInitialized = true;
+        }
+    },
+
+    /**
+     * Resizable Spalten für Lieferanten-Tabelle
+     */
+    setupLieferantenResizableColumns: function() {
+        const table = document.getElementById('lieferanten-table');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('thead th');
+        const storageKey = 'lieferantenColumnWidths';
+        this.lieferantenColumnWidths = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+        headers.forEach((th, index) => {
+            // Skip erste Spalte (#)
+            if (index < 1) return;
+
+            // Resize handle erstellen
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            th.style.position = 'relative';
+            th.appendChild(resizeHandle);
+
+            // Gespeicherte Breite anwenden
+            const columnKey = `col-${index}`;
+            if (this.lieferantenColumnWidths[columnKey]) {
+                th.style.width = this.lieferantenColumnWidths[columnKey] + 'px';
+                th.style.minWidth = this.lieferantenColumnWidths[columnKey] + 'px';
+            }
+
+            let startX, startWidth;
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+
+                document.body.classList.add('resizing-columns');
+                resizeHandle.classList.add('resizing');
+
+                const onMouseMove = (e) => {
+                    const diff = e.pageX - startX;
+                    const newWidth = Math.max(50, startWidth + diff);
+                    th.style.width = newWidth + 'px';
+                    th.style.minWidth = newWidth + 'px';
+                };
+
+                const onMouseUp = () => {
+                    document.body.classList.remove('resizing-columns');
+                    resizeHandle.classList.remove('resizing');
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+
+                    // Spaltenbreite speichern
+                    this.lieferantenColumnWidths[columnKey] = th.offsetWidth;
+                    localStorage.setItem(storageKey, JSON.stringify(this.lieferantenColumnWidths));
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
     },
 
     filterLieferantenByYear: function() {
@@ -5609,11 +5679,13 @@ const App = {
             this.lieferantenSortDirection = this.lieferantenSortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             this.lieferantenSortColumn = column;
-            this.lieferantenSortDirection = column === 'name' ? 'asc' : 'desc'; // Namen aufsteigend, Zahlen absteigend
+            // Text-Spalten aufsteigend, Zahlen absteigend
+            const textColumns = ['name', 'partitaIva', 'adresse'];
+            this.lieferantenSortDirection = textColumns.includes(column) ? 'asc' : 'desc';
         }
 
         // Sort-Icons aktualisieren
-        ['name', 'jahr', 'vorjahr', 'prozent'].forEach(col => {
+        ['name', 'partitaIva', 'adresse', 'jahr', 'vorjahr', 'prozent'].forEach(col => {
             const icon = document.getElementById(`sort-icon-lieferant-${col}`);
             if (icon) {
                 if (col === column) {
@@ -5698,6 +5770,14 @@ const App = {
                 case 'name':
                     valA = (a.name || '').toLowerCase();
                     valB = (b.name || '').toLowerCase();
+                    break;
+                case 'partitaIva':
+                    valA = (a.partitaIva || '').toLowerCase();
+                    valB = (b.partitaIva || '').toLowerCase();
+                    break;
+                case 'adresse':
+                    valA = [a.address, a.city, a.country].filter(Boolean).join(', ').toLowerCase();
+                    valB = [b.address, b.city, b.country].filter(Boolean).join(', ').toLowerCase();
                     break;
                 case 'jahr':
                     valA = a.summeJahr;
@@ -9573,9 +9653,9 @@ const App = {
     },
 
     // Hilfsfunktion: Budget für bestehendes Konto aus IST-Daten hinzufügen
-    addBudgetForKonto: function(kontoName) {
+    addBudgetForKonto: async function(kontoName) {
         // Formular öffnen und Konto-Name vorausfüllen
-        this.showNewBudgetEntryForm();
+        await this.showBudgetEntryModal();
         setTimeout(() => {
             const kontoInput = document.getElementById('budget-entry-konto');
             const descInput = document.getElementById('budget-entry-description');
