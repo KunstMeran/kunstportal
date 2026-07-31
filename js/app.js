@@ -7867,6 +7867,9 @@ const App = {
         }
     },
 
+    // Sortierung für DB-Details
+    dbDetailSort: { column: 'datum', direction: 'desc' },
+
     /**
      * Detail-Buchungen für ein Konto-Pattern ein-/ausklappen
      */
@@ -7886,26 +7889,101 @@ const App = {
         btn.textContent = '−';
         btn.style.background = '#e74c3c';
 
-        const buchungen = this.dbDetailCache[pattern] || [];
         const parentRow = btn.closest('tr');
-
         const detailRow = document.createElement('tr');
         detailRow.id = detailRowId;
         detailRow.style.background = '#f9f9f9';
 
+        this.renderDbDetailTable(pattern, detailRow);
+        parentRow.after(detailRow);
+    },
+
+    /**
+     * Detail-Tabelle rendern mit Sortierung/Filter/Suche
+     */
+    renderDbDetailTable: function(pattern, detailRow, searchTerm = '', sortCol = 'datum', sortDir = 'desc') {
+        let buchungen = [...(this.dbDetailCache[pattern] || [])];
+        const safePattern = pattern.replace('%', '');
+
+        // Suche anwenden
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            buchungen = buchungen.filter(b =>
+                (b.buchungstext || '').toLowerCase().includes(term) ||
+                (b.konto_nr || '').toLowerCase().includes(term) ||
+                (b.datum || '').includes(term)
+            );
+        }
+
+        // Sortierung anwenden
+        buchungen.sort((a, b) => {
+            let valA, valB;
+            if (sortCol === 'datum') {
+                valA = new Date(a.datum || '1900-01-01').getTime();
+                valB = new Date(b.datum || '1900-01-01').getTime();
+            } else if (sortCol === 'betrag') {
+                valA = Math.abs(parseFloat(a.betrag) || 0);
+                valB = Math.abs(parseFloat(b.betrag) || 0);
+            } else if (sortCol === 'konto') {
+                valA = a.konto_nr || '';
+                valB = b.konto_nr || '';
+            } else {
+                valA = (a.buchungstext || '').toLowerCase();
+                valB = (b.buchungstext || '').toLowerCase();
+            }
+            if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Summe berechnen
+        const summe = buchungen.reduce((sum, b) => sum + Math.abs(parseFloat(b.betrag) || 0), 0);
+
+        // Sortier-Pfeil
+        const arrow = (col) => {
+            if (sortCol === col) return sortDir === 'asc' ? ' ▲' : ' ▼';
+            return ' ↕';
+        };
+
+        const headerStyle = 'cursor: pointer; user-select: none; padding: 6px; background: #e0e0e0;';
+
         let detailHtml = `
             <td colspan="5" style="padding: 0;">
-                <div style="padding: 10px 20px; max-height: 300px; overflow-y: auto;">
-                    <table style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: #e0e0e0;">
-                                <th style="text-align: left; padding: 6px;">Datum</th>
-                                <th style="text-align: left; padding: 6px;">Konto</th>
-                                <th style="text-align: left; padding: 6px;">Buchungstext</th>
-                                <th style="text-align: right; padding: 6px;">Betrag</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <div style="padding: 10px 20px;">
+                    <!-- Suchfeld -->
+                    <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+                        <input type="text"
+                               id="db-detail-search-${safePattern}"
+                               placeholder="Suchen in Buchungstext, Konto..."
+                               value="${searchTerm}"
+                               onkeyup="App.filterDbDetails('${pattern}', this.value)"
+                               style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
+                        <span style="color: #666; font-size: 0.85em;">${buchungen.length} Buchungen | Summe: ${this.formatCurrency(summe)}</span>
+                    </div>
+
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="${headerStyle} text-align: left; width: 100px;"
+                                        onclick="App.sortDbDetails('${pattern}', 'datum')">
+                                        Datum${arrow('datum')}
+                                    </th>
+                                    <th style="${headerStyle} text-align: left; width: 120px;"
+                                        onclick="App.sortDbDetails('${pattern}', 'konto')">
+                                        Konto${arrow('konto')}
+                                    </th>
+                                    <th style="${headerStyle} text-align: left;"
+                                        onclick="App.sortDbDetails('${pattern}', 'text')">
+                                        Buchungstext${arrow('text')}
+                                    </th>
+                                    <th style="${headerStyle} text-align: right; width: 120px;"
+                                        onclick="App.sortDbDetails('${pattern}', 'betrag')">
+                                        Betrag${arrow('betrag')}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
         `;
 
         if (buchungen.length === 0) {
@@ -7914,12 +7992,21 @@ const App = {
             for (const b of buchungen) {
                 const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-';
                 const betrag = parseFloat(b.betrag) || 0;
+
+                // Suchbegriff hervorheben
+                let buchungstext = b.buchungstext || '-';
+                if (searchTerm && buchungstext !== '-') {
+                    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    buchungstext = buchungstext.replace(regex, '<mark style="background: #fff3cd;">$1</mark>');
+                }
+
                 detailHtml += `
                     <tr style="border-bottom: 1px solid #eee;">
                         <td style="padding: 6px;">${datum}</td>
                         <td style="padding: 6px;">${b.konto_nr}</td>
-                        <td style="padding: 6px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            ${b.buchungstext || '-'}
+                        <td style="padding: 6px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                            title="${(b.buchungstext || '').replace(/"/g, '&quot;')}">
+                            ${buchungstext}
                         </td>
                         <td style="padding: 6px; text-align: right; ${betrag < 0 ? 'color: #e74c3c;' : ''}">
                             ${this.formatCurrency(Math.abs(betrag))}
@@ -7930,14 +8017,47 @@ const App = {
         }
 
         detailHtml += `
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </td>
         `;
 
         detailRow.innerHTML = detailHtml;
-        parentRow.after(detailRow);
+    },
+
+    /**
+     * DB-Details nach Spalte sortieren
+     */
+    sortDbDetails: function(pattern, column) {
+        const safePattern = pattern.replace('%', '');
+        const detailRow = document.getElementById(`db-detail-${safePattern}`);
+        if (!detailRow) return;
+
+        // Sortierrichtung umkehren wenn gleiche Spalte
+        if (this.dbDetailSort.column === column) {
+            this.dbDetailSort.direction = this.dbDetailSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.dbDetailSort.column = column;
+            this.dbDetailSort.direction = column === 'betrag' ? 'desc' : 'asc';
+        }
+
+        const searchInput = document.getElementById(`db-detail-search-${safePattern}`);
+        const searchTerm = searchInput ? searchInput.value : '';
+
+        this.renderDbDetailTable(pattern, detailRow, searchTerm, this.dbDetailSort.column, this.dbDetailSort.direction);
+    },
+
+    /**
+     * DB-Details filtern
+     */
+    filterDbDetails: function(pattern, searchTerm) {
+        const safePattern = pattern.replace('%', '');
+        const detailRow = document.getElementById(`db-detail-${safePattern}`);
+        if (!detailRow) return;
+
+        this.renderDbDetailTable(pattern, detailRow, searchTerm, this.dbDetailSort.column, this.dbDetailSort.direction);
     },
 
     loadKostenKategorien: async function(jahr) {
