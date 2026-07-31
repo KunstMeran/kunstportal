@@ -7861,7 +7861,28 @@ const App = {
         setVal('einnahme-code', '');
         setVal('einnahme-name', '');
         setVal('einnahme-quelle', '');
-        setVal('einnahme-jahr', new Date().getFullYear());
+
+        // Jahr-Dropdown aktualisieren und aktuelles Jahr setzen
+        const jahrSelect = document.getElementById('einnahme-jahr');
+        if (jahrSelect) {
+            const currentYear = new Date().getFullYear();
+            // Prüfen ob aktuelles Jahr als Option existiert, sonst hinzufügen
+            let hasCurrentYear = false;
+            for (let opt of jahrSelect.options) {
+                if (parseInt(opt.value) === currentYear) {
+                    hasCurrentYear = true;
+                    break;
+                }
+            }
+            if (!hasCurrentYear) {
+                const newOpt = document.createElement('option');
+                newOpt.value = currentYear.toString();
+                newOpt.textContent = currentYear.toString();
+                jahrSelect.insertBefore(newOpt, jahrSelect.firstChild);
+            }
+            jahrSelect.value = currentYear.toString();
+        }
+
         setVal('einnahme-betrag', '');
         setVal('einnahme-status', 'offen');
         setChk('einnahme-abgabestelle', false);
