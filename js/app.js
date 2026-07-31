@@ -7846,6 +7846,10 @@ const App = {
             <td style="text-align: right;">100%</td>
         `;
         tbody.appendChild(sumRow);
+        } catch (error) {
+            console.error('Fehler beim Laden der Kosten-Kategorien:', error);
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
+        }
     },
 
     // ==========================================
