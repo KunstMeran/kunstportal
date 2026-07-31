@@ -2393,16 +2393,47 @@ const SupabaseDataAdapter = {
 
             if (error) throw error;
 
-            // Beträge berechnen (Brutto = Netto + MwSt)
+            // Kontenplan laden für Konto-Namen
+            let kontenMap = {};
+            try {
+                const { data: konten } = await SupabaseService.client
+                    .from('chart_of_accounts')
+                    .select('konto_pattern, name');
+                if (konten) {
+                    konten.forEach(k => {
+                        const pattern = (k.konto_pattern || '').replace('%', '');
+                        if (pattern) kontenMap[pattern] = k.name;
+                    });
+                }
+            } catch (e) {
+                console.warn('Kontenplan für Konto-Namen konnte nicht geladen werden');
+            }
+
+            // Beträge berechnen (Brutto = Netto + MwSt) und Konto-Namen hinzufügen
             return (buchungen || []).map(b => {
                 const netto = parseFloat(b.betrag) || 0;
                 const mwstRate = b.mwst_rate !== null ? parseFloat(b.mwst_rate) : 22;
                 const brutto = netto * (1 + mwstRate / 100);
+
+                // Konto-Name aus Kontenplan suchen
+                let kontoName = '';
+                const kontoNr = b.konto_nr || '';
+                if (kontoNr) {
+                    // Suche passenden Eintrag (z.B. "6800" passt zu "680%")
+                    for (const [pattern, name] of Object.entries(kontenMap)) {
+                        if (kontoNr.startsWith(pattern)) {
+                            kontoName = name;
+                            break;
+                        }
+                    }
+                }
+
                 return {
                     ...b,
                     betrag_netto: netto,
                     betrag_brutto: brutto,
-                    betrag_gesamt: brutto
+                    betrag_gesamt: brutto,
+                    konto_name: kontoName || b.kategorie || b.beschreibung || ''
                 };
             });
 

@@ -7756,24 +7756,15 @@ const App = {
 
             // Kosten nach Konto gruppieren
             const byKonto = {};
+            if (costs.length > 0) {
+                console.log('Beispiel-Buchung Felder:', Object.keys(costs[0]), costs[0]);
+            }
             costs.forEach(c => {
-                // Debug: Zeige welche Felder vorhanden sind
-                // console.log('Buchung:', c);
+                // Konto-Nummer: konto_nr ist das Hauptfeld aus DATEV
+                const konto = c.konto_nr || 'Ohne Konto';
 
-                // Konto-Nummer: Verschiedene mögliche Feldnamen prüfen
-                const konto = c.konto_nr || c.gegenkonto || c.konto || c.sachkonto || 'Ohne Konto';
-
-                // Bezeichnung: Buchungstext, Beschreibung, Text
-                // Bei DATEV-Buchungen ist oft "beschreibung" der komplette Text
-                let kontoName = c.buchungstext || c.text || '';
-                if (!kontoName && c.beschreibung) {
-                    // Aus Beschreibung extrahieren - oft Format "Lieferant - Beschreibung"
-                    const parts = c.beschreibung.split(' - ');
-                    kontoName = parts.length > 1 ? parts.slice(1).join(' - ') : c.beschreibung;
-                }
-                if (!kontoName) {
-                    kontoName = c.kategorie || '-';
-                }
+                // Bezeichnung: konto_name wird in getProjectCosts aus Kontenplan ergänzt
+                const kontoName = c.konto_name || c.kategorie || c.beschreibung || '-';
 
                 const key = konto;
                 if (!byKonto[key]) {
