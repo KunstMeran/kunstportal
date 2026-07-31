@@ -2849,7 +2849,7 @@ const App = {
         document.getElementById('account-modal-title').textContent = 'Konto hinzufügen';
         document.getElementById('account-pattern').value = kontoNr + '%';
         document.getElementById('account-name').value = beschreibung || '';
-        document.getElementById('account-db').value = 'NEUTRAL';
+        document.getElementById('account-db-zuordnung').value = 'NEUTRAL';
         this.showModal('account-form-modal');
     },
 
@@ -5507,16 +5507,27 @@ const App = {
                 jahre.add(new Date(datum).getFullYear());
             }
         });
+
+        // Aktuelles Jahr immer hinzufügen
+        const currentYear = new Date().getFullYear();
+        jahre.add(currentYear);
+
         const jahreArray = Array.from(jahre).sort((a, b) => b - a);
 
         // Jahresfilter befüllen
         const jahrSelect = document.getElementById('lieferanten-filter-jahr');
         if (jahrSelect) {
-            const currentYear = new Date().getFullYear();
+            // Wenn aktuelles Jahr Daten hat, dieses auswählen, sonst das neueste Jahr mit Daten
+            const rechnungenAktuellesJahr = rechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === currentYear;
+            });
+            const defaultYear = rechnungenAktuellesJahr.length > 0 ? currentYear : jahreArray[0];
+
             jahrSelect.innerHTML = jahreArray.map(j =>
-                `<option value="${j}" ${j === currentYear ? 'selected' : ''}>${j}</option>`
+                `<option value="${j}" ${j === defaultYear ? 'selected' : ''}>${j}</option>`
             ).join('');
-            this.lieferantenSelectedYear = currentYear;
+            this.lieferantenSelectedYear = defaultYear;
         }
 
         // Statistiken und Tabelle für aktuelles Jahr rendern
@@ -5694,7 +5705,7 @@ const App = {
             return 0;
         });
 
-        lieferantenMitWerten.forEach(l => {
+        lieferantenMitWerten.forEach((l, index) => {
             const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
             const hatName = l.name && l.name.trim() !== '';
             const displayName = hatName ? l.name : '(Unbekannt)';
@@ -5712,6 +5723,10 @@ const App = {
             const rechnungenJahr = lieferantRechnungen.filter(r => {
                 const datum = r.datum || r.belegdatum;
                 return datum && new Date(datum).getFullYear() === selectedYear;
+            });
+            const rechnungenVorjahrDetail = lieferantRechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === vorjahr;
             });
 
             // Prozentuale Veränderung berechnen
@@ -5732,22 +5747,26 @@ const App = {
                 }
             }
 
+            // Sichere ID für HTML-Elemente (ohne Sonderzeichen)
+            const safeId = `lieferant-${index}`;
+            const partitaIvaEscaped = (l.partitaIva || '').replace(/'/g, "\\'");
+
             // Hauptzeile mit Expand-Button
             const row = document.createElement('tr');
             row.className = 'lieferant-row';
             row.style.cursor = 'pointer';
-            row.onclick = () => this.toggleLieferantDetails(l.partitaIva);
+            row.onclick = () => this.toggleLieferantDetailsById(safeId);
             row.innerHTML = `
                 <td style="text-align: center;">
-                    <span id="expand-icon-${l.partitaIva}" style="font-size: 0.8rem;">▶</span>
+                    <span id="expand-icon-${safeId}" style="font-size: 0.8rem;">▶</span>
                 </td>
                 <td>
                     <span style="${nameStyle}"><strong>${displayName}</strong></span>
-                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="event.stopPropagation(); App.editLieferantName('${l.partitaIva}')" title="Name bearbeiten">
+                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="event.stopPropagation(); App.editLieferantName('${partitaIvaEscaped}')" title="Name bearbeiten">
                         ${Icons.edit}
                     </button>
                 </td>
-                <td>${l.partitaIva}</td>
+                <td>${l.partitaIva || '-'}</td>
                 <td style="font-size: 0.85rem; color: #666;">${adresse}</td>
                 <td style="text-align: right;">${this.formatCurrency(summeJahr)}</td>
                 <td style="text-align: right; color: #666;">${this.formatCurrency(summeVorjahr)}</td>
@@ -5757,21 +5776,36 @@ const App = {
 
             // Detail-Zeile (versteckt)
             const detailRow = document.createElement('tr');
-            detailRow.id = `lieferant-detail-${l.partitaIva}`;
+            detailRow.id = `detail-${safeId}`;
             detailRow.style.display = 'none';
             detailRow.innerHTML = `
                 <td colspan="7" style="background: #f8f9fa; padding: 1rem;">
                     <div style="margin-bottom: 0.75rem;">
                         <strong>${selectedYear}:</strong> ${rechnungenJahr.length} Rechnungen, ${this.formatCurrency(summeJahr)}
-                        <span style="color: #666; margin-left: 1rem;">| ${vorjahr}: ${rechnungenVorjahr.length} Rechnungen, ${this.formatCurrency(summeVorjahr)}</span>
+                        <span style="color: #666; margin-left: 1rem;">| ${vorjahr}: ${rechnungenVorjahrDetail.length} Rechnungen, ${this.formatCurrency(summeVorjahr)}</span>
                     </div>
-                    <div id="lieferant-rechnungen-${l.partitaIva}">
+                    <div id="rechnungen-${safeId}">
                         ${this.renderLieferantRechnungenList(rechnungenJahr, l.partitaIva)}
                     </div>
                 </td>
             `;
             tbody.appendChild(detailRow);
         });
+    },
+
+    toggleLieferantDetailsById: function(safeId) {
+        const detailRow = document.getElementById(`detail-${safeId}`);
+        const expandIcon = document.getElementById(`expand-icon-${safeId}`);
+
+        if (detailRow && expandIcon) {
+            if (detailRow.style.display === 'none') {
+                detailRow.style.display = 'table-row';
+                expandIcon.textContent = '▼';
+            } else {
+                detailRow.style.display = 'none';
+                expandIcon.textContent = '▶';
+            }
+        }
     },
 
     toggleLieferantDetails: function(partitaIva) {
