@@ -796,10 +796,16 @@ const SupabaseDataAdapter = {
                 let matchingInvoices = [];
 
                 // 1. Suche via linked_booking_id (neue Methode - 1:n Beziehung)
+                // WICHTIG: String-Vergleich für zuverlässiges Matching (Typen können variieren)
+                const buchungIdStr = String(buchung.id);
                 const linkedByBookingId = supabaseInvoices.filter(inv =>
-                    inv.linked_booking_id === buchung.id
+                    inv.linked_booking_id && String(inv.linked_booking_id) === buchungIdStr
                 );
                 matchingInvoices.push(...linkedByBookingId);
+
+                if (linkedByBookingId.length > 0) {
+                    console.log(`📎 Buchung ${buchung.id}: ${linkedByBookingId.length} PDFs via linked_booking_id gefunden`);
+                }
 
                 // 2. Suche via linked_invoice_id (alte Methode - Rückwärtskompatibilität)
                 if (buchung.linkedInvoiceId) {
