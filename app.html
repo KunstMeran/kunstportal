@@ -525,15 +525,15 @@
                     </div>
                 </div>
 
-                <!-- Status-Karten -->
-                <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <!-- Dashboard: Anzahl und Summen in einer Zeile -->
+                <div class="stats-grid" style="grid-template-columns: repeat(8, 1fr); margin-bottom: 1rem;">
                     <div class="stat-card">
                         <div class="stat-value" id="stat-rechnungen-total">0</div>
-                        <div class="stat-label">Rechnungen gesamt</div>
+                        <div class="stat-label">Gesamt</div>
                     </div>
                     <div class="stat-card warning">
                         <div class="stat-value" id="stat-rechnungen-neu">0</div>
-                        <div class="stat-label">Neu (zu kontrollieren)</div>
+                        <div class="stat-label">Neu</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="stat-rechnungen-kontrolliert">0</div>
@@ -543,25 +543,21 @@
                         <div class="stat-value" id="stat-rechnungen-bezahlt">0</div>
                         <div class="stat-label">Bezahlt</div>
                     </div>
-                </div>
-
-                <!-- Summen-Dashboard -->
-                <div class="stats-row" style="margin-bottom: 1rem;">
                     <div class="stat-card" style="border-left-color: #2196F3;">
-                        <div class="stat-value" id="stat-summe-netto" style="font-size: 1.3rem;">0,00 €</div>
-                        <div class="stat-label">Summe Netto</div>
+                        <div class="stat-value" id="stat-summe-netto" style="font-size: 1.1rem;">0,00 €</div>
+                        <div class="stat-label">Netto</div>
                     </div>
                     <div class="stat-card" style="border-left-color: #9C27B0;">
-                        <div class="stat-value" id="stat-summe-mwst" style="font-size: 1.3rem;">0,00 €</div>
-                        <div class="stat-label">Summe MwSt</div>
+                        <div class="stat-value" id="stat-summe-mwst" style="font-size: 1.1rem;">0,00 €</div>
+                        <div class="stat-label">MwSt</div>
                     </div>
                     <div class="stat-card" style="border-left-color: #FF9800;">
-                        <div class="stat-value" id="stat-summe-offen" style="font-size: 1.3rem;">0,00 €</div>
-                        <div class="stat-label">Offen (unbezahlt)</div>
+                        <div class="stat-value" id="stat-summe-offen" style="font-size: 1.1rem;">0,00 €</div>
+                        <div class="stat-label">Offen</div>
                     </div>
                     <div class="stat-card" style="border-left-color: #4CAF50;">
-                        <div class="stat-value" id="stat-summe-bezahlt" style="font-size: 1.3rem;">0,00 €</div>
-                        <div class="stat-label">Bezahlt</div>
+                        <div class="stat-value" id="stat-summe-bezahlt" style="font-size: 1.1rem;">0,00 €</div>
+                        <div class="stat-label">Bezahlt €</div>
                     </div>
                 </div>
 
