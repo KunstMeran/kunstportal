@@ -7997,6 +7997,11 @@ const App = {
 
             console.log(`📊 ${datevBookings.length} DATEV-Buchungen mit Dok-Nr, ${unlinkedInvoices.length} unverknüpfte PDFs`);
 
+            // Debug: Zeige erste paar DATEV-Buchungen
+            if (datevBookings.length > 0) {
+                console.log('📋 Beispiel DATEV-Buchungen:', datevBookings.slice(0, 3).map(b => `${b.partita_iva}_${b.dokument_nr}`));
+            }
+
             // 3. Striktes Matching durchführen
             // Dateinamen-Format: 2026_IT00100340215_92.pdf oder IT00100340215_92.pdf
             let linked = 0;
@@ -8029,6 +8034,8 @@ const App = {
                     console.log(`⚠️ Konnte Partita IVA/Dok-Nr nicht aus Dateiname extrahieren: ${filename}`);
                     continue;
                 }
+
+                console.log(`🔍 Suche Match für: PartitaIVA=${filePartitaIva}, DokNr=${fileDokumentNr}`);
 
                 // Suche exakte Übereinstimmung in DATEV-Buchungen
                 const matching = datevBookings.find(b => {
