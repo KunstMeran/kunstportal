@@ -7739,6 +7739,10 @@ const App = {
         }
     },
 
+    // Cache für Projekt-Detail-Daten
+    projektDetailCache: {},
+    projektDetailSort: { column: 'summe', direction: 'desc' },
+
     // Toggle Projekt-Details in Projektübersicht
     toggleProjectDetail: function(projectId, costs, project) {
         const detailRow = document.getElementById(`project-detail-${projectId}`);
@@ -7753,55 +7757,168 @@ const App = {
             // Kosten nach Konto gruppieren
             const byKonto = {};
             costs.forEach(c => {
-                const konto = c.konto || c.gegenkonto || 'Unbekannt';
-                const kontoName = c.konto_name || c.buchungstext || konto;
+                // Debug: Zeige welche Felder vorhanden sind
+                // console.log('Buchung:', c);
+
+                // Konto-Nummer: Verschiedene mögliche Feldnamen prüfen
+                const konto = c.konto_nr || c.gegenkonto || c.konto || c.sachkonto || 'Ohne Konto';
+
+                // Bezeichnung: Buchungstext, Beschreibung, Text
+                // Bei DATEV-Buchungen ist oft "beschreibung" der komplette Text
+                let kontoName = c.buchungstext || c.text || '';
+                if (!kontoName && c.beschreibung) {
+                    // Aus Beschreibung extrahieren - oft Format "Lieferant - Beschreibung"
+                    const parts = c.beschreibung.split(' - ');
+                    kontoName = parts.length > 1 ? parts.slice(1).join(' - ') : c.beschreibung;
+                }
+                if (!kontoName) {
+                    kontoName = c.kategorie || '-';
+                }
+
                 const key = konto;
                 if (!byKonto[key]) {
                     byKonto[key] = { konto, name: kontoName, summe: 0, count: 0 };
                 }
-                byKonto[key].summe += Math.abs(parseFloat(c.betrag_brutto || c.betrag_gesamt || 0));
+                byKonto[key].summe += Math.abs(parseFloat(c.betrag_brutto || c.betrag_gesamt || c.betrag || 0));
                 byKonto[key].count++;
             });
 
-            // Detail-Tabelle erstellen
-            let detailHtml = `
-                <div style="padding: 1rem; margin: 0.5rem 1rem; background: white; border-radius: 4px; border: 1px solid #ddd;">
-                    <strong style="color: #333;">Kosten nach Konto für "${project.name}"</strong>
-                    <table style="width: 100%; margin-top: 0.5rem; font-size: 0.85rem;">
-                        <thead>
-                            <tr style="background: #eee;">
-                                <th style="padding: 4px 8px; text-align: left;">Konto</th>
-                                <th style="padding: 4px 8px; text-align: left;">Bezeichnung</th>
-                                <th style="padding: 4px 8px; text-align: right;">Anz.</th>
-                                <th style="padding: 4px 8px; text-align: right;">Summe</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            // Cache speichern
+            this.projektDetailCache[projectId] = {
+                project: project,
+                data: Object.values(byKonto),
+                gesamt: costs.reduce((sum, c) => sum + Math.abs(parseFloat(c.betrag_brutto || c.betrag_gesamt || c.betrag || 0)), 0)
+            };
 
-            const sortedKonten = Object.values(byKonto).sort((a, b) => b.summe - a.summe);
-            sortedKonten.forEach(k => {
-                detailHtml += `
-                    <tr>
-                        <td style="padding: 4px 8px;">${k.konto}</td>
-                        <td style="padding: 4px 8px; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${k.name}</td>
-                        <td style="padding: 4px 8px; text-align: right;">${k.count}</td>
-                        <td style="padding: 4px 8px; text-align: right;">${this.formatCurrency(k.summe)}</td>
-                    </tr>
-                `;
-            });
-
-            if (sortedKonten.length === 0) {
-                detailHtml += '<tr><td colspan="4" style="padding: 8px; color: #666;">Keine Buchungen vorhanden</td></tr>';
-            }
-
-            detailHtml += '</tbody></table></div>';
-            detailRow.querySelector('td').innerHTML = detailHtml;
+            // Rendern
+            this.renderProjektDetail(projectId);
         } else {
             // Schließen
             expandIcon.textContent = '+';
             detailRow.style.display = 'none';
         }
+    },
+
+    renderProjektDetail: function(projectId) {
+        const detailRow = document.getElementById(`project-detail-${projectId}`);
+        const cache = this.projektDetailCache[projectId];
+        if (!detailRow || !cache) return;
+
+        const searchInputId = `projekt-detail-search-${projectId}`;
+        const searchTerm = (document.getElementById(searchInputId)?.value || '').toLowerCase();
+
+        // Filtern
+        let filtered = cache.data;
+        if (searchTerm) {
+            filtered = filtered.filter(k =>
+                k.konto.toLowerCase().includes(searchTerm) ||
+                k.name.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        // Sortieren
+        const { column, direction } = this.projektDetailSort;
+        const sorted = [...filtered].sort((a, b) => {
+            let valA, valB;
+            switch (column) {
+                case 'konto':
+                    valA = a.konto.toLowerCase();
+                    valB = b.konto.toLowerCase();
+                    break;
+                case 'name':
+                    valA = a.name.toLowerCase();
+                    valB = b.name.toLowerCase();
+                    break;
+                case 'count':
+                    valA = a.count;
+                    valB = b.count;
+                    break;
+                case 'summe':
+                default:
+                    valA = a.summe;
+                    valB = b.summe;
+                    break;
+            }
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Sort-Indikatoren
+        const sortIndicator = (col) => {
+            if (this.projektDetailSort.column === col) {
+                return this.projektDetailSort.direction === 'asc' ? ' ▲' : ' ▼';
+            }
+            return '';
+        };
+
+        // Detail-Tabelle erstellen
+        let detailHtml = `
+            <div style="padding: 1rem; margin: 0.5rem 1rem; background: white; border-radius: 4px; border: 1px solid #ddd;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong style="color: #333;">Kosten nach Konto für "${cache.project.name}"</strong>
+                    <input type="text" id="${searchInputId}" placeholder="Suche..."
+                           value="${searchTerm}"
+                           style="padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 200px;"
+                           oninput="App.filterProjektDetail('${projectId}')">
+                </div>
+                <table style="width: 100%; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: #eee;">
+                            <th style="padding: 6px 8px; text-align: left; cursor: pointer;" onclick="App.sortProjektDetail('${projectId}', 'konto')">Konto${sortIndicator('konto')}</th>
+                            <th style="padding: 6px 8px; text-align: left; cursor: pointer;" onclick="App.sortProjektDetail('${projectId}', 'name')">Bezeichnung${sortIndicator('name')}</th>
+                            <th style="padding: 6px 8px; text-align: right; cursor: pointer;" onclick="App.sortProjektDetail('${projectId}', 'count')">Anz.${sortIndicator('count')}</th>
+                            <th style="padding: 6px 8px; text-align: right; cursor: pointer;" onclick="App.sortProjektDetail('${projectId}', 'summe')">Summe${sortIndicator('summe')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        sorted.forEach(k => {
+            detailHtml += `
+                <tr>
+                    <td style="padding: 4px 8px; font-family: monospace;">${k.konto}</td>
+                    <td style="padding: 4px 8px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${k.name}</td>
+                    <td style="padding: 4px 8px; text-align: right;">${k.count}</td>
+                    <td style="padding: 4px 8px; text-align: right;">${this.formatCurrency(k.summe)}</td>
+                </tr>
+            `;
+        });
+
+        if (sorted.length === 0) {
+            detailHtml += '<tr><td colspan="4" style="padding: 8px; color: #666; text-align: center;">Keine Buchungen gefunden</td></tr>';
+        }
+
+        // Summenzeile
+        const filteredSum = filtered.reduce((sum, k) => sum + k.summe, 0);
+        detailHtml += `
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight: bold; background: #f5f5f5;">
+                            <td colspan="2" style="padding: 6px 8px;">GESAMT${searchTerm ? ' (gefiltert)' : ''}</td>
+                            <td style="padding: 6px 8px; text-align: right;">${filtered.reduce((sum, k) => sum + k.count, 0)}</td>
+                            <td style="padding: 6px 8px; text-align: right;">${this.formatCurrency(filteredSum)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        `;
+
+        detailRow.querySelector('td').innerHTML = detailHtml;
+    },
+
+    sortProjektDetail: function(projectId, column) {
+        if (this.projektDetailSort.column === column) {
+            this.projektDetailSort.direction = this.projektDetailSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.projektDetailSort.column = column;
+            this.projektDetailSort.direction = (column === 'summe' || column === 'count') ? 'desc' : 'asc';
+        }
+        this.renderProjektDetail(projectId);
+    },
+
+    filterProjektDetail: function(projectId) {
+        this.renderProjektDetail(projectId);
     },
 
     // Cache für Detail-Buchungen
