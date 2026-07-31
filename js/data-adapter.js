@@ -792,49 +792,26 @@ const SupabaseDataAdapter = {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
                 const buchungDocNrNorm = normalizeDocNr(buchung.dokumentNr);
 
-                // Erst prüfen: Hat diese Buchung eine direkte linked_invoice_id?
-                // Das funktioniert AUCH ohne Rechnungsnummer!
-                let matchingInvoice = null;
+                // ALLE verknüpften Invoices für diese Buchung finden (unterstützt mehrere PDFs)
+                let matchingInvoices = [];
+
+                // 1. Suche via linked_booking_id (neue Methode - 1:n Beziehung)
+                const linkedByBookingId = supabaseInvoices.filter(inv =>
+                    inv.linked_booking_id === buchung.id
+                );
+                matchingInvoices.push(...linkedByBookingId);
+
+                // 2. Suche via linked_invoice_id (alte Methode - Rückwärtskompatibilität)
                 if (buchung.linkedInvoiceId) {
-                    matchingInvoice = supabaseInvoices.find(inv => inv.id === buchung.linkedInvoiceId);
-                }
-
-                // WICHTIG: Kein Partita IVA + DokumentNr Matching wenn keine Rechnungsnummer vorhanden!
-                // Sonst würde ein PDF bei allen Buchungen ohne Nummer erscheinen
-                // Aber: linked_invoice_id Matching ist OK und wurde bereits oben geprüft
-                if (!buchung.dokumentNr || buchung.dokumentNr.trim() === '') {
-                    // Lieferantenname aus suppliers-Tabelle holen
-                    const supplierName = supplierMap.get(buchung.partitaIva);
-
-                    // Falls direkte Verknüpfung via linked_invoice_id gefunden wurde
-                    if (matchingInvoice) {
-                        matchedInvoiceIds.add(matchingInvoice.id);
-                        return {
-                            ...buchung,
-                            fornitoreName: supplierName || buchung.fornitoreName,
-                            invoiceId: matchingInvoice.id,
-                            filePath: matchingInvoice.file_path,
-                            fileName: matchingInvoice.file_name,
-                            uploadedAt: matchingInvoice.created_at,
-                            pdfExists: true,
-                            status: matchingInvoice.status,
-                            notes: matchingInvoice.notes,
-                            kostentyp: matchingInvoice.kostentyp || '',
-                            funding_source_id: matchingInvoice.funding_source_id
-                        };
+                    const linkedByInvoiceId = supabaseInvoices.find(inv => inv.id === buchung.linkedInvoiceId);
+                    if (linkedByInvoiceId && !matchingInvoices.some(m => m.id === linkedByInvoiceId.id)) {
+                        matchingInvoices.push(linkedByInvoiceId);
                     }
-
-                    // Keine Verknüpfung gefunden
-                    return {
-                        ...buchung,
-                        fornitoreName: supplierName || buchung.fornitoreName,
-                        pdfExists: false // Kein PDF-Matching ohne Rechnungsnummer
-                    };
                 }
 
-                // Falls keine direkte Verknüpfung: Über Partita IVA + Dokumentnr. suchen
-                if (!matchingInvoice) {
-                    matchingInvoice = supabaseInvoices.find(inv => {
+                // 3. Falls keine direkte Verknüpfung UND dokumentNr vorhanden: Über Partita IVA + Dokumentnr. suchen
+                if (matchingInvoices.length === 0 && buchung.dokumentNr && buchung.dokumentNr.trim() !== '') {
+                    const matchedByPartita = supabaseInvoices.filter(inv => {
                         // Partita IVA muss übereinstimmen
                         if (inv.partita_iva !== buchung.partitaIva) return false;
 
@@ -846,42 +823,50 @@ const SupabaseDataAdapter = {
 
                         // Normalisierter Match (ohne "/" Prefix)
                         const invDocNrNorm = normalizeDocNr(inv.invoice_number);
-                        const isMatch = invDocNrNorm === buchungDocNrNorm;
-
-                        // Debug für Slash-Fälle
-                        if (buchung.dokumentNr && buchung.dokumentNr.includes('/')) {
-                            console.log(`🔍 Slash-Match: DATEV="${buchung.dokumentNr}" (norm="${buchungDocNrNorm}") vs PDF="${inv.invoice_number}" (norm="${invDocNrNorm}") → ${isMatch ? '✅' : '❌'}`);
-                        }
-
-                        return isMatch;
+                        return invDocNrNorm === buchungDocNrNorm;
                     });
+                    matchingInvoices.push(...matchedByPartita);
                 }
 
                 // Lieferantenname aus suppliers-Tabelle holen
                 const supplierName = supplierMap.get(buchung.partitaIva);
                 const enrichedFornitoreName = supplierName || buchung.fornitoreName;
 
-                if (matchingInvoice) {
-                    matchedInvoiceIds.add(matchingInvoice.id);
+                // Alle gefundenen Invoices als gematcht markieren
+                matchingInvoices.forEach(inv => matchedInvoiceIds.add(inv.id));
+
+                if (matchingInvoices.length > 0) {
+                    // Erstes PDF für Rückwärtskompatibilität (invoiceId, filePath, etc.)
+                    const firstInvoice = matchingInvoices[0];
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
                         // WICHTIG: buchung.id beibehalten (DATEV-Buchungs-ID), invoiceId ist PDF-ID
-                        invoiceId: matchingInvoice.id,
-                        filePath: matchingInvoice.file_path,
-                        fileName: matchingInvoice.file_name,
-                        uploadedAt: matchingInvoice.created_at,
+                        invoiceId: firstInvoice.id,
+                        filePath: firstInvoice.file_path,
+                        fileName: firstInvoice.file_name,
+                        uploadedAt: firstInvoice.created_at,
                         pdfExists: true,
-                        status: matchingInvoice.status,
-                        notes: matchingInvoice.notes,
-                        kostentyp: matchingInvoice.kostentyp || '',
-                        funding_source_id: matchingInvoice.funding_source_id
+                        status: firstInvoice.status,
+                        notes: firstInvoice.notes,
+                        kostentyp: firstInvoice.kostentyp || '',
+                        funding_source_id: firstInvoice.funding_source_id,
+                        // NEU: Array mit allen verknüpften PDFs
+                        linkedInvoices: matchingInvoices.map(inv => ({
+                            id: inv.id,
+                            filePath: inv.file_path,
+                            fileName: inv.file_name,
+                            uploadedAt: inv.created_at
+                        })),
+                        pdfCount: matchingInvoices.length
                     };
                 }
 
                 return {
                     ...buchung,
                     fornitoreName: enrichedFornitoreName,
+                    linkedInvoices: [],
+                    pdfCount: 0,
                     // Überschreibe alte pdfExists aus buchungen.json - nur true wenn Supabase-Invoice existiert
                     pdfExists: false
                 };

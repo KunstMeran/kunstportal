@@ -3632,13 +3632,38 @@ const App = {
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(gesamt)}</td>
                 <td><span class="status-badge ${r.workflowStatus}">${r.workflowStatus}</span></td>
                 <td>${r.pdfExists ?
-                    `<div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>
-                        ${r.invoiceId ? `<button class="btn btn-sm"
+                    (() => {
+                        const uploadId = r.id ? `id:${r.id}` : r.rechnungId;
+                        const uniqueId = r.id || r.rechnungId || `${r.partitaIva}-${rowNumber}`;
+                        const safeId = String(uniqueId).replace(/[^a-zA-Z0-9-]/g, '');
+                        const addPdfInputId = `add-pdf-${safeId}`;
+                        const pdfCount = r.pdfCount || 1;
+                        const linkedInvoices = r.linkedInvoices || [];
+
+                        // Wenn mehrere PDFs existieren, alle anzeigen
+                        let pdfLinks = '';
+                        if (linkedInvoices.length > 1) {
+                            pdfLinks = linkedInvoices.map((inv, idx) =>
+                                `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${inv.filePath || ''}')" style="margin-right: 0.25rem;">PDF${idx + 1}</a>`
+                            ).join('');
+                        } else {
+                            pdfLinks = `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>`;
+                        }
+
+                        return `<div style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
+                            ${pdfLinks}
+                            <input type="file" id="${addPdfInputId}" accept=".pdf" style="display: none;" multiple
+                                   onchange="App.uploadPdfForBuchung('${r.partitaIva || ''}', '${r.dokumentNr || ''}', this, '${uploadId}')">
+                            <button class="btn btn-sm"
+                                style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #2196F3; color: white;"
+                                onclick="document.getElementById('${addPdfInputId}').click()"
+                                title="Weiteres PDF hinzufügen">+</button>
+                            ${r.invoiceId ? `<button class="btn btn-sm"
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
                                 onclick="App.unlinkPdfFromDatev('${r.invoiceId}')"
-                                title="PDF-Verknüpfung trennen"${Icons.close}</button>` : ''}
-                    </div>` :
+                                title="PDF-Verknüpfung trennen">${Icons.close}</button>` : ''}
+                        </div>`;
+                    })() :
                     (() => {
                         // Eindeutige ID für Upload-Felder (auch ohne dokumentNr)
                         const uniqueId = r.id || r.rechnungId || `${r.partitaIva}-${rowNumber}`;
@@ -3947,23 +3972,36 @@ const App = {
             console.log('📤 Storage Upload Ergebnis:', { uploadData, uploadError });
             if (uploadError) throw uploadError;
 
-            // Invoice-Eintrag in Datenbank erstellen
+            // Booking-ID extrahieren wenn vorhanden (für linked_booking_id)
+            let bookingId = null;
+            if (rechnungId && rechnungId.startsWith('id:')) {
+                bookingId = rechnungId.substring(3);
+            }
+
+            // Invoice-Eintrag in Datenbank erstellen (mit linked_booking_id wenn vorhanden)
+            const insertData = {
+                file_name: newFileName,
+                file_path: filePath,
+                partita_iva: partitaIva || null,
+                invoice_number: dokumentNr || null,
+                status: 'uploaded'
+            };
+            // linked_booking_id hinzufügen wenn Buchung-ID bekannt
+            if (bookingId) {
+                insertData.linked_booking_id = bookingId;
+            }
+
             const { data: invoiceData, error: dbError } = await SupabaseService.client
                 .from('invoices')
-                .insert({
-                    file_name: newFileName,
-                    file_path: filePath,
-                    partita_iva: partitaIva || null,
-                    invoice_number: dokumentNr || null,
-                    status: 'uploaded'
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
             console.log('📤 Invoice DB Insert Ergebnis:', { invoiceData, dbError });
             if (dbError) throw dbError;
 
-            // Wenn wir eine rechnungId haben, verknüpfe mit der datev_bookings Tabelle
+            // Wenn wir eine rechnungId haben, verknüpfe auch mit datev_bookings (Rückwärtskompatibilität)
+            // HINWEIS: Die Hauptverknüpfung läuft jetzt über linked_booking_id in invoices
             if (rechnungId && invoiceData) {
                 console.log('📤 Verknüpfe mit datev_bookings, rechnungId:', rechnungId);
                 let linkData = null;
@@ -3974,14 +4012,27 @@ const App = {
                     const dbId = rechnungId.substring(3);
                     console.log('📤 Verknüpfe via DB-ID:', dbId, 'Invoice-ID:', invoiceData.id);
 
-                    // linked_invoice_id in datev_bookings setzen (per ID)
-                    const result = await SupabaseService.client
+                    // linked_invoice_id in datev_bookings setzen (Rückwärtskompatibilität, nur für erstes PDF)
+                    // Prüfen ob bereits ein linked_invoice_id gesetzt ist
+                    const { data: existingBooking } = await SupabaseService.client
                         .from('datev_bookings')
-                        .update({ linked_invoice_id: invoiceData.id })
+                        .select('linked_invoice_id')
                         .eq('id', dbId)
-                        .select();
-                    linkData = result.data;
-                    linkError = result.error;
+                        .single();
+
+                    // Nur setzen wenn noch kein PDF verknüpft war
+                    if (!existingBooking?.linked_invoice_id) {
+                        const result = await SupabaseService.client
+                            .from('datev_bookings')
+                            .update({ linked_invoice_id: invoiceData.id })
+                            .eq('id', dbId)
+                            .select();
+                        linkData = result.data;
+                        linkError = result.error;
+                    } else {
+                        console.log('📤 Buchung hat bereits ein verknüpftes PDF, überspringe linked_invoice_id Update');
+                        linkData = [existingBooking];
+                    }
 
                     // Falls kein Match gefunden wurde, logge Warnung
                     if (!linkData || linkData.length === 0) {
