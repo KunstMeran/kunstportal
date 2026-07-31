@@ -740,12 +740,10 @@ const SupabaseDataAdapter = {
             }
 
             // Hilfsfunktion: Normalisiert Dokumentnummer für Vergleich
-            // Entfernt "/" und vergleicht nur den Teil nach dem letzten "/"
+            // Entfernt "/" komplett (z.B. "1/1405" -> "11405")
             const normalizeDocNr = (docNr) => {
                 if (!docNr) return '';
-                // Wenn "/" vorhanden, nimm nur den Teil danach (z.B. "1/1444" -> "1444")
-                const parts = String(docNr).split('/');
-                return parts[parts.length - 1].trim();
+                return String(docNr).replace(/\//g, '').trim();
             };
 
             // DATEV-Buchungen mit Supabase-Daten anreichern
