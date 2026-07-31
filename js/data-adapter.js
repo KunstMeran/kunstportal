@@ -2651,7 +2651,7 @@ const SupabaseDataAdapter = {
                         id: b.id,
                         datum: b.datum,
                         konto_nr: kontoNr,
-                        buchungstext: b.buchungstext || b.text || '',
+                        buchungstext: b.beschreibung || b.buchungstext || b.text || '',
                         betrag: betrag,
                         projekt_id: b.projekt_id,
                         lieferant: b.lieferant_name || ''

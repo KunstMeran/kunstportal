@@ -1536,11 +1536,11 @@
                             </div>
                         </div>
                         <div class="table-container" style="overflow-x: auto;">
-                            <table style="min-width: 1400px;">
+                            <table style="min-width: 1500px;">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 80px;">Konto</th>
-                                        <th style="min-width: 200px;">Beschreibung</th>
+                                        <th style="min-width: 100px;">Konto-Nr.</th>
+                                        <th style="text-align: right; min-width: 80px; background: #e3f2fd;" title="Year-to-Date: Summe Jan bis Vormonat">YTD</th>
                                         <th style="text-align: right; min-width: 70px;">Jan</th>
                                         <th style="text-align: right; min-width: 70px;">Feb</th>
                                         <th style="text-align: right; min-width: 70px;">Mär</th>
@@ -1563,7 +1563,8 @@
                                 </tbody>
                                 <tfoot>
                                     <tr style="font-weight: bold; background: #f8f9fa;">
-                                        <td colspan="2">Gesamt Budget</td>
+                                        <td>Gesamt Budget</td>
+                                        <td style="text-align: right; background: #e3f2fd;" id="budget-total-ytd">0</td>
                                         <td style="text-align: right;" id="budget-total-jan">0</td>
                                         <td style="text-align: right;" id="budget-total-feb">0</td>
                                         <td style="text-align: right;" id="budget-total-mar">0</td>
@@ -1580,7 +1581,8 @@
                                         <td colspan="2"></td>
                                     </tr>
                                     <tr style="font-weight: bold; background: #e8f5e9; color: #2e7d32;">
-                                        <td colspan="2">IST (verbucht)</td>
+                                        <td>IST (verbucht)</td>
+                                        <td style="text-align: right; background: #c8e6c9;" id="ist-total-ytd">0</td>
                                         <td style="text-align: right;" id="ist-total-jan">0</td>
                                         <td style="text-align: right;" id="ist-total-feb">0</td>
                                         <td style="text-align: right;" id="ist-total-mar">0</td>
@@ -1597,7 +1599,8 @@
                                         <td colspan="2"></td>
                                     </tr>
                                     <tr style="font-weight: bold; background: #fff3e0; color: #e65100;">
-                                        <td colspan="2">Differenz</td>
+                                        <td>Differenz</td>
+                                        <td style="text-align: right; background: #ffe0b2;" id="diff-total-ytd">0</td>
                                         <td style="text-align: right;" id="diff-total-jan">0</td>
                                         <td style="text-align: right;" id="diff-total-feb">0</td>
                                         <td style="text-align: right;" id="diff-total-mar">0</td>

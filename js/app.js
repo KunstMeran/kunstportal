@@ -10076,6 +10076,10 @@ const App = {
         const entries = this.budgetEntriesData.filter(e => e.fiscal_year === year);
         const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
 
+        // YTD-Monate berechnen (Jan bis Vormonat)
+        const currentMonth = new Date().getMonth(); // 0-11 (0=Jan, 6=Jul)
+        const ytdMonths = months.slice(0, currentMonth); // z.B. bei Juli (6): ['jan','feb','mar','apr','mai','jun']
+
         // Konto-Notizen laden
         let kontoNotes = {};
         try {
@@ -10115,7 +10119,7 @@ const App = {
         });
 
         if (alleKonten.size === 0) {
-            tbody.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #666; padding: 2rem;">
+            tbody.innerHTML = `<tr><td colspan="17" style="text-align: center; color: #666; padding: 2rem;">
                 Keine Budget-Einträge oder IST-Daten für ${year}. Klicken Sie auf "+ Budget hinzufügen" um zu beginnen.
             </td></tr>`;
             // Summen auf 0 setzen
@@ -10132,7 +10136,7 @@ const App = {
         const budgetTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
         const istTotals = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 };
 
-        // Konten sortieren
+        // Konten sortieren nach Konto-Nr
         const sortedKonten = Array.from(alleKonten.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
         sortedKonten.forEach(([key, data]) => {
@@ -10141,19 +10145,23 @@ const App = {
 
             // Budget-Zeile
             const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+            const budgetYtd = budget ? ytdMonths.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
             if (budget) {
                 months.forEach(m => budgetTotals[m] += parseFloat(budget[m]) || 0);
             }
 
             // IST-Zeile
             const istRowTotal = ist ? ist.total : 0;
+            const istYtd = ist ? ytdMonths.reduce((sum, m) => sum + (ist[m] || 0), 0) : 0;
             if (ist) {
                 months.forEach(m => istTotals[m] += ist[m] || 0);
             }
 
             // Differenz
             const diffTotal = budgetRowTotal - istRowTotal;
+            const diffYtd = budgetYtd - istYtd;
             const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
+            const diffYtdStyle = diffYtd < 0 ? 'color: #dc3545;' : (diffYtd > 0 ? 'color: #28a745;' : '');
 
             // Notiz für dieses Konto
             const note = kontoNotes[key] || '';
@@ -10162,7 +10170,7 @@ const App = {
 
             html += `<tr style="border-bottom: 2px solid #dee2e6;">
                 <td rowspan="3" style="vertical-align: middle;"><strong>${data.konto_nr}</strong></td>
-                <td style="background: #f8f9fa; font-size: 0.8rem;">Budget</td>
+                <td style="text-align: right; background: #e3f2fd; font-weight: bold;">${budget ? this.formatNumber(budgetYtd) : '-'}</td>
                 ${months.map(m => `<td style="text-align: right; background: #f8f9fa;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
                 <td style="text-align: right; font-weight: bold; background: #f8f9fa;">${this.formatNumber(budgetRowTotal)}</td>
                 <td rowspan="3" style="vertical-align: middle;">
@@ -10181,12 +10189,12 @@ const App = {
                 </td>
             </tr>
             <tr>
-                <td style="color: #007bff; font-size: 0.8rem;">IST</td>
+                <td style="text-align: right; background: #c8e6c9; color: #2e7d32; font-weight: bold;">${ist ? this.formatNumber(istYtd) : '-'}</td>
                 ${months.map(m => `<td style="text-align: right; color: #007bff;">${ist ? this.formatNumber(ist[m]) : '-'}</td>`).join('')}
                 <td style="text-align: right; font-weight: bold; color: #007bff;">${this.formatNumber(istRowTotal)}</td>
             </tr>
             <tr style="border-bottom: 3px solid #adb5bd;">
-                <td style="font-size: 0.8rem;">Diff</td>
+                <td style="text-align: right; background: #ffe0b2; font-weight: bold; ${diffYtdStyle}">${this.formatNumber(diffYtd)}</td>
                 ${months.map(m => {
                     const diff = (budget ? parseFloat(budget[m]) || 0 : 0) - (ist ? ist[m] || 0 : 0);
                     const style = diff < 0 ? 'color: #dc3545;' : (diff > 0 ? 'color: #28a745;' : '');
@@ -10200,21 +10208,27 @@ const App = {
 
         // Summen aktualisieren
         const budgetYearTotal = months.reduce((sum, m) => sum + budgetTotals[m], 0);
+        const budgetYtdTotal = ytdMonths.reduce((sum, m) => sum + budgetTotals[m], 0);
         months.forEach(m => {
             const el = document.getElementById(`budget-total-${m}`);
             if (el) el.textContent = this.formatNumber(budgetTotals[m]);
         });
         const yearEl = document.getElementById('budget-total-year');
         if (yearEl) yearEl.textContent = this.formatNumber(budgetYearTotal);
+        const budgetYtdEl = document.getElementById('budget-total-ytd');
+        if (budgetYtdEl) budgetYtdEl.textContent = this.formatNumber(budgetYtdTotal);
 
         // IST-Summen
         const istYearTotal = months.reduce((sum, m) => sum + istTotals[m], 0);
+        const istYtdTotal = ytdMonths.reduce((sum, m) => sum + istTotals[m], 0);
         months.forEach(m => {
             const el = document.getElementById(`ist-total-${m}`);
             if (el) el.textContent = this.formatNumber(istTotals[m]);
         });
         const istYearEl = document.getElementById('ist-total-year');
         if (istYearEl) istYearEl.textContent = this.formatNumber(istYearTotal);
+        const istYtdEl = document.getElementById('ist-total-ytd');
+        if (istYtdEl) istYtdEl.textContent = this.formatNumber(istYtdTotal);
 
         // Differenz
         months.forEach(m => {
@@ -10224,6 +10238,8 @@ const App = {
         });
         const diffYearEl = document.getElementById('diff-total-year');
         if (diffYearEl) diffYearEl.textContent = this.formatNumber(budgetYearTotal - istYearTotal);
+        const diffYtdEl = document.getElementById('diff-total-ytd');
+        if (diffYtdEl) diffYtdEl.textContent = this.formatNumber(budgetYtdTotal - istYtdTotal);
     },
 
     // Hilfsfunktion: Budget für bestehendes Konto aus IST-Daten hinzufügen
