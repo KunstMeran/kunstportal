@@ -7729,7 +7729,7 @@ const App = {
             document.getElementById('einnahme-jahr').value = fs.year || new Date().getFullYear();
             document.getElementById('einnahme-betrag').value = fs.amount || '';
             document.getElementById('einnahme-status').value = fs.status || 'offen';
-            document.getElementById('einnahme-abgabestelle').checked = fs.is_abgabestelle || false;
+            document.getElementById('einnahme-abgabestelle').checked = fs.isAbgabestelle || false;
             document.getElementById('einnahme-notizen').value = fs.notes || '';
             document.getElementById('einnahme-dokument').value = '';
 
@@ -7762,7 +7762,7 @@ const App = {
             year: parseInt(document.getElementById('einnahme-jahr').value),
             amount: parseFloat(document.getElementById('einnahme-betrag').value) || 0,
             status: document.getElementById('einnahme-status').value,
-            is_abgabestelle: document.getElementById('einnahme-abgabestelle').checked,
+            isAbgabestelle: document.getElementById('einnahme-abgabestelle').checked,
             notes: document.getElementById('einnahme-notizen').value
         };
 
