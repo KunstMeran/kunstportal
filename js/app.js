@@ -5387,10 +5387,12 @@ const App = {
      */
     getDokumentNrCell: function(r) {
         const dokumentNr = r.dokumentNr || '';
+        // Verwende DB-ID falls vorhanden, sonst rechnungId
+        const updateId = r.id ? `id:${r.id}` : r.rechnungId;
 
         if (!dokumentNr || dokumentNr.trim() === '') {
             // Leere Rechnungsnummer: Eingabefeld anzeigen
-            const inputId = `docnr-input-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            const inputId = `docnr-input-${r.id || r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
             return `
                 <input type="text"
                        id="${inputId}"
@@ -5398,7 +5400,7 @@ const App = {
                        style="font-size: 0.75rem; padding: 0.25rem; min-width: 80px; background: #fff3cd;"
                        placeholder="Nr. eingeben..."
                        value=""
-                       onchange="App.updateDokumentNr('${r.rechnungId}', this.value)">`;
+                       onchange="App.updateDokumentNr('${updateId}', this.value)">`;
         } else {
             // Vorhandene Nummer mit Bearbeitungs-Icon
             const inputId = `docnr-edit-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
@@ -5442,15 +5444,34 @@ const App = {
         if (!newNr || !newNr.trim()) return;
 
         try {
-            // rechnungId Format: partitaIva_dokumentNr (alte Nummer)
-            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-            const oldDokumentNr = dokumentNrParts.join('_');
+            let query;
 
-            const { error } = await SupabaseService.client
-                .from('datev_bookings')
-                .update({ dokument_nr: newNr.trim() })
-                .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', oldDokumentNr);
+            // Prüfe ob ID-Format (id:123) oder altes Format (partitaIva_dokumentNr)
+            if (rechnungId.startsWith('id:')) {
+                const dbId = rechnungId.substring(3);
+                query = SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ dokument_nr: newNr.trim() })
+                    .eq('id', dbId);
+            } else {
+                // Altes Format: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const oldDokumentNr = dokumentNrParts.join('_');
+
+                query = SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ dokument_nr: newNr.trim() })
+                    .eq('partita_iva', partitaIva);
+
+                // Bei leerer alter Dokumentnummer: NULL oder leerer String
+                if (!oldDokumentNr || oldDokumentNr === '') {
+                    query = query.or('dokument_nr.is.null,dokument_nr.eq.');
+                } else {
+                    query = query.eq('dokument_nr', oldDokumentNr);
+                }
+            }
+
+            const { error } = await query;
 
             if (error) throw error;
 
