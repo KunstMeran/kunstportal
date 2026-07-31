@@ -3457,6 +3457,9 @@ const App = {
         // Filtered results speichern
         this.filteredRechnungen = rechnungen;
 
+        // Statistiken basierend auf gefilterten Daten aktualisieren
+        this.updateRechnungenStatistiken(rechnungen);
+
         // Seite nur zurücksetzen wenn Filter von User geändert wurden (nicht bei Reload nach Aktion)
         if (!this._keepCurrentPage) {
             this.currentRechnungenPage = 1;
@@ -3465,6 +3468,20 @@ const App = {
 
         // Seite rendern
         this.renderRechnungenPage();
+    },
+
+    /**
+     * Aktualisiert die Statistik-Kacheln basierend auf den gefilterten Rechnungen
+     */
+    updateRechnungenStatistiken: function(rechnungen) {
+        const neuCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.NEU).length;
+        const kontrolliertCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.KONTROLLIERT).length;
+        const bezahltCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.BEZAHLT).length;
+
+        document.getElementById('stat-rechnungen-total').textContent = rechnungen.length;
+        document.getElementById('stat-rechnungen-neu').textContent = neuCount;
+        document.getElementById('stat-rechnungen-kontrolliert').textContent = kontrolliertCount;
+        document.getElementById('stat-rechnungen-bezahlt').textContent = bezahltCount;
     },
 
     // Reload ohne Seite/Filter zurückzusetzen
