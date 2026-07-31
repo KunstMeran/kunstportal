@@ -224,6 +224,24 @@ const SupabaseDataAdapter = {
                     }
                 }
 
+                // Fallback: Lieferantenname aus Beschreibung extrahieren
+                // Format: "Name - Beschreibung" oder "Name vom Datum"
+                if (!fornitoreName && b.beschreibung) {
+                    const beschreibung = b.beschreibung.trim();
+                    // Trenne bei " - " oder " vom "
+                    const separators = [' - ', ' vom '];
+                    for (const sep of separators) {
+                        if (beschreibung.includes(sep)) {
+                            fornitoreName = beschreibung.split(sep)[0].trim();
+                            break;
+                        }
+                    }
+                    // Falls kein Separator, nimm die ganze Beschreibung
+                    if (!fornitoreName) {
+                        fornitoreName = beschreibung;
+                    }
+                }
+
                 return {
                     id: b.id,
                     partitaIva: b.partita_iva || '',
