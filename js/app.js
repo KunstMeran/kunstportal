@@ -10838,8 +10838,12 @@ const App = {
             const gruppenDiffYtdStyle = gruppenDiffYtd < 0 ? 'color: #dc3545;' : 'color: #28a745;';
 
             // Gruppen-Header: Budget-Zeile mit monatlichen Werten
-            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; font-weight: bold;" onclick="App.toggleBudgetGroup(this)">
-                <td style="font-size: 1rem; padding: 0.5rem;">${gruppe.label}</td>
+            const gruppenId = gruppenKey.replace(/[^a-zA-Z0-9]/g, '');
+            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; font-weight: bold;" onclick="App.toggleBudgetGroup(this, '${gruppenId}')">
+                <td style="font-size: 1rem; padding: 0.5rem;">
+                    <span id="budget-expand-${gruppenId}" style="display: inline-block; width: 20px; text-align: center; font-weight: bold;">+</span>
+                    ${gruppe.label}
+                </td>
                 <td style="font-size: 0.8rem; color: #666;">(${gruppe.konten.length} Konten)</td>
                 <td style="text-align: right; background: #e3f2fd; font-weight: bold;">${this.formatNumber(gruppe.budgetYtd)}</td>
                 ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
@@ -10867,15 +10871,22 @@ const App = {
 
                 const note = kontoNotes[data.key] || '';
                 const keyEscaped = data.key.replace(/'/g, "\\'");
+                const descEscaped = (data.description || data.konto_nr || '').replace(/'/g, "\\'");
 
                 html += `<tr class="gruppe-detail-row" style="display: none;">
                     <td style="font-weight: 600; white-space: nowrap; padding-left: 1.5rem;">${data.konto_nr || '-'}</td>
                     <td style="font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${data.description || ''}">${data.description || data.konto_nr}</td>
                     <td style="text-align: right; background: #e3f2fd;">${this.formatNumber(data.budgetYtd)}</td>
                     ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
-                    <td style="text-align: right; font-weight: bold;">${this.formatNumber(data.budgetTotal)}</td>
+                    <td style="text-align: right;">
+                        <input type="number" class="form-control" style="font-size: 0.75rem; padding: 2px 4px; width: 70px; text-align: right; display: inline-block;"
+                               value="${data.budgetTotal || ''}"
+                               placeholder="0"
+                               onchange="App.quickSaveBudget('${keyEscaped}', '${descEscaped}', ${year}, this.value, '${data.id || ''}')"
+                               title="Jahresbudget eingeben - wird gleichmäßig auf 12 Monate verteilt">
+                    </td>
                     <td><input type="text" class="form-control" style="font-size: 0.7rem; padding: 2px 4px; width: 80px;" placeholder="..." value="${note}" onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"></td>
-                    <td>${data.hasBudget ? `<button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')">${Icons.edit}</button>` : `<button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')">+</button>`}</td>
+                    <td>${data.hasBudget ? `<button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')" title="Details bearbeiten">${Icons.edit}</button>` : ''}</td>
                 </tr>
                 <tr class="gruppe-detail-row" style="display: none; font-size: 0.75rem; color: #666; border-bottom: 1px solid #dee2e6;">
                     <td></td>
@@ -10925,16 +10936,26 @@ const App = {
     },
 
     // Toggle-Funktion für Gruppen auf-/zuklappen
-    toggleBudgetGroup: function(headerRow) {
+    toggleBudgetGroup: function(headerRow, gruppenId) {
         let row = headerRow.nextElementSibling;
         // Überspringe die IST-Zeile der Gruppe
         if (row && row.classList.contains('gruppe-ist-row')) {
             row = row.nextElementSibling;
         }
+
+        // Prüfe aktuellen Status
+        const isCurrentlyHidden = row && row.style.display === 'none';
+
         // Toggle alle Detail-Zeilen bis zur nächsten Gruppe
         while (row && row.classList.contains('gruppe-detail-row')) {
-            row.style.display = row.style.display === 'none' ? '' : 'none';
+            row.style.display = isCurrentlyHidden ? '' : 'none';
             row = row.nextElementSibling;
+        }
+
+        // Icon aktualisieren
+        const icon = document.getElementById('budget-expand-' + gruppenId);
+        if (icon) {
+            icon.textContent = isCurrentlyHidden ? '−' : '+';
         }
     },
 
@@ -10984,6 +11005,45 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Speichern der Konto-Notiz:', error);
             this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
+        }
+    },
+
+    // Schnelles Budget-Speichern direkt in der Zeile
+    quickSaveBudget: async function(kontoNr, description, year, totalBudget, existingId) {
+        try {
+            const total = parseFloat(totalBudget) || 0;
+            const monthly = Math.round((total / 12) * 100) / 100; // Gleichmäßig auf 12 Monate
+
+            const budgetData = {
+                konto_nr: kontoNr,
+                description: description,
+                fiscal_year: year,
+                jan: monthly, feb: monthly, mar: monthly, apr: monthly,
+                mai: monthly, jun: monthly, jul: monthly, aug: monthly,
+                sep: monthly, okt: monthly, nov: monthly, dez: monthly
+            };
+
+            if (existingId) {
+                // Update existierender Eintrag
+                await SupabaseService.client
+                    .from('budget_entries')
+                    .update(budgetData)
+                    .eq('id', existingId);
+            } else {
+                // Neuer Eintrag
+                await SupabaseService.client
+                    .from('budget_entries')
+                    .insert(budgetData);
+            }
+
+            this.showToast('success', 'Gespeichert', `Budget für ${kontoNr} gespeichert`);
+
+            // Tabelle neu laden um Änderungen anzuzeigen
+            await this.loadBudgetplanung();
+
+        } catch (error) {
+            console.error('Fehler beim Speichern des Budgets:', error);
+            this.showToast('error', 'Fehler', 'Budget konnte nicht gespeichert werden');
         }
     },
 
