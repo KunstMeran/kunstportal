@@ -1392,12 +1392,14 @@
                         <button class="btn btn-outline btn-sm" onclick="App.exportEinnahmenCSV()">CSV Export</button>
                     </div>
                     <div class="table-container">
-                        <table>
+                        <table id="einnahmen-table">
                             <thead>
                                 <tr>
                                     <th>Code</th>
                                     <th>Name / Quelle</th>
                                     <th style="text-align: right;">Budget</th>
+                                    <th style="text-align: right;" id="th-einnahmen-vorjahr">Vorjahr</th>
+                                    <th style="text-align: right;">+/- %</th>
                                     <th style="text-align: right;">Ausgaben</th>
                                     <th style="text-align: right;">Verfügbar</th>
                                     <th>Status</th>
@@ -1413,6 +1415,8 @@
                                 <tr style="font-weight: bold; background: #f5f5f5;">
                                     <td colspan="2">Summe</td>
                                     <td style="text-align: right;" id="einnahmen-summe-budget">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-vorjahr">0,00 EUR</td>
+                                    <td style="text-align: right;" id="einnahmen-summe-prozent">-</td>
                                     <td style="text-align: right;" id="einnahmen-summe-ausgaben">0,00 EUR</td>
                                     <td style="text-align: right;" id="einnahmen-summe-verfuegbar">0,00 EUR</td>
                                     <td colspan="4"></td>

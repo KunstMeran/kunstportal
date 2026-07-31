@@ -7647,19 +7647,42 @@ const App = {
     // ==========================================
 
     loadEinnahmen: async function() {
-        const jahr = document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear();
+        const jahr = parseInt(document.getElementById('einnahmen-filter-jahr')?.value || new Date().getFullYear());
+        const vorjahr = jahr - 1;
 
         try {
-            // Lade Funding Sources aus Supabase
-            const fundingSources = await DataManager.getFundingSources(parseInt(jahr));
+            // Lade Funding Sources aus Supabase für aktuelles Jahr
+            const fundingSources = await DataManager.getFundingSources(jahr);
 
-            // Berechne Ausgaben für jede Funding Source
+            // Lade Vorjahresdaten
+            const vorjahrSources = await DataManager.getFundingSources(vorjahr);
+
+            // Berechne Ausgaben für jede Funding Source und füge Vorjahresdaten hinzu
             for (const fs of fundingSources) {
                 const expenses = await DataManager.getFundingSourceExpenses(fs.id);
                 fs.ausgaben = expenses.totalBrutto;
                 fs.rechnungenCount = expenses.count;
                 fs.verfuegbar = fs.amount - expenses.totalBrutto;
+
+                // Vorjahreswert suchen (über Code oder Name matchen)
+                const vorjahrMatch = vorjahrSources.find(v =>
+                    v.code === fs.code || v.name === fs.name
+                );
+                fs.vorjahr = vorjahrMatch ? vorjahrMatch.amount : 0;
+
+                // Prozentuale Änderung berechnen
+                if (fs.vorjahr > 0) {
+                    fs.prozent = ((fs.amount - fs.vorjahr) / fs.vorjahr) * 100;
+                } else if (fs.amount > 0) {
+                    fs.prozent = 100; // Neu im aktuellen Jahr
+                } else {
+                    fs.prozent = null;
+                }
             }
+
+            // Vorjahres-Spaltenüberschrift aktualisieren
+            const thVorjahr = document.getElementById('th-einnahmen-vorjahr');
+            if (thVorjahr) thVorjahr.textContent = vorjahr;
 
             // Summary aktualisieren
             const totalBudget = fundingSources.reduce((sum, fs) => sum + fs.amount, 0);
@@ -7681,6 +7704,7 @@ const App = {
             document.querySelector('#einnahmen-gesamt + .stat-label').textContent = 'Budget Gesamt';
 
             this.allEinnahmen = fundingSources;
+            this.einnahmenSelectedYear = jahr;
             this.filterEinnahmen();
         } catch (error) {
             console.error('Fehler beim Laden der Einnahmen:', error);
@@ -7690,11 +7714,16 @@ const App = {
 
     filterEinnahmen: function() {
         const status = document.getElementById('einnahmen-filter-status')?.value || '';
+        const typ = document.getElementById('einnahmen-filter-typ')?.value || '';
 
         let filtered = this.allEinnahmen || [];
 
         if (status) {
             filtered = filtered.filter(e => e.status === status);
+        }
+
+        if (typ) {
+            filtered = filtered.filter(e => e.type === typ);
         }
 
         this.renderEinnahmenTable(filtered);
@@ -7705,7 +7734,7 @@ const App = {
         if (!tbody) return;
 
         tbody.innerHTML = '';
-        let summeBudget = 0, summeAusgaben = 0, summeVerfuegbar = 0;
+        let summeBudget = 0, summeAusgaben = 0, summeVerfuegbar = 0, summeVorjahr = 0;
 
         const statusColors = {
             'zugesagt': '#27ae60',
@@ -7727,8 +7756,25 @@ const App = {
             summeBudget += e.amount || 0;
             summeAusgaben += e.ausgaben || 0;
             summeVerfuegbar += e.verfuegbar || 0;
+            summeVorjahr += e.vorjahr || 0;
 
             const verfuegbarStyle = e.verfuegbar < 0 ? 'color: #e74c3c; font-weight: bold;' : '';
+
+            // Vorjahresvergleich Formatierung
+            let prozentDisplay = '-';
+            let prozentStyle = '';
+            if (e.vorjahr && e.vorjahr > 0) {
+                const prozent = e.prozent || 0;
+                if (prozent > 0) {
+                    prozentDisplay = `+${prozent.toFixed(1)}%`;
+                    prozentStyle = 'color: #27ae60;';
+                } else if (prozent < 0) {
+                    prozentDisplay = `${prozent.toFixed(1)}%`;
+                    prozentStyle = 'color: #e74c3c;';
+                } else {
+                    prozentDisplay = '0%';
+                }
+            }
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -7738,6 +7784,8 @@ const App = {
                     ${e.source ? `<small style="color: #666;">${e.source}</small>` : ''}
                 </td>
                 <td style="text-align: right;">${this.formatCurrency(e.amount)}</td>
+                <td style="text-align: right; color: #666;">${e.vorjahr ? this.formatCurrency(e.vorjahr) : '-'}</td>
+                <td style="text-align: right; ${prozentStyle}">${prozentDisplay}</td>
                 <td style="text-align: right;">${e.ausgaben ? this.formatCurrency(e.ausgaben) : '-'}
                     ${e.rechnungenCount ? `<br><small style="color: #666;">${e.rechnungenCount} Rechnungen</small>` : ''}
                 </td>
@@ -7771,6 +7819,29 @@ const App = {
         document.getElementById('einnahmen-summe-budget').textContent = this.formatCurrency(summeBudget);
         document.getElementById('einnahmen-summe-ausgaben').textContent = this.formatCurrency(summeAusgaben);
         document.getElementById('einnahmen-summe-verfuegbar').textContent = this.formatCurrency(summeVerfuegbar);
+
+        // Vorjahr Summen
+        const summeVorjahrEl = document.getElementById('einnahmen-summe-vorjahr');
+        const summeProzentEl = document.getElementById('einnahmen-summe-prozent');
+        if (summeVorjahrEl) {
+            summeVorjahrEl.textContent = this.formatCurrency(summeVorjahr);
+        }
+        if (summeProzentEl && summeVorjahr > 0) {
+            const gesamtProzent = ((summeBudget - summeVorjahr) / summeVorjahr) * 100;
+            if (gesamtProzent > 0) {
+                summeProzentEl.textContent = `+${gesamtProzent.toFixed(1)}%`;
+                summeProzentEl.style.color = '#27ae60';
+            } else if (gesamtProzent < 0) {
+                summeProzentEl.textContent = `${gesamtProzent.toFixed(1)}%`;
+                summeProzentEl.style.color = '#e74c3c';
+            } else {
+                summeProzentEl.textContent = '0%';
+                summeProzentEl.style.color = '';
+            }
+        } else if (summeProzentEl) {
+            summeProzentEl.textContent = '-';
+            summeProzentEl.style.color = '';
+        }
     },
 
     showNewEinnahmeForm: function() {
