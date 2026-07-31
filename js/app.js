@@ -7954,15 +7954,27 @@ const App = {
         event.preventDefault();
 
         const id = document.getElementById('einnahme-id').value;
+
+        // Jahr aus dem Dropdown holen - mit Fallback
+        const jahrEl = document.getElementById('einnahme-jahr');
+        let year = new Date().getFullYear();
+        if (jahrEl && jahrEl.value) {
+            const parsed = parseInt(jahrEl.value);
+            if (!isNaN(parsed)) {
+                year = parsed;
+            }
+        }
+        console.log('Einnahme speichern - Jahr:', year, 'aus Dropdown:', jahrEl?.value);
+
         const fundingSource = {
-            code: document.getElementById('einnahme-code').value,
-            name: document.getElementById('einnahme-name').value,
-            source: document.getElementById('einnahme-quelle').value,
-            year: parseInt(document.getElementById('einnahme-jahr').value),
-            amount: parseFloat(document.getElementById('einnahme-betrag').value) || 0,
-            status: document.getElementById('einnahme-status').value,
-            isAbgabestelle: document.getElementById('einnahme-abgabestelle').checked,
-            notes: document.getElementById('einnahme-notizen').value
+            code: document.getElementById('einnahme-code')?.value || '',
+            name: document.getElementById('einnahme-name')?.value || '',
+            source: document.getElementById('einnahme-quelle')?.value || '',
+            year: year,
+            amount: parseFloat(document.getElementById('einnahme-betrag')?.value) || 0,
+            status: document.getElementById('einnahme-status')?.value || 'offen',
+            isAbgabestelle: document.getElementById('einnahme-abgabestelle')?.checked || false,
+            notes: document.getElementById('einnahme-notizen')?.value || ''
         };
 
         try {

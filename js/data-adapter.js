@@ -1460,6 +1460,13 @@ const SupabaseDataAdapter = {
 
     async addFundingSource(fundingSource) {
         try {
+            // Jahr validieren - muss eine gültige Zahl sein
+            let fiscalYear = fundingSource.year;
+            if (!fiscalYear || isNaN(fiscalYear)) {
+                fiscalYear = new Date().getFullYear();
+            }
+            console.log('addFundingSource - fiscal_year:', fiscalYear);
+
             const { data, error } = await SupabaseService.client
                 .from('funding_sources')
                 .insert({
@@ -1467,7 +1474,7 @@ const SupabaseDataAdapter = {
                     name: fundingSource.name,
                     source: fundingSource.source || null,
                     amount: fundingSource.amount || 0,
-                    fiscal_year: fundingSource.year || new Date().getFullYear(),
+                    fiscal_year: fiscalYear,
                     is_abgabestelle: fundingSource.isAbgabestelle || false,
                     status: fundingSource.status || 'offen',
                     notes: fundingSource.notes || null,
