@@ -82,8 +82,8 @@ Stand: 2026-07-29
 - [x] **Flag für Rechnungszuweisung**: Auswählen ob bei Rechnungen zuweisbar (entfällt dann in Konfiguration)
 
 ### Mitglieder / Verein
-- [ ] **Mitgliederliste von Barbara**: Importieren oder eigener Reiter
-- [ ] **In Einnahmeplanung integrieren**: Oder separaten Bereich erstellen
+- [ ] **Mitgliederliste von Barbara**: Excel-Datei importieren (Funktion unter Mitglieder > Import vorhanden)
+- [x] **In Einnahmeplanung integrieren**: Mitglieder-Bereich existiert separat
 
 ### Sponsoring
 - [ ] **Sponsoren wie Lieferanten**: Ansicht mit Vorjahresvergleich
@@ -139,7 +139,7 @@ Stand: 2026-07-29
 ## 📋 Backlog (Niedrige Priorität)
 
 ### UX Verbesserungen
-- [ ] Session-State bei Page-Refresh beibehalten
+- [x] Session-State bei Page-Refresh beibehalten (bereits implementiert via localStorage)
 - [ ] Mouse-Click Effekte (Ripple)
 - [ ] Kräftigere Farben für Rechnungen
 

@@ -5488,6 +5488,8 @@ const App = {
     allLieferanten: [],
     allLieferantenRechnungen: [],
     lieferantenSelectedYear: new Date().getFullYear(),
+    lieferantenSortColumn: 'name',
+    lieferantenSortDirection: 'asc',
 
     loadLieferanten: async function() {
         const lieferanten = await DataManager.getDatevLieferanten();
@@ -5574,6 +5576,31 @@ const App = {
         document.getElementById('stat-lieferanten-summe').textContent = this.formatCurrency(gesamtvolumen);
     },
 
+    sortLieferanten: function(column) {
+        // Richtung umschalten wenn gleiche Spalte
+        if (this.lieferantenSortColumn === column) {
+            this.lieferantenSortDirection = this.lieferantenSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.lieferantenSortColumn = column;
+            this.lieferantenSortDirection = column === 'name' ? 'asc' : 'desc'; // Namen aufsteigend, Zahlen absteigend
+        }
+
+        // Sort-Icons aktualisieren
+        ['name', 'jahr', 'vorjahr', 'prozent'].forEach(col => {
+            const icon = document.getElementById(`sort-icon-lieferant-${col}`);
+            if (icon) {
+                if (col === column) {
+                    icon.textContent = this.lieferantenSortDirection === 'asc' ? '▲' : '▼';
+                } else {
+                    icon.textContent = '';
+                }
+            }
+        });
+
+        // Tabelle neu rendern (mit aktueller Suche)
+        this.filterLieferanten();
+    },
+
     filterLieferanten: function() {
         const searchTerm = document.getElementById('lieferanten-search').value.toLowerCase();
 
@@ -5609,7 +5636,65 @@ const App = {
             return;
         }
 
-        lieferanten.forEach(l => {
+        // Berechnete Werte für Sortierung vorbereiten
+        const lieferantenMitWerten = lieferanten.map(l => {
+            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
+
+            const rechnungenJahr = lieferantRechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === selectedYear;
+            });
+            const summeJahr = rechnungenJahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            const rechnungenVorjahr = lieferantRechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === vorjahr;
+            });
+            const summeVorjahr = rechnungenVorjahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            let prozent = null;
+            if (summeVorjahr > 0) {
+                prozent = ((summeJahr - summeVorjahr) / summeVorjahr) * 100;
+            } else if (summeJahr > 0) {
+                prozent = Infinity; // "neu" ganz oben
+            }
+
+            return { ...l, summeJahr, summeVorjahr, prozent };
+        });
+
+        // Sortieren
+        const sortCol = this.lieferantenSortColumn;
+        const sortDir = this.lieferantenSortDirection;
+        lieferantenMitWerten.sort((a, b) => {
+            let valA, valB;
+            switch (sortCol) {
+                case 'name':
+                    valA = (a.name || '').toLowerCase();
+                    valB = (b.name || '').toLowerCase();
+                    break;
+                case 'jahr':
+                    valA = a.summeJahr;
+                    valB = b.summeJahr;
+                    break;
+                case 'vorjahr':
+                    valA = a.summeVorjahr;
+                    valB = b.summeVorjahr;
+                    break;
+                case 'prozent':
+                    valA = a.prozent === null ? -Infinity : a.prozent;
+                    valB = b.prozent === null ? -Infinity : b.prozent;
+                    break;
+                default:
+                    valA = (a.name || '').toLowerCase();
+                    valB = (b.name || '').toLowerCase();
+            }
+
+            if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        lieferantenMitWerten.forEach(l => {
             const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
             const hatName = l.name && l.name.trim() !== '';
             const displayName = hatName ? l.name : '(Unbekannt)';
@@ -5619,37 +5704,32 @@ const App = {
             const adressParts = [l.address, l.city, l.country].filter(Boolean);
             const adresse = adressParts.join(', ') || '-';
 
-            // Rechnungen für gewähltes Jahr
+            // Werte aus vorberechneten Daten
+            const summeJahr = l.summeJahr;
+            const summeVorjahr = l.summeVorjahr;
+
+            // Rechnungen für Details
             const rechnungenJahr = lieferantRechnungen.filter(r => {
                 const datum = r.datum || r.belegdatum;
                 return datum && new Date(datum).getFullYear() === selectedYear;
             });
-            const summeJahr = rechnungenJahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
-
-            // Rechnungen für Vorjahr
-            const rechnungenVorjahr = lieferantRechnungen.filter(r => {
-                const datum = r.datum || r.belegdatum;
-                return datum && new Date(datum).getFullYear() === vorjahr;
-            });
-            const summeVorjahr = rechnungenVorjahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
 
             // Prozentuale Veränderung berechnen
             let prozentText = '-';
             let prozentStyle = 'color: #666;';
-            if (summeVorjahr > 0) {
-                const prozent = ((summeJahr - summeVorjahr) / summeVorjahr) * 100;
-                if (prozent > 0) {
-                    prozentText = `+${prozent.toFixed(1)}%`;
+            if (l.prozent === Infinity) {
+                prozentText = 'neu';
+                prozentStyle = 'color: #007bff; font-style: italic;';
+            } else if (l.prozent !== null) {
+                if (l.prozent > 0) {
+                    prozentText = `+${l.prozent.toFixed(1)}%`;
                     prozentStyle = 'color: #dc3545; font-weight: 500;'; // Rot für mehr Ausgaben
-                } else if (prozent < 0) {
-                    prozentText = `${prozent.toFixed(1)}%`;
+                } else if (l.prozent < 0) {
+                    prozentText = `${l.prozent.toFixed(1)}%`;
                     prozentStyle = 'color: #28a745; font-weight: 500;'; // Grün für weniger Ausgaben
                 } else {
                     prozentText = '0%';
                 }
-            } else if (summeJahr > 0) {
-                prozentText = 'neu';
-                prozentStyle = 'color: #007bff; font-style: italic;';
             }
 
             // Hauptzeile mit Expand-Button

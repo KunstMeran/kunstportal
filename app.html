@@ -835,12 +835,20 @@
                             <thead>
                                 <tr>
                                     <th style="width: 30px;"></th>
-                                    <th>Lieferant</th>
+                                    <th class="sortable" onclick="App.sortLieferanten('name')">
+                                        Lieferant <span id="sort-icon-lieferant-name"></span>
+                                    </th>
                                     <th>Partita IVA</th>
                                     <th>Adresse</th>
-                                    <th style="text-align: right;" id="th-lieferant-jahr">2026</th>
-                                    <th style="text-align: right;" id="th-lieferant-vorjahr">2025</th>
-                                    <th style="text-align: right;">+/- %</th>
+                                    <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('jahr')">
+                                        <span id="th-lieferant-jahr">2026</span> <span id="sort-icon-lieferant-jahr"></span>
+                                    </th>
+                                    <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('vorjahr')">
+                                        <span id="th-lieferant-vorjahr">2025</span> <span id="sort-icon-lieferant-vorjahr"></span>
+                                    </th>
+                                    <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('prozent')">
+                                        +/- % <span id="sort-icon-lieferant-prozent"></span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="lieferanten-table-body">
