@@ -3482,6 +3482,32 @@ const App = {
         document.getElementById('stat-rechnungen-neu').textContent = neuCount;
         document.getElementById('stat-rechnungen-kontrolliert').textContent = kontrolliertCount;
         document.getElementById('stat-rechnungen-bezahlt').textContent = bezahltCount;
+
+        // Summen berechnen
+        let summeNetto = 0;
+        let summeMwst = 0;
+        let summeOffen = 0;
+        let summeBezahlt = 0;
+
+        rechnungen.forEach(r => {
+            const netto = r.betragNetto !== undefined ? r.betragNetto : (r.betrag || 0);
+            const mwst = r.betragMwst !== undefined ? r.betragMwst : 0;
+            const gesamt = r.betragGesamt !== undefined ? r.betragGesamt : (netto + mwst);
+
+            summeNetto += netto;
+            summeMwst += mwst;
+
+            if (r.workflowStatus === RECHNUNG_STATUS.BEZAHLT) {
+                summeBezahlt += gesamt;
+            } else {
+                summeOffen += gesamt;
+            }
+        });
+
+        document.getElementById('stat-summe-netto').textContent = this.formatCurrency(summeNetto);
+        document.getElementById('stat-summe-mwst').textContent = this.formatCurrency(summeMwst);
+        document.getElementById('stat-summe-offen').textContent = this.formatCurrency(summeOffen);
+        document.getElementById('stat-summe-bezahlt').textContent = this.formatCurrency(summeBezahlt);
     },
 
     // Reload ohne Seite/Filter zurückzusetzen
@@ -5198,22 +5224,55 @@ const App = {
     },
 
     exportRechnungenCSV: function() {
-        const statusFilter = document.getElementById('rechnung-filter-status').value || null;
-        const projektFilter = document.getElementById('rechnung-filter-projekt').value || null;
-        const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value || null;
+        // Exportiere die aktuell gefilterten Daten
+        const rechnungen = this.filteredRechnungen || [];
 
-        const csv = DataManager.exportRechnungenCSV(statusFilter, projektFilter, lieferantFilter);
+        if (rechnungen.length === 0) {
+            this.showToast('warning', 'Keine Daten', 'Keine Rechnungen zum Exportieren vorhanden');
+            return;
+        }
+
+        // CSV Header
+        let csv = 'Datum;Lieferant;Partita IVA;Rechnungsnr.;Projekt;Kostentyp;Netto;MwSt;Brutto;Status;PDF;Kontrolliert;Bezahlt;Notizen\n';
+
+        // CSV Daten
+        rechnungen.forEach(r => {
+            const datum = r.datum ? this.formatDate(r.datum) : '';
+            const lieferant = (r.fornitoreName || '').replace(/;/g, ',');
+            const partitaIva = r.partitaIva || '';
+            const dokumentNr = r.dokumentNr || '';
+            const projekt = r.projektName || '';
+            const kostentyp = r.kostentyp || '';
+            const netto = r.betragNetto !== undefined ? r.betragNetto : (r.betrag || 0);
+            const mwst = r.betragMwst !== undefined ? r.betragMwst : 0;
+            const brutto = r.betragGesamt !== undefined ? r.betragGesamt : (netto + mwst);
+            const status = r.workflowStatus || '';
+            const pdfExists = r.pdfExists ? 'Ja' : 'Nein';
+            const kontrolliert = r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '';
+            const bezahlt = r.bezahltAm ? this.formatDate(r.bezahltAm) : '';
+            const notizen = (r.notes || r.notizen || '').replace(/;/g, ',').replace(/\n/g, ' ');
+
+            csv += `${datum};${lieferant};${partitaIva};${dokumentNr};${projekt};${kostentyp};`;
+            csv += `${netto.toFixed(2).replace('.', ',')};${mwst.toFixed(2).replace('.', ',')};${brutto.toFixed(2).replace('.', ',')};`;
+            csv += `${status};${pdfExists};${kontrolliert};${bezahlt};${notizen}\n`;
+        });
+
+        // Summenzeile
+        const sumNetto = rechnungen.reduce((sum, r) => sum + (r.betragNetto !== undefined ? r.betragNetto : (r.betrag || 0)), 0);
+        const sumMwst = rechnungen.reduce((sum, r) => sum + (r.betragMwst !== undefined ? r.betragMwst : 0), 0);
+        const sumBrutto = rechnungen.reduce((sum, r) => sum + (r.betragGesamt !== undefined ? r.betragGesamt : (sumNetto + sumMwst)), 0);
+        csv += `\n;;;;;;${sumNetto.toFixed(2).replace('.', ',')};${sumMwst.toFixed(2).replace('.', ',')};${sumBrutto.toFixed(2).replace('.', ',')};;;;\n`;
 
         // Dateiname basierend auf Filtern
+        const jahrFilter = document.getElementById('rechnung-filter-jahr')?.value || '';
+        const statusFilter = document.getElementById('rechnung-filter-status')?.value || '';
         let filename = 'Rechnungen';
-        if (projektFilter) {
-            const projekt = DataManager.getKunstMeranProjekt(parseInt(projektFilter));
-            if (projekt) filename += '_' + projekt.name.replace(/[^a-zA-Z0-9]/g, '');
-        }
+        if (jahrFilter) filename += '_' + jahrFilter;
         if (statusFilter) filename += '_' + statusFilter;
         filename += `_${new Date().toISOString().split('T')[0]}.csv`;
 
         this.downloadCSV(csv, filename);
+        this.showToast('success', 'Export', `${rechnungen.length} Rechnungen exportiert`);
     },
 
     // ==========================================
