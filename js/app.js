@@ -4319,43 +4319,146 @@ const App = {
         this.updateMassActionsBar();
     },
 
-    massMarkKontrolliert: function() {
+    massMarkKontrolliert: async function() {
         if (this.selectedRechnungen.size === 0) return;
 
         const count = this.selectedRechnungen.size;
         if (!confirm(`${count} Rechnung(en) als kontrolliert markieren?`)) return;
 
-        this.selectedRechnungen.forEach(rechnungId => {
-            DataManager.markAsKontrolliert(rechnungId);
-        });
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+            const user = (await SupabaseService.client.auth.getUser()).data.user;
+
+            // Alle ausgewählten Rechnungen in Supabase updaten
+            for (const rechnungId of this.selectedRechnungen) {
+                // rechnungId Format: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        workflow_status: 'kontrolliert',
+                        kontrolled_at: heute,
+                        kontrolled_by: user?.id
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+
+                // Auch localStorage updaten für Kompatibilität
+                DataManager.markAsKontrolliert(rechnungId);
+            }
+
+            this.showToast('success', 'Erledigt', `${count} Rechnung(en) als kontrolliert markiert`);
+        } catch (error) {
+            console.error('Fehler bei Massen-Markierung:', error);
+            this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
 
         this.clearSelection();
         this.loadRechnungen();
     },
 
-    massMarkBezahlt: function() {
+    massMarkBezahlt: async function() {
         if (this.selectedRechnungen.size === 0) return;
 
         const count = this.selectedRechnungen.size;
         if (!confirm(`${count} Rechnung(en) als bezahlt markieren?`)) return;
 
-        this.selectedRechnungen.forEach(rechnungId => {
-            DataManager.markAsBezahlt(rechnungId);
-        });
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+            const user = (await SupabaseService.client.auth.getUser()).data.user;
+
+            for (const rechnungId of this.selectedRechnungen) {
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        workflow_status: 'bezahlt',
+                        paid_at: heute,
+                        paid_by: user?.id
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+
+                DataManager.markAsBezahlt(rechnungId);
+            }
+
+            this.showToast('success', 'Erledigt', `${count} Rechnung(en) als bezahlt markiert`);
+        } catch (error) {
+            console.error('Fehler bei Massen-Markierung:', error);
+            this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
 
         this.clearSelection();
         this.loadRechnungen();
     },
 
-    massSetAbgabestelle: function(abgabestelle) {
+    massArchive: async function() {
+        if (this.selectedRechnungen.size === 0) return;
+
+        const count = this.selectedRechnungen.size;
+        if (!confirm(`${count} Rechnung(en) archivieren?\n\nArchivierte Rechnungen werden ausgeblendet, können aber wiederhergestellt werden.`)) return;
+
+        try {
+            const heute = new Date().toISOString();
+
+            for (const rechnungId of this.selectedRechnungen) {
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        archived: true,
+                        archived_at: heute
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+            }
+
+            this.showToast('success', 'Archiviert', `${count} Rechnung(en) archiviert`);
+        } catch (error) {
+            console.error('Fehler beim Archivieren:', error);
+            this.showToast('error', 'Fehler', 'Archivierung fehlgeschlagen');
+        }
+
+        this.clearSelection();
+        this.loadRechnungen();
+    },
+
+    massSetAbgabestelle: async function(abgabestelle) {
         if (this.selectedRechnungen.size === 0) return;
 
         const count = this.selectedRechnungen.size;
         if (!confirm(`Abgabestelle "${abgabestelle}" für ${count} Rechnung(en) setzen?`)) return;
 
-        this.selectedRechnungen.forEach(rechnungId => {
-            DataManager.setAbgabestelle(rechnungId, abgabestelle);
-        });
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+
+            for (const rechnungId of this.selectedRechnungen) {
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        abgabestelle: abgabestelle,
+                        abgabestelle_am: heute
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+
+                DataManager.setAbgabestelle(rechnungId, abgabestelle);
+            }
+
+            this.showToast('success', 'Erledigt', `Abgabestelle für ${count} Rechnung(en) gesetzt`);
+        } catch (error) {
+            console.error('Fehler bei Abgabestelle:', error);
+            this.showToast('error', 'Fehler', 'Abgabestelle konnte nicht gesetzt werden');
+        }
 
         this.clearSelection();
         this.loadRechnungen();
