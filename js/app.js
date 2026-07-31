@@ -7679,107 +7679,146 @@ const App = {
         }
     },
 
-    loadDeckungsbeitrag: function(jahr) {
+    loadDeckungsbeitrag: async function(jahr) {
         const tbody = document.getElementById('db-table-body');
         if (!tbody) return;
 
-        const db = DataManager.calculateDeckungsbeitrag(jahr);
-        const einnahmenSummary = DataManager.getEinnahmenSummary(jahr);
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Berechne Deckungsbeitragsrechnung...</td></tr>';
 
-        // Struktur der Deckungsbeitragsrechnung
-        const rows = [
-            { type: 'header', label: '1. UMSÄTZE', konto: '' },
-            { type: 'detail', label: '   Erlöse Lieferungen/Leistungen', konto: '6001*', ist: 0, plan: einnahmenSummary.gesamt * 0.2 },
-            { type: 'detail', label: '   Zuschüsse und Beiträge', konto: '6401*', ist: einnahmenSummary.ist, plan: einnahmenSummary.gesamt * 0.7 },
-            { type: 'detail', label: '   Sonstige betriebliche Erträge', konto: '6400*', ist: 0, plan: einnahmenSummary.gesamt * 0.1 },
-            { type: 'sum', label: 'SUMME UMSÄTZE', ist: db.umsaetze, plan: einnahmenSummary.gesamt },
+        try {
+            const startDate = `${jahr}-01-01`;
+            const endDate = `${jahr}-12-31`;
 
-            { type: 'spacer' },
-            { type: 'header', label: '2. DIREKTE KOSTEN', konto: '' },
-            { type: 'detail', label: '   (a) Materialkosten', konto: '680*', ist: db.direkteKosten * 0.3, plan: 0 },
-            { type: 'detail', label: '   (b) Dienstleistungen (Ausst./Projekte)', konto: '690125*', ist: db.direkteKosten * 0.7, plan: 0 },
-            { type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db.direkteKosten, plan: 0 },
+            // DB-Daten aus Supabase laden (nutzt die bereits vorhandene Berechnung)
+            const ergebnisse = await SupabaseDataAdapter.calculateContributionMargins(startDate, endDate);
+            const gesamt = ergebnisse.gesamt;
 
-            { type: 'spacer' },
-            { type: 'result', label: '3. DECKUNGSBEITRAG 1 (DB1)', ist: db.db1, plan: einnahmenSummary.gesamt, highlight: true },
+            // Einnahmen aus funding_sources laden
+            const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
+            const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
 
-            { type: 'spacer' },
-            { type: 'header', label: '4. STRUKTURKOSTEN', konto: '' },
-            { type: 'detail', label: '   (a) Verwaltung', konto: '6901/02*', ist: db.strukturkosten * 0.2, plan: 0 },
-            { type: 'detail', label: '   (b) Strukturen (inkl. Miete)', konto: '700*', ist: db.strukturkosten * 0.3, plan: 0 },
-            { type: 'detail', label: '   (c) Gebäudekosten', konto: '690241/42*', ist: db.strukturkosten * 0.1, plan: 0 },
-            { type: 'detail', label: '   (d) Personalkosten', konto: '710*', ist: db.strukturkosten * 0.4, plan: 0 },
-            { type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db.strukturkosten, plan: 0 },
+            // Struktur der Deckungsbeitragsrechnung
+            const rows = [
+                { type: 'header', label: '1. UMSÄTZE', konto: '' },
+                { type: 'detail', label: '   Erlöse Lieferungen/Leistungen', konto: '6001*', ist: gesamt.umsatz * 0.2, plan: einnahmenPlan * 0.2 },
+                { type: 'detail', label: '   Zuschüsse und Beiträge', konto: '6401*', ist: gesamt.umsatz * 0.7, plan: einnahmenPlan * 0.7 },
+                { type: 'detail', label: '   Sonstige betriebliche Erträge', konto: '6400*', ist: gesamt.umsatz * 0.1, plan: einnahmenPlan * 0.1 },
+                { type: 'sum', label: 'SUMME UMSÄTZE', ist: gesamt.umsatz, plan: einnahmenPlan },
 
-            { type: 'spacer' },
-            { type: 'result', label: '5. DECKUNGSBEITRAG 2 / EBITDA', ist: db.db2, plan: einnahmenSummary.gesamt, highlight: true },
+                { type: 'spacer' },
+                { type: 'header', label: '2. DIREKTE KOSTEN (DB1)', konto: '' },
+                { type: 'detail', label: '   (a) Materialkosten', konto: '680*', ist: gesamt.db1_kosten * 0.3, plan: 0 },
+                { type: 'detail', label: '   (b) Dienstleistungen (Ausst./Projekte)', konto: '690125*', ist: gesamt.db1_kosten * 0.7, plan: 0 },
+                { type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: gesamt.db1_kosten, plan: 0 },
 
-            { type: 'spacer' },
-            { type: 'detail', label: '6. Abschreibungen (kalk.)', konto: '720*', ist: db.abschreibungen, plan: 0 },
-            { type: 'detail', label: '7. Zinsen', konto: '850*', ist: db.zinsen, plan: 0 },
+                { type: 'spacer' },
+                { type: 'result', label: '3. DECKUNGSBEITRAG 1 (DB1)', ist: gesamt.db1, plan: einnahmenPlan, highlight: true },
 
-            { type: 'spacer' },
-            { type: 'result', label: '8. ERGEBNIS', ist: db.ergebnis, plan: einnahmenSummary.gesamt, highlight: true, final: true }
-        ];
+                { type: 'spacer' },
+                { type: 'header', label: '4. STRUKTURKOSTEN (DB2)', konto: '' },
+                { type: 'detail', label: '   (a) Verwaltung', konto: '6901*', ist: gesamt.db2_kosten * 0.4, plan: 0 },
+                { type: 'detail', label: '   (b) Werbung/Marketing', konto: '6902*', ist: gesamt.db2_kosten * 0.6, plan: 0 },
+                { type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: gesamt.db2_kosten, plan: 0 },
 
-        tbody.innerHTML = '';
-        rows.forEach(r => {
-            const tr = document.createElement('tr');
+                { type: 'spacer' },
+                { type: 'result', label: '5. DECKUNGSBEITRAG 2 (DB2)', ist: gesamt.db2, plan: einnahmenPlan, highlight: true },
 
-            if (r.type === 'spacer') {
-                tr.innerHTML = '<td colspan="5" style="height: 10px;"></td>';
-            } else if (r.type === 'header') {
-                tr.innerHTML = `<td colspan="5" style="font-weight: bold; background: #f0f0f0; padding: 8px;">${r.label}</td>`;
-            } else {
-                const abw = (r.ist || 0) - (r.plan || 0);
-                const style = r.highlight ? 'font-weight: bold; background: #e8f4fd;' : '';
-                const finalStyle = r.final ? 'font-weight: bold; background: #d4edda; font-size: 1.1em;' : '';
+                { type: 'spacer' },
+                { type: 'header', label: '6. FIXKOSTEN (DB3)', konto: '' },
+                { type: 'detail', label: '   (a) Miete/Strukturen', konto: '700*', ist: gesamt.db3_kosten * 0.3, plan: 0 },
+                { type: 'detail', label: '   (b) Gebäudekosten', konto: '69024*', ist: gesamt.db3_kosten * 0.2, plan: 0 },
+                { type: 'detail', label: '   (c) Personalkosten', konto: '710*', ist: gesamt.db3_kosten * 0.5, plan: 0 },
+                { type: 'sum', label: 'SUMME FIXKOSTEN', ist: gesamt.db3_kosten, plan: 0 },
 
-                tr.style.cssText = finalStyle || style;
-                tr.innerHTML = `
-                    <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">${r.label}</td>
-                    <td style="color: #666;">${r.konto || ''}</td>
-                    <td style="text-align: right;">${r.ist !== undefined ? this.formatCurrency(r.ist) : ''}</td>
-                    <td style="text-align: right;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
-                    <td style="text-align: right; color: ${abw < 0 ? '#e74c3c' : '#27ae60'};">
-                        ${r.plan ? this.formatCurrency(abw) : '-'}
-                    </td>
-                `;
-            }
-            tbody.appendChild(tr);
-        });
+                { type: 'spacer' },
+                { type: 'result', label: '7. DECKUNGSBEITRAG 3 (DB3) / ERGEBNIS', ist: gesamt.db3, plan: einnahmenPlan, highlight: true, final: true }
+            ];
+
+            tbody.innerHTML = '';
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+
+                if (r.type === 'spacer') {
+                    tr.innerHTML = '<td colspan="5" style="height: 10px;"></td>';
+                } else if (r.type === 'header') {
+                    tr.innerHTML = `<td colspan="5" style="font-weight: bold; background: #f0f0f0; padding: 8px;">${r.label}</td>`;
+                } else {
+                    const abw = (r.ist || 0) - (r.plan || 0);
+                    const style = r.highlight ? 'font-weight: bold; background: #e8f4fd;' : '';
+                    const finalStyle = r.final ? 'font-weight: bold; background: #d4edda; font-size: 1.1em;' : '';
+
+                    tr.style.cssText = finalStyle || style;
+                    tr.innerHTML = `
+                        <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">${r.label}</td>
+                        <td style="color: #666;">${r.konto || ''}</td>
+                        <td style="text-align: right;">${r.ist !== undefined ? this.formatCurrency(r.ist) : ''}</td>
+                        <td style="text-align: right;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
+                        <td style="text-align: right; color: ${abw < 0 ? '#e74c3c' : '#27ae60'};">
+                            ${r.plan ? this.formatCurrency(abw) : '-'}
+                        </td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error('Fehler beim Laden der Deckungsbeitragsrechnung:', error);
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #e74c3c;">
+                Fehler: ${error.message}<br>
+                <small>Bitte prüfen Sie, ob die chart_of_accounts Tabelle existiert.</small>
+            </td></tr>`;
+        }
     },
 
-    loadKostenKategorien: function(jahr) {
+    loadKostenKategorien: async function(jahr) {
         const tbody = document.getElementById('reporting-kategorien-table');
         if (!tbody) return;
 
-        const buchungen = DataManager.getBuchungen(jahr);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">Lade Kategorien...</td></tr>';
 
-        // Nach Kategorie gruppieren
-        const kategorien = {};
-        let gesamt = 0;
+        try {
+            const startDate = `${jahr}-01-01`;
+            const endDate = `${jahr}-12-31`;
 
-        buchungen.forEach(b => {
-            const konto = b.konto || 'unbekannt';
-            let kategorie = 'Sonstige';
-            let bereich = konto;
+            // DATEV-Buchungen aus Supabase laden
+            const buchungen = await SupabaseDataAdapter.getDatevBookings(startDate, endDate);
 
-            // Kategorisieren basierend auf Konto
-            for (const [key, kat] of Object.entries(DataManager.KONTEN_KATEGORIEN)) {
-                if (konto.startsWith(kat.prefix)) {
-                    kategorie = kat.name;
-                    bereich = kat.prefix + '*';
-                    break;
+            // Kontenplan laden für Kategorien
+            const chartOfAccounts = await SupabaseDataAdapter.getChartOfAccounts();
+
+            // Nach Kategorie gruppieren basierend auf Kontenplan
+            const kategorien = {};
+            let gesamt = 0;
+
+            for (const b of buchungen || []) {
+                const kontoNr = b.konto_nr || '';
+                const betrag = Math.abs(parseFloat(b.betrag_gesamt || b.betrag) || 0);
+
+                // Kategorie aus Kontenplan finden
+                let kategorie = 'Sonstige';
+                let bereich = kontoNr.substring(0, 3) + '*';
+
+                for (const coa of chartOfAccounts) {
+                    const pattern = coa.konto_pattern.replace('%', '');
+                    if (kontoNr.startsWith(pattern)) {
+                        kategorie = coa.kategorie || coa.konto_name || 'Sonstige';
+                        bereich = coa.konto_pattern;
+                        break;
+                    }
                 }
+
+                if (!kategorien[kategorie]) {
+                    kategorien[kategorie] = { bereich, betrag: 0 };
+                }
+                kategorien[kategorie].betrag += betrag;
+                gesamt += betrag;
             }
 
-            if (!kategorien[kategorie]) {
-                kategorien[kategorie] = { bereich, betrag: 0 };
+            if (Object.keys(kategorien).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #666;">Keine Buchungen gefunden</td></tr>';
+                return;
             }
-            kategorien[kategorie].betrag += parseFloat(b.betrag) || 0;
-            gesamt += parseFloat(b.betrag) || 0;
-        });
+
+            tbody.innerHTML = '';
 
         tbody.innerHTML = '';
 
@@ -7953,8 +7992,14 @@ const App = {
                 <td style="text-align: right;">${this.formatCurrency(e.amount)}</td>
                 <td style="text-align: right; color: #666;">${e.vorjahr ? this.formatCurrency(e.vorjahr) : '-'}</td>
                 <td style="text-align: right; ${prozentStyle}">${prozentDisplay}</td>
-                <td style="text-align: right;">${e.ausgaben ? this.formatCurrency(e.ausgaben) : '-'}
-                    ${e.rechnungenCount ? `<br><small style="color: #666;">${e.rechnungenCount} Rechnungen</small>` : ''}
+                <td style="text-align: right;">
+                    ${e.rechnungenCount > 0 ?
+                        `<a href="#" onclick="App.showEinnahmeRechnungen('${e.id}'); return false;" style="color: #1976d2; text-decoration: none;">
+                            ${this.formatCurrency(e.ausgaben)}
+                            <br><small style="color: #666;">${e.rechnungenCount} Rechnungen</small>
+                        </a>` :
+                        '<span style="color: #ccc;">-</span>'
+                    }
                 </td>
                 <td style="text-align: right; ${verfuegbarStyle}">${this.formatCurrency(e.verfuegbar || e.amount)}</td>
                 <td>
@@ -7963,12 +8008,12 @@ const App = {
                     </span>
                 </td>
                 <td style="text-align: center;">
-                    ${e.is_abgabestelle ?
+                    ${e.isAbgabestelle ?
                         '<span style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Aktiv</span>' :
                         '<span style="color: #ccc;">-</span>'}
                 </td>
                 <td style="text-align: center;">
-                    ${e.document_path ?
+                    ${e.documentPath ?
                         `<button class="btn btn-outline btn-sm" onclick="App.showFundingDocument('${e.id}')" title="Dokument anzeigen">${Icons.document}</button>` :
                         '<span style="color: #ccc;">-</span>'}
                 </td>
@@ -8179,6 +8224,78 @@ const App = {
                 console.error('Fehler beim Löschen:', error);
                 alert('Fehler beim Löschen: ' + error.message);
             }
+        }
+    },
+
+    // Zeigt die Rechnungen an, die dieser Einnahme zugeordnet sind
+    showEinnahmeRechnungen: async function(fundingSourceId) {
+        try {
+            const expenses = await DataManager.getFundingSourceExpenses(fundingSourceId);
+            const fs = await DataManager.getFundingSourceById(fundingSourceId);
+
+            if (!expenses.invoices || expenses.invoices.length === 0) {
+                alert('Keine Rechnungen zugeordnet');
+                return;
+            }
+
+            // Erstelle eine einfache Liste der Rechnungen
+            let html = `
+                <div style="padding: 1rem;">
+                    <h3 style="margin-bottom: 1rem;">Rechnungen für: ${fs?.name || 'Einnahme'}</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f5f5f5;">
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #ddd;">Datum</th>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #ddd;">Lieferant</th>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #ddd;">Rechnungsnr.</th>
+                                <th style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #ddd;">Betrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            expenses.invoices.forEach(inv => {
+                html += `
+                    <tr>
+                        <td style="padding: 0.5rem; border-bottom: 1px solid #eee;">${this.formatDate(inv.datum)}</td>
+                        <td style="padding: 0.5rem; border-bottom: 1px solid #eee;">${inv.lieferant_name || '-'}</td>
+                        <td style="padding: 0.5rem; border-bottom: 1px solid #eee;">${inv.dokument_nr || '-'}</td>
+                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #eee;">${this.formatCurrency(inv.betrag_gesamt)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                        <tfoot>
+                            <tr style="font-weight: bold; background: #f5f5f5;">
+                                <td colspan="3" style="padding: 0.5rem;">Summe (${expenses.count} Rechnungen)</td>
+                                <td style="padding: 0.5rem; text-align: right;">${this.formatCurrency(expenses.totalBrutto)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div style="margin-top: 1rem; text-align: right;">
+                        <button class="btn btn-outline" onclick="App.hideModal('einnahme-rechnungen-modal')">Schließen</button>
+                    </div>
+                </div>
+            `;
+
+            // Zeige in einem einfachen Modal (verwende das generische Modal falls vorhanden)
+            let modal = document.getElementById('einnahme-rechnungen-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'einnahme-rechnungen-modal';
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `<div class="modal" style="max-width: 700px;"><div id="einnahme-rechnungen-content"></div></div>`;
+                document.body.appendChild(modal);
+            }
+
+            document.getElementById('einnahme-rechnungen-content').innerHTML = html;
+            this.showModal('einnahme-rechnungen-modal');
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Rechnungen:', error);
+            alert('Fehler: ' + error.message);
         }
     },
 

@@ -1604,13 +1604,17 @@ const SupabaseDataAdapter = {
 
     /**
      * Berechnet die Ausgaben für eine Funding Source
+     * Sucht nach Rechnungen mit abgabestelle = 'funding:ID'
      */
     async getFundingSourceExpenses(fundingSourceId) {
         try {
+            // Suche nach Rechnungen mit dieser Abgabestelle (Format: "funding:UUID")
+            const abgabestelleValue = `funding:${fundingSourceId}`;
+
             const { data, error } = await SupabaseService.client
                 .from('invoices')
-                .select('id, betrag_netto, betrag_gesamt')
-                .eq('funding_source_id', fundingSourceId);
+                .select('id, betrag_netto, betrag_gesamt, lieferant_name, dokument_nr, datum')
+                .eq('abgabestelle', abgabestelleValue);
 
             if (error) throw error;
 
@@ -1620,11 +1624,12 @@ const SupabaseDataAdapter = {
             return {
                 count: data.length,
                 totalNetto,
-                totalBrutto
+                totalBrutto,
+                invoices: data // Für Detailansicht
             };
         } catch (error) {
             console.error('Fehler beim Berechnen der Ausgaben:', error);
-            return { count: 0, totalNetto: 0, totalBrutto: 0 };
+            return { count: 0, totalNetto: 0, totalBrutto: 0, invoices: [] };
         }
     },
 
