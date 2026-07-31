@@ -1604,28 +1604,38 @@ const SupabaseDataAdapter = {
 
     /**
      * Berechnet die Ausgaben für eine Funding Source
-     * Sucht nach Rechnungen mit abgabestelle = 'funding:ID'
+     * Sucht nach Buchungen in datev_bookings mit abgabestelle = 'funding:ID'
      */
     async getFundingSourceExpenses(fundingSourceId) {
         try {
-            // Suche nach Rechnungen mit dieser Abgabestelle (Format: "funding:UUID")
+            // Suche nach Buchungen mit dieser Abgabestelle (Format: "funding:UUID")
+            // Die abgabestelle-Spalte ist in datev_bookings, NICHT in invoices
             const abgabestelleValue = `funding:${fundingSourceId}`;
 
             const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .select('id, betrag_netto, betrag_gesamt, lieferant_name, dokument_nr, datum')
+                .from('datev_bookings')
+                .select('id, betrag, fornitore_name, dokument_nr, datum')
                 .eq('abgabestelle', abgabestelleValue);
 
             if (error) throw error;
 
-            const totalNetto = data.reduce((sum, inv) => sum + (parseFloat(inv.betrag_netto) || 0), 0);
-            const totalBrutto = data.reduce((sum, inv) => sum + (parseFloat(inv.betrag_gesamt) || 0), 0);
+            // Bei datev_bookings ist "betrag" der Bruttobetrag
+            const totalBrutto = data.reduce((sum, booking) => sum + (Math.abs(parseFloat(booking.betrag)) || 0), 0);
+            // Netto schätzen (ca. 81% von Brutto bei 22% MwSt in Italien)
+            const totalNetto = totalBrutto * 0.82;
 
             return {
                 count: data.length,
                 totalNetto,
                 totalBrutto,
-                invoices: data // Für Detailansicht
+                invoices: data.map(b => ({
+                    id: b.id,
+                    betrag_netto: Math.abs(parseFloat(b.betrag) || 0) * 0.82,
+                    betrag_gesamt: Math.abs(parseFloat(b.betrag) || 0),
+                    lieferant_name: b.fornitore_name,
+                    dokument_nr: b.dokument_nr,
+                    datum: b.datum
+                }))
             };
         } catch (error) {
             console.error('Fehler beim Berechnen der Ausgaben:', error);

@@ -612,7 +612,8 @@ textarea.form-control {
     transition: all 0.3s;
 }
 
-.modal-overlay.show {
+.modal-overlay.show,
+.modal-overlay.active {
     opacity: 1;
     visibility: visible;
 }
@@ -629,7 +630,8 @@ textarea.form-control {
     transition: transform 0.3s;
 }
 
-.modal-overlay.show .modal {
+.modal-overlay.show .modal,
+.modal-overlay.active .modal {
     transform: translateY(0);
 }
 
