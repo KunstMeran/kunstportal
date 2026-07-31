@@ -3306,6 +3306,18 @@ const App = {
     },
 
     populateRechnungenFilters: async function() {
+        // Jahr-Filter befüllen (aktuelles Jahr + Vorjahre)
+        const jahrSelect = document.getElementById('rechnung-filter-jahr');
+        if (jahrSelect) {
+            const currentYear = new Date().getFullYear();
+            jahrSelect.innerHTML = `<option value="">Alle Jahre</option>`;
+            // Jahre von aktuell bis 2020
+            for (let year = currentYear; year >= 2020; year--) {
+                const selected = year === currentYear ? 'selected' : '';
+                jahrSelect.innerHTML += `<option value="${year}" ${selected}>${year}</option>`;
+            }
+        }
+
         // Projekt-Filter
         const projektSelect = document.getElementById('rechnung-filter-projekt');
         projektSelect.innerHTML = '<option value="">Alle Projekte</option>';
@@ -3332,6 +3344,7 @@ const App = {
 
     filterRechnungen: async function() {
         const volltextSuche = document.getElementById('bewegungen-volltext-suche')?.value?.toLowerCase().trim() || '';
+        const jahrFilter = document.getElementById('rechnung-filter-jahr')?.value || '';
         const statusFilter = document.getElementById('rechnung-filter-status').value;
         const projektFilter = document.getElementById('rechnung-filter-projekt').value;
         const lieferantFilter = document.getElementById('rechnung-filter-lieferant').value;
@@ -3345,6 +3358,17 @@ const App = {
         const geaendertAb = document.getElementById('rechnung-filter-geaendert-ab')?.value || '';
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
+
+        // Jahresfilter anwenden
+        if (jahrFilter) {
+            rechnungen = rechnungen.filter(r => {
+                // Datum aus verschiedenen Quellen: datum, belegdatum, uploadedAt
+                const datum = r.datum || r.belegdatum || r.uploadedAt;
+                if (!datum) return false;
+                const year = new Date(datum).getFullYear();
+                return year === parseInt(jahrFilter);
+            });
+        }
 
         // Volltextsuche anwenden (durchsucht alle relevanten Felder)
         if (volltextSuche) {
@@ -4624,6 +4648,83 @@ const App = {
         this.clearSelection();
         await DataManager.clearCache();
         this.loadRechnungen();
+    },
+
+    /**
+     * Löscht ausgewählte Rechnungen (nur Supabase-only PDFs können gelöscht werden)
+     */
+    massDelete: async function() {
+        if (this.selectedRechnungen.size === 0) return;
+
+        // Prüfen ob nur löschbare Einträge ausgewählt sind
+        const allRechnungen = this.filteredRechnungen || [];
+        const selectedList = Array.from(this.selectedRechnungen);
+        const deletableIds = [];
+        const nonDeletableIds = [];
+
+        for (const rechnungId of selectedList) {
+            // Nur reine Zahlen sind Supabase-only Invoices (löschbar)
+            if (/^\d+$/.test(rechnungId)) {
+                deletableIds.push(rechnungId);
+            } else {
+                nonDeletableIds.push(rechnungId);
+            }
+        }
+
+        if (deletableIds.length === 0) {
+            this.showToast('warning', 'Hinweis', 'Es wurden keine löschbaren Einträge ausgewählt. Nur PDFs ohne DATEV-Verknüpfung können gelöscht werden.');
+            return;
+        }
+
+        let message = `${deletableIds.length} PDF(s) ohne DATEV-Verknüpfung löschen?`;
+        if (nonDeletableIds.length > 0) {
+            message += `\n\n${nonDeletableIds.length} DATEV-Buchung(en) werden übersprungen (nur archivierbar).`;
+        }
+        message += '\n\nDie PDFs werden unwiderruflich gelöscht!';
+
+        if (!confirm(message)) return;
+
+        try {
+            let deletedCount = 0;
+
+            for (const invoiceId of deletableIds) {
+                // 1. PDF aus Storage löschen
+                const { data: invoice } = await SupabaseService.client
+                    .from('invoices')
+                    .select('file_path')
+                    .eq('id', invoiceId)
+                    .single();
+
+                if (invoice?.file_path) {
+                    await SupabaseService.client.storage
+                        .from('invoices')
+                        .remove([invoice.file_path]);
+                }
+
+                // 2. Invoice-Eintrag aus Datenbank löschen
+                const { error } = await SupabaseService.client
+                    .from('invoices')
+                    .delete()
+                    .eq('id', invoiceId);
+
+                if (error) {
+                    console.error('Lösch-Fehler für Invoice:', invoiceId, error);
+                } else {
+                    deletedCount++;
+                }
+            }
+
+            this.showToast('success', 'Gelöscht', `${deletedCount} PDF(s) gelöscht`);
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('error', 'Fehler', 'Löschen fehlgeschlagen: ' + error.message);
+        }
+
+        this.clearSelection();
+        if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+            SupabaseDataAdapter.invalidateCache();
+        }
+        await this.loadRechnungen();
     },
 
     massSetAbgabestelle: async function(abgabestelle) {
