@@ -1309,15 +1309,18 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Kosten nach Kategorie</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="text" id="kategorien-search" class="form-control" placeholder="Suche..." style="max-width: 200px; height: 32px; font-size: 0.85rem;" oninput="App.filterKategorien()">
+                            </div>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Kategorie</th>
-                                        <th>Konto-Bereich</th>
-                                        <th style="text-align: right;">Betrag</th>
-                                        <th style="text-align: right;">Anteil</th>
+                                        <th style="cursor: pointer;" onclick="App.sortKategorien('name')">Kategorie <span id="sort-kat-name"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortKategorien('bereich')">Konto-Bereich <span id="sort-kat-bereich"></span></th>
+                                        <th style="text-align: right; cursor: pointer;" onclick="App.sortKategorien('betrag')">Betrag <span id="sort-kat-betrag"></span></th>
+                                        <th style="text-align: right; cursor: pointer;" onclick="App.sortKategorien('anteil')">Anteil <span id="sort-kat-anteil"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="reporting-kategorien-table">

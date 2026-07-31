@@ -8185,6 +8185,11 @@ const App = {
         this.renderDbDetailTable(pattern, detailRow, searchTerm, this.dbDetailSort.column, this.dbDetailSort.direction);
     },
 
+    // Cache für Kategorien-Daten
+    kategorienCache: null,
+    kategorienGesamt: 0,
+    kategorienSort: { column: 'betrag', direction: 'desc' },
+
     loadKostenKategorien: async function(jahr) {
         const tbody = document.getElementById('reporting-kategorien-table');
         if (!tbody) return;
@@ -8223,49 +8228,135 @@ const App = {
                 }
 
                 if (!kategorien[kategorie]) {
-                    kategorien[kategorie] = { bereich, betrag: 0 };
+                    kategorien[kategorie] = { name: kategorie, bereich, betrag: 0 };
                 }
                 kategorien[kategorie].betrag += betrag;
                 gesamt += betrag;
             }
 
-            if (Object.keys(kategorien).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #666;">Keine Buchungen gefunden</td></tr>';
-                return;
-            }
+            // Anteil berechnen
+            Object.values(kategorien).forEach(k => {
+                k.anteil = gesamt > 0 ? (k.betrag / gesamt * 100) : 0;
+            });
 
-            tbody.innerHTML = '';
+            // Cache speichern
+            this.kategorienCache = Object.values(kategorien);
+            this.kategorienGesamt = gesamt;
 
-        tbody.innerHTML = '';
+            // Rendern mit Standard-Sortierung
+            this.renderKategorienTable();
 
-        // Sortieren nach Betrag
-        const sorted = Object.entries(kategorien).sort((a, b) => b[1].betrag - a[1].betrag);
-
-        sorted.forEach(([name, data]) => {
-            const anteil = gesamt > 0 ? (data.betrag / gesamt * 100) : 0;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${name}</td>
-                <td style="color: #666;">${data.bereich}</td>
-                <td style="text-align: right;">${this.formatCurrency(data.betrag)}</td>
-                <td style="text-align: right;">${anteil.toFixed(1)}%</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        // Summenzeile
-        const sumRow = document.createElement('tr');
-        sumRow.style.cssText = 'font-weight: bold; background: #f5f5f5;';
-        sumRow.innerHTML = `
-            <td colspan="2">GESAMT</td>
-            <td style="text-align: right;">${this.formatCurrency(gesamt)}</td>
-            <td style="text-align: right;">100%</td>
-        `;
-        tbody.appendChild(sumRow);
         } catch (error) {
             console.error('Fehler beim Laden der Kosten-Kategorien:', error);
             tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
         }
+    },
+
+    renderKategorienTable: function() {
+        const tbody = document.getElementById('reporting-kategorien-table');
+        if (!tbody || !this.kategorienCache) return;
+
+        const searchTerm = (document.getElementById('kategorien-search')?.value || '').toLowerCase();
+
+        // Filtern
+        let filtered = this.kategorienCache;
+        if (searchTerm) {
+            filtered = filtered.filter(k =>
+                k.name.toLowerCase().includes(searchTerm) ||
+                k.bereich.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #666;">Keine Kategorien gefunden</td></tr>';
+            this.updateKategorienSortIndicators();
+            return;
+        }
+
+        // Sortieren
+        const { column, direction } = this.kategorienSort;
+        const sorted = [...filtered].sort((a, b) => {
+            let valA, valB;
+            switch (column) {
+                case 'name':
+                    valA = a.name.toLowerCase();
+                    valB = b.name.toLowerCase();
+                    break;
+                case 'bereich':
+                    valA = a.bereich.toLowerCase();
+                    valB = b.bereich.toLowerCase();
+                    break;
+                case 'betrag':
+                    valA = a.betrag;
+                    valB = b.betrag;
+                    break;
+                case 'anteil':
+                    valA = a.anteil;
+                    valB = b.anteil;
+                    break;
+                default:
+                    return 0;
+            }
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        tbody.innerHTML = '';
+
+        sorted.forEach(data => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${data.name}</td>
+                <td style="color: #666;">${data.bereich}</td>
+                <td style="text-align: right;">${this.formatCurrency(data.betrag)}</td>
+                <td style="text-align: right;">${data.anteil.toFixed(1)}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Summenzeile (zeigt gefilterte Summe)
+        const filteredGesamt = filtered.reduce((sum, k) => sum + k.betrag, 0);
+        const sumRow = document.createElement('tr');
+        sumRow.style.cssText = 'font-weight: bold; background: #f5f5f5;';
+        sumRow.innerHTML = `
+            <td colspan="2">GESAMT${searchTerm ? ' (gefiltert)' : ''}</td>
+            <td style="text-align: right;">${this.formatCurrency(filteredGesamt)}</td>
+            <td style="text-align: right;">${this.kategorienGesamt > 0 ? ((filteredGesamt / this.kategorienGesamt) * 100).toFixed(1) : 0}%</td>
+        `;
+        tbody.appendChild(sumRow);
+
+        this.updateKategorienSortIndicators();
+    },
+
+    sortKategorien: function(column) {
+        if (this.kategorienSort.column === column) {
+            // Toggle Richtung
+            this.kategorienSort.direction = this.kategorienSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Neue Spalte, Standard: absteigend für Zahlen, aufsteigend für Text
+            this.kategorienSort.column = column;
+            this.kategorienSort.direction = (column === 'betrag' || column === 'anteil') ? 'desc' : 'asc';
+        }
+        this.renderKategorienTable();
+    },
+
+    filterKategorien: function() {
+        this.renderKategorienTable();
+    },
+
+    updateKategorienSortIndicators: function() {
+        const columns = ['name', 'bereich', 'betrag', 'anteil'];
+        columns.forEach(col => {
+            const span = document.getElementById(`sort-kat-${col}`);
+            if (span) {
+                if (this.kategorienSort.column === col) {
+                    span.textContent = this.kategorienSort.direction === 'asc' ? '▲' : '▼';
+                } else {
+                    span.textContent = '';
+                }
+            }
+        });
     },
 
     // ==========================================
