@@ -5246,24 +5246,63 @@ const App = {
         select.innerHTML = html;
     },
 
-    updateRechnungAbgabestelle: function() {
+    updateRechnungAbgabestelle: async function() {
         const rechnungId = document.getElementById('rd-rechnung-id').value;
         const abgabestelle = document.getElementById('rd-abgabestelle').value;
-        // Datum wird automatisch auf heute gesetzt wenn Wert gesetzt wird
+        const heute = new Date().toISOString().split('T')[0];
+
+        // localStorage aktualisieren
         DataManager.setAbgabestelle(rechnungId, abgabestelle || null);
+
+        // Supabase datev_bookings aktualisieren (für Einnahmenplanung-Ausgaben)
+        try {
+            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+            const dokumentNr = dokumentNrParts.join('_');
+
+            await SupabaseService.client
+                .from('datev_bookings')
+                .update({
+                    abgabestelle: abgabestelle || null,
+                    abgabestelle_am: abgabestelle ? heute : null
+                })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr);
+
+        } catch (error) {
+            console.error('Fehler beim Speichern der Abgabestelle in Supabase:', error);
+        }
+
         // Datumsfeld aktualisieren
         if (abgabestelle) {
-            const heute = new Date().toISOString().split('T')[0];
             document.getElementById('rd-abgabestelle-datum').value = heute;
         } else {
             document.getElementById('rd-abgabestelle-datum').value = '';
         }
     },
 
-    updateAbgabestelleDatum: function() {
+    updateAbgabestelleDatum: async function() {
         const rechnungId = document.getElementById('rd-rechnung-id').value;
         const datum = document.getElementById('rd-abgabestelle-datum').value;
+
+        // localStorage aktualisieren
         DataManager.setAbgabestelleDatum(rechnungId, datum || null);
+
+        // Supabase datev_bookings aktualisieren
+        try {
+            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+            const dokumentNr = dokumentNrParts.join('_');
+
+            await SupabaseService.client
+                .from('datev_bookings')
+                .update({
+                    abgabestelle_am: datum || null
+                })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr);
+
+        } catch (error) {
+            console.error('Fehler beim Speichern des Abgabestelle-Datums in Supabase:', error);
+        }
     },
 
     updateRechnungKostentyp: function() {
@@ -5337,6 +5376,28 @@ const App = {
                 return;
             }
 
+            const heute = new Date().toISOString().split('T')[0];
+
+            // Abgabestelle-Wert erstellen (funding:UUID oder null)
+            const abgabestelleValue = fundingSourceId ? `funding:${fundingSourceId}` : null;
+
+            // 1. localStorage aktualisieren
+            DataManager.setAbgabestelle(invoiceId, abgabestelleValue);
+
+            // 2. Supabase datev_bookings aktualisieren (für Einnahmenplanung-Ausgaben)
+            const [partitaIva, ...dokumentNrParts] = invoiceId.split('_');
+            const dokumentNr = dokumentNrParts.join('_');
+
+            await SupabaseService.client
+                .from('datev_bookings')
+                .update({
+                    abgabestelle: abgabestelleValue,
+                    abgabestelle_am: abgabestelleValue ? heute : null
+                })
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr);
+
+            // 3. Invoice-Tabelle auch aktualisieren (falls vorhanden)
             await DataManager.updateInvoiceFundingSource(invoiceId, fundingSourceId || null);
 
             this.showToast('success', 'Gespeichert', 'Abgabestelle wurde aktualisiert');
@@ -10589,13 +10650,14 @@ const App = {
             return;
         }
 
-        // Nach DB-Gruppen sortieren
+        // Nach DB-Gruppen sortieren - mit monatlichen Summen
+        const createMonthlyObj = () => ({ jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0 });
         const dbGruppen = {
-            'UMSATZ': { label: '1. UMSÄTZE', color: '#e8f5e9', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
-            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', color: '#fff3e0', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
-            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', color: '#e3f2fd', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
-            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', color: '#fce4ec', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
-            'SONSTIGE': { label: '5. SONSTIGE', color: '#f5f5f5', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 }
+            'UMSATZ': { label: '1. UMSÄTZE', sortOrder: 1, color: '#e8f5e9', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', sortOrder: 2, color: '#fff3e0', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', sortOrder: 3, color: '#e3f2fd', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', sortOrder: 4, color: '#fce4ec', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() },
+            'SONSTIGE': { label: '5. SONSTIGE', sortOrder: 5, color: '#f5f5f5', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0, budgetMonthly: createMonthlyObj(), istMonthly: createMonthlyObj() }
         };
 
         // Konten in Gruppen einsortieren UND Summen vorberechnen
