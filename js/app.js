@@ -4502,17 +4502,32 @@ const App = {
             const heute = new Date().toISOString();
 
             for (const rechnungId of this.selectedRechnungen) {
-                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-                const dokumentNr = dokumentNrParts.join('_');
+                // Prüfe ob es eine Invoice-ID ist (nur Zahlen) oder partitaIva_dokumentNr
+                const isInvoiceId = /^\d+$/.test(rechnungId);
 
-                await SupabaseService.client
-                    .from('datev_bookings')
-                    .update({
-                        archived: true,
-                        archived_at: heute
-                    })
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr);
+                if (isInvoiceId) {
+                    // Supabase-only Invoice (PDF ohne DATEV-Match)
+                    await SupabaseService.client
+                        .from('invoices')
+                        .update({
+                            archived: true,
+                            archived_at: heute
+                        })
+                        .eq('id', rechnungId);
+                } else {
+                    // DATEV-Buchung
+                    const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                    const dokumentNr = dokumentNrParts.join('_');
+
+                    await SupabaseService.client
+                        .from('datev_bookings')
+                        .update({
+                            archived: true,
+                            archived_at: heute
+                        })
+                        .eq('partita_iva', partitaIva)
+                        .eq('dokument_nr', dokumentNr);
+                }
             }
 
             this.showToast('success', 'Archiviert', `${count} Rechnung(en) archiviert`);
@@ -4522,6 +4537,7 @@ const App = {
         }
 
         this.clearSelection();
+        await DataManager.clearCache();
         this.loadRechnungen();
     },
 

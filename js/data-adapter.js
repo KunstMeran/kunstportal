@@ -704,6 +704,7 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('invoices')
                 .select('*')
+                .or('archived.is.null,archived.eq.false')  // Nur nicht-archivierte
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -888,7 +889,9 @@ const SupabaseDataAdapter = {
                         konto: null,
 
                         // UI-Flags
-                        isSupabaseOnly: true
+                        isSupabaseOnly: true,
+                        // rechnungId für Supabase-only: nur die Invoice-ID (für Archivierung etc.)
+                        rechnungId: String(inv.id)
                     };
                 });
 
