@@ -711,15 +711,8 @@
                                 <button class="btn btn-sm btn-success" onclick="App.massMarkBezahlt()" title="Ausgewählte als bezahlt markieren">
                                     Als bezahlt
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('gemeinde')">
-                                    Gemeinde
-                                </button>
-                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('region')">
-                                    Region
-                                </button>
-                                <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('provinz')">
-                                    Provinz
-                                </button>
+                                <!-- Abgabestelle-Buttons (dynamisch befüllt) -->
+                                <span id="mass-abgabestelle-buttons"></span>
                                 <button class="btn btn-sm" onclick="App.massArchive()" style="background: #ff9800; color: white;" title="Ausgewählte archivieren">
                                     Archivieren
                                 </button>

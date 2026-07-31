@@ -3372,6 +3372,32 @@ const App = {
             }
             abgabestelleSelect.innerHTML = html;
         }
+
+        // Massenaktions-Buttons für Abgabestellen befüllen
+        this.populateMassAbgabestelleButtons();
+    },
+
+    // Erstellt die Massenaktions-Buttons für Abgabestellen (inkl. Einnahmen)
+    populateMassAbgabestelleButtons: function() {
+        const container = document.getElementById('mass-abgabestelle-buttons');
+        if (!container) return;
+
+        // Standard-Buttons
+        let html = `
+            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('gemeinde')">Gemeinde</button>
+            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('region')">Region</button>
+            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('provinz')">Provinz</button>
+        `;
+
+        // Aktive Einnahmen als Buttons hinzufügen
+        if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
+            this.activeAbgabestellen.forEach(ab => {
+                const shortName = ab.code || ab.name.substring(0, 15);
+                html += `<button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('funding:${ab.id}')" title="${ab.name}" style="background: #e8f5e9;">${shortName}</button>`;
+            });
+        }
+
+        container.innerHTML = html;
     },
 
     // Ausgewählte Rechnungen (für Massenaktionen)
@@ -7581,60 +7607,75 @@ const App = {
         link.click();
     },
 
-    loadReportingProjekte: function(jahr) {
+    loadReportingProjekte: async function(jahr) {
         const tbody = document.getElementById('reporting-projekte-table');
         const tfoot = document.getElementById('reporting-projekte-footer');
         if (!tbody) return;
 
-        tbody.innerHTML = '';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Lade Projekte...</td></tr>';
 
-        const summaries = DataManager.getAllProjectsSummary();
-        let totalBudget = 0, totalIst = 0, totalPersonal = 0;
+        try {
+            // Projekte aus Supabase laden
+            const projects = await SupabaseDataAdapter.getProjects();
+            const startDate = `${jahr}-01-01`;
+            const endDate = `${jahr}-12-31`;
 
-        summaries.forEach(s => {
-            const verfuegbar = s.budget - s.ist - s.provisorisch;
-            const auslastung = s.budget > 0 ? ((s.ist + s.provisorisch) / s.budget * 100) : 0;
+            let totalBudget = 0, totalIst = 0, totalPersonal = 0;
+            tbody.innerHTML = '';
 
-            totalBudget += s.budget;
-            totalIst += s.ist;
+            if (!projects || projects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">Keine Projekte gefunden</td></tr>';
+                return;
+            }
 
-            // Personalkosten aus Zeiterfassung berechnen
-            const personalkosten = DataManager.getProjectLaborCost(s.project.id) || 0;
-            totalPersonal += personalkosten;
+            for (const project of projects) {
+                // Kosten für dieses Projekt im Jahr berechnen
+                const costs = await SupabaseDataAdapter.getProjectCosts(project.id, startDate, endDate);
+                const ist = costs.reduce((sum, c) => sum + Math.abs(parseFloat(c.betrag_brutto || c.betrag_gesamt || 0)), 0);
+                const budget = parseFloat(project.budget) || 0;
+                const verfuegbar = budget - ist;
+                const auslastung = budget > 0 ? (ist / budget * 100) : 0;
 
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><strong>${s.project.name}</strong></td>
-                <td>${s.project.datevKostenstelle || s.project.id}</td>
-                <td style="text-align: right;">${this.formatCurrency(s.budget)}</td>
-                <td style="text-align: right;">${this.formatCurrency(s.ist)}</td>
-                <td style="text-align: right;">${this.formatCurrency(personalkosten)}</td>
-                <td style="text-align: right; ${verfuegbar < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(verfuegbar)}</td>
-                <td>
-                    <div style="background: #e0e0e0; border-radius: 4px; height: 20px; position: relative;">
-                        <div style="background: ${auslastung > 100 ? '#e74c3c' : auslastung > 80 ? '#f39c12' : '#27ae60'};
-                                    width: ${Math.min(auslastung, 100)}%; height: 100%; border-radius: 4px;"></div>
-                        <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px;">
-                            ${auslastung.toFixed(0)}%
-                        </span>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
+                totalBudget += budget;
+                totalIst += ist;
 
-        // Footer mit Summen
-        if (tfoot) {
-            tfoot.innerHTML = `
-                <tr style="font-weight: bold; background: #f5f5f5;">
-                    <td colspan="2">SUMME</td>
-                    <td style="text-align: right;">${this.formatCurrency(totalBudget)}</td>
-                    <td style="text-align: right;">${this.formatCurrency(totalIst)}</td>
-                    <td style="text-align: right;">${this.formatCurrency(totalPersonal)}</td>
-                    <td style="text-align: right;">${this.formatCurrency(totalBudget - totalIst)}</td>
-                    <td></td>
-                </tr>
-            `;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${project.name}</strong></td>
+                    <td>${project.datev_kostenstelle || '-'}</td>
+                    <td style="text-align: right;">${this.formatCurrency(budget)}</td>
+                    <td style="text-align: right;">${this.formatCurrency(ist)}</td>
+                    <td style="text-align: right;">-</td>
+                    <td style="text-align: right; ${verfuegbar < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(verfuegbar)}</td>
+                    <td>
+                        <div style="background: #e0e0e0; border-radius: 4px; height: 20px; position: relative;">
+                            <div style="background: ${auslastung > 100 ? '#e74c3c' : auslastung > 80 ? '#f39c12' : '#27ae60'};
+                                        width: ${Math.min(auslastung, 100)}%; height: 100%; border-radius: 4px;"></div>
+                            <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px;">
+                                ${auslastung.toFixed(0)}%
+                            </span>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+
+            // Footer mit Summen
+            if (tfoot) {
+                tfoot.innerHTML = `
+                    <tr style="font-weight: bold; background: #f5f5f5;">
+                        <td colspan="2">SUMME</td>
+                        <td style="text-align: right;">${this.formatCurrency(totalBudget)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(totalIst)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(totalPersonal)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(totalBudget - totalIst)}</td>
+                        <td></td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Projektübersicht:', error);
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
         }
     },
 
