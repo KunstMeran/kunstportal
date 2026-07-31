@@ -7845,18 +7845,29 @@ const App = {
     },
 
     showNewEinnahmeForm: function() {
-        document.getElementById('einnahme-modal-title').textContent = 'Neue Einnahme';
-        document.getElementById('einnahme-id').value = '';
-        document.getElementById('einnahme-code').value = '';
-        document.getElementById('einnahme-name').value = '';
-        document.getElementById('einnahme-quelle').value = '';
-        document.getElementById('einnahme-jahr').value = new Date().getFullYear();
-        document.getElementById('einnahme-betrag-plan').value = '';
-        document.getElementById('einnahme-status').value = 'offen';
-        document.getElementById('einnahme-abgabestelle').checked = false;
-        document.getElementById('einnahme-dokument').value = '';
-        document.getElementById('einnahme-dokument-vorschau').innerHTML = '';
-        document.getElementById('einnahme-notizen').value = '';
+        const modal = document.getElementById('einnahme-form-modal');
+        if (!modal) {
+            console.error('Modal einnahme-form-modal nicht gefunden');
+            return;
+        }
+
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+        const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+        const setChk = (id, chk) => { const el = document.getElementById(id); if (el) el.checked = chk; };
+
+        setTxt('einnahme-modal-title', 'Neue Einnahme');
+        setVal('einnahme-id', '');
+        setVal('einnahme-code', '');
+        setVal('einnahme-name', '');
+        setVal('einnahme-quelle', '');
+        setVal('einnahme-jahr', new Date().getFullYear());
+        setVal('einnahme-betrag', '');
+        setVal('einnahme-status', 'offen');
+        setChk('einnahme-abgabestelle', false);
+        setVal('einnahme-dokument', '');
+        setHtml('einnahme-dokument-vorschau', '');
+        setVal('einnahme-notizen', '');
 
         // Generiere automatisch den nächsten Code
         this.generateNextEinnahmeCode();
