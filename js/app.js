@@ -3615,16 +3615,20 @@ const App = {
                                 title="PDF-Verknüpfung trennen"${Icons.close}</button>` : ''}
                     </div>` :
                     (() => {
-                        const pdfDropdownId = `pdf-dropdown-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
-                        const uploadInputId = `upload-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
-                        const dropZoneId = `dropzone-${r.partitaIva}-${r.dokumentNr}`.replace(/[^a-zA-Z0-9-]/g, '');
+                        // Eindeutige ID für Upload-Felder (auch ohne dokumentNr)
+                        const uniqueId = r.id || r.rechnungId || `${r.partitaIva}-${rowNumber}`;
+                        const safeId = String(uniqueId).replace(/[^a-zA-Z0-9-]/g, '');
+                        const pdfDropdownId = `pdf-dropdown-${safeId}`;
+                        const uploadInputId = `upload-${safeId}`;
+                        const dropZoneId = `dropzone-${safeId}`;
                         return `<div class="pdf-drop-zone" id="${dropZoneId}"
                                     data-partita-iva="${r.partitaIva}"
                                     data-dokument-nr="${r.dokumentNr}"
+                                    data-rechnung-id="${r.rechnungId}"
                                     style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; border: 2px dashed transparent; border-radius: 4px; transition: all 0.2s;"
                                     ondragover="App.handlePdfDragOver(event, '${dropZoneId}')"
                                     ondragleave="App.handlePdfDragLeave(event, '${dropZoneId}')"
-                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva}', '${r.dokumentNr}')">
+                                    ondrop="App.handlePdfDrop(event, '${r.partitaIva}', '${r.dokumentNr}', '${r.rechnungId}')">
                                     <div class="pdf-search-container" style="position: relative; min-width: 200px;">
                                         <input type="text"
                                                id="input-${pdfDropdownId}"
@@ -3638,7 +3642,7 @@ const App = {
                                         </div>
                                     </div>
                                     <input type="file" id="${uploadInputId}" accept=".pdf" style="display: none;" multiple
-                                           onchange="App.uploadPdfForBuchung('${r.partitaIva}', '${r.dokumentNr}', this)">
+                                           onchange="App.uploadPdfForBuchung('${r.partitaIva}', '${r.dokumentNr}', this, '${r.rechnungId}')">
                                     <button class="btn btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.7rem; background: #4CAF50; color: white;"
                                             onclick="document.getElementById('${uploadInputId}').click()" title="PDF hochladen">
                                         ↑
@@ -3860,7 +3864,7 @@ const App = {
         }
     },
 
-    handlePdfDrop: async function(event, partitaIva, dokumentNr) {
+    handlePdfDrop: async function(event, partitaIva, dokumentNr, rechnungId = null) {
         event.preventDefault();
         event.stopPropagation();
 
@@ -3884,21 +3888,24 @@ const App = {
 
         // Upload alle PDFs
         for (const file of pdfFiles) {
-            await this.uploadPdfFile(partitaIva, dokumentNr, file);
+            await this.uploadPdfFile(partitaIva, dokumentNr, file, rechnungId);
         }
     },
 
     /**
      * Hilfsfunktion für PDF-Upload (von Drag & Drop oder File Input)
+     * Unterstützt auch Buchungen ohne dokumentNr - dann wird rechnungId verwendet
      */
-    uploadPdfFile: async function(partitaIva, dokumentNr, file) {
+    uploadPdfFile: async function(partitaIva, dokumentNr, file, rechnungId = null) {
         try {
             this.showToast('info', 'Upload...', `${file.name} wird hochgeladen...`);
 
-            // Dateiname generieren: 2026_PartitaIva_DokumentNr.pdf
+            // Dateiname generieren
             const year = new Date().getFullYear();
             const timestamp = Date.now();
-            const newFileName = `${year}_${partitaIva}_${dokumentNr}_${timestamp}.pdf`;
+            // Bei fehlender dokumentNr: eindeutige ID aus rechnungId oder Timestamp
+            const docNrPart = dokumentNr || rechnungId || timestamp;
+            const newFileName = `${year}_${partitaIva || 'NODOC'}_${docNrPart}_${timestamp}.pdf`;
             const filePath = `invoices/${newFileName}`;
 
             // Upload zu Supabase Storage
@@ -3914,8 +3921,8 @@ const App = {
                 .insert({
                     file_name: newFileName,
                     file_path: filePath,
-                    partita_iva: partitaIva,
-                    invoice_number: dokumentNr,
+                    partita_iva: partitaIva || null,
+                    invoice_number: dokumentNr || null,
                     status: 'uploaded'
                 })
                 .select()
@@ -3923,7 +3930,20 @@ const App = {
 
             if (dbError) throw dbError;
 
-            this.showToast('success', 'Hochgeladen', `${file.name} wurde hochgeladen und verknüpft`);
+            // Wenn wir eine rechnungId haben, verknüpfe mit der datev_bookings Tabelle
+            if (rechnungId && invoiceData) {
+                const [pIva, ...dNrParts] = rechnungId.split('_');
+                const dNr = dNrParts.join('_');
+
+                // linked_invoice_id in datev_bookings setzen
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ linked_invoice_id: invoiceData.id })
+                    .eq('partita_iva', pIva)
+                    .eq('dokument_nr', dNr);
+            }
+
+            this.showToast('success', 'Hochgeladen', `${file.name} wurde hochgeladen${dokumentNr ? ' und verknüpft' : ''}`);
             await this.reloadRechnungenKeepState();
 
         } catch (error) {
@@ -3935,13 +3955,13 @@ const App = {
     /**
      * Direkter PDF-Upload für eine Buchung (über File-Input)
      */
-    uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement) {
+    uploadPdfForBuchung: async function(partitaIva, dokumentNr, inputElement, rechnungId = null) {
         const files = inputElement.files;
         if (!files || files.length === 0) return;
 
         // Upload alle ausgewählten PDFs
         for (const file of files) {
-            await this.uploadPdfFile(partitaIva, dokumentNr, file);
+            await this.uploadPdfFile(partitaIva, dokumentNr, file, rechnungId);
         }
 
         // Input zurücksetzen
