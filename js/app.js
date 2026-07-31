@@ -5024,6 +5024,9 @@ const App = {
         document.getElementById('rd-kostentyp').value = rechnung.kostentyp || '';
         document.getElementById('rd-kostentyp-datum').value = rechnung.kostentypAm || '';
 
+        // Abgabestelle-Dropdown mit aktiven Abgabestellen befüllen
+        this.populateAbgabestelleDropdown('rd-abgabestelle');
+
         // Abgabestelle mit Datum
         document.getElementById('rd-abgabestelle').value = rechnung.abgabestelle || '';
         document.getElementById('rd-abgabestelle-datum').value = rechnung.abgabestelleAm || '';
@@ -5135,6 +5138,32 @@ const App = {
         DataManager.markAsBezahlt(rechnungId);
         this.hideModal('rechnung-detail-modal');
         this.loadRechnungen();
+    },
+
+    // Befüllt ein Abgabestelle-Dropdown mit Standard-Optionen + aktiven Abgabestellen aus Einnahmeplanung
+    populateAbgabestelleDropdown: function(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        // Standard-Optionen
+        let html = `
+            <option value="">-- Nicht zugeordnet --</option>
+            <option value="gemeinde">Gemeinde</option>
+            <option value="region">Region</option>
+            <option value="provinz">Provinz</option>
+        `;
+
+        // Aktive Abgabestellen aus Einnahmeplanung hinzufügen
+        if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
+            html += `<optgroup label="Einnahmen">`;
+            this.activeAbgabestellen.forEach(ab => {
+                // Verwende die ID als Wert mit Präfix, um sie von Standard-Optionen zu unterscheiden
+                html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
+            });
+            html += `</optgroup>`;
+        }
+
+        select.innerHTML = html;
     },
 
     updateRechnungAbgabestelle: function() {
@@ -6998,6 +7027,10 @@ const App = {
     // REPORTING
     // ==========================================
 
+    // Aktueller Reporting-Tab
+    currentReportingTab: 0,
+    totalReportingTabs: 5,
+
     loadReporting: function() {
         const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
 
@@ -7012,6 +7045,80 @@ const App = {
 
         // Neue DB-Projekt-Ansicht laden
         this.loadDeckungsbeitragProjekte();
+
+        // Tab-Navigation initialisieren
+        this.updateReportingTabState();
+    },
+
+    /**
+     * Zeigt einen bestimmten Reporting-Tab an
+     */
+    showReportingTab: function(tabIndex) {
+        this.currentReportingTab = tabIndex;
+
+        // Alle Tabs verstecken
+        document.querySelectorAll('.reporting-tab-content').forEach(tab => {
+            tab.classList.add('hidden');
+        });
+
+        // Gewählten Tab anzeigen
+        const selectedTab = document.getElementById(`reporting-tab-${tabIndex}`);
+        if (selectedTab) {
+            selectedTab.classList.remove('hidden');
+        }
+
+        // Tab-Buttons aktualisieren
+        document.querySelectorAll('.reporting-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (parseInt(btn.dataset.tab) === tabIndex) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Navigation-State aktualisieren
+        this.updateReportingTabState();
+    },
+
+    /**
+     * Zum vorherigen Tab wechseln
+     */
+    prevReportingTab: function() {
+        if (this.currentReportingTab > 0) {
+            this.showReportingTab(this.currentReportingTab - 1);
+        }
+    },
+
+    /**
+     * Zum nächsten Tab wechseln
+     */
+    nextReportingTab: function() {
+        if (this.currentReportingTab < this.totalReportingTabs - 1) {
+            this.showReportingTab(this.currentReportingTab + 1);
+        }
+    },
+
+    /**
+     * Aktualisiert den State der Navigation (Pfeile, Indikator)
+     */
+    updateReportingTabState: function() {
+        const prevBtn = document.getElementById('reporting-prev-btn');
+        const nextBtn = document.getElementById('reporting-next-btn');
+        const indicator = document.getElementById('reporting-page-indicator');
+
+        // Pfeile aktivieren/deaktivieren
+        if (prevBtn) {
+            prevBtn.disabled = this.currentReportingTab === 0;
+            prevBtn.style.opacity = this.currentReportingTab === 0 ? '0.3' : '1';
+        }
+        if (nextBtn) {
+            nextBtn.disabled = this.currentReportingTab === this.totalReportingTabs - 1;
+            nextBtn.style.opacity = this.currentReportingTab === this.totalReportingTabs - 1 ? '0.3' : '1';
+        }
+
+        // Seiten-Indikator aktualisieren
+        if (indicator) {
+            indicator.textContent = `Seite ${this.currentReportingTab + 1} von ${this.totalReportingTabs}`;
+        }
     },
 
     // Cache für DB-Ergebnisse
