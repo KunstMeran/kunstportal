@@ -1611,38 +1611,74 @@ const SupabaseDataAdapter = {
 
     /**
      * Berechnet die Ausgaben für eine Funding Source
-     * Sucht nach Buchungen in datev_bookings mit abgabestelle = 'funding:ID'
+     * Sucht nach:
+     * 1. Buchungen in datev_bookings mit abgabestelle = 'funding:ID'
+     * 2. Unverknüpfte PDFs in invoices mit funding_source_id = ID
      */
     async getFundingSourceExpenses(fundingSourceId) {
         try {
-            // Suche nach Buchungen mit dieser Abgabestelle (Format: "funding:UUID")
-            // Die abgabestelle-Spalte ist in datev_bookings, NICHT in invoices
             const abgabestelleValue = `funding:${fundingSourceId}`;
+            let allInvoices = [];
+            let totalBrutto = 0;
 
-            const { data, error } = await SupabaseService.client
+            // 1. DATEV-Buchungen mit dieser Abgabestelle
+            const { data: datevData, error: datevError } = await SupabaseService.client
                 .from('datev_bookings')
                 .select('id, betrag, fornitore_name, dokument_nr, datum')
                 .eq('abgabestelle', abgabestelleValue);
 
-            if (error) throw error;
+            if (datevError) {
+                console.error('Fehler beim Laden der DATEV-Buchungen:', datevError);
+            } else if (datevData) {
+                datevData.forEach(b => {
+                    const betrag = Math.abs(parseFloat(b.betrag) || 0);
+                    totalBrutto += betrag;
+                    allInvoices.push({
+                        id: b.id,
+                        betrag_netto: betrag * 0.82,
+                        betrag_gesamt: betrag,
+                        lieferant_name: b.fornitore_name,
+                        dokument_nr: b.dokument_nr,
+                        datum: b.datum,
+                        source: 'datev'
+                    });
+                });
+            }
 
-            // Bei datev_bookings ist "betrag" der Bruttobetrag
-            const totalBrutto = data.reduce((sum, booking) => sum + (Math.abs(parseFloat(booking.betrag)) || 0), 0);
-            // Netto schätzen (ca. 81% von Brutto bei 22% MwSt in Italien)
+            // 2. Unverknüpfte PDFs (invoices ohne linked_booking_id) mit dieser funding_source_id
+            const { data: invoiceData, error: invoiceError } = await SupabaseService.client
+                .from('invoices')
+                .select('id, file_name, created_at, amount')
+                .eq('funding_source_id', fundingSourceId)
+                .is('linked_booking_id', null);
+
+            if (invoiceError) {
+                console.error('Fehler beim Laden der unverknüpften Invoices:', invoiceError);
+            } else if (invoiceData) {
+                invoiceData.forEach(inv => {
+                    // Unverknüpfte PDFs haben normalerweise keinen Betrag - aber falls doch
+                    const betrag = Math.abs(parseFloat(inv.amount) || 0);
+                    totalBrutto += betrag;
+                    allInvoices.push({
+                        id: inv.id,
+                        betrag_netto: betrag * 0.82,
+                        betrag_gesamt: betrag,
+                        lieferant_name: inv.file_name || 'PDF',
+                        dokument_nr: '-',
+                        datum: inv.created_at ? inv.created_at.split('T')[0] : null,
+                        source: 'invoice'
+                    });
+                });
+            }
+
+            // Netto schätzen (ca. 82% von Brutto bei 22% MwSt in Italien)
             const totalNetto = totalBrutto * 0.82;
 
             return {
-                count: data.length,
+                count: allInvoices.length,
                 totalNetto,
                 totalBrutto,
-                invoices: data.map(b => ({
-                    id: b.id,
-                    betrag_netto: Math.abs(parseFloat(b.betrag) || 0) * 0.82,
-                    betrag_gesamt: Math.abs(parseFloat(b.betrag) || 0),
-                    lieferant_name: b.fornitore_name,
-                    dokument_nr: b.dokument_nr,
-                    datum: b.datum
-                }))
+                invoices: allInvoices
             };
         } catch (error) {
             console.error('Fehler beim Berechnen der Ausgaben:', error);
