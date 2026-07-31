@@ -1169,6 +1169,10 @@ const App = {
                 betrag: r.betrag || 0,
                 pdfExists: r.pdfExists,
                 filePath: r.filePath,
+                linkedInvoices: r.linkedInvoices || [],
+                pdfCount: r.pdfCount || (r.pdfExists ? 1 : 0),
+                partitaIva: r.partitaIva,
+                dokumentNr: r.dokumentNr,
                 isDatev: true,
                 rechnungId: r.id,
                 workflowStatus: r.workflowStatus || 'neu',
@@ -1323,10 +1327,19 @@ const App = {
                 bezahltCell = '<span style="color: #999; font-size: 0.8rem;">-</span>';
             }
 
-            // Aktionen
+            // Aktionen - Mehrere PDFs anzeigen wenn vorhanden
             let aktionen = '-';
-            if (k.pdfExists && k.filePath) {
-                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${k.filePath}')">PDF</button>`;
+            if (k.pdfExists) {
+                const linkedInvoices = k.linkedInvoices || [];
+                if (linkedInvoices.length > 1) {
+                    // Mehrere PDFs - alle als Links anzeigen
+                    aktionen = linkedInvoices.map((inv, idx) =>
+                        `<button class="btn btn-sm btn-outline" style="padding: 0.1rem 0.3rem; margin-right: 0.15rem;" onclick="App.openPdf('${inv.filePath}')">PDF${idx + 1}</button>`
+                    ).join('');
+                } else if (k.filePath) {
+                    // Einzelnes PDF
+                    aktionen = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${k.filePath}')">PDF</button>`;
+                }
             } else if (!k.isDatev && k.costId) {
                 aktionen = `<button class="btn btn-sm btn-outline" onclick="App.editCost('${k.costId}')"${Icons.edit}</button>`;
             }
