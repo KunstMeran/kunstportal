@@ -827,9 +827,9 @@ const SupabaseDataAdapter = {
     /**
      * Parst PDF-Dateiname und extrahiert Partita IVA und Rechnungsnummer
      * Formate:
-     * 1. Neues: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum.pdf (5 Teile)
-     * 2. Timestamp: Timestamp_PartitaIVA_RechnungsNr.pdf (3 Teile, erster ist Zahl >1000000000)
-     * 3. Alt: PartitaIVA_RechnungsNr.pdf (2 Teile)
+     * 1. Jahr_PartitaIVA_RechnungsNr.pdf (3 Teile, Jahr = 4 Ziffern, PartitaIVA beginnt mit IT)
+     * 2. Timestamp_PartitaIVA_RechnungsNr.pdf (3 Teile, Timestamp = 10+ Ziffern)
+     * 3. PartitaIVA_RechnungsNr.pdf (2 Teile)
      */
     parseInvoiceFilename(filename) {
         if (!filename) {
@@ -839,28 +839,25 @@ const SupabaseDataAdapter = {
         const nameWithoutExt = filename.replace(/\.pdf$/i, '');
         const parts = nameWithoutExt.split('_');
 
-        // Neues Format mit 5 Teilen: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum
-        if (parts.length >= 5) {
-            return {
-                year: parts[0],
-                partitaIva: parts[1],
-                fornitore: parts[2],
-                invoiceNumber: parts[3],
-                valid: true
-            };
+        // 3-Teile Format: Jahr_PartitaIVA_RechnungsNr (z.B. 2026_IT00098090210_5000758)
+        // oder Timestamp_PartitaIVA_RechnungsNr
+        if (parts.length >= 3) {
+            const firstPart = parts[0];
+            // Prüfe ob erster Teil Jahr (4 Ziffern) oder Timestamp (10+ Ziffern) ist
+            if (/^\d{4}$/.test(firstPart) || /^\d{10,}$/.test(firstPart)) {
+                // Zweiter Teil sollte mit IT beginnen (Partita IVA)
+                if (parts[1].startsWith('IT')) {
+                    return {
+                        partitaIva: parts[1],
+                        invoiceNumber: parts.slice(2).join('_'),
+                        valid: true
+                    };
+                }
+            }
         }
 
-        // Timestamp Format: 1783676713299_IT00882800212_9774600117.pdf
-        if (parts.length === 3 && /^\d{10,}$/.test(parts[0])) {
-            return {
-                partitaIva: parts[1],
-                invoiceNumber: parts[2],
-                valid: true
-            };
-        }
-
-        // Altes Format mit 2+ Teilen: PartitaIVA_RechnungsNr
-        if (parts.length >= 2) {
+        // 2-Teile Format: PartitaIVA_RechnungsNr (z.B. IT00098090210_5000758)
+        if (parts.length >= 2 && parts[0].startsWith('IT')) {
             return {
                 partitaIva: parts[0],
                 invoiceNumber: parts.slice(1).join('_'),
