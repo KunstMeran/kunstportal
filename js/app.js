@@ -3939,7 +3939,7 @@ const App = {
     },
 
     /**
-     * Zeigt PDF-Vorschau aus Supabase Storage
+     * Zeigt PDF-Vorschau aus Supabase Storage im Modal
      */
     previewPdfFromStorage: async function(filePath) {
         if (!filePath) {
@@ -3948,11 +3948,34 @@ const App = {
         }
 
         try {
+            // Extrahiere Dateinamen aus Pfad für Titel
+            const fileName = filePath.split('/').pop() || 'PDF';
+            document.getElementById('pdf-preview-title').textContent = fileName;
+            document.getElementById('pdf-preview-frame').style.display = 'none';
+            document.getElementById('pdf-preview-error').style.display = 'none';
+
+            const iframe = document.getElementById('pdf-preview-frame');
+            iframe.src = 'about:blank';
+
+            this.showModal('pdf-preview-modal');
+
+            // Speichere Daten (ohne Invoice-Verknüpfung)
+            this.currentPdfPreviewData = { partitaIva: null, dokumentNr: null, filePath: filePath, invoiceId: null };
+
             const signedUrl = await StorageService.getSignedUrl(filePath);
-            window.open(signedUrl, '_blank');
+            this.currentPdfPath = signedUrl;
+            iframe.src = signedUrl;
+            iframe.style.display = '';
+
+            iframe.onerror = () => {
+                iframe.style.display = 'none';
+                document.getElementById('pdf-preview-error').style.display = '';
+            };
         } catch (error) {
             console.error('Fehler beim Laden des PDFs:', error);
-            this.showToast('error', 'Fehler', 'PDF konnte nicht geladen werden');
+            document.getElementById('pdf-preview-frame').style.display = 'none';
+            document.getElementById('pdf-preview-error').style.display = '';
+            document.getElementById('pdf-preview-error-details').textContent = `Pfad: ${filePath}`;
         }
     },
 
@@ -5464,6 +5487,7 @@ const App = {
     // Alle Lieferanten-Daten speichern für Filter
     allLieferanten: [],
     allLieferantenRechnungen: [],
+    lieferantenSelectedYear: new Date().getFullYear(),
 
     loadLieferanten: async function() {
         const lieferanten = await DataManager.getDatevLieferanten();
@@ -5473,27 +5497,81 @@ const App = {
         this.allLieferanten = lieferanten;
         this.allLieferantenRechnungen = rechnungen;
 
-        // Statistiken berechnen
-        let gesamtvolumen = 0;
-        let mitRechnungen = 0;
-
-        lieferanten.forEach(l => {
-            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
-            if (lieferantRechnungen.length > 0) {
-                mitRechnungen++;
-                gesamtvolumen += lieferantRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
+        // Jahre aus Rechnungen ermitteln
+        const jahre = new Set();
+        rechnungen.forEach(r => {
+            const datum = r.datum || r.belegdatum;
+            if (datum) {
+                jahre.add(new Date(datum).getFullYear());
             }
         });
+        const jahreArray = Array.from(jahre).sort((a, b) => b - a);
 
-        document.getElementById('stat-lieferanten-total').textContent = lieferanten.length;
-        document.getElementById('stat-lieferanten-aktiv').textContent = mitRechnungen;
-        document.getElementById('stat-lieferanten-summe').textContent = this.formatCurrency(gesamtvolumen);
+        // Jahresfilter befüllen
+        const jahrSelect = document.getElementById('lieferanten-filter-jahr');
+        if (jahrSelect) {
+            const currentYear = new Date().getFullYear();
+            jahrSelect.innerHTML = jahreArray.map(j =>
+                `<option value="${j}" ${j === currentYear ? 'selected' : ''}>${j}</option>`
+            ).join('');
+            this.lieferantenSelectedYear = currentYear;
+        }
+
+        // Statistiken und Tabelle für aktuelles Jahr rendern
+        this.updateLieferantenStatistiken();
 
         // Suchfeld leeren
         document.getElementById('lieferanten-search').value = '';
 
         // Tabelle rendern
-        this.renderLieferantenTable(lieferanten);
+        this.renderLieferantenTable(this.allLieferanten);
+    },
+
+    filterLieferantenByYear: function() {
+        const jahrSelect = document.getElementById('lieferanten-filter-jahr');
+        this.lieferantenSelectedYear = parseInt(jahrSelect.value);
+
+        // Statistiken aktualisieren
+        this.updateLieferantenStatistiken();
+
+        // Tabelle neu rendern
+        this.filterLieferanten();
+    },
+
+    updateLieferantenStatistiken: function() {
+        const selectedYear = this.lieferantenSelectedYear;
+        const rechnungen = this.allLieferantenRechnungen;
+        const lieferanten = this.allLieferanten;
+
+        // Rechnungen des gewählten Jahres filtern
+        const rechnungenImJahr = rechnungen.filter(r => {
+            const datum = r.datum || r.belegdatum;
+            return datum && new Date(datum).getFullYear() === selectedYear;
+        });
+
+        // Statistiken berechnen
+        let gesamtvolumen = 0;
+        let mitRechnungen = 0;
+        const lieferantenMitRechnungen = new Set();
+
+        rechnungenImJahr.forEach(r => {
+            gesamtvolumen += r.betrag || 0;
+            if (r.partitaIva) {
+                lieferantenMitRechnungen.add(r.partitaIva);
+            }
+        });
+
+        mitRechnungen = lieferantenMitRechnungen.size;
+
+        // Spaltenüberschriften aktualisieren
+        const thJahr = document.getElementById('th-lieferant-jahr');
+        const thVorjahr = document.getElementById('th-lieferant-vorjahr');
+        if (thJahr) thJahr.textContent = selectedYear;
+        if (thVorjahr) thVorjahr.textContent = selectedYear - 1;
+
+        document.getElementById('stat-lieferanten-total').textContent = lieferanten.length;
+        document.getElementById('stat-lieferanten-aktiv').textContent = mitRechnungen;
+        document.getElementById('stat-lieferanten-summe').textContent = this.formatCurrency(gesamtvolumen);
     },
 
     filterLieferanten: function() {
@@ -5523,16 +5601,16 @@ const App = {
         const tbody = document.getElementById('lieferanten-table-body');
         tbody.innerHTML = '';
         const rechnungen = this.allLieferantenRechnungen;
-        const currentYear = new Date().getFullYear();
+        const selectedYear = this.lieferantenSelectedYear;
+        const vorjahr = selectedYear - 1;
 
         if (lieferanten.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden.</td></tr>';
             return;
         }
 
         lieferanten.forEach(l => {
             const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
-            const summe = lieferantRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
             const hatName = l.name && l.name.trim() !== '';
             const displayName = hatName ? l.name : '(Unbekannt)';
             const nameStyle = hatName ? '' : 'color: #999; font-style: italic;';
@@ -5541,12 +5619,38 @@ const App = {
             const adressParts = [l.address, l.city, l.country].filter(Boolean);
             const adresse = adressParts.join(', ') || '-';
 
-            // Rechnungen dieses Jahr
-            const rechnungenDiesesJahr = lieferantRechnungen.filter(r => {
+            // Rechnungen für gewähltes Jahr
+            const rechnungenJahr = lieferantRechnungen.filter(r => {
                 const datum = r.datum || r.belegdatum;
-                return datum && new Date(datum).getFullYear() === currentYear;
+                return datum && new Date(datum).getFullYear() === selectedYear;
             });
-            const summeDiesesJahr = rechnungenDiesesJahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+            const summeJahr = rechnungenJahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            // Rechnungen für Vorjahr
+            const rechnungenVorjahr = lieferantRechnungen.filter(r => {
+                const datum = r.datum || r.belegdatum;
+                return datum && new Date(datum).getFullYear() === vorjahr;
+            });
+            const summeVorjahr = rechnungenVorjahr.reduce((sum, r) => sum + (r.betrag || 0), 0);
+
+            // Prozentuale Veränderung berechnen
+            let prozentText = '-';
+            let prozentStyle = 'color: #666;';
+            if (summeVorjahr > 0) {
+                const prozent = ((summeJahr - summeVorjahr) / summeVorjahr) * 100;
+                if (prozent > 0) {
+                    prozentText = `+${prozent.toFixed(1)}%`;
+                    prozentStyle = 'color: #dc3545; font-weight: 500;'; // Rot für mehr Ausgaben
+                } else if (prozent < 0) {
+                    prozentText = `${prozent.toFixed(1)}%`;
+                    prozentStyle = 'color: #28a745; font-weight: 500;'; // Grün für weniger Ausgaben
+                } else {
+                    prozentText = '0%';
+                }
+            } else if (summeJahr > 0) {
+                prozentText = 'neu';
+                prozentStyle = 'color: #007bff; font-style: italic;';
+            }
 
             // Hauptzeile mit Expand-Button
             const row = document.createElement('tr');
@@ -5565,8 +5669,9 @@ const App = {
                 </td>
                 <td>${l.partitaIva}</td>
                 <td style="font-size: 0.85rem; color: #666;">${adresse}</td>
-                <td style="text-align: right;">${lieferantRechnungen.length}</td>
-                <td style="text-align: right;">${this.formatCurrency(summe)}</td>
+                <td style="text-align: right;">${this.formatCurrency(summeJahr)}</td>
+                <td style="text-align: right; color: #666;">${this.formatCurrency(summeVorjahr)}</td>
+                <td style="text-align: right; ${prozentStyle}">${prozentText}</td>
             `;
             tbody.appendChild(row);
 
@@ -5575,13 +5680,13 @@ const App = {
             detailRow.id = `lieferant-detail-${l.partitaIva}`;
             detailRow.style.display = 'none';
             detailRow.innerHTML = `
-                <td colspan="6" style="background: #f8f9fa; padding: 1rem;">
+                <td colspan="7" style="background: #f8f9fa; padding: 1rem;">
                     <div style="margin-bottom: 0.75rem;">
-                        <strong>${currentYear}:</strong> ${rechnungenDiesesJahr.length} Rechnungen, ${this.formatCurrency(summeDiesesJahr)}
-                        <span style="color: #666; margin-left: 1rem;">| Gesamt: ${lieferantRechnungen.length} Rechnungen</span>
+                        <strong>${selectedYear}:</strong> ${rechnungenJahr.length} Rechnungen, ${this.formatCurrency(summeJahr)}
+                        <span style="color: #666; margin-left: 1rem;">| ${vorjahr}: ${rechnungenVorjahr.length} Rechnungen, ${this.formatCurrency(summeVorjahr)}</span>
                     </div>
                     <div id="lieferant-rechnungen-${l.partitaIva}">
-                        ${this.renderLieferantRechnungenList(rechnungenDiesesJahr, l.partitaIva)}
+                        ${this.renderLieferantRechnungenList(rechnungenJahr, l.partitaIva)}
                     </div>
                 </td>
             `;

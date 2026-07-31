@@ -790,9 +790,14 @@
             <div id="view-lieferanten" class="view-content hidden">
                 <div class="page-header">
                     <h1 class="page-title">Lieferanten</h1>
-                    <button class="btn btn-primary" onclick="App.showNewSupplierForm()">
-                        + Neuer Lieferant
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="lieferanten-filter-jahr" class="form-control" style="width: auto; min-width: 100px;" onchange="App.filterLieferantenByYear()">
+                            <!-- Wird dynamisch befüllt -->
+                        </select>
+                        <button class="btn btn-primary" onclick="App.showNewSupplierForm()">
+                            + Neuer Lieferant
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Lieferanten-Statistik -->
@@ -833,8 +838,9 @@
                                     <th>Lieferant</th>
                                     <th>Partita IVA</th>
                                     <th>Adresse</th>
-                                    <th style="text-align: right;">Rechnungen</th>
-                                    <th style="text-align: right;">Gesamtbetrag</th>
+                                    <th style="text-align: right;" id="th-lieferant-jahr">2026</th>
+                                    <th style="text-align: right;" id="th-lieferant-vorjahr">2025</th>
+                                    <th style="text-align: right;">+/- %</th>
                                 </tr>
                             </thead>
                             <tbody id="lieferanten-table-body">

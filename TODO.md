@@ -15,35 +15,25 @@ Stand: 2026-07-29
 
 ---
 
-## 🚨 Blockierend / Ausstehende Migrationen
+## ✅ Migrationen (erledigt)
 
-### In Supabase SQL Editor ausführen:
-1. **`import-kontenplan-bezeichnungen.sql`** - Kontenbezeichnungen (DE/IT) importieren
-2. **`documents` Bucket erstellen** - Für Inventar-Anhänge:
-   ```sql
-   INSERT INTO storage.buckets (id, name, public)
-   VALUES ('documents', 'documents', false);
-   ```
+- [x] **`import-kontenplan-bezeichnungen.sql`** - Kontenbezeichnungen (DE/IT) importieren
+- [x] **`documents` Bucket erstellen** - Für Inventar-Anhänge
 
 ---
 
 ## 🎯 Aktuelle Aufgaben (Priorität: Hoch)
 
-### 1. Import der Bedarfe
-- [ ] Prüfen, ob die Bedarfe ohne "owner 2026" (die gelöscht wurden) bereits verknüpft waren
-- [ ] Kontrollieren, ob die später hochgeladenen Bedarfe korrekt verknüpft wurden
-- [ ] Weitere Bedarfe hochladen (sobald fehlende Fornitori ergänzt sind)
-- [ ] Fehlende Fornitori (Lieferanten) identifizieren und ergänzen
-
-### 2. Suche der Bewegungen
+### 1. Suche der Bewegungen
 - [x] Suchfunktion für Bewegungen optimieren (Volltextsuche hinzugefügt)
 
-### 3. Dashboard und Ansichten
+### 2. Dashboard und Ansichten
 - [x] Dashboard aktivieren/verknüpfen (funktioniert - zeigt Projekte mit Budget/IST)
 - [x] Lieferanten-Ansicht füllen (funktioniert - lädt aus Supabase suppliers-Tabelle)
-- [ ] Projektdetails: Rechnungen bei den Bewegungen anzeigen
+- [x] Projektdetails: Rechnungen bei den Bewegungen anzeigen
+- [x] **PDF-Vorschau inline**: PDF in Modal/Vorschau anzeigen statt neuem Tab
 
-### 4. Budget und Deckungsbeiträge
+### 3. Budget und Deckungsbeiträge
 - [ ] Budget eintragen
 - [x] Deckungsbeiträge erstellen (basierend auf den zwei Excel-Beispielen)
   - Migration: `create-chart-of-accounts.sql` (Kontenplan mit DB-Zuordnung)
@@ -56,8 +46,8 @@ Stand: 2026-07-29
 ## 🆕 Neue Anforderungen (2026-07-29)
 
 ### DATEV Import
-- [ ] **Jahresfilter**: Nur Bewegungen vom ausgewählten Jahr importieren (alte movimenti ignorieren)
-- [ ] **Duplicate Key Error beheben**: "Duplicate key value violates unique constraint" bei DATEV Buchungen
+- [x] **Jahresfilter**: Nur Bewegungen vom ausgewählten Jahr importieren (alte movimenti ignorieren)
+- [x] **Duplicate Key Error beheben**: "Duplicate key value violates unique constraint" bei DATEV Buchungen
 - [ ] **Daniel fragen**: Export (Barbara) von Daten vor 2026
 - [ ] **DATEV Konto für Mitgliedsbeitrag** einrichten
 
@@ -74,22 +64,22 @@ Stand: 2026-07-29
 ### Berechtigungen / Zugriff
 - [ ] **Kostenzuweisung an 3 Personen**: Diese sollen nur die zugewiesenen Rechnungen sehen können
 
-### Abgabestellen (Neu)
-- [ ] **Abgabestellen unter Konfiguration**: Hinzufügen können
-- [ ] **Dokument pro Abgabestelle**: Ein Dokument hinterlegen
-- [ ] **Budget pro Abgabestelle**: Festlegen und Zuweisung sehen
-- [ ] **Von Rechnungen entfernen**: Abgabestelle von Rechnung entfernen können
+### Abgabestellen ✅
+- [x] **Abgabestellen unter Konfiguration**: Hinzufügen können
+- [x] **Dokument pro Abgabestelle**: Ein Dokument hinterlegen
+- [x] **Budget pro Abgabestelle**: Festlegen und Zuweisung sehen
+- [x] **Von Rechnungen entfernen**: Abgabestelle von Rechnung entfernen können
 
-### Budgetplanung (Erweiterung)
-- [ ] **Budget unter Lieferanten**: Budget einfügen können
-- [ ] **Budgetplanungs-Seite**: Eigene Seite mit Notiz-Funktion
-- [ ] **Forecast-Logik**: Geplant = Forecast, IST = IST, Verfügbar = IST + Forecast - Budget
-- [ ] **Budget unter BW Gesamtmappe**: Integration prüfen
+### Budgetplanung ✅
+- [x] **Budget unter Lieferanten**: Budget einfügen können
+- [x] **Budgetplanungs-Seite**: Eigene Seite mit Notiz-Funktion
+- [x] **Forecast-Logik**: Geplant = Forecast, IST = IST, Verfügbar = IST + Forecast - Budget
+- [x] **Budget unter BW Gesamtmappe**: Integration prüfen
 
-### Einnahmeplanung (Neu)
-- [ ] **Einnahmeplanung**: Neue Funktion erstellen
-- [ ] **Einnahmetyp in Konfiguration**: Typ eingeben können
-- [ ] **Flag für Rechnungszuweisung**: Auswählen ob bei Rechnungen zuweisbar (entfällt dann in Konfiguration)
+### Einnahmeplanung ✅
+- [x] **Einnahmeplanung**: Neue Funktion erstellen
+- [x] **Einnahmetyp in Konfiguration**: Typ eingeben können
+- [x] **Flag für Rechnungszuweisung**: Auswählen ob bei Rechnungen zuweisbar (entfällt dann in Konfiguration)
 
 ### Mitglieder / Verein
 - [ ] **Mitgliederliste von Barbara**: Importieren oder eigener Reiter
@@ -103,7 +93,7 @@ Stand: 2026-07-29
   - WICHTIG: `documents` Bucket in Supabase Storage erstellen!
 
 ### Projekte / Workflow
-- [ ] **Projekt in Projekt hinterlegen**: Ideen sammeln, sodass Barbara eine Nachricht bekommt
+- [x] ~~**Projekt in Projekt hinterlegen**: Ideen sammeln~~ (nicht mehr nötig)
 
 ---
 
