@@ -765,10 +765,10 @@ const SupabaseDataAdapter = {
             const unmatchedInvoices = supabaseInvoices
                 .filter(inv => !matchedInvoiceIds.has(inv.id))
                 .map(inv => {
-                    // Partita IVA und Rechnungsnummer aus Dateiname extrahieren falls nötig
+                    // IMMER aus Dateiname parsen für korrekte Trennung von Partita IVA und Rechnungsnr.
                     const parsed = this.parseInvoiceFilename(inv.file_name);
-                    const partitaIva = inv.partita_iva || parsed.partitaIva;
-                    const dokumentNr = inv.invoice_number || parsed.invoiceNumber;
+                    const partitaIva = parsed.partitaIva || inv.partita_iva;
+                    const dokumentNr = parsed.invoiceNumber || inv.invoice_number;
 
                     // Lieferantenname aus suppliers-Tabelle holen anhand Partita IVA
                     const supplierName = partitaIva ? supplierMap.get(partitaIva) : null;
