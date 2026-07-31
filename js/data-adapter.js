@@ -765,16 +765,21 @@ const SupabaseDataAdapter = {
             const unmatchedInvoices = supabaseInvoices
                 .filter(inv => !matchedInvoiceIds.has(inv.id))
                 .map(inv => {
-                    // Lieferantenname aus suppliers-Tabelle holen, falls Partita IVA vorhanden
-                    const supplierName = inv.partita_iva ? supplierMap.get(inv.partita_iva) : null;
-                    const fornitoreName = supplierName || this.extractSupplierFromFilename(inv.file_name);
+                    // Partita IVA und Rechnungsnummer aus Dateiname extrahieren falls nötig
+                    const parsed = this.parseInvoiceFilename(inv.file_name);
+                    const partitaIva = inv.partita_iva || parsed.partitaIva;
+                    const dokumentNr = inv.invoice_number || parsed.invoiceNumber;
+
+                    // Lieferantenname aus suppliers-Tabelle holen anhand Partita IVA
+                    const supplierName = partitaIva ? supplierMap.get(partitaIva) : null;
+                    const fornitoreName = supplierName || 'Unbekannt';
 
                     return {
                         // Basis-Daten aus Invoice
                         id: inv.id,
                         invoiceId: inv.id,
-                        partitaIva: inv.partita_iva,
-                        dokumentNr: inv.invoice_number,
+                        partitaIva: partitaIva,
+                        dokumentNr: dokumentNr,
                         filePath: inv.file_path,
                         fileName: inv.file_name,
                         uploadedAt: inv.created_at,
@@ -820,22 +825,50 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Lieferant aus Dateiname extrahieren (für Supabase-only Invoices)
+     * Parst PDF-Dateiname und extrahiert Partita IVA und Rechnungsnummer
+     * Formate:
+     * 1. Neues: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum.pdf (5 Teile)
+     * 2. Timestamp: Timestamp_PartitaIVA_RechnungsNr.pdf (3 Teile, erster ist Zahl >1000000000)
+     * 3. Alt: PartitaIVA_RechnungsNr.pdf (2 Teile)
      */
-    extractSupplierFromFilename(filename) {
-        if (!filename) return 'Unbekannt';
+    parseInvoiceFilename(filename) {
+        if (!filename) {
+            return { partitaIva: null, invoiceNumber: null, valid: false };
+        }
 
-        // Format: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum.pdf
         const nameWithoutExt = filename.replace(/\.pdf$/i, '');
         const parts = nameWithoutExt.split('_');
 
-        // 5-Teile Format: Fornitore ist Teil 3
+        // Neues Format mit 5 Teilen: Jahr_PartitaIVA_Fornitore_RechnungsNr_Datum
         if (parts.length >= 5) {
-            return parts[2];
+            return {
+                year: parts[0],
+                partitaIva: parts[1],
+                fornitore: parts[2],
+                invoiceNumber: parts[3],
+                valid: true
+            };
         }
 
-        // 3-Teile Format (Timestamp_PartitaIVA_RechnungsNr) oder 2-Teile: kein Lieferant
-        return 'Unbekannt';
+        // Timestamp Format: 1783676713299_IT00882800212_9774600117.pdf
+        if (parts.length === 3 && /^\d{10,}$/.test(parts[0])) {
+            return {
+                partitaIva: parts[1],
+                invoiceNumber: parts[2],
+                valid: true
+            };
+        }
+
+        // Altes Format mit 2+ Teilen: PartitaIVA_RechnungsNr
+        if (parts.length >= 2) {
+            return {
+                partitaIva: parts[0],
+                invoiceNumber: parts.slice(1).join('_'),
+                valid: true
+            };
+        }
+
+        return { partitaIva: null, invoiceNumber: null, valid: false };
     },
 
     /**
