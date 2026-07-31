@@ -735,13 +735,30 @@ const SupabaseDataAdapter = {
                 ));
             }
 
+            // Hilfsfunktion: Normalisiert Dokumentnummer für Vergleich
+            // Entfernt "/" und vergleicht nur den Teil nach dem letzten "/"
+            const normalizeDocNr = (docNr) => {
+                if (!docNr) return '';
+                // Wenn "/" vorhanden, nimm nur den Teil danach (z.B. "1/1444" -> "1444")
+                const parts = String(docNr).split('/');
+                return parts[parts.length - 1].trim();
+            };
+
             // DATEV-Buchungen mit Supabase-Daten anreichern
             const enrichedDatevBuchungen = datevBuchungen.map(buchung => {
                 const key = `${buchung.partitaIva}_${buchung.dokumentNr}`;
-                const matchingInvoice = supabaseInvoices.find(inv =>
-                    inv.partita_iva === buchung.partitaIva &&
-                    inv.invoice_number === buchung.dokumentNr
-                );
+                const buchungDocNrNorm = normalizeDocNr(buchung.dokumentNr);
+
+                const matchingInvoice = supabaseInvoices.find(inv => {
+                    if (inv.partita_iva !== buchung.partitaIva) return false;
+
+                    // Exakter Match
+                    if (inv.invoice_number === buchung.dokumentNr) return true;
+
+                    // Normalisierter Match (ohne "/" Prefix)
+                    const invDocNrNorm = normalizeDocNr(inv.invoice_number);
+                    return invDocNrNorm === buchungDocNrNorm;
+                });
 
                 // Lieferantenname aus suppliers-Tabelle holen
                 const supplierName = supplierMap.get(buchung.partitaIva);
