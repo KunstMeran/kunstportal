@@ -1208,13 +1208,14 @@
                             <table>
                                 <thead>
                                     <tr>
+                                        <th style="width: 30px;"></th>
                                         <th>Projekt</th>
                                         <th>DATEV-ID</th>
                                         <th style="text-align: right;">Budget</th>
                                         <th style="text-align: right;">IST-Kosten</th>
                                         <th style="text-align: right;">davon Personal</th>
                                         <th style="text-align: right;">Verfügbar</th>
-                                        <th>Auslastung</th>
+                                        <th>Budgetauslastung</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reporting-projekte-table">
@@ -1539,9 +1540,9 @@
                             <table style="min-width: 1650px;" id="budget-konten-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 90px;">Konto-Nr.</th>
-                                        <th style="min-width: 180px;">Beschreibung</th>
-                                        <th style="text-align: right; min-width: 75px; background: #e3f2fd;" title="Year-to-Date: Summe Jan bis Vormonat">YTD</th>
+                                        <th style="min-width: 90px; cursor: pointer;" onclick="App.sortBudgetTable('konto_nr')" title="Klicken zum Sortieren">Konto-Nr. <span id="sort-icon-konto_nr">▼</span></th>
+                                        <th style="min-width: 180px; cursor: pointer;" onclick="App.sortBudgetTable('description')" title="Klicken zum Sortieren">Beschreibung <span id="sort-icon-description"></span></th>
+                                        <th style="text-align: right; min-width: 75px; background: #e3f2fd; cursor: pointer;" onclick="App.sortBudgetTable('ytd')" title="Year-to-Date: Summe Jan bis Vormonat - Klicken zum Sortieren">YTD <span id="sort-icon-ytd"></span></th>
                                         <th style="text-align: right; min-width: 60px;">Jan</th>
                                         <th style="text-align: right; min-width: 60px;">Feb</th>
                                         <th style="text-align: right; min-width: 60px;">Mär</th>
@@ -1554,7 +1555,7 @@
                                         <th style="text-align: right; min-width: 60px;">Okt</th>
                                         <th style="text-align: right; min-width: 60px;">Nov</th>
                                         <th style="text-align: right; min-width: 60px;">Dez</th>
-                                        <th style="text-align: right; min-width: 80px;">Gesamt</th>
+                                        <th style="text-align: right; min-width: 80px; cursor: pointer;" onclick="App.sortBudgetTable('total')" title="Klicken zum Sortieren">Gesamt <span id="sort-icon-total"></span></th>
                                         <th style="min-width: 100px;">Notiz</th>
                                         <th style="min-width: 70px;">Akt.</th>
                                     </tr>
@@ -2540,13 +2541,21 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Mitarbeiter *</label>
+                            <select id="time-user" class="form-control" required>
+                                <option value="">Bitte wählen...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label class="form-label">Datum *</label>
                             <input type="date" id="time-date" class="form-control" required>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Stunden *</label>
-                        <input type="number" id="time-hours" class="form-control" step="0.5" min="0.5" max="24" required>
+                        <div class="form-group">
+                            <label class="form-label">Stunden *</label>
+                            <input type="number" id="time-hours" class="form-control" step="0.5" min="0.5" max="24" required>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Beschreibung *</label>

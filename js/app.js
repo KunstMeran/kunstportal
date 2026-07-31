@@ -2556,6 +2556,16 @@ const App = {
             projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
         });
 
+        // Mitarbeiter-Dropdown befüllen
+        const userSelect = document.getElementById('time-user');
+        const users = await DataManager.getUsers();
+        const currentUser = await Auth.getCurrentUser();
+        userSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+        users.forEach(u => {
+            const selected = currentUser && String(u.id) === String(currentUser.id) ? 'selected' : '';
+            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.username || u.email}</option>`;
+        });
+
         // Heutiges Datum als Standard
         document.getElementById('time-date').value = new Date().toISOString().split('T')[0];
 
@@ -2576,6 +2586,15 @@ const App = {
             projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
         });
 
+        // Mitarbeiter-Dropdown befüllen
+        const userSelect = document.getElementById('time-user');
+        const users = await DataManager.getUsers();
+        userSelect.innerHTML = '';
+        users.forEach(u => {
+            const selected = String(u.id) === String(entry.userId) ? 'selected' : '';
+            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.username || u.email}</option>`;
+        });
+
         document.getElementById('time-form-id').value = entry.id;
         document.getElementById('time-date').value = entry.date;
         document.getElementById('time-hours').value = entry.hours;
@@ -2591,6 +2610,7 @@ const App = {
         const id = document.getElementById('time-form-id').value;
         const entryData = {
             projectId: document.getElementById('time-project').value, // UUID
+            userId: document.getElementById('time-user').value, // Mitarbeiter-ID
             date: document.getElementById('time-date').value,
             hours: parseFloat(document.getElementById('time-hours').value) || 0,
             description: document.getElementById('time-description').value
@@ -2628,6 +2648,22 @@ const App = {
     // ==========================================
 
     loadConfiguration: async function() {
+        // Sicherstellen, dass der erste Tab aktiv ist beim Laden
+        const configTabs = document.querySelectorAll('#view-konfiguration .tab[data-tab]');
+        const configContents = document.querySelectorAll('#view-konfiguration .tab-content');
+
+        // Falls kein Tab aktiv ist, den ersten aktivieren
+        const hasActiveTab = Array.from(configTabs).some(t => t.classList.contains('active'));
+        if (!hasActiveTab && configTabs.length > 0) {
+            configTabs[0].classList.add('active');
+        }
+
+        // Falls kein Tab-Content aktiv ist, den ersten aktivieren
+        const hasActiveContent = Array.from(configContents).some(tc => tc.classList.contains('active'));
+        if (!hasActiveContent && configContents.length > 0) {
+            configContents[0].classList.add('active');
+        }
+
         await this.loadCostTypes();
         await this.loadKontenplan();
         this.loadSuppliers();
@@ -7211,12 +7247,17 @@ const App = {
                 sumFix += p.db3_kosten_anteil;
                 sumDb3 += p.db3;
 
+                // Umsatz-Tooltip mit Aufteilung (direkt vs. anteilig)
+                const umsatzTooltip = p.umsatz_direkt !== undefined
+                    ? `title="Direkt: ${this.formatCurrency(p.umsatz_direkt || 0)}&#10;Anteilig: ${this.formatCurrency(p.umsatz_anteilig || 0)}"`
+                    : '';
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${p.projekt.name}</strong></td>
                     <td style="text-align: center;">${p.tage}</td>
                     <td style="text-align: center;">${(p.anteil * 100).toFixed(1)}%</td>
-                    <td style="text-align: right;">${this.formatCurrency(p.umsatz)}</td>
+                    <td style="text-align: right; cursor: help;" ${umsatzTooltip}>${this.formatCurrency(p.umsatz)}</td>
                     <td style="text-align: right; color: #e74c3c;">${this.formatCurrency(p.db1_kosten)}</td>
                     <td style="text-align: right; background: #e3f2fd; font-weight: 500;">${this.formatCurrency(p.db1)}</td>
                     <td style="text-align: right; color: #e74c3c;">${this.formatCurrency(p.db2_kosten_anteil)}</td>
@@ -7611,7 +7652,7 @@ const App = {
         const tfoot = document.getElementById('reporting-projekte-footer');
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Lade Projekte...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Lade Projekte...</td></tr>';
 
         try {
             // Projekte aus Supabase laden
@@ -7623,7 +7664,7 @@ const App = {
             tbody.innerHTML = '';
 
             if (!projects || projects.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">Keine Projekte gefunden</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #666;">Keine Projekte gefunden</td></tr>';
                 return;
             }
 
@@ -7638,8 +7679,17 @@ const App = {
                 totalBudget += budget;
                 totalIst += ist;
 
+                const projectId = project.id;
+                const detailRowId = `project-detail-${projectId}`;
+
+                // Hauptzeile mit Plus-Icon
                 const row = document.createElement('tr');
+                row.style.cursor = 'pointer';
+                row.onclick = () => this.toggleProjectDetail(projectId, costs, project);
                 row.innerHTML = `
+                    <td style="text-align: center; width: 30px;">
+                        <span id="project-expand-${projectId}" style="font-weight: bold; color: #666;">+</span>
+                    </td>
                     <td><strong>${project.name}</strong></td>
                     <td>${project.datev_kostenstelle || '-'}</td>
                     <td style="text-align: right;">${this.formatCurrency(budget)}</td>
@@ -7657,12 +7707,23 @@ const App = {
                     </td>
                 `;
                 tbody.appendChild(row);
+
+                // Detail-Zeile (versteckt)
+                const detailRow = document.createElement('tr');
+                detailRow.id = detailRowId;
+                detailRow.style.display = 'none';
+                detailRow.innerHTML = `<td colspan="8" style="padding: 0; background: #f9f9f9;"></td>`;
+                tbody.appendChild(detailRow);
+
+                // Kosten nach Konto cachen für später
+                row.dataset.costs = JSON.stringify(costs);
             }
 
             // Footer mit Summen
             if (tfoot) {
                 tfoot.innerHTML = `
                     <tr style="font-weight: bold; background: #f5f5f5;">
+                        <td></td>
                         <td colspan="2">SUMME</td>
                         <td style="text-align: right;">${this.formatCurrency(totalBudget)}</td>
                         <td style="text-align: right;">${this.formatCurrency(totalIst)}</td>
@@ -7674,7 +7735,72 @@ const App = {
             }
         } catch (error) {
             console.error('Fehler beim Laden der Projektübersicht:', error);
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #e74c3c;">Fehler: ${error.message}</td></tr>`;
+        }
+    },
+
+    // Toggle Projekt-Details in Projektübersicht
+    toggleProjectDetail: function(projectId, costs, project) {
+        const detailRow = document.getElementById(`project-detail-${projectId}`);
+        const expandIcon = document.getElementById(`project-expand-${projectId}`);
+        if (!detailRow) return;
+
+        if (detailRow.style.display === 'none') {
+            // Öffnen
+            expandIcon.textContent = '−';
+            detailRow.style.display = '';
+
+            // Kosten nach Konto gruppieren
+            const byKonto = {};
+            costs.forEach(c => {
+                const konto = c.konto || c.gegenkonto || 'Unbekannt';
+                const kontoName = c.konto_name || c.buchungstext || konto;
+                const key = konto;
+                if (!byKonto[key]) {
+                    byKonto[key] = { konto, name: kontoName, summe: 0, count: 0 };
+                }
+                byKonto[key].summe += Math.abs(parseFloat(c.betrag_brutto || c.betrag_gesamt || 0));
+                byKonto[key].count++;
+            });
+
+            // Detail-Tabelle erstellen
+            let detailHtml = `
+                <div style="padding: 1rem; margin: 0.5rem 1rem; background: white; border-radius: 4px; border: 1px solid #ddd;">
+                    <strong style="color: #333;">Kosten nach Konto für "${project.name}"</strong>
+                    <table style="width: 100%; margin-top: 0.5rem; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="background: #eee;">
+                                <th style="padding: 4px 8px; text-align: left;">Konto</th>
+                                <th style="padding: 4px 8px; text-align: left;">Bezeichnung</th>
+                                <th style="padding: 4px 8px; text-align: right;">Anz.</th>
+                                <th style="padding: 4px 8px; text-align: right;">Summe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            const sortedKonten = Object.values(byKonto).sort((a, b) => b.summe - a.summe);
+            sortedKonten.forEach(k => {
+                detailHtml += `
+                    <tr>
+                        <td style="padding: 4px 8px;">${k.konto}</td>
+                        <td style="padding: 4px 8px; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${k.name}</td>
+                        <td style="padding: 4px 8px; text-align: right;">${k.count}</td>
+                        <td style="padding: 4px 8px; text-align: right;">${this.formatCurrency(k.summe)}</td>
+                    </tr>
+                `;
+            });
+
+            if (sortedKonten.length === 0) {
+                detailHtml += '<tr><td colspan="4" style="padding: 8px; color: #666;">Keine Buchungen vorhanden</td></tr>';
+            }
+
+            detailHtml += '</tbody></table></div>';
+            detailRow.querySelector('td').innerHTML = detailHtml;
+        } else {
+            // Schließen
+            expandIcon.textContent = '+';
+            detailRow.style.display = 'none';
         }
     },
 
@@ -10266,16 +10392,36 @@ const App = {
 
         // Nach DB-Gruppen sortieren
         const dbGruppen = {
-            'UMSATZ': { label: '1. UMSÄTZE', color: '#e8f5e9', konten: [] },
-            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', color: '#fff3e0', konten: [] },
-            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', color: '#e3f2fd', konten: [] },
-            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', color: '#fce4ec', konten: [] },
-            'SONSTIGE': { label: '5. SONSTIGE', color: '#f5f5f5', konten: [] }
+            'UMSATZ': { label: '1. UMSÄTZE', color: '#e8f5e9', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
+            'DB1_KOSTEN': { label: '2. DIREKTE KOSTEN (DB1)', color: '#fff3e0', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
+            'DB2_KOSTEN': { label: '3. STRUKTURKOSTEN (DB2)', color: '#e3f2fd', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
+            'DB3_KOSTEN': { label: '4. FIXKOSTEN (DB3)', color: '#fce4ec', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 },
+            'SONSTIGE': { label: '5. SONSTIGE', color: '#f5f5f5', konten: [], budgetSum: 0, istSum: 0, budgetYtd: 0, istYtd: 0 }
         };
 
+        // Konten in Gruppen einsortieren UND Summen vorberechnen
         Array.from(alleKonten.entries()).forEach(([key, data]) => {
             const gruppe = dbGruppen[data.dbZuordnung] || dbGruppen['SONSTIGE'];
+            const budget = data.budget;
+            const ist = data.ist;
+
+            const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+            const budgetYtd = budget ? ytdMonths.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
+            const istRowTotal = ist ? ist.total : 0;
+            const istYtd = ist ? ytdMonths.reduce((sum, m) => sum + (ist[m] || 0), 0) : 0;
+
+            // Vorberechnete Werte speichern
+            data.budgetTotal = budgetRowTotal;
+            data.budgetYtd = budgetYtd;
+            data.istTotal = istRowTotal;
+            data.istYtd = istYtd;
+            data.diff = budgetRowTotal - istRowTotal;
+
             gruppe.konten.push({ key, ...data });
+            gruppe.budgetSum += budgetRowTotal;
+            gruppe.istSum += istRowTotal;
+            gruppe.budgetYtd += budgetYtd;
+            gruppe.istYtd += istYtd;
         });
 
         let html = '';
@@ -10284,88 +10430,118 @@ const App = {
         Object.entries(dbGruppen).forEach(([gruppenKey, gruppe]) => {
             if (gruppe.konten.length === 0) return;
 
-            gruppe.konten.sort((a, b) => (a.konto_nr || '').localeCompare(b.konto_nr || ''));
+            // Sortierung anwenden (Standard: nach Konto-Nr)
+            const sortCol = this.budgetSortColumn || 'konto_nr';
+            const sortDir = this.budgetSortDirection || 'asc';
+            gruppe.konten.sort((a, b) => {
+                let valA, valB;
+                switch(sortCol) {
+                    case 'konto_nr': valA = a.konto_nr || ''; valB = b.konto_nr || ''; break;
+                    case 'description': valA = a.description || ''; valB = b.description || ''; break;
+                    case 'ytd': valA = a.budgetYtd; valB = b.budgetYtd; break;
+                    case 'total': valA = a.budgetTotal; valB = b.budgetTotal; break;
+                    case 'ist': valA = a.istTotal; valB = b.istTotal; break;
+                    case 'diff': valA = a.diff; valB = b.diff; break;
+                    default: valA = a.konto_nr || ''; valB = b.konto_nr || '';
+                }
+                if (typeof valA === 'string') {
+                    return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                return sortDir === 'asc' ? valA - valB : valB - valA;
+            });
 
-            // Gruppen-Header
-            html += `<tr style="background: ${gruppe.color};">
-                <td colspan="18" style="font-weight: bold; font-size: 1rem; padding: 0.75rem;">${gruppe.label}</td>
+            // Gruppen-Diff berechnen
+            const gruppenDiff = gruppe.budgetSum - gruppe.istSum;
+            const gruppenDiffStyle = gruppenDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
+
+            // Gruppen-Header MIT Summen
+            html += `<tr style="background: ${gruppe.color}; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? '' : 'none'; let el = this.nextElementSibling; while(el && !el.classList.contains('gruppe-header')) { el.style.display = this.nextElementSibling.style.display; el = el.nextElementSibling; }">
+                <td colspan="3" style="font-weight: bold; font-size: 1rem; padding: 0.5rem;">
+                    ${gruppe.label} <small style="font-weight: normal; color: #666;">(${gruppe.konten.length})</small>
+                </td>
+                <td colspan="9" style="text-align: center; font-size: 0.85rem;">
+                    <span style="color: #333;">Budget: <strong>${this.formatNumber(gruppe.budgetSum)}</strong></span>
+                    <span style="margin-left: 1rem; color: #007bff;">IST: <strong>${this.formatNumber(gruppe.istSum)}</strong></span>
+                    <span style="margin-left: 1rem; ${gruppenDiffStyle}">Diff: <strong>${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</strong></span>
+                </td>
+                <td colspan="6"></td>
             </tr>`;
-
-            let gruppenBudgetSum = 0, gruppenIstSum = 0, gruppenBudgetYtd = 0, gruppenIstYtd = 0;
 
             gruppe.konten.forEach(data => {
                 const budget = data.budget;
                 const ist = data.ist;
-
-                const budgetRowTotal = budget ? months.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
-                const budgetYtd = budget ? ytdMonths.reduce((sum, m) => sum + (parseFloat(budget[m]) || 0), 0) : 0;
-                const istRowTotal = ist ? ist.total : 0;
-                const istYtd = ist ? ytdMonths.reduce((sum, m) => sum + (ist[m] || 0), 0) : 0;
-
-                gruppenBudgetSum += budgetRowTotal;
-                gruppenIstSum += istRowTotal;
-                gruppenBudgetYtd += budgetYtd;
-                gruppenIstYtd += istYtd;
-
-                const diffTotal = budgetRowTotal - istRowTotal;
-                const diffStyle = diffTotal < 0 ? 'color: #dc3545;' : (diffTotal > 0 ? 'color: #28a745;' : '');
+                const diffStyle = data.diff < 0 ? 'color: #dc3545;' : (data.diff > 0 ? 'color: #28a745;' : '');
 
                 const note = kontoNotes[data.key] || '';
                 const keyEscaped = data.key.replace(/'/g, "\\'");
 
                 html += `<tr>
                     <td style="font-weight: 600; white-space: nowrap;">${data.konto_nr || '-'}</td>
-                    <td style="font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">${data.description || data.konto_nr}</td>
-                    <td style="text-align: right; background: #e3f2fd;">${this.formatNumber(budgetYtd)}</td>
+                    <td style="font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${data.description || ''}">${data.description || data.konto_nr}</td>
+                    <td style="text-align: right; background: #e3f2fd;">${this.formatNumber(data.budgetYtd)}</td>
                     ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
-                    <td style="text-align: right; font-weight: bold;">${this.formatNumber(budgetRowTotal)}</td>
+                    <td style="text-align: right; font-weight: bold;">${this.formatNumber(data.budgetTotal)}</td>
                     <td><input type="text" class="form-control" style="font-size: 0.7rem; padding: 2px 4px; width: 80px;" placeholder="..." value="${note}" onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"></td>
                     <td>${data.hasBudget ? `<button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')">${Icons.edit}</button>` : `<button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')">+</button>`}</td>
                 </tr>
                 <tr style="font-size: 0.75rem; color: #666; border-bottom: 1px solid #dee2e6;">
                     <td></td>
                     <td style="color: #007bff;">IST</td>
-                    <td style="text-align: right; background: #c8e6c9; color: #2e7d32;">${this.formatNumber(istYtd)}</td>
+                    <td style="text-align: right; background: #c8e6c9; color: #2e7d32;">${this.formatNumber(data.istYtd)}</td>
                     ${months.map(m => `<td style="text-align: right; color: #007bff;">${ist ? this.formatNumber(ist[m]) : '-'}</td>`).join('')}
-                    <td style="text-align: right; color: #007bff; font-weight: bold;">${this.formatNumber(istRowTotal)}</td>
-                    <td style="${diffStyle}; font-weight: bold;">${diffTotal >= 0 ? '+' : ''}${this.formatNumber(diffTotal)}</td>
+                    <td style="text-align: right; color: #007bff; font-weight: bold;">${this.formatNumber(data.istTotal)}</td>
+                    <td style="${diffStyle}; font-weight: bold;">${data.diff >= 0 ? '+' : ''}${this.formatNumber(data.diff)}</td>
                     <td></td>
                 </tr>`;
             });
 
-            // Gruppen-Summe
-            const gruppenDiff = gruppenBudgetSum - gruppenIstSum;
-            const gruppenDiffStyle = gruppenDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
-
-            html += `<tr style="background: ${gruppe.color}; font-weight: bold; border-bottom: 2px solid #adb5bd;">
-                <td colspan="2">Summe ${gruppe.label.split('.')[1] || gruppe.label}</td>
-                <td style="text-align: right;">${this.formatNumber(gruppenBudgetYtd)}</td>
-                <td colspan="12"></td>
-                <td style="text-align: right;">${this.formatNumber(gruppenBudgetSum)}</td>
-                <td style="${gruppenDiffStyle}">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
-                <td></td>
-            </tr>`;
-
-            gesamtBudget += gruppenBudgetSum;
-            gesamtIst += gruppenIstSum;
-            gesamtBudgetYtd += gruppenBudgetYtd;
-            gesamtIstYtd += gruppenIstYtd;
+            gesamtBudget += gruppe.budgetSum;
+            gesamtIst += gruppe.istSum;
+            gesamtBudgetYtd += gruppe.budgetYtd;
+            gesamtIstYtd += gruppe.istYtd;
         });
 
         // Gesamtsumme
         const gesamtDiff = gesamtBudget - gesamtIst;
         const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
 
-        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1.1rem;">
-            <td colspan="2">GESAMT</td>
-            <td style="text-align: right;">${this.formatNumber(gesamtBudgetYtd)}</td>
-            <td colspan="12"></td>
-            <td style="text-align: right;">${this.formatNumber(gesamtBudget)}</td>
-            <td style="${gesamtDiffStyle}">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
-            <td></td>
+        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1.1rem;" class="gruppe-header">
+            <td colspan="3">GESAMT</td>
+            <td colspan="9" style="text-align: center;">
+                <span>Budget: ${this.formatNumber(gesamtBudget)}</span>
+                <span style="margin-left: 1rem;">IST: ${this.formatNumber(gesamtIst)}</span>
+                <span style="margin-left: 1rem; ${gesamtDiffStyle}">Diff: ${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</span>
+            </td>
+            <td colspan="6"></td>
         </tr>`;
 
         tbody.innerHTML = html;
+    },
+
+    // Sortierung für Budget-Tabelle
+    budgetSortColumn: 'konto_nr',
+    budgetSortDirection: 'asc',
+
+    sortBudgetTable: function(column) {
+        if (this.budgetSortColumn === column) {
+            this.budgetSortDirection = this.budgetSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.budgetSortColumn = column;
+            this.budgetSortDirection = 'asc';
+        }
+        // Sort-Icons aktualisieren
+        const allIcons = ['konto_nr', 'description', 'ytd', 'total'];
+        allIcons.forEach(col => {
+            const icon = document.getElementById('sort-icon-' + col);
+            if (icon) {
+                if (col === column) {
+                    icon.textContent = this.budgetSortDirection === 'asc' ? '▲' : '▼';
+                } else {
+                    icon.textContent = '';
+                }
+            }
+        });
+        this.loadBudgetplanung();
     },
 
     // Hilfsfunktion: Budget für bestehendes Konto aus IST-Daten hinzufügen

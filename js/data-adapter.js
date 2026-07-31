@@ -1075,11 +1075,16 @@ const SupabaseDataAdapter = {
 
     async addTimeEntry(entryData) {
         try {
-            const user = await Auth.getCurrentUser();
+            // Wenn userId übergeben wird, diese verwenden, sonst aktuellen User
+            let userId = entryData.userId;
+            if (!userId) {
+                const user = await Auth.getCurrentUser();
+                userId = user?.id || null;
+            }
 
             const supabaseEntry = {
                 project_id: entryData.projectId,
-                user_id: user?.id || null,
+                user_id: userId,
                 date: entryData.date,
                 hours: entryData.hours,
                 description: entryData.description || '',
@@ -1104,6 +1109,8 @@ const SupabaseDataAdapter = {
     async updateTimeEntry(id, updates) {
         try {
             const supabaseUpdates = {
+                project_id: updates.projectId,
+                user_id: updates.userId,
                 date: updates.date,
                 hours: updates.hours,
                 description: updates.description,
@@ -2624,11 +2631,17 @@ const SupabaseDataAdapter = {
                 const anteil = weightData.anteil;
 
                 // Direkte Umsätze/Kosten des Projekts
-                const projektUmsatz = kategorisiert.UMSATZ.projektbezogen[projektId] || 0;
-                const projektKosten = kategorisiert.DB1_KOSTEN.projektbezogen[projektId] || 0;
+                const projektUmsatzDirekt = kategorisiert.UMSATZ.projektbezogen[projektId] || 0;
+                const projektKostenDirekt = kategorisiert.DB1_KOSTEN.projektbezogen[projektId] || 0;
+
+                // Anteilige allgemeine Umsätze nach Ausstellungsdauer
+                const anteilAllgemeinerUmsatz = kategorisiert.UMSATZ.allgemein * anteil;
+
+                // Gesamt-Umsatz = Direkt + anteilig allgemein
+                const projektUmsatz = projektUmsatzDirekt + anteilAllgemeinerUmsatz;
 
                 // DB1 = Direkte Umsätze - Direkte Kosten
-                const db1 = projektUmsatz - projektKosten;
+                const db1 = projektUmsatz - projektKostenDirekt;
 
                 // DB2 = DB1 - anteilige Strukturkosten
                 const anteilDB2Kosten = kategorisiert.DB2_KOSTEN.gesamt * anteil;
@@ -2648,7 +2661,9 @@ const SupabaseDataAdapter = {
                     tage: weightData.days,
                     anteil: anteil,
                     umsatz: projektUmsatz,
-                    db1_kosten: projektKosten,
+                    umsatz_direkt: projektUmsatzDirekt,
+                    umsatz_anteilig: anteilAllgemeinerUmsatz,
+                    db1_kosten: projektKostenDirekt,
                     db1: db1,
                     db1_marge: projektUmsatz > 0 ? (db1 / projektUmsatz * 100) : 0,
                     db2_kosten_anteil: anteilDB2Kosten,
