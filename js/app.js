@@ -5256,20 +5256,40 @@ const App = {
 
         // Supabase datev_bookings aktualisieren (für Einnahmenplanung-Ausgaben)
         try {
-            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-            const dokumentNr = dokumentNrParts.join('_');
+            let updateResult;
 
-            console.log('updateRechnungAbgabestelle:', { rechnungId, partitaIva, dokumentNr, abgabestelle });
+            if (rechnungId.startsWith('id:')) {
+                // Format: id:UUID - direkt über Datensatz-ID updaten
+                const bookingId = rechnungId.substring(3);
+                console.log('updateRechnungAbgabestelle by id:', { bookingId, abgabestelle });
 
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .update({
-                    abgabestelle: abgabestelle || null,
-                    abgabestelle_am: abgabestelle ? heute : null
-                })
-                .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr)
-                .select();
+                updateResult = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        abgabestelle: abgabestelle || null,
+                        abgabestelle_am: abgabestelle ? heute : null
+                    })
+                    .eq('id', bookingId)
+                    .select();
+            } else {
+                // Format: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                console.log('updateRechnungAbgabestelle:', { rechnungId, partitaIva, dokumentNr, abgabestelle });
+
+                updateResult = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        abgabestelle: abgabestelle || null,
+                        abgabestelle_am: abgabestelle ? heute : null
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr)
+                    .select();
+            }
+
+            const { data, error } = updateResult;
 
             if (error) {
                 console.error('Supabase Update Error:', error);
@@ -5304,16 +5324,24 @@ const App = {
 
         // Supabase datev_bookings aktualisieren
         try {
-            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-            const dokumentNr = dokumentNrParts.join('_');
+            if (rechnungId.startsWith('id:')) {
+                // Format: id:UUID - direkt über Datensatz-ID updaten
+                const bookingId = rechnungId.substring(3);
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ abgabestelle_am: datum || null })
+                    .eq('id', bookingId);
+            } else {
+                // Format: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
 
-            await SupabaseService.client
-                .from('datev_bookings')
-                .update({
-                    abgabestelle_am: datum || null
-                })
-                .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr);
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({ abgabestelle_am: datum || null })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+            }
 
         } catch (error) {
             console.error('Fehler beim Speichern des Abgabestelle-Datums in Supabase:', error);
@@ -5383,11 +5411,12 @@ const App = {
 
     /**
      * Aktualisiert die Abgabestelle einer Rechnung inline (aus Tabellen-Dropdown)
+     * rechnungId kann sein: "partitaIva_dokumentNr" oder "id:UUID" (bei fehlendem dokument_nr)
      */
-    updateAbgabestelleInline: async function(invoiceId, fundingSourceId) {
+    updateAbgabestelleInline: async function(rechnungId, fundingSourceId) {
         try {
-            if (!invoiceId) {
-                console.warn('Keine invoiceId für Abgabestelle-Update');
+            if (!rechnungId) {
+                console.warn('Keine rechnungId für Abgabestelle-Update');
                 return;
             }
 
@@ -5397,40 +5426,60 @@ const App = {
             const abgabestelleValue = fundingSourceId ? `funding:${fundingSourceId}` : null;
 
             // 1. localStorage aktualisieren
-            DataManager.setAbgabestelle(invoiceId, abgabestelleValue);
+            DataManager.setAbgabestelle(rechnungId, abgabestelleValue);
 
             // 2. Supabase datev_bookings aktualisieren (für Einnahmenplanung-Ausgaben)
-            const [partitaIva, ...dokumentNrParts] = invoiceId.split('_');
-            const dokumentNr = dokumentNrParts.join('_');
+            let updateResult;
 
-            console.log('Updating datev_bookings:', { partitaIva, dokumentNr, abgabestelleValue });
+            if (rechnungId.startsWith('id:')) {
+                // Format: id:UUID - direkt über Datensatz-ID updaten
+                const bookingId = rechnungId.substring(3);
+                console.log('Updating datev_bookings by id:', { bookingId, abgabestelleValue });
 
-            const { data, error, count } = await SupabaseService.client
-                .from('datev_bookings')
-                .update({
-                    abgabestelle: abgabestelleValue,
-                    abgabestelle_am: abgabestelleValue ? heute : null
-                })
-                .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr)
-                .select();
+                updateResult = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        abgabestelle: abgabestelleValue,
+                        abgabestelle_am: abgabestelleValue ? heute : null
+                    })
+                    .eq('id', bookingId)
+                    .select();
+            } else {
+                // Format: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                console.log('Updating datev_bookings:', { partitaIva, dokumentNr, abgabestelleValue });
+
+                updateResult = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        abgabestelle: abgabestelleValue,
+                        abgabestelle_am: abgabestelleValue ? heute : null
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr)
+                    .select();
+            }
+
+            const { data, error } = updateResult;
 
             if (error) {
                 console.error('Supabase Update Error:', error);
                 throw error;
             }
 
-            console.log('Update result:', { data, count, rowsAffected: data?.length || 0 });
+            console.log('Update result:', { data, rowsAffected: data?.length || 0 });
 
             if (!data || data.length === 0) {
-                console.warn('Keine Zeile in datev_bookings gefunden für:', { partitaIva, dokumentNr });
+                console.warn('Keine Zeile in datev_bookings gefunden für:', rechnungId);
                 this.showToast('warning', 'Hinweis', 'Abgabestelle gespeichert (lokal), aber keine DATEV-Buchung gefunden');
             } else {
                 this.showToast('success', 'Gespeichert', `Abgabestelle für ${data.length} Buchung(en) aktualisiert`);
             }
 
             // 3. Invoice-Tabelle auch aktualisieren (falls vorhanden)
-            await DataManager.updateInvoiceFundingSource(invoiceId, fundingSourceId || null);
+            await DataManager.updateInvoiceFundingSource(rechnungId, fundingSourceId || null);
 
             // Einnahmeplanung neu laden falls sichtbar (um Budget-Übersicht zu aktualisieren)
             if (document.getElementById('view-einnahmen')?.classList.contains('active')) {
