@@ -3566,10 +3566,12 @@ const App = {
         pageRechnungen.forEach((r, index) => {
             const rowNumber = startIndex + index + 1; // Globale Zeilennummer
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
-            // Nutze direkt die Werte aus JSON falls vorhanden, sonst berechnen
+            // MwSt-Satz (aus DB oder Default 22%)
+            const mwstRate = r.mwstRate !== undefined ? r.mwstRate : 22;
+            // Berechnung basierend auf MwSt-Satz
             const netto = r.betragNetto !== undefined ? r.betragNetto : r.betrag;
-            const mwst = r.betragMwst !== undefined ? r.betragMwst : (r.betrag * 0.22);
-            const gesamt = r.betragGesamt !== undefined ? r.betragGesamt : (r.betrag * 1.22);
+            const mwst = netto * (mwstRate / 100);
+            const gesamt = netto + mwst;
 
             // Gutschrift-Erkennung: NICHT basierend auf negativem Betrag!
             // Erlöskonten (600-699, 840) haben oft negative Beträge = Habenbuchung, aber KEINE Gutschrift
@@ -3671,7 +3673,20 @@ const App = {
                 <td>${projektCell}</td>
                 <td>${kostentypLabel}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(netto)}</td>
-                <td style="text-align: right; ${betragStyle}">${this.formatCurrency(mwst)}</td>
+                <td style="text-align: right; ${betragStyle}">
+                    <div style="display: flex; align-items: center; gap: 0.25rem; justify-content: flex-end;">
+                        <select class="form-control mwst-select"
+                                style="font-size: 0.7rem; padding: 0.15rem; width: 55px; text-align: right;"
+                                onchange="App.updateMwstRate('${r.id}', this.value)"
+                                ${!r.id ? 'disabled title="Nur für DATEV-Buchungen"' : ''}>
+                            <option value="0" ${mwstRate === 0 ? 'selected' : ''}>0%</option>
+                            <option value="4" ${mwstRate === 4 ? 'selected' : ''}>4%</option>
+                            <option value="10" ${mwstRate === 10 ? 'selected' : ''}>10%</option>
+                            <option value="22" ${mwstRate === 22 ? 'selected' : ''}>22%</option>
+                        </select>
+                        <span style="min-width: 60px; text-align: right;">${this.formatCurrency(mwst)}</span>
+                    </div>
+                </td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(gesamt)}</td>
                 <td><span class="status-badge ${r.workflowStatus}">${r.workflowStatus}</span></td>
                 <td>${r.pdfExists ?
@@ -5221,6 +5236,49 @@ const App = {
         const geteilt = document.getElementById('rd-geteilt').checked;
         DataManager.setRechnungStatus(rechnungId, { geteilt: geteilt });
         this.loadRechnungen();
+    },
+
+    /**
+     * Aktualisiert den MwSt-Satz einer DATEV-Buchung
+     * @param {string|number} bookingId - Die ID der DATEV-Buchung
+     * @param {string|number} rate - Der neue MwSt-Satz (0, 4, 10 oder 22)
+     */
+    updateMwstRate: async function(bookingId, rate) {
+        try {
+            if (!bookingId) {
+                console.warn('Keine bookingId für MwSt-Update');
+                return;
+            }
+
+            const mwstRate = parseFloat(rate);
+            console.log('Aktualisiere MwSt-Satz:', { bookingId, mwstRate });
+
+            // Update in Supabase
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update({ mwst_rate: mwstRate })
+                .eq('id', bookingId);
+
+            if (error) {
+                console.error('Supabase Error:', error);
+                throw error;
+            }
+
+            console.log('MwSt-Update erfolgreich:', data);
+
+            // Cache invalidieren und Ansicht neu laden
+            if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+                SupabaseDataAdapter.invalidateCache();
+            }
+
+            // Tabelle neu laden (behält Filter und Seite bei)
+            await this.reloadRechnungenKeepState();
+
+            this.showToast('success', 'Gespeichert', `MwSt-Satz auf ${mwstRate}% geändert`);
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des MwSt-Satzes:', error);
+            this.showToast('error', 'Fehler', `MwSt-Satz konnte nicht gespeichert werden: ${error.message}`);
+        }
     },
 
     exportRechnungenCSV: function() {

@@ -252,9 +252,20 @@ const SupabaseDataAdapter = {
                     dokumentTyp: b.dokument_typ || 'F',
                     istGutschrift: b.ist_gutschrift || false,
                     betrag: parseFloat(b.betrag) || 0,
-                    betragNetto: parseFloat(b.betrag_netto) || 0,
-                    betragMwst: parseFloat(b.betrag_mwst) || 0,
-                    betragGesamt: parseFloat(b.betrag_gesamt) || 0,
+                    // MwSt-Satz aus DB oder Default 22%
+                    mwstRate: b.mwst_rate !== null && b.mwst_rate !== undefined ? parseFloat(b.mwst_rate) : 22,
+                    // Berechnung: Netto = betrag, MwSt und Brutto werden berechnet
+                    betragNetto: parseFloat(b.betrag) || 0,
+                    betragMwst: (() => {
+                        const netto = parseFloat(b.betrag) || 0;
+                        const rate = b.mwst_rate !== null && b.mwst_rate !== undefined ? parseFloat(b.mwst_rate) : 22;
+                        return netto * (rate / 100);
+                    })(),
+                    betragGesamt: (() => {
+                        const netto = parseFloat(b.betrag) || 0;
+                        const rate = b.mwst_rate !== null && b.mwst_rate !== undefined ? parseFloat(b.mwst_rate) : 22;
+                        return netto * (1 + rate / 100);
+                    })(),
                     mwstTyp: b.mwst_typ || null,
                     datum: b.datum,
                     projektId: b.projekt_id || null,
