@@ -750,6 +750,7 @@ const SupabaseDataAdapter = {
                 const buchungDocNrNorm = normalizeDocNr(buchung.dokumentNr);
 
                 const matchingInvoice = supabaseInvoices.find(inv => {
+                    // Partita IVA muss übereinstimmen
                     if (inv.partita_iva !== buchung.partitaIva) return false;
 
                     // Exakter Match
@@ -757,7 +758,14 @@ const SupabaseDataAdapter = {
 
                     // Normalisierter Match (ohne "/" Prefix)
                     const invDocNrNorm = normalizeDocNr(inv.invoice_number);
-                    return invDocNrNorm === buchungDocNrNorm;
+                    const isMatch = invDocNrNorm === buchungDocNrNorm;
+
+                    // Debug für Slash-Fälle
+                    if (buchung.dokumentNr && buchung.dokumentNr.includes('/')) {
+                        console.log(`🔍 Slash-Match: DATEV="${buchung.dokumentNr}" (norm="${buchungDocNrNorm}") vs PDF="${inv.invoice_number}" (norm="${invDocNrNorm}") → ${isMatch ? '✅' : '❌'}`);
+                    }
+
+                    return isMatch;
                 });
 
                 // Lieferantenname aus suppliers-Tabelle holen
