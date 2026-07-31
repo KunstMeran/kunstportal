@@ -10683,51 +10683,83 @@ const App = {
             gruppe.istSum += istRowTotal;
             gruppe.budgetYtd += budgetYtd;
             gruppe.istYtd += istYtd;
+
+            // Monatliche Summen pro Gruppe sammeln
+            months.forEach(m => {
+                gruppe.budgetMonthly[m] += budget ? (parseFloat(budget[m]) || 0) : 0;
+                gruppe.istMonthly[m] += ist ? (ist[m] || 0) : 0;
+            });
         });
 
         let html = '';
         let gesamtBudget = 0, gesamtIst = 0, gesamtBudgetYtd = 0, gesamtIstYtd = 0;
+        const gesamtBudgetMonthly = createMonthlyObj();
+        const gesamtIstMonthly = createMonthlyObj();
 
-        Object.entries(dbGruppen).forEach(([gruppenKey, gruppe]) => {
-            if (gruppe.konten.length === 0) return;
+        // Gruppen in Array umwandeln für Sortierung
+        let gruppenArray = Object.entries(dbGruppen).filter(([key, gruppe]) => gruppe.konten.length > 0);
 
-            // Sortierung anwenden (Standard: nach Konto-Nr)
-            const sortCol = this.budgetSortColumn || 'konto_nr';
-            const sortDir = this.budgetSortDirection || 'asc';
-            gruppe.konten.sort((a, b) => {
+        // Sortierung auf GRUPPEN-Ebene anwenden
+        const sortCol = this.budgetSortColumn || 'konto_nr';
+        const sortDir = this.budgetSortDirection || 'asc';
+
+        if (sortCol !== 'konto_nr' && sortCol !== 'description') {
+            // Bei numerischer Sortierung: Gruppen nach aggregiertem Wert sortieren
+            gruppenArray.sort((a, b) => {
                 let valA, valB;
                 switch(sortCol) {
-                    case 'konto_nr': valA = a.konto_nr || ''; valB = b.konto_nr || ''; break;
-                    case 'description': valA = a.description || ''; valB = b.description || ''; break;
-                    case 'ytd': valA = a.budgetYtd; valB = b.budgetYtd; break;
-                    case 'total': valA = a.budgetTotal; valB = b.budgetTotal; break;
-                    case 'ist': valA = a.istTotal; valB = b.istTotal; break;
-                    case 'diff': valA = a.diff; valB = b.diff; break;
-                    default: valA = a.konto_nr || ''; valB = b.konto_nr || '';
-                }
-                if (typeof valA === 'string') {
-                    return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    case 'ytd': valA = a[1].budgetYtd; valB = b[1].budgetYtd; break;
+                    case 'total': valA = a[1].budgetSum; valB = b[1].budgetSum; break;
+                    case 'ist': valA = a[1].istSum; valB = b[1].istSum; break;
+                    case 'diff': valA = a[1].budgetSum - a[1].istSum; valB = b[1].budgetSum - b[1].istSum; break;
+                    default: valA = a[1].sortOrder; valB = b[1].sortOrder;
                 }
                 return sortDir === 'asc' ? valA - valB : valB - valA;
+            });
+        } else {
+            // Bei Konto/Beschreibung: Standard-Reihenfolge (sortOrder)
+            gruppenArray.sort((a, b) => {
+                return sortDir === 'asc' ? a[1].sortOrder - b[1].sortOrder : b[1].sortOrder - a[1].sortOrder;
+            });
+        }
+
+        gruppenArray.forEach(([gruppenKey, gruppe]) => {
+            // Konten innerhalb der Gruppe nach Konto-Nr sortieren
+            gruppe.konten.sort((a, b) => {
+                const valA = a.konto_nr || '';
+                const valB = b.konto_nr || '';
+                return valA.localeCompare(valB);
             });
 
             // Gruppen-Diff berechnen
             const gruppenDiff = gruppe.budgetSum - gruppe.istSum;
             const gruppenDiffStyle = gruppenDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
+            const gruppenDiffYtd = gruppe.budgetYtd - gruppe.istYtd;
+            const gruppenDiffYtdStyle = gruppenDiffYtd < 0 ? 'color: #dc3545;' : 'color: #28a745;';
 
-            // Gruppen-Header MIT Summen
-            html += `<tr style="background: ${gruppe.color}; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? '' : 'none'; let el = this.nextElementSibling; while(el && !el.classList.contains('gruppe-header')) { el.style.display = this.nextElementSibling.style.display; el = el.nextElementSibling; }">
-                <td colspan="3" style="font-weight: bold; font-size: 1rem; padding: 0.5rem;">
-                    ${gruppe.label} <small style="font-weight: normal; color: #666;">(${gruppe.konten.length})</small>
-                </td>
-                <td colspan="9" style="text-align: center; font-size: 0.85rem;">
-                    <span style="color: #333;">Budget: <strong>${this.formatNumber(gruppe.budgetSum)}</strong></span>
-                    <span style="margin-left: 1rem; color: #007bff;">IST: <strong>${this.formatNumber(gruppe.istSum)}</strong></span>
-                    <span style="margin-left: 1rem; ${gruppenDiffStyle}">Diff: <strong>${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</strong></span>
-                </td>
-                <td colspan="6"></td>
+            // Gruppen-Header: Budget-Zeile mit monatlichen Werten
+            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; font-weight: bold;" onclick="App.toggleBudgetGroup(this)">
+                <td style="font-size: 1rem; padding: 0.5rem;">${gruppe.label}</td>
+                <td style="font-size: 0.8rem; color: #666;">(${gruppe.konten.length} Konten)</td>
+                <td style="text-align: right; background: #e3f2fd; font-weight: bold;">${this.formatNumber(gruppe.budgetYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; font-weight: bold;">${this.formatNumber(gruppe.budgetSum)}</td>
+                <td></td>
+                <td></td>
             </tr>`;
 
+            // Gruppen-Header: IST-Zeile mit monatlichen Werten
+            html += `<tr class="gruppe-ist-row" style="background: ${gruppe.color}; font-size: 0.8rem; border-bottom: 2px solid #999;">
+                <td></td>
+                <td style="color: #007bff; font-weight: 600;">IST</td>
+                <td style="text-align: right; background: #c8e6c9; color: #2e7d32; font-weight: bold;">${this.formatNumber(gruppe.istYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; color: #007bff;">${this.formatNumber(gruppe.istMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; color: #007bff; font-weight: bold;">${this.formatNumber(gruppe.istSum)}</td>
+                <td style="${gruppenDiffStyle}; font-weight: bold;">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
+                <td></td>
+            </tr>`;
+
+            // Konten-Zeilen (eingeklappt starten)
             gruppe.konten.forEach(data => {
                 const budget = data.budget;
                 const ist = data.ist;
@@ -10736,8 +10768,8 @@ const App = {
                 const note = kontoNotes[data.key] || '';
                 const keyEscaped = data.key.replace(/'/g, "\\'");
 
-                html += `<tr>
-                    <td style="font-weight: 600; white-space: nowrap;">${data.konto_nr || '-'}</td>
+                html += `<tr class="gruppe-detail-row" style="display: none;">
+                    <td style="font-weight: 600; white-space: nowrap; padding-left: 1.5rem;">${data.konto_nr || '-'}</td>
                     <td style="font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${data.description || ''}">${data.description || data.konto_nr}</td>
                     <td style="text-align: right; background: #e3f2fd;">${this.formatNumber(data.budgetYtd)}</td>
                     ${months.map(m => `<td style="text-align: right; font-size: 0.85rem;">${budget ? this.formatNumber(budget[m]) : '-'}</td>`).join('')}
@@ -10745,7 +10777,7 @@ const App = {
                     <td><input type="text" class="form-control" style="font-size: 0.7rem; padding: 2px 4px; width: 80px;" placeholder="..." value="${note}" onchange="App.saveBudgetKontoNote('${keyEscaped}', ${year}, this.value)"></td>
                     <td>${data.hasBudget ? `<button class="btn btn-sm btn-outline" onclick="App.editBudgetEntry('${data.id}')">${Icons.edit}</button>` : `<button class="btn btn-sm btn-outline" onclick="App.addBudgetForKonto('${keyEscaped}')">+</button>`}</td>
                 </tr>
-                <tr style="font-size: 0.75rem; color: #666; border-bottom: 1px solid #dee2e6;">
+                <tr class="gruppe-detail-row" style="display: none; font-size: 0.75rem; color: #666; border-bottom: 1px solid #dee2e6;">
                     <td></td>
                     <td style="color: #007bff;">IST</td>
                     <td style="text-align: right; background: #c8e6c9; color: #2e7d32;">${this.formatNumber(data.istYtd)}</td>
@@ -10760,23 +10792,50 @@ const App = {
             gesamtIst += gruppe.istSum;
             gesamtBudgetYtd += gruppe.budgetYtd;
             gesamtIstYtd += gruppe.istYtd;
+            months.forEach(m => {
+                gesamtBudgetMonthly[m] += gruppe.budgetMonthly[m];
+                gesamtIstMonthly[m] += gruppe.istMonthly[m];
+            });
         });
 
-        // Gesamtsumme
+        // Gesamtsumme mit monatlichen Werten
         const gesamtDiff = gesamtBudget - gesamtIst;
         const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #dc3545;' : 'color: #28a745;';
 
-        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1.1rem;" class="gruppe-header">
-            <td colspan="3">GESAMT</td>
-            <td colspan="9" style="text-align: center;">
-                <span>Budget: ${this.formatNumber(gesamtBudget)}</span>
-                <span style="margin-left: 1rem;">IST: ${this.formatNumber(gesamtIst)}</span>
-                <span style="margin-left: 1rem; ${gesamtDiffStyle}">Diff: ${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</span>
-            </td>
-            <td colspan="6"></td>
+        html += `<tr style="background: #343a40; color: white; font-weight: bold; font-size: 1rem;" class="gruppe-header">
+            <td>GESAMT</td>
+            <td></td>
+            <td style="text-align: right; background: #1a5276;">${this.formatNumber(gesamtBudgetYtd)}</td>
+            ${months.map(m => `<td style="text-align: right;">${this.formatNumber(gesamtBudgetMonthly[m])}</td>`).join('')}
+            <td style="text-align: right;">${this.formatNumber(gesamtBudget)}</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr style="background: #343a40; color: white; font-size: 0.9rem;">
+            <td></td>
+            <td style="color: #5dade2;">IST</td>
+            <td style="text-align: right; background: #1e8449; color: white;">${this.formatNumber(gesamtIstYtd)}</td>
+            ${months.map(m => `<td style="text-align: right; color: #5dade2;">${this.formatNumber(gesamtIstMonthly[m])}</td>`).join('')}
+            <td style="text-align: right; color: #5dade2;">${this.formatNumber(gesamtIst)}</td>
+            <td style="${gesamtDiffStyle}; font-weight: bold;">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
+            <td></td>
         </tr>`;
 
         tbody.innerHTML = html;
+    },
+
+    // Toggle-Funktion für Gruppen auf-/zuklappen
+    toggleBudgetGroup: function(headerRow) {
+        let row = headerRow.nextElementSibling;
+        // Überspringe die IST-Zeile der Gruppe
+        if (row && row.classList.contains('gruppe-ist-row')) {
+            row = row.nextElementSibling;
+        }
+        // Toggle alle Detail-Zeilen bis zur nächsten Gruppe
+        while (row && row.classList.contains('gruppe-detail-row')) {
+            row.style.display = row.style.display === 'none' ? '' : 'none';
+            row = row.nextElementSibling;
+        }
     },
 
     // Sortierung für Budget-Tabelle
