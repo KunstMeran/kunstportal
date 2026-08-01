@@ -8690,17 +8690,20 @@ const App = {
         try {
             // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
             // WICHTIG: ist_gutschrift und dokument_typ laden für korrekte Gutschrift-Berechnung
+            // WICHTIG: Limit auf 10000 setzen, da Supabase Standard-Limit von 1000 hat!
             const { data: buchungenAktuell, error: err1 } = await SupabaseService.client
                 .from('datev_bookings')
                 .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
                 .gte('datum', `${jahr}-01-01`)
-                .lte('datum', `${jahr}-12-31`);
+                .lte('datum', `${jahr}-12-31`)
+                .limit(50000);
 
             const { data: buchungenVorjahr, error: err2 } = await SupabaseService.client
                 .from('datev_bookings')
                 .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
                 .gte('datum', `${vorjahr}-01-01`)
-                .lte('datum', `${vorjahr}-12-31`);
+                .lte('datum', `${vorjahr}-12-31`)
+                .limit(50000);
 
             if (err1) throw err1;
             if (err2) throw err2;
