@@ -8837,8 +8837,10 @@ const App = {
                 { id: 'B7', label: '7) Für bezogene Dienstleistungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['690'], negate: true },
                 { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'], negate: true },
                 { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negate: true },
-                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negate: true, isAbschreibung: true },
-                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negate: true },
+                // Abschreibungen: NUR ordentliche (720151015, 720151025, 720151029), NICHT steuerliche (fisc.)
+                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720151015', '720151025', '720151029'], negate: true, isAbschreibung: true },
+                // Bestandsveränderungen: NICHT negieren - Saldo ist bereits korrekt (Anfangsbestand - Endbestand)
+                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negate: false },
                 { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negate: true },
                 { id: 'B_SUM', label: 'Summe betriebliche Aufwendungen (B)', type: 'sum', level: 0, sumOf: ['B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B14'], color: '#f5c6cb', bold: true },
 
