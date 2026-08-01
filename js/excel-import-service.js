@@ -379,6 +379,9 @@ const ExcelImportService = {
         let datum = null;
         let datumSource = null;
 
+        // Debug: Zeige alle verfügbaren Spalten die "Data" enthalten
+        const allDateColumns = Object.keys(row).filter(k => k.toLowerCase().includes('data'));
+
         for (const spalte of datumSpalten) {
             if (row[spalte] !== null && row[spalte] !== undefined && row[spalte] !== '') {
                 datum = this.parseDate(row[spalte]);
@@ -387,6 +390,14 @@ const ExcelImportService = {
                     break;
                 }
             }
+        }
+
+        // Debug-Logging für erste 5 Zeilen
+        if (rowNumber <= 5 || !datum) {
+            console.log(`📅 Zeile ${rowNumber}: Verfügbare Datum-Spalten:`, allDateColumns);
+            console.log(`   Gewählt: "${datumSource}" = "${datum}"`);
+            console.log(`   Data registrazione: "${row['Data registrazione']}"`);
+            console.log(`   Data documento: "${row['Data documento']}"`);
         }
 
         if (!datum) {
@@ -491,10 +502,19 @@ const ExcelImportService = {
         const istGutschrift = !isUmsatzkonto && betragParsed < 0;
 
         // ============================================
-        // BUCHUNGS-OBJEKT erstellen
+        // ALLE DREI DATEN parsen
         // ============================================
+        const datumRegistrazione = this.parseDate(row['Data registrazione']);
+        const datumDocumento = this.parseDate(row['Data documento']);
+        const datumCompetenza = this.parseDate(row['Data competenza bilancio']);
+
+        // Haupt-Datum: Data registrazione (Buchungsdatum) hat Priorität
+        // Das ist das Datum das für das Buchungsjahr relevant ist
         const importYear = new Date(datum).getFullYear();
 
+        // ============================================
+        // BUCHUNGS-OBJEKT erstellen
+        // ============================================
         return {
             booking: {
                 import_year: importYear,
@@ -515,7 +535,12 @@ const ExcelImportService = {
                 betrag_gesamt: betragParsed,
                 mwst_typ: null,
 
-                datum: datum,
+                // Alle drei Daten speichern
+                datum: datum,                              // Haupt-Datum (Data registrazione)
+                datum_registrazione: datumRegistrazione,   // Buchungsdatum
+                datum_documento: datumDocumento,           // Rechnungsdatum
+                datum_competenza: datumCompetenza,         // Bilanzdatum
+
                 projekt_id: row['Centro di costo'] || null,
                 beschreibung: row['Descrizione movimento'] || null,
                 kategorie: row['Descrizione conto'] || null
