@@ -2666,15 +2666,18 @@ const SupabaseDataAdapter = {
             try {
                 const { data: konten } = await SupabaseService.client
                     .from('chart_of_accounts')
-                    .select('konto_pattern, name');
+                    .select('*');
                 if (konten) {
                     konten.forEach(k => {
-                        const pattern = (k.konto_pattern || '').replace('%', '');
-                        if (pattern) kontenMap[pattern] = k.name;
+                        // Verschiedene mögliche Feldnamen unterstützen
+                        const pattern = (k.konto_pattern || k.konto_nr || k.konto || '').replace('%', '');
+                        const name = k.name || k.bezeichnung || k.beschreibung || '';
+                        if (pattern) kontenMap[pattern] = name;
                     });
                 }
             } catch (e) {
-                console.warn('Kontenplan für Konto-Namen konnte nicht geladen werden');
+                // Ignorieren wenn Tabelle nicht existiert oder anderer Fehler
+                console.log('Kontenplan für Konto-Namen nicht verfügbar');
             }
 
             // Beträge berechnen (Brutto = Netto + MwSt) und Konto-Namen hinzufügen

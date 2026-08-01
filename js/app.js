@@ -9338,6 +9338,16 @@ const App = {
 
     // Cache für geladene Konto-Buchungen
     kontoBuchungenLoaded: {},
+    kontoBuchungenJahr: null, // Jahr für das der Cache gilt
+    kontoBuchungenSort: {}, // Sortierung pro Konto
+
+    /**
+     * Cache leeren wenn Jahr wechselt
+     */
+    clearKontoBuchungenCache: function() {
+        this.kontoBuchungenLoaded = {};
+        this.kontoBuchungenSort = {};
+    },
 
     /**
      * Klappt die Einzelbuchungen für ein Konto auf/zu (inline in der Bilanz-Tabelle)
@@ -9350,6 +9360,15 @@ const App = {
         if (!container) {
             console.error('Container nicht gefunden:', kontoId);
             return;
+        }
+
+        // Jahr aus dem aktuellen Bilanz-Filter
+        const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
+
+        // Cache leeren wenn Jahr gewechselt hat
+        if (this.kontoBuchungenJahr !== jahr) {
+            this.clearKontoBuchungenCache();
+            this.kontoBuchungenJahr = jahr;
         }
 
         // Toggle visibility
@@ -9366,12 +9385,9 @@ const App = {
 
             // Daten laden falls noch nicht geladen
             if (!this.kontoBuchungenLoaded[kontoNr]) {
-                content.innerHTML = '<div style="text-align: center; padding: 1rem; color: #666;"><span style="display: inline-block; animation: spin 1s linear infinite;">⟳</span> Lade Buchungen...</div>';
+                content.innerHTML = '<div style="text-align: center; padding: 1rem; color: #666;">Lade Buchungen...</div>';
 
                 try {
-                    // Jahr aus dem aktuellen Bilanz-Filter
-                    const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
-
                     // Buchungen laden
                     const { data: buchungen, error } = await SupabaseService.client
                         .from('datev_bookings')
@@ -9384,7 +9400,10 @@ const App = {
 
                     if (error) throw error;
 
+                    console.log(`📊 ${(buchungen || []).length} Buchungen für Konto ${kontoNr} (${jahr}) geladen`);
+
                     this.kontoBuchungenLoaded[kontoNr] = buchungen || [];
+                    this.kontoBuchungenSort[kontoNr] = { field: 'datum', dir: 'desc' };
                     this.renderInlineBuchungen(kontoNr, kontoId, buchungen || []);
 
                 } catch (error) {
@@ -9393,6 +9412,56 @@ const App = {
                 }
             }
         }
+    },
+
+    /**
+     * Sortiert die inline Buchungen
+     */
+    sortInlineBuchungen: function(kontoNr, kontoId, field) {
+        const buchungen = this.kontoBuchungenLoaded[kontoNr];
+        if (!buchungen) return;
+
+        // Toggle Sortierrichtung
+        const currentSort = this.kontoBuchungenSort[kontoNr] || { field: 'datum', dir: 'desc' };
+        let newDir = 'desc';
+        if (currentSort.field === field) {
+            newDir = currentSort.dir === 'desc' ? 'asc' : 'desc';
+        }
+        this.kontoBuchungenSort[kontoNr] = { field, dir: newDir };
+
+        // Sortieren
+        const sorted = [...buchungen].sort((a, b) => {
+            let valA, valB;
+            switch (field) {
+                case 'datum':
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+                    break;
+                case 'betrag':
+                    valA = parseFloat(a.betrag) || 0;
+                    valB = parseFloat(b.betrag) || 0;
+                    break;
+                case 'lieferant':
+                    valA = (a.fornitore_name || '').toLowerCase();
+                    valB = (b.fornitore_name || '').toLowerCase();
+                    break;
+                case 'dokument':
+                    valA = a.dokument_nr || '';
+                    valB = b.dokument_nr || '';
+                    break;
+                default:
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+            }
+
+            if (newDir === 'asc') {
+                return valA > valB ? 1 : valA < valB ? -1 : 0;
+            } else {
+                return valA < valB ? 1 : valA > valB ? -1 : 0;
+            }
+        });
+
+        this.renderInlineBuchungen(kontoNr, kontoId, sorted);
     },
 
     /**
@@ -9407,6 +9476,9 @@ const App = {
             return;
         }
 
+        const sort = this.kontoBuchungenSort[kontoNr] || { field: 'datum', dir: 'desc' };
+        const arrow = (field) => sort.field === field ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+
         // Summe berechnen
         const total = buchungen.reduce((sum, b) => sum + (parseFloat(b.betrag) || 0), 0);
 
@@ -9418,11 +9490,11 @@ const App = {
             <table style="width: 100%; font-size: 0.75rem; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f1f3f4; text-align: left;">
-                        <th style="padding: 6px 8px; width: 80px;">Datum</th>
-                        <th style="padding: 6px 8px;">Lieferant</th>
-                        <th style="padding: 6px 8px; width: 80px;">Dok-Nr</th>
+                        <th style="padding: 6px 8px; width: 85px; cursor: pointer; user-select: none;" onclick="App.sortInlineBuchungen('${kontoNr}', '${kontoId}', 'datum')">Datum${arrow('datum')}</th>
+                        <th style="padding: 6px 8px; cursor: pointer; user-select: none;" onclick="App.sortInlineBuchungen('${kontoNr}', '${kontoId}', 'lieferant')">Lieferant${arrow('lieferant')}</th>
+                        <th style="padding: 6px 8px; width: 80px; cursor: pointer; user-select: none;" onclick="App.sortInlineBuchungen('${kontoNr}', '${kontoId}', 'dokument')">Dok-Nr${arrow('dokument')}</th>
                         <th style="padding: 6px 8px;">Beschreibung</th>
-                        <th style="padding: 6px 8px; text-align: right; width: 100px;">Betrag</th>
+                        <th style="padding: 6px 8px; text-align: right; width: 100px; cursor: pointer; user-select: none;" onclick="App.sortInlineBuchungen('${kontoNr}', '${kontoId}', 'betrag')">Betrag${arrow('betrag')}</th>
                     </tr>
                 </thead>
                 <tbody>
