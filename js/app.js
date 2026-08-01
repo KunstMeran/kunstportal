@@ -167,7 +167,8 @@ const App = {
         'lieferanten': 'access_lieferanten',
         'mitglieder': 'access_mitglieder',
         'einnahmen': 'access_einnahmen',
-        'konfiguration': 'access_konfiguration'
+        'konfiguration': 'access_konfiguration',
+        'inventar': 'access_inventar'
     },
 
     /**
@@ -8536,7 +8537,7 @@ const App = {
                 { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'], negative: true },
                 { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negative: true },
                 { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negative: true, isAbschreibung: true },
-                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negative: true },
+                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], keepSign: true },
                 { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negative: true },
                 { id: 'B_SUM', label: 'Summe betriebliche Aufwendungen (B)', type: 'sum', level: 0, sumOf: ['B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B14'], color: '#f5c6cb', bold: true },
 
@@ -8668,8 +8669,12 @@ const App = {
                     });
                 });
                 // Bei Aufwendungen (negative: true) als negative Werte speichern für korrekte Berechnung
+                // Bei keepSign: true (z.B. Bestandsveränderungen) Vorzeichen beibehalten
                 if (gruppe.negative) {
                     werte[gruppe.id] = { aktuell: -Math.abs(sumAktuell), vorjahr: -Math.abs(sumVorjahr) };
+                } else if (gruppe.keepSign) {
+                    // Bestandsveränderungen: Vorzeichen beibehalten, aber für B-Summe negativ darstellen
+                    werte[gruppe.id] = { aktuell: -sumAktuell, vorjahr: -sumVorjahr };
                 } else {
                     werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
                 }
@@ -12481,7 +12486,7 @@ const App = {
         document.getElementById('workspace-description').value = '';
 
         // Alle Radio-Buttons auf 'none' setzen
-        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration'];
+        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'inventar'];
         areas.forEach(area => {
             setRadioValue(`workspace-access-${area}`, 'none');
         });
@@ -12544,6 +12549,7 @@ const App = {
             access_mitglieder: toBooleanForDB(getRadioValue('workspace-access-mitglieder')),
             access_einnahmen: toBooleanForDB(getRadioValue('workspace-access-einnahmen')),
             access_konfiguration: toBooleanForDB(getRadioValue('workspace-access-konfiguration')),
+            access_inventar: toBooleanForDB(getRadioValue('workspace-access-inventar')),
             rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,
             is_active: true
         };
