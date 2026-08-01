@@ -9,21 +9,19 @@ const ExcelImportService = {
     /**
      * Generiert einen eindeutigen Key für eine Buchung zum COUNT-basierten Matching.
      *
-     * WICHTIG: Wir verwenden NICHT den DB-Constraint-Key, weil:
-     * 1. partita_iva wird beim Import über Supplier-Matching gesetzt (variabel)
-     * 2. fornitore_name kann sich nach Supplier-Import ändern
+     * Key-Felder (passend zum DB-Constraint idx_unique_datev_booking_v3):
+     * - dokument_nr
+     * - datum
+     * - betrag
+     * - konto_nr
      *
-     * Stattdessen verwenden wir nur die UNVERÄNDERLICHEN Felder aus dem Excel:
-     * - dokument_nr (direkt aus Excel)
-     * - datum (direkt aus Excel)
-     * - betrag (direkt aus Excel)
-     * - konto_nr (direkt aus Excel)
-     * - beschreibung (direkt aus Excel)
-     *
-     * Diese Felder ändern sich nie nach dem initialen Import.
+     * NICHT im Key (weil variabel zwischen Importen):
+     * - partita_iva (wird via Supplier-Matching gesetzt)
+     * - fornitore_name (kann sich ändern)
+     * - beschreibung (variiert zwischen Excel-Exporten)
      */
     generateBookingKey(booking) {
-        // dokument_nr - direkt aus Excel, ändert sich nie
+        // dokument_nr - direkt aus Excel
         const dokumentNr = booking.dokument_nr || '';
 
         // datum - direkt aus Excel
@@ -39,10 +37,7 @@ const ExcelImportService = {
         // konto_nr - direkt aus Excel
         const kontoNr = booking.konto_nr || '';
 
-        // beschreibung - direkt aus Excel, auf 50 Zeichen begrenzen wie DB
-        const beschreibung = (booking.beschreibung || '').substring(0, 50);
-
-        return `${dokumentNr}_${datum}_${betrag}_${kontoNr}_${beschreibung}`;
+        return `${dokumentNr}_${datum}_${betrag}_${kontoNr}`;
     },
 
     async importDatevBookings(file, year = null) {
