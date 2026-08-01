@@ -2806,9 +2806,76 @@ const App = {
 
         await this.loadCostTypes();
         await this.loadKontenplan();
+        this.renderMwstSaetze();
         this.loadSuppliers();
         await this.loadUsers();
         this.loadExportTab();
+    },
+
+    /**
+     * Rendert die MwSt-Sätze Tabelle in der Konfiguration
+     */
+    renderMwstSaetze: function() {
+        const tbody = document.getElementById('mwst-saetze-list');
+        if (!tbody) return;
+
+        // Ländergruppen
+        const laender = {
+            '': 'Allgemein',
+            'IT': 'Italien',
+            'DE': 'Deutschland',
+            'AT': 'Österreich',
+            'CH': 'Schweiz',
+            'BE': 'Belgien',
+            'BG': 'Bulgarien',
+            'CY': 'Zypern',
+            'CZ': 'Tschechien',
+            'DK': 'Dänemark',
+            'EE': 'Estland',
+            'ES': 'Spanien',
+            'FI': 'Finnland',
+            'FR': 'Frankreich',
+            'GR': 'Griechenland',
+            'HR': 'Kroatien',
+            'HU': 'Ungarn',
+            'IE': 'Irland',
+            'LT': 'Litauen',
+            'LU': 'Luxemburg',
+            'LV': 'Lettland',
+            'MT': 'Malta',
+            'NL': 'Niederlande',
+            'PL': 'Polen',
+            'PT': 'Portugal',
+            'RO': 'Rumänien',
+            'SE': 'Schweden',
+            'SI': 'Slowenien',
+            'SK': 'Slowakei'
+        };
+
+        let html = '';
+        let currentCountry = null;
+
+        this.mwstSaetze.forEach(satz => {
+            const countryName = laender[satz.country] || satz.country || 'Allgemein';
+
+            // Gruppenkopf wenn Land wechselt
+            if (satz.country !== currentCountry) {
+                currentCountry = satz.country;
+                html += `<tr style="background: #f8f9fa;">
+                    <td colspan="3" style="font-weight: 600; color: #333; padding: 0.75rem;">
+                        ${countryName}
+                    </td>
+                </tr>`;
+            }
+
+            html += `<tr>
+                <td style="padding-left: 1.5rem; color: #666;">${satz.country || '-'}</td>
+                <td><strong>${satz.rate}%</strong></td>
+                <td>${satz.label}</td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html;
     },
 
     loadCostTypes: async function() {

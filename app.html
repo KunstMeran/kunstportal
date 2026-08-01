@@ -1935,6 +1935,7 @@
                 <div class="tabs">
                     <div class="tab active" data-tab="kostentypen">Kostentypen</div>
                     <div class="tab" data-tab="kontenplan">Kontenplan</div>
+                    <div class="tab" data-tab="mwst-saetze">MwSt-Sätze</div>
                     <div class="tab" data-tab="workspaces">Workspaces</div>
                     <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
                     <div class="tab" data-tab="export">Datenexport</div>
@@ -2049,6 +2050,37 @@
                             <p style="margin-top: 1rem; font-size: 0.875rem; color: #666;">
                                 <strong>Projektbezogen:</strong> Wenn aktiviert, werden diese Kosten nur in DB1 berücksichtigt, wenn sie einem Projekt zugeordnet sind.
                                 Nicht-projektbezogene Kosten werden anteilig nach Ausstellungsdauer auf alle Projekte verteilt.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MwSt-Sätze Tab -->
+                <div id="tab-mwst-saetze" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">MwSt-Sätze (EU)</h3>
+                        </div>
+                        <p style="padding: 0 1rem 1rem; color: #666; font-size: 0.875rem;">
+                            Europäische MwSt-Sätze für die Buchungserfassung. Die Sätze sind nach Land gruppiert und nach Nutzungshäufigkeit sortiert.
+                        </p>
+                        <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                            <table class="data-table" id="mwst-saetze-table">
+                                <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+                                    <tr>
+                                        <th style="width: 80px;">Land</th>
+                                        <th style="width: 100px;">Satz</th>
+                                        <th>Label</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mwst-saetze-list">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 1rem; background: #f8f9fa; border-top: 1px solid #e9ecef;">
+                            <p style="margin: 0; font-size: 0.875rem; color: #666;">
+                                <strong>Hinweis:</strong> Die MwSt-Sätze werden in der Reihenfolge angezeigt: Italien (Hauptland), Deutschland, Österreich, Schweiz, dann alle anderen EU-Länder alphabetisch.
                             </p>
                         </div>
                     </div>
