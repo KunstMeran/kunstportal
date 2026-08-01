@@ -2090,14 +2090,16 @@ const SupabaseDataAdapter = {
                 .insert({
                     name: workspace.name,
                     description: workspace.description || null,
-                    access_dashboard: workspace.access_dashboard || false,
-                    access_projekte: workspace.access_projekte || false,
-                    access_rechnungen: workspace.access_rechnungen || false,
-                    access_bewegungen: workspace.access_bewegungen || false,
-                    access_lieferanten: workspace.access_lieferanten || false,
-                    access_mitglieder: workspace.access_mitglieder || false,
-                    access_einnahmen: workspace.access_einnahmen || false,
-                    access_konfiguration: workspace.access_konfiguration || false,
+                    access_dashboard: workspace.access_dashboard || 'none',
+                    access_projekte: workspace.access_projekte || 'none',
+                    access_rechnungen: workspace.access_rechnungen || 'none',
+                    access_bewegungen: workspace.access_bewegungen || 'none',
+                    access_lieferanten: workspace.access_lieferanten || 'none',
+                    access_mitglieder: workspace.access_mitglieder || 'none',
+                    access_einnahmen: workspace.access_einnahmen || 'none',
+                    access_konfiguration: workspace.access_konfiguration || 'none',
+                    access_inventar: workspace.access_inventar || 'none',
+                    access_reporting: workspace.access_reporting || 'none',
                     rechnungen_nur_zugewiesene: workspace.rechnungen_nur_zugewiesene || false,
                     is_active: true,
                     created_by: user?.id
@@ -2123,14 +2125,16 @@ const SupabaseDataAdapter = {
                 .update({
                     name: updates.name,
                     description: updates.description,
-                    access_dashboard: updates.access_dashboard,
-                    access_projekte: updates.access_projekte,
-                    access_rechnungen: updates.access_rechnungen,
-                    access_bewegungen: updates.access_bewegungen,
-                    access_lieferanten: updates.access_lieferanten,
-                    access_mitglieder: updates.access_mitglieder,
-                    access_einnahmen: updates.access_einnahmen,
-                    access_konfiguration: updates.access_konfiguration,
+                    access_dashboard: updates.access_dashboard || 'none',
+                    access_projekte: updates.access_projekte || 'none',
+                    access_rechnungen: updates.access_rechnungen || 'none',
+                    access_bewegungen: updates.access_bewegungen || 'none',
+                    access_lieferanten: updates.access_lieferanten || 'none',
+                    access_mitglieder: updates.access_mitglieder || 'none',
+                    access_einnahmen: updates.access_einnahmen || 'none',
+                    access_konfiguration: updates.access_konfiguration || 'none',
+                    access_inventar: updates.access_inventar || 'none',
+                    access_reporting: updates.access_reporting || 'none',
                     rechnungen_nur_zugewiesene: updates.rechnungen_nur_zugewiesene,
                     is_active: updates.is_active
                 })
@@ -2294,6 +2298,8 @@ const SupabaseDataAdapter = {
                         access_mitglieder,
                         access_einnahmen,
                         access_konfiguration,
+                        access_inventar,
+                        access_reporting,
                         rechnungen_nur_zugewiesene,
                         is_active
                     )
@@ -2302,10 +2308,10 @@ const SupabaseDataAdapter = {
 
             if (error) throw error;
 
-            // Wenn keine Workspaces zugewiesen, Vollzugriff (für Admins/Erstnutzer)
+            // Wenn keine Workspaces zugewiesen, KEIN Zugriff (Benutzer muss einem Workspace zugewiesen sein)
             if (!data || data.length === 0) {
-                console.log('Kein Workspace zugewiesen - Vollzugriff gewährt');
-                return this.getFullPermissions();
+                console.log('Kein Workspace zugewiesen - kein Zugriff');
+                return this.getDefaultPermissions();
             }
 
             // Hilfsfunktion: Aggregiert zwei Berechtigungslevel (höchste Stufe gewinnt)
