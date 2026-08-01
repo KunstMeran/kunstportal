@@ -3357,16 +3357,40 @@ const App = {
     },
 
     populateRechnungenFilters: async function() {
-        // Jahr-Filter befüllen (aktuelles Jahr + Vorjahre)
+        // Jahr-Filter befüllen - dynamisch aus vorhandenen DATEV-Buchungen
         const jahrSelect = document.getElementById('rechnung-filter-jahr');
         if (jahrSelect) {
             const currentYear = new Date().getFullYear();
+
+            // Verfügbare Jahre aus DATEV-Buchungen laden
+            let availableYears = [];
+            try {
+                availableYears = await ExcelImportService.getAvailableYears();
+            } catch (e) {
+                console.warn('Konnte Jahre nicht laden:', e);
+            }
+
+            // Falls keine Jahre gefunden, Fallback auf 2018 bis aktuell
+            if (!availableYears || availableYears.length === 0) {
+                availableYears = [];
+                for (let y = currentYear; y >= 2018; y--) {
+                    availableYears.push(y);
+                }
+            }
+
+            // Sicherstellen dass aktuelles Jahr dabei ist
+            if (!availableYears.includes(currentYear)) {
+                availableYears.unshift(currentYear);
+            }
+
+            // Sortieren (neueste zuerst)
+            availableYears.sort((a, b) => b - a);
+
             jahrSelect.innerHTML = `<option value="">Alle Jahre</option>`;
-            // Jahre von aktuell bis 2020
-            for (let year = currentYear; year >= 2020; year--) {
+            availableYears.forEach(year => {
                 const selected = year === currentYear ? 'selected' : '';
                 jahrSelect.innerHTML += `<option value="${year}" ${selected}>${year}</option>`;
-            }
+            });
         }
 
         // Projekt-Filter
@@ -10875,27 +10899,28 @@ const App = {
 
             // Gruppen-Header: Budget-Zeile mit monatlichen Werten
             const gruppenId = gruppenKey.replace(/[^a-zA-Z0-9]/g, '');
-            html += `<tr class="gruppe-header" style="background: ${gruppe.color}; cursor: pointer; border-left: 4px solid ${gruppe.borderColor};" onclick="App.toggleBudgetGroup(this, '${gruppenId}')">
-                <td style="font-size: 0.95rem; padding: 0.6rem 0.5rem; font-weight: 600; color: ${gruppe.textColor};">
-                    <span id="budget-expand-${gruppenId}" style="display: inline-block; width: 20px; text-align: center; font-size: 1.1rem;">+</span>
+            html += `<tr class="gruppe-header" style="background: linear-gradient(135deg, ${gruppe.color} 0%, ${gruppe.color}ee 100%); cursor: pointer; border-left: 5px solid ${gruppe.borderColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.08);" onclick="App.toggleBudgetGroup(this, '${gruppenId}')">
+                <td style="font-size: 0.9rem; padding: 14px 12px; font-weight: 700; color: ${gruppe.textColor}; letter-spacing: 0.3px;">
+                    <span id="budget-expand-${gruppenId}" style="display: inline-block; width: 22px; text-align: center; font-size: 1rem; font-weight: bold; background: ${gruppe.borderColor}; color: white; border-radius: 4px; margin-right: 8px; line-height: 22px; height: 22px;">+</span>
                     ${gruppe.label}
                 </td>
-                <td style="font-size: 0.75rem; color: ${gruppe.textColor}; opacity: 0.8;">(${gruppe.konten.length})</td>
-                <td style="text-align: right; font-weight: 600; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetYtd)}</td>
-                ${months.map(m => `<td style="text-align: right; font-size: 0.8rem; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
-                <td style="text-align: right; font-weight: 700; color: ${gruppe.textColor};">${this.formatNumber(gruppe.budgetSum)}</td>
-                <td></td>
-                <td></td>
+                <td style="font-size: 0.7rem; color: ${gruppe.textColor}; opacity: 0.7; font-weight: 500;">(${gruppe.konten.length} Konten)</td>
+                <td style="text-align: right; font-weight: 700; color: ${gruppe.textColor}; background: rgba(255,255,255,0.5); padding: 14px 10px;">${this.formatNumber(gruppe.budgetYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; font-size: 0.8rem; color: ${gruppe.textColor}; font-weight: 500; padding: 14px 6px;">${this.formatNumber(gruppe.budgetMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; font-weight: 800; color: ${gruppe.textColor}; font-size: 0.95rem; background: rgba(255,255,255,0.4); padding: 14px 10px;">${this.formatNumber(gruppe.budgetSum)}</td>
+                <td style="background: rgba(255,255,255,0.3);"></td>
+                <td style="background: rgba(255,255,255,0.3);"></td>
             </tr>`;
 
             // Gruppen-Header: IST-Zeile mit monatlichen Werten
-            html += `<tr class="gruppe-ist-row" style="background: linear-gradient(to bottom, ${gruppe.color}, #fff); font-size: 0.75rem; border-bottom: 2px solid ${gruppe.borderColor};">
-                <td style="padding-left: 2rem; color: #555; font-weight: 500;">IST</td>
+            const istBgColor = gruppe.color.replace(')', ', 0.4)').replace('rgb', 'rgba').replace('#', '');
+            html += `<tr class="gruppe-ist-row" style="background: linear-gradient(to bottom, ${gruppe.color}99, #f8f9fa); font-size: 0.78rem; border-bottom: 3px solid ${gruppe.borderColor};">
+                <td style="padding: 10px 12px 10px 46px; color: #495057; font-weight: 600; font-style: italic;">IST</td>
                 <td></td>
-                <td style="text-align: right; color: #17a2b8; font-weight: 600;">${this.formatNumber(gruppe.istYtd)}</td>
-                ${months.map(m => `<td style="text-align: right; color: #17a2b8;">${this.formatNumber(gruppe.istMonthly[m])}</td>`).join('')}
-                <td style="text-align: right; color: #17a2b8; font-weight: 600;">${this.formatNumber(gruppe.istSum)}</td>
-                <td style="${gruppenDiffStyle}; font-weight: 700;">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
+                <td style="text-align: right; color: #0d6efd; font-weight: 700; background: rgba(13, 110, 253, 0.08); padding: 10px;">${this.formatNumber(gruppe.istYtd)}</td>
+                ${months.map(m => `<td style="text-align: right; color: #0d6efd; font-weight: 500; padding: 10px 6px;">${this.formatNumber(gruppe.istMonthly[m])}</td>`).join('')}
+                <td style="text-align: right; color: #0d6efd; font-weight: 700; font-size: 0.85rem; background: rgba(13, 110, 253, 0.08); padding: 10px;">${this.formatNumber(gruppe.istSum)}</td>
+                <td style="${gruppenDiffStyle}; font-weight: 800; font-size: 0.85rem; padding: 10px; background: ${gruppenDiff < 0 ? 'rgba(220, 53, 69, 0.1)' : 'rgba(40, 167, 69, 0.1)'};">${gruppenDiff >= 0 ? '+' : ''}${this.formatNumber(gruppenDiff)}</td>
                 <td></td>
             </tr>`;
 
@@ -10947,24 +10972,29 @@ const App = {
 
         // Gesamtsumme mit monatlichen Werten
         const gesamtDiff = gesamtBudget - gesamtIst;
-        const gesamtDiffStyle = gesamtDiff < 0 ? 'color: #ff6b6b;' : 'color: #51cf66;';
+        const gesamtDiffBg = gesamtDiff < 0 ? 'rgba(255, 107, 107, 0.2)' : 'rgba(81, 207, 102, 0.2)';
+        const gesamtDiffColor = gesamtDiff < 0 ? '#ff6b6b' : '#51cf66';
 
-        html += `<tr style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white; font-weight: 700; font-size: 0.95rem;" class="gruppe-header">
-            <td style="padding: 0.7rem 0.5rem; border-left: 4px solid #3498db;">GESAMT</td>
-            <td></td>
-            <td style="text-align: right;">${this.formatNumber(gesamtBudgetYtd)}</td>
-            ${months.map(m => `<td style="text-align: right;">${this.formatNumber(gesamtBudgetMonthly[m])}</td>`).join('')}
-            <td style="text-align: right; font-size: 1rem;">${this.formatNumber(gesamtBudget)}</td>
-            <td></td>
-            <td></td>
+        html += `<tr style="background: linear-gradient(135deg, #1a252f 0%, #2c3e50 50%, #1a252f 100%); color: white; font-weight: 700; font-size: 1rem; box-shadow: 0 -4px 12px rgba(0,0,0,0.15);" class="gruppe-header">
+            <td style="padding: 16px 12px; border-left: 6px solid #3498db; letter-spacing: 1px; text-transform: uppercase;">
+                <span style="background: linear-gradient(135deg, #3498db, #2980b9); padding: 4px 10px; border-radius: 4px; font-size: 0.85rem;">GESAMT</span>
+            </td>
+            <td style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 500;">Budget</td>
+            <td style="text-align: right; background: rgba(255,255,255,0.1); padding: 16px 10px; font-size: 1.05rem;">${this.formatNumber(gesamtBudgetYtd)}</td>
+            ${months.map(m => `<td style="text-align: right; font-weight: 500; padding: 16px 6px; font-size: 0.85rem;">${this.formatNumber(gesamtBudgetMonthly[m])}</td>`).join('')}
+            <td style="text-align: right; font-size: 1.15rem; font-weight: 800; background: rgba(255,255,255,0.15); padding: 16px 10px;">${this.formatNumber(gesamtBudget)}</td>
+            <td style="background: rgba(255,255,255,0.08);"></td>
+            <td style="background: rgba(255,255,255,0.08);"></td>
         </tr>
-        <tr style="background: linear-gradient(135deg, #34495e, #2c3e50); color: #bdc3c7; font-size: 0.8rem;">
-            <td style="padding-left: 2rem;">IST</td>
+        <tr style="background: linear-gradient(135deg, #34495e 0%, #3d566e 50%, #34495e 100%); color: #ecf0f1; font-size: 0.85rem; border-bottom: 4px solid #3498db;">
+            <td style="padding: 12px 12px 12px 22px; font-style: italic; font-weight: 600;">
+                <span style="color: #74b9ff;">IST</span>
+            </td>
             <td></td>
-            <td style="text-align: right; color: #74b9ff;">${this.formatNumber(gesamtIstYtd)}</td>
-            ${months.map(m => `<td style="text-align: right; color: #74b9ff;">${this.formatNumber(gesamtIstMonthly[m])}</td>`).join('')}
-            <td style="text-align: right; color: #74b9ff; font-weight: 600;">${this.formatNumber(gesamtIst)}</td>
-            <td style="${gesamtDiffStyle}; font-weight: 700;">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
+            <td style="text-align: right; color: #74b9ff; font-weight: 700; background: rgba(116, 185, 255, 0.15); padding: 12px 10px;">${this.formatNumber(gesamtIstYtd)}</td>
+            ${months.map(m => `<td style="text-align: right; color: #74b9ff; font-weight: 500; padding: 12px 6px;">${this.formatNumber(gesamtIstMonthly[m])}</td>`).join('')}
+            <td style="text-align: right; color: #74b9ff; font-weight: 700; font-size: 0.95rem; background: rgba(116, 185, 255, 0.15); padding: 12px 10px;">${this.formatNumber(gesamtIst)}</td>
+            <td style="color: ${gesamtDiffColor}; font-weight: 800; font-size: 0.95rem; padding: 12px 10px; background: ${gesamtDiffBg}; border-radius: 0 0 4px 0;">${gesamtDiff >= 0 ? '+' : ''}${this.formatNumber(gesamtDiff)}</td>
             <td></td>
         </tr>`;
 

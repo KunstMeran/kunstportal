@@ -1540,27 +1540,27 @@
                             </div>
                         </div>
                         <div class="table-container" style="overflow-x: auto;">
-                            <table style="min-width: 1650px;" id="budget-konten-table">
+                            <table style="min-width: 1650px; border-collapse: separate; border-spacing: 0;" id="budget-konten-table">
                                 <thead>
-                                    <tr>
-                                        <th style="min-width: 90px; cursor: pointer;" onclick="App.sortBudgetTable('konto_nr')" title="Klicken zum Sortieren">Konto-Nr. <span id="sort-icon-konto_nr">▼</span></th>
-                                        <th style="min-width: 180px; cursor: pointer;" onclick="App.sortBudgetTable('description')" title="Klicken zum Sortieren">Beschreibung <span id="sort-icon-description"></span></th>
-                                        <th style="text-align: right; min-width: 75px; background: #e3f2fd; cursor: pointer;" onclick="App.sortBudgetTable('ytd')" title="Year-to-Date: Summe Jan bis Vormonat - Klicken zum Sortieren">YTD <span id="sort-icon-ytd"></span></th>
-                                        <th style="text-align: right; min-width: 60px;">Jan</th>
-                                        <th style="text-align: right; min-width: 60px;">Feb</th>
-                                        <th style="text-align: right; min-width: 60px;">Mär</th>
-                                        <th style="text-align: right; min-width: 60px;">Apr</th>
-                                        <th style="text-align: right; min-width: 60px;">Mai</th>
-                                        <th style="text-align: right; min-width: 60px;">Jun</th>
-                                        <th style="text-align: right; min-width: 60px;">Jul</th>
-                                        <th style="text-align: right; min-width: 60px;">Aug</th>
-                                        <th style="text-align: right; min-width: 60px;">Sep</th>
-                                        <th style="text-align: right; min-width: 60px;">Okt</th>
-                                        <th style="text-align: right; min-width: 60px;">Nov</th>
-                                        <th style="text-align: right; min-width: 60px;">Dez</th>
-                                        <th style="text-align: right; min-width: 80px; cursor: pointer;" onclick="App.sortBudgetTable('total')" title="Klicken zum Sortieren">Gesamt <span id="sort-icon-total"></span></th>
-                                        <th style="min-width: 100px;">Notiz</th>
-                                        <th style="min-width: 70px;">Akt.</th>
+                                    <tr style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); color: white;">
+                                        <th style="min-width: 100px; cursor: pointer; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 3px solid #3182ce;" onclick="App.sortBudgetTable('konto_nr')" title="Klicken zum Sortieren">Konto-Nr. <span id="sort-icon-konto_nr" style="opacity: 0.8;">▼</span></th>
+                                        <th style="min-width: 180px; cursor: pointer; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 3px solid #3182ce;" onclick="App.sortBudgetTable('description')" title="Klicken zum Sortieren">Beschreibung <span id="sort-icon-description" style="opacity: 0.8;"></span></th>
+                                        <th style="text-align: right; min-width: 75px; background: rgba(255,255,255,0.15); cursor: pointer; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 3px solid #48bb78;" onclick="App.sortBudgetTable('ytd')" title="Year-to-Date: Summe Jan bis Vormonat">YTD <span id="sort-icon-ytd" style="opacity: 0.8;"></span></th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Jan</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Feb</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Mär</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Apr</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Mai</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Jun</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Jul</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Aug</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Sep</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Okt</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Nov</th>
+                                        <th style="text-align: right; min-width: 55px; padding: 12px 6px; font-weight: 500; font-size: 0.7rem; border-bottom: 3px solid #3182ce;">Dez</th>
+                                        <th style="text-align: right; min-width: 85px; cursor: pointer; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; background: rgba(255,255,255,0.1); border-bottom: 3px solid #ed8936;" onclick="App.sortBudgetTable('total')" title="Klicken zum Sortieren">Gesamt <span id="sort-icon-total" style="opacity: 0.8;"></span></th>
+                                        <th style="min-width: 100px; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 3px solid #3182ce;">Notiz</th>
+                                        <th style="min-width: 60px; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 3px solid #3182ce; text-align: center;">Akt.</th>
                                     </tr>
                                 </thead>
                                 <tbody id="budget-konten-body">
