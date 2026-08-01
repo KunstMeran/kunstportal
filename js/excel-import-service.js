@@ -182,11 +182,15 @@ const ExcelImportService = {
                             .select();
 
                         if (singleError) {
-                            errors.push(singleError.message);
+                            // 409 = Duplikat (Conflict) - als übersprungen markieren, nicht als Fehler
+                            const isDuplicate = singleError.code === '23505' || singleError.message?.includes('duplicate') || singleError.message?.includes('conflict');
+                            if (!isDuplicate) {
+                                errors.push(singleError.message);
+                            }
                             skippedRows.push({
                                 rowNumber: '?',
-                                reason: `DB-Fehler: ${singleError.message}`,
-                                reasonCode: 'DB_ERROR',
+                                reason: isDuplicate ? 'Bereits in DB vorhanden' : `DB-Fehler: ${singleError.message}`,
+                                reasonCode: isDuplicate ? 'DUPLICATE_DB' : 'DB_ERROR',
                                 data: {
                                     konto: booking.konto_nr || '',
                                     fornitore: booking.fornitore_name || '',

@@ -11698,7 +11698,8 @@ const App = {
             // Jahr wird automatisch aus dem Datum jeder Buchung erkannt
             const result = await ExcelImportService.importDatevBookings(file);
 
-            if (result.success) {
+            // Erfolg wenn Buchungen importiert wurden (auch bei teilweisen Fehlern/Duplikaten)
+            if (result.success || result.imported > 0) {
                 // Basis-Erfolgsmeldung
                 let resultHtml = `
                     <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724; margin-bottom: 1rem;">
@@ -11793,6 +11794,68 @@ const App = {
             // Input zurücksetzen
             fileInput.value = '';
         }
+    },
+
+    /**
+     * Filter übersprungene Zeilen nach Grund
+     */
+    filterSkippedRows: function() {
+        const filter = document.getElementById('skipped-filter')?.value || '';
+        const rows = document.querySelectorAll('#skipped-table tbody tr');
+        rows.forEach(row => {
+            if (!filter || row.getAttribute('data-reason') === filter) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    },
+
+    /**
+     * Sortiere übersprungene Zeilen
+     */
+    sortSkippedRows: function(column) {
+        if (!this._skippedRows) return;
+
+        // Toggle Sortierung wenn gleiche Spalte
+        if (this._skippedSortColumn === column) {
+            this._skippedSortAsc = !this._skippedSortAsc;
+        } else {
+            this._skippedSortColumn = column;
+            this._skippedSortAsc = true;
+        }
+
+        const sorted = [...this._skippedRows].sort((a, b) => {
+            let valA, valB;
+            if (column === 'rowNumber') {
+                valA = typeof a.rowNumber === 'number' ? a.rowNumber : 9999;
+                valB = typeof b.rowNumber === 'number' ? b.rowNumber : 9999;
+            } else if (column === 'reason') {
+                valA = a.reason;
+                valB = b.reason;
+            }
+            if (valA < valB) return this._skippedSortAsc ? -1 : 1;
+            if (valA > valB) return this._skippedSortAsc ? 1 : -1;
+            return 0;
+        });
+
+        // Tabelle neu rendern
+        const tbody = document.querySelector('#skipped-table tbody');
+        if (tbody) {
+            tbody.innerHTML = sorted.map(row => `
+                <tr data-reason="${row.reason}">
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.rowNumber}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee; color: ${row.reasonCode === 'DUPLICATE_DB' ? '#6c757d' : '#dc3545'};">${row.reason}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.data.konto}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.data.fornitore}">${row.data.fornitore}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee; text-align: right;">${typeof row.data.betrag === 'number' ? row.data.betrag.toLocaleString('de-DE', {minimumFractionDigits: 2}) : row.data.betrag}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.data.datum}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Filter erneut anwenden
+        this.filterSkippedRows();
     },
 
     /**
