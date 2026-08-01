@@ -6788,13 +6788,17 @@ const App = {
         // Users laden falls nicht im Cache
         const users = this.allUsers || await DataManager.getUsers();
 
-        // Modal erstellen
+        // Altes Modal entfernen falls vorhanden
+        const existingModal = document.getElementById('ansprechperson-modal');
+        if (existingModal) existingModal.remove();
+
+        // Modal erstellen (mit modal-overlay Klasse wie die anderen Modals)
         const modalHtml = `
-            <div id="ansprechperson-modal" class="modal-backdrop" onclick="if(event.target === this) App.hideModal('ansprechperson-modal')">
-                <div class="modal-content" style="max-width: 400px;">
+            <div id="ansprechperson-modal" class="modal-overlay show" onclick="if(event.target === this) App.closeAnsprechpersonModal()">
+                <div class="modal" style="max-width: 400px;">
                     <div class="modal-header">
-                        <h3>Ansprechperson zuweisen</h3>
-                        <button class="btn btn-icon" onclick="App.hideModal('ansprechperson-modal')">${Icons.close}</button>
+                        <h3 class="modal-title">Ansprechperson zuweisen</h3>
+                        <button class="modal-close" onclick="App.closeAnsprechpersonModal()">&times;</button>
                     </div>
                     <div class="modal-body">
                         <p style="margin-bottom: 1rem;">
@@ -6816,15 +6820,23 @@ const App = {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn" onclick="App.hideModal('ansprechperson-modal')">Abbrechen</button>
+                        <button class="btn" onclick="App.closeAnsprechpersonModal()">Abbrechen</button>
                         <button class="btn btn-primary" onclick="App.saveLieferantAnsprechperson('${partitaIva.replace(/'/g, "\\'")}')">Speichern</button>
                     </div>
                 </div>
             </div>
         `;
 
-        // Modal einfügen und anzeigen
+        // Modal einfügen
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Ansprechperson-Modal schließen und aus DOM entfernen
+     */
+    closeAnsprechpersonModal: function() {
+        const modal = document.getElementById('ansprechperson-modal');
+        if (modal) modal.remove();
     },
 
     /**
@@ -6836,7 +6848,7 @@ const App = {
 
         try {
             await DataManager.updateSupplier(partitaIva, { contactUserId: userId });
-            this.hideModal('ansprechperson-modal');
+            this.closeAnsprechpersonModal();
             this.showToast('success', 'Gespeichert', 'Ansprechperson wurde aktualisiert');
             this.loadLieferanten();
         } catch (error) {
