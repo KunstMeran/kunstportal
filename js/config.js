@@ -27,9 +27,9 @@ const Config = {
         enableBackups: true
     },
 
-    // Microsoft SSO Konfiguration
+    // Microsoft SSO Konfiguration (aktivieren nach Hetzner-Migration)
     microsoftSSO: {
-        enabled: true,
+        enabled: false,
         allowedDomain: 'kunstmeranoarte.org', // Nur diese Domain darf sich mit Microsoft anmelden
         providerName: 'azure' // Supabase Provider-Name für Azure AD
     }
