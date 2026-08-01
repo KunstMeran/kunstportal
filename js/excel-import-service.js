@@ -85,12 +85,29 @@ const ExcelImportService = {
             }
             console.log(`🔑 ${excelKeyCounts.size} unique Keys in Excel`);
 
-            // 3. Lade alle existierenden Buchungen aus DB und zähle
-            const { data: existingBookings, error: fetchError } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('konto_nr, datum, betrag, beschreibung');
+            // 3. Lade ALLE existierenden Buchungen aus DB mit Pagination (Supabase 1000-Limit umgehen)
+            const existingBookings = [];
+            const pageSize = 1000;
+            let offset = 0;
+            let hasMore = true;
 
-            if (fetchError) throw fetchError;
+            while (hasMore) {
+                const { data: page, error: fetchError } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .select('konto_nr, datum, betrag, beschreibung')
+                    .range(offset, offset + pageSize - 1)
+                    .order('id', { ascending: true });
+
+                if (fetchError) throw fetchError;
+
+                if (page && page.length > 0) {
+                    existingBookings.push(...page);
+                    offset += pageSize;
+                    hasMore = page.length === pageSize;
+                } else {
+                    hasMore = false;
+                }
+            }
 
             const dbKeyCounts = new Map();
             for (const b of existingBookings) {
@@ -173,7 +190,17 @@ const ExcelImportService = {
                     .select();
 
                 if (insertError) {
-                    console.error(`❌ Fehler bei Chunk ${i}-${i+chunkSize}:`, insertError);
+                    // Prüfe ob Chunk-Fehler ein Duplikat ist (409 Conflict oder 23505)
+                    const isChunkDuplicate = insertError.code === '23505' ||
+                        insertError.code === '409' ||
+                        insertError.message?.toLowerCase().includes('duplicate') ||
+                        insertError.message?.toLowerCase().includes('conflict') ||
+                        insertError.message?.toLowerCase().includes('unique');
+
+                    if (!isChunkDuplicate) {
+                        console.error(`❌ Fehler bei Chunk ${i}-${i+chunkSize}:`, insertError);
+                    }
+
                     // Bei Fehler einzeln versuchen
                     for (const booking of chunk) {
                         const { data: singleInsert, error: singleError } = await SupabaseService.client
@@ -182,10 +209,16 @@ const ExcelImportService = {
                             .select();
 
                         if (singleError) {
-                            // 409 = Duplikat (Conflict) - als übersprungen markieren, nicht als Fehler
-                            const isDuplicate = singleError.code === '23505' || singleError.message?.includes('duplicate') || singleError.message?.includes('conflict');
+                            // Duplikat-Erkennung: 409 HTTP, 23505 PG, oder Text-Hinweise
+                            const isDuplicate = singleError.code === '23505' ||
+                                singleError.code === '409' ||
+                                singleError.message?.toLowerCase().includes('duplicate') ||
+                                singleError.message?.toLowerCase().includes('conflict') ||
+                                singleError.message?.toLowerCase().includes('unique');
+
                             if (!isDuplicate) {
                                 errors.push(singleError.message);
+                                console.warn(`⚠️ Nicht-Duplikat-Fehler:`, singleError);
                             }
                             skippedRows.push({
                                 rowNumber: '?',
@@ -214,15 +247,19 @@ const ExcelImportService = {
             const finalDbCount = existingBookings.length + successCount;
             console.log(`📊 Statistik: Excel=${excelBookings.length}, DB vorher=${existingBookings.length}, DB nachher=${finalDbCount}`);
 
+            // Import ist erfolgreich wenn mindestens etwas importiert wurde oder keine echten Fehler auftraten
+            const hasRealErrors = errors.length > 0;
+            const importSuccess = successCount > 0 || !hasRealErrors;
+
             return {
-                success: errors.length === 0,
+                success: importSuccess,
                 imported: successCount,
                 skipped: skippedRows.length,
                 skippedRows: skippedRows,
                 excelTotal: excelBookings.length,
                 dbBefore: existingBookings.length,
                 dbAfter: finalDbCount,
-                errors: errors.length > 0 ? errors : undefined,
+                errors: hasRealErrors ? errors : undefined,
                 message: `${successCount} neue Buchungen importiert, ${skippedRows.length} übersprungen (Excel: ${excelBookings.length}, DB: ${finalDbCount})`
             };
 
