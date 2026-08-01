@@ -9221,8 +9221,14 @@ const App = {
                         const kDiff = konto.aktuell - konto.vorjahr;
                         const kPct = konto.vorjahr !== 0 ? ((kDiff / Math.abs(konto.vorjahr)) * 100) : (konto.aktuell !== 0 ? 100 : 0);
                         const kDiffColor = kDiff > 0 ? '#28a745' : (kDiff < 0 ? '#dc3545' : '#888');
+                        const escapedKategorie = (konto.kategorie || '').replace(/'/g, "\\'");
 
-                        html += `<tr class="bilanz-konto-detail bilanz-konto-child-${item.id} bilanz-child-${item.parent}" style="background: #f8f9fa; ${kontoDisplayStyle} ${parentHidden ? 'display: none;' : ''}">
+                        html += `<tr class="bilanz-konto-detail bilanz-konto-child-${item.id} bilanz-child-${item.parent}"
+                                     style="background: #f8f9fa; ${kontoDisplayStyle} ${parentHidden ? 'display: none;' : ''} cursor: pointer;"
+                                     onclick="App.showKontoBuchungen('${konto.konto}', '${escapedKategorie}')"
+                                     onmouseover="this.style.background='#e3f2fd'"
+                                     onmouseout="this.style.background='#f8f9fa'"
+                                     title="Klicken um alle Buchungen anzuzeigen">
                             <td style="padding: 6px 8px;"></td>
                             <td style="padding: 6px 12px; padding-left: ${paddingLeft + 30}px; font-size: 0.8rem; color: #666;">
                                 <span style="font-family: monospace; background: #e9ecef; padding: 2px 6px; border-radius: 3px; margin-right: 8px;">${konto.konto}</span>
@@ -9312,6 +9318,252 @@ const App = {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `Bilanz_GuV_${jahr}.csv`;
+        link.click();
+    },
+
+    // ========================================
+    // KONTO-BUCHUNGEN MODAL
+    // ========================================
+
+    // Cache für Konto-Buchungen
+    kontoBuchungenCache: {
+        kontoNr: null,
+        kontoName: null,
+        buchungen: [],
+        filtered: [],
+        sortField: 'datum',
+        sortDir: 'desc'
+    },
+
+    /**
+     * Öffnet das Modal mit allen Buchungen für ein bestimmtes Konto
+     */
+    showKontoBuchungen: async function(kontoNr, kontoName) {
+        const modal = document.getElementById('konto-buchungen-modal');
+        const tbody = document.getElementById('konto-buchungen-body');
+        const title = document.getElementById('konto-buchungen-title');
+        const subtitle = document.getElementById('konto-buchungen-subtitle');
+
+        // Titel setzen
+        title.textContent = `Konto ${kontoNr}`;
+        subtitle.textContent = kontoName || '';
+
+        // Cache initialisieren
+        this.kontoBuchungenCache.kontoNr = kontoNr;
+        this.kontoBuchungenCache.kontoName = kontoName;
+        this.kontoBuchungenCache.sortField = 'datum';
+        this.kontoBuchungenCache.sortDir = 'desc';
+
+        // Modal öffnen
+        modal.style.display = 'flex';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Lade Buchungen...</td></tr>';
+
+        // Suchfeld leeren
+        document.getElementById('konto-buchungen-search').value = '';
+
+        try {
+            // Alle Buchungen für dieses Konto laden (mit Pagination)
+            let allBuchungen = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .select('*')
+                    .like('konto_nr', `${kontoNr}%`)
+                    .eq('archived', false)
+                    .order('datum', { ascending: false })
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allBuchungen = allBuchungen.concat(data);
+                    hasMore = data.length === pageSize;
+                    page++;
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            console.log(`📊 ${allBuchungen.length} Buchungen für Konto ${kontoNr} geladen`);
+
+            this.kontoBuchungenCache.buchungen = allBuchungen;
+
+            // Jahr-Filter befüllen
+            const jahre = [...new Set(allBuchungen.map(b => new Date(b.datum).getFullYear()))].sort((a, b) => b - a);
+            const jahrSelect = document.getElementById('konto-buchungen-jahr');
+            jahrSelect.innerHTML = '<option value="">Alle Jahre</option>' +
+                jahre.map(j => `<option value="${j}">${j}</option>`).join('');
+
+            // Initial filtern und anzeigen
+            this.filterKontoBuchungen();
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Buchungen:', error);
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #dc3545;">
+                Fehler: ${error.message}
+            </td></tr>`;
+        }
+    },
+
+    /**
+     * Filtert und sortiert die Buchungen basierend auf den Eingaben
+     */
+    filterKontoBuchungen: function() {
+        const searchTerm = (document.getElementById('konto-buchungen-search')?.value || '').toLowerCase();
+        const jahr = document.getElementById('konto-buchungen-jahr')?.value;
+        const sortValue = document.getElementById('konto-buchungen-sort')?.value || 'datum_desc';
+
+        let buchungen = [...this.kontoBuchungenCache.buchungen];
+
+        // Nach Jahr filtern
+        if (jahr) {
+            buchungen = buchungen.filter(b => new Date(b.datum).getFullYear() === parseInt(jahr));
+        }
+
+        // Nach Suchbegriff filtern
+        if (searchTerm) {
+            buchungen = buchungen.filter(b => {
+                const searchFields = [
+                    b.fornitore_name,
+                    b.beschreibung,
+                    b.dokument_nr,
+                    b.kategorie,
+                    b.partita_iva
+                ].filter(Boolean).join(' ').toLowerCase();
+                return searchFields.includes(searchTerm);
+            });
+        }
+
+        // Sortieren
+        const [field, dir] = sortValue.split('_');
+        buchungen.sort((a, b) => {
+            let valA, valB;
+            switch (field) {
+                case 'datum':
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+                    break;
+                case 'betrag':
+                    valA = parseFloat(a.betrag) || 0;
+                    valB = parseFloat(b.betrag) || 0;
+                    break;
+                case 'lieferant':
+                    valA = (a.fornitore_name || '').toLowerCase();
+                    valB = (b.fornitore_name || '').toLowerCase();
+                    break;
+                default:
+                    valA = a.datum || '';
+                    valB = b.datum || '';
+            }
+
+            if (dir === 'asc') {
+                return valA > valB ? 1 : valA < valB ? -1 : 0;
+            } else {
+                return valA < valB ? 1 : valA > valB ? -1 : 0;
+            }
+        });
+
+        this.kontoBuchungenCache.filtered = buchungen;
+        this.renderKontoBuchungen(buchungen);
+    },
+
+    /**
+     * Sortiert per Klick auf Spaltenüberschrift
+     */
+    sortKontoBuchungen: function(field) {
+        const sortSelect = document.getElementById('konto-buchungen-sort');
+        const currentValue = sortSelect.value;
+        const [currentField, currentDir] = currentValue.split('_');
+
+        // Toggle Richtung wenn gleiches Feld, sonst desc
+        let newDir = 'desc';
+        if (currentField === field) {
+            newDir = currentDir === 'desc' ? 'asc' : 'desc';
+        }
+
+        sortSelect.value = `${field}_${newDir}`;
+        this.filterKontoBuchungen();
+    },
+
+    /**
+     * Rendert die gefilterten Buchungen in der Tabelle
+     */
+    renderKontoBuchungen: function(buchungen) {
+        const tbody = document.getElementById('konto-buchungen-body');
+        const countEl = document.getElementById('konto-buchungen-count');
+        const totalEl = document.getElementById('konto-buchungen-total');
+
+        if (!buchungen || buchungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #666;">Keine Buchungen gefunden</td></tr>';
+            countEl.textContent = '0 Buchungen';
+            totalEl.textContent = 'Summe: 0,00 EUR';
+            return;
+        }
+
+        // Summe berechnen
+        const total = buchungen.reduce((sum, b) => sum + (parseFloat(b.betrag) || 0), 0);
+
+        countEl.textContent = `${buchungen.length} Buchung${buchungen.length !== 1 ? 'en' : ''}`;
+        totalEl.textContent = `Summe: ${this.formatNumber(total)} EUR`;
+        totalEl.style.color = total >= 0 ? '#28a745' : '#dc3545';
+
+        // Tabelle rendern
+        tbody.innerHTML = buchungen.map(b => {
+            const betrag = parseFloat(b.betrag) || 0;
+            const betragColor = betrag >= 0 ? '#28a745' : '#dc3545';
+            const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-';
+
+            return `<tr style="cursor: default;">
+                <td style="padding: 0.5rem 0.75rem; white-space: nowrap;">${datum}</td>
+                <td style="padding: 0.5rem 0.75rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis;">
+                    ${b.fornitore_name || '<span style="color: #999;">-</span>'}
+                </td>
+                <td style="padding: 0.5rem 0.75rem;">
+                    <span style="font-family: monospace; background: #f1f3f4; padding: 2px 6px; border-radius: 3px;">
+                        ${b.dokument_nr || '-'}
+                    </span>
+                </td>
+                <td style="padding: 0.5rem 0.75rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis;" title="${b.beschreibung || ''}">
+                    ${b.beschreibung || '<span style="color: #999;">-</span>'}
+                </td>
+                <td style="padding: 0.5rem 0.75rem; text-align: right; font-weight: 500; color: ${betragColor}; white-space: nowrap;">
+                    ${this.formatNumber(betrag)} EUR
+                </td>
+            </tr>`;
+        }).join('');
+    },
+
+    /**
+     * Exportiert die gefilterten Buchungen als CSV
+     */
+    exportKontoBuchungenCsv: function() {
+        const buchungen = this.kontoBuchungenCache.filtered || [];
+        if (buchungen.length === 0) {
+            alert('Keine Buchungen zum Exportieren');
+            return;
+        }
+
+        const kontoNr = this.kontoBuchungenCache.kontoNr;
+        const kontoName = this.kontoBuchungenCache.kontoName;
+
+        let csv = '\uFEFF'; // BOM für Excel
+        csv += `Buchungen für Konto ${kontoNr} - ${kontoName}\n`;
+        csv += `Exportiert am: ${new Date().toLocaleString('de-DE')}\n\n`;
+        csv += `Datum;Lieferant;Dokument-Nr;Beschreibung;Betrag\n`;
+
+        buchungen.forEach(b => {
+            const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '';
+            csv += `"${datum}";"${b.fornitore_name || ''}";"${b.dokument_nr || ''}";"${(b.beschreibung || '').replace(/"/g, '""')}";"${b.betrag || 0}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Konto_${kontoNr}_Buchungen.csv`;
         link.click();
     },
 

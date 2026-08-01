@@ -3994,6 +3994,72 @@
         </div>
     </div>
 
+    <!-- Konto-Buchungen Modal (für Bilanz/GuV Detail-Ansicht) -->
+    <div id="konto-buchungen-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 1200px; width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="konto-buchungen-title">Buchungen für Konto</h2>
+                    <p id="konto-buchungen-subtitle" style="margin: 0; color: #666; font-size: 0.9rem;"></p>
+                </div>
+                <button class="modal-close" onclick="App.hideModal('konto-buchungen-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <!-- Filter-Leiste -->
+                <div style="padding: 1rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <input type="text" id="konto-buchungen-search" placeholder="Suchen (Lieferant, Beschreibung, Dokument...)"
+                               style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;"
+                               oninput="App.filterKontoBuchungen()">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.85rem; color: #666;">Jahr:</label>
+                        <select id="konto-buchungen-jahr" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" onchange="App.filterKontoBuchungen()">
+                            <option value="">Alle</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.85rem; color: #666;">Sortierung:</label>
+                        <select id="konto-buchungen-sort" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" onchange="App.filterKontoBuchungen()">
+                            <option value="datum_desc">Datum (neueste zuerst)</option>
+                            <option value="datum_asc">Datum (älteste zuerst)</option>
+                            <option value="betrag_desc">Betrag (höchste zuerst)</option>
+                            <option value="betrag_asc">Betrag (niedrigste zuerst)</option>
+                            <option value="lieferant_asc">Lieferant (A-Z)</option>
+                            <option value="lieferant_desc">Lieferant (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Summen-Anzeige -->
+                <div id="konto-buchungen-summe" style="padding: 0.75rem 1rem; background: #e3f2fd; border-bottom: 1px solid #bbdefb; display: flex; justify-content: space-between; align-items: center;">
+                    <span id="konto-buchungen-count">0 Buchungen</span>
+                    <span id="konto-buchungen-total" style="font-weight: 600;"></span>
+                </div>
+                <!-- Tabelle -->
+                <div style="overflow-x: auto; max-height: 60vh; overflow-y: auto;">
+                    <table class="data-table" style="margin: 0; font-size: 0.85rem;">
+                        <thead style="position: sticky; top: 0; background: white; z-index: 10;">
+                            <tr>
+                                <th style="padding: 0.75rem; cursor: pointer;" onclick="App.sortKontoBuchungen('datum')">Datum <span id="sort-datum"></span></th>
+                                <th style="padding: 0.75rem; cursor: pointer;" onclick="App.sortKontoBuchungen('lieferant')">Lieferant <span id="sort-lieferant"></span></th>
+                                <th style="padding: 0.75rem;">Dokument</th>
+                                <th style="padding: 0.75rem;">Beschreibung</th>
+                                <th style="padding: 0.75rem; text-align: right; cursor: pointer;" onclick="App.sortKontoBuchungen('betrag')">Betrag <span id="sort-betrag"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="konto-buchungen-body">
+                            <tr><td colspan="5" style="text-align: center; padding: 2rem;">Keine Buchungen geladen</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="App.exportKontoBuchungenCsv()">CSV Export</button>
+                <button class="btn btn-outline" onclick="App.hideModal('konto-buchungen-modal')">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
     <div id="click-effect-container" class="click-effect-container"></div>
