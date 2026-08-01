@@ -189,18 +189,40 @@ const SupabaseDataAdapter = {
         try {
             console.log('📤 Lade DATEV-Buchungen aus Supabase...');
 
-            // Buchungen und Lieferanten parallel laden
-            // Filter: Nur nicht-archivierte Buchungen laden
-            const [bookingsResult, suppliersResult] = await Promise.all([
-                SupabaseService.client
+            // Alle Buchungen mit Pagination laden (Supabase Standard-Limit ist 1000)
+            let allBookings = [];
+            let from = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .select('*')
                     .or('archived.is.null,archived.eq.false')
-                    .order('datum', { ascending: false }),
-                SupabaseService.client
-                    .from('suppliers')
-                    .select('partita_iva, fornitore_name')
-            ]);
+                    .order('datum', { ascending: false })
+                    .range(from, from + pageSize - 1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allBookings = allBookings.concat(data);
+                    from += pageSize;
+                    hasMore = data.length === pageSize;
+                    console.log(`📊 ${allBookings.length} Buchungen geladen...`);
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            console.log(`✅ Insgesamt ${allBookings.length} DATEV-Buchungen geladen`);
+
+            // Lieferanten laden
+            const suppliersResult = await SupabaseService.client
+                .from('suppliers')
+                .select('partita_iva, fornitore_name');
+
+            const bookingsResult = { data: allBookings, error: null };
 
             if (bookingsResult.error) throw bookingsResult.error;
 
