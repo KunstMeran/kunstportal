@@ -924,17 +924,20 @@ const SupabaseDataAdapter = {
                         uploadedAt: inv.created_at,
                         pdfExists: true,
                         status: inv.status,
+                        // workflowStatus für Filter: aus status ableiten oder 'neu' als Default
+                        workflowStatus: inv.status || 'neu',
                         notes: inv.notes,
                         kostentyp: inv.kostentyp || '',
                         funding_source_id: inv.funding_source_id,
 
-                        // Fehlende DATEV-Daten als null
+                        // Fehlende DATEV-Daten - verwende created_at als Datum-Fallback
                         projektId: null,
                         projektName: '(Kein DATEV-Projekt)',
                         fornitoreName: fornitoreName,
-                        buchungsdatum: null,
-                        belegdatum: null,
-                        betrag: 0,
+                        buchungsdatum: inv.created_at ? inv.created_at.split('T')[0] : null,
+                        belegdatum: inv.created_at ? inv.created_at.split('T')[0] : null,
+                        datum: inv.created_at ? inv.created_at.split('T')[0] : null,
+                        betrag: inv.amount || 0,
                         konto: null,
 
                         // UI-Flags

@@ -168,7 +168,8 @@ const App = {
         'mitglieder': 'access_mitglieder',
         'einnahmen': 'access_einnahmen',
         'konfiguration': 'access_konfiguration',
-        'inventar': 'access_inventar'
+        'inventar': 'access_inventar',
+        'reporting': 'access_reporting'
     },
 
     /**
