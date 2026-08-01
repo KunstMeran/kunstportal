@@ -6637,12 +6637,14 @@ const App = {
     },
 
     /**
-     * Generiert Lieferanten-Zelle mit Bearbeitungsmöglichkeit
+     * Generiert Lieferanten-Zelle mit Bearbeitungsmöglichkeit und Autocomplete
      * Zeigt Eingabefeld wenn Name fehlt oder auf Kontoname hinweist
      */
     getLieferantCell: function(r) {
         const name = r.fornitoreName || '';
+        const partitaIva = r.partitaIva || '';
         const sponsorInfo = r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : '';
+        const safeRechnungId = (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '');
 
         // Prüfe ob der Name ein Kontoname ist (z.B. "Costi altri servizi")
         const isKontoName = name.toLowerCase().startsWith('costi ') ||
@@ -6652,33 +6654,222 @@ const App = {
                            !name;
 
         if (isKontoName) {
-            // Bearbeitbares Feld anzeigen
-            const inputId = `lieferant-input-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            // Bearbeitbares Feld mit Autocomplete anzeigen
+            const inputId = `lieferant-input-${safeRechnungId}`;
+            const dropdownId = `lieferant-dropdown-${safeRechnungId}`;
             const beschreibungHint = r.beschreibung ? r.beschreibung.substring(0, 50) : '';
             return `
-                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <div style="position: relative;">
                     <input type="text"
                            id="${inputId}"
-                           class="form-control"
-                           style="font-size: 0.75rem; padding: 0.25rem; min-width: 120px;"
-                           placeholder="${beschreibungHint || 'Lieferant eingeben...'}"
+                           class="form-control lieferant-autocomplete"
+                           style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
+                           placeholder="${beschreibungHint || 'Lieferant suchen...'}"
                            value=""
-                           onchange="App.updateLieferantName('${r.rechnungId}', this.value)">
+                           autocomplete="off"
+                           onfocus="App.showLieferantDropdown('${inputId}', '${dropdownId}', '${safeRechnungId}')"
+                           oninput="App.filterLieferantDropdown('${dropdownId}', this.value)"
+                           onblur="setTimeout(() => App.hideLieferantDropdown('${dropdownId}'), 200)">
+                    <div id="${dropdownId}" class="lieferant-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
                     <small style="color: #999; font-size: 0.65rem;">${name || 'Kein Lieferant'}</small>
                 </div>${sponsorInfo}`;
         } else {
-            // Normaler Name mit Bearbeitungs-Icon
-            const inputId = `lieferant-edit-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+            // Normaler Name mit Bearbeitungs-Icon und Autocomplete bei Klick
+            const inputId = `lieferant-edit-${safeRechnungId}`;
+            const dropdownId = `lieferant-dropdown-${safeRechnungId}`;
             return `
-                <div style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span id="${inputId}-display">${name}</span>
-                    <button class="btn btn-sm"
-                            style="padding: 0.1rem 0.2rem; font-size: 0.6rem; background: transparent; border: none; cursor: pointer;"
-                            onclick="App.showLieferantEdit('${inputId}', '${r.rechnungId}', '${name.replace(/'/g, "\\'")}')"
-                            title="Lieferant bearbeiten">
-                        ${Icons.edit}
-                    </button>
+                <div style="position: relative;">
+                    <div id="${inputId}-display" style="display: flex; align-items: center; gap: 0.25rem;">
+                        <span>${name}</span>
+                        <button class="btn btn-sm"
+                                style="padding: 0.1rem 0.2rem; font-size: 0.6rem; background: transparent; border: none; cursor: pointer;"
+                                onclick="App.showLieferantEditWithAutocomplete('${inputId}', '${dropdownId}', '${safeRechnungId}', '${name.replace(/'/g, "\\'")}')"
+                                title="Lieferant bearbeiten">
+                            ${Icons.edit}
+                        </button>
+                    </div>
+                    <div id="${dropdownId}" class="lieferant-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
                 </div>${sponsorInfo}`;
+        }
+    },
+
+    // Cache für Lieferanten-Liste
+    suppliersCache: null,
+
+    /**
+     * Lädt Lieferanten für Autocomplete
+     */
+    loadSuppliersForAutocomplete: async function() {
+        if (this.suppliersCache) return this.suppliersCache;
+
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('suppliers')
+                .select('partita_iva, fornitore_name')
+                .order('fornitore_name');
+
+            if (error) throw error;
+            this.suppliersCache = data || [];
+            return this.suppliersCache;
+        } catch (error) {
+            console.error('Fehler beim Laden der Lieferanten:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Zeigt Lieferanten-Dropdown
+     */
+    showLieferantDropdown: async function(inputId, dropdownId, rechnungId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const suppliers = await this.loadSuppliersForAutocomplete();
+        this.renderLieferantDropdown(dropdown, suppliers, rechnungId, '');
+        dropdown.style.display = 'block';
+    },
+
+    /**
+     * Filtert Lieferanten-Dropdown basierend auf Eingabe
+     */
+    filterLieferantDropdown: async function(dropdownId, searchText) {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const suppliers = await this.loadSuppliersForAutocomplete();
+        const search = searchText.toLowerCase();
+
+        const filtered = suppliers.filter(s =>
+            (s.fornitore_name && s.fornitore_name.toLowerCase().includes(search)) ||
+            (s.partita_iva && s.partita_iva.toLowerCase().includes(search))
+        );
+
+        // Extrahiere rechnungId aus dropdownId
+        const rechnungId = dropdownId.replace('lieferant-dropdown-', '');
+        this.renderLieferantDropdown(dropdown, filtered.slice(0, 20), rechnungId, searchText);
+    },
+
+    /**
+     * Rendert Lieferanten-Dropdown Inhalt
+     */
+    renderLieferantDropdown: function(dropdown, suppliers, rechnungId, searchText) {
+        if (suppliers.length === 0) {
+            dropdown.innerHTML = `<div style="padding: 0.5rem; color: #666; font-size: 0.75rem;">Keine Lieferanten gefunden</div>`;
+            return;
+        }
+
+        dropdown.innerHTML = suppliers.map(s => `
+            <div class="lieferant-option"
+                 style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.75rem;"
+                 onmouseover="this.style.background='#f0f0f0'"
+                 onmouseout="this.style.background='white'"
+                 onclick="App.selectLieferant('${rechnungId}', '${(s.fornitore_name || '').replace(/'/g, "\\'")}', '${s.partita_iva || ''}')">
+                <div style="font-weight: 500;">${s.fornitore_name || 'Unbekannt'}</div>
+                <div style="color: #666; font-size: 0.65rem;">${s.partita_iva || '-'}</div>
+            </div>
+        `).join('');
+    },
+
+    /**
+     * Versteckt Lieferanten-Dropdown
+     */
+    hideLieferantDropdown: function(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) dropdown.style.display = 'none';
+    },
+
+    /**
+     * Wählt einen Lieferanten aus dem Dropdown
+     */
+    selectLieferant: async function(rechnungId, name, partitaIva) {
+        // Dropdown verstecken
+        const dropdown = document.getElementById(`lieferant-dropdown-${rechnungId}`);
+        if (dropdown) dropdown.style.display = 'none';
+
+        // Input-Feld aktualisieren falls vorhanden
+        const input = document.getElementById(`lieferant-input-${rechnungId}`) ||
+                     document.getElementById(`lieferant-edit-${rechnungId}`);
+        if (input) input.value = name;
+
+        // In Datenbank speichern
+        await this.updateLieferantWithPartitaIva(rechnungId, name, partitaIva);
+    },
+
+    /**
+     * Aktualisiert Lieferant mit Name und Partita IVA
+     */
+    updateLieferantWithPartitaIva: async function(rechnungId, name, partitaIva) {
+        try {
+            // Finde die Buchung in filteredRechnungen um die DB-ID zu bekommen
+            const rechnung = (this.filteredRechnungen || []).find(r =>
+                (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '') === rechnungId ||
+                r.rechnungId === rechnungId
+            );
+
+            if (rechnung && rechnung.id) {
+                const { error } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        fornitore_name: name,
+                        partita_iva: partitaIva,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', rechnung.id);
+
+                if (error) throw error;
+
+                this.showToast('success', 'Gespeichert', `Lieferant: ${name}`);
+
+                // Cache invalidieren und neu laden
+                if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+                    SupabaseDataAdapter.invalidateCache();
+                }
+                this.suppliersCache = null;
+                await this.reloadRechnungenKeepState();
+            } else {
+                // Fallback: updateLieferantName verwenden
+                await this.updateLieferantName(rechnungId, name);
+            }
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Lieferanten:', error);
+            this.showToast('error', 'Fehler', 'Lieferant konnte nicht gespeichert werden');
+        }
+    },
+
+    /**
+     * Zeigt Bearbeitungsfeld mit Autocomplete für Lieferant
+     */
+    showLieferantEditWithAutocomplete: async function(inputId, dropdownId, rechnungId, currentName) {
+        const displayEl = document.getElementById(`${inputId}-display`);
+        if (!displayEl) return;
+
+        const parentDiv = displayEl.parentElement;
+        parentDiv.innerHTML = `
+            <input type="text"
+                   id="${inputId}"
+                   class="form-control lieferant-autocomplete"
+                   style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
+                   value="${currentName}"
+                   autocomplete="off"
+                   oninput="App.filterLieferantDropdown('${dropdownId}', this.value)"
+                   onblur="setTimeout(() => { App.hideLieferantDropdown('${dropdownId}'); App.saveLieferantIfChanged('${rechnungId}', this.value, '${currentName.replace(/'/g, "\\'")}'); }, 200)">
+            <div id="${dropdownId}" class="lieferant-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+        `;
+
+        const input = document.getElementById(inputId);
+        input.focus();
+        input.select();
+
+        // Dropdown anzeigen
+        await this.showLieferantDropdown(inputId, dropdownId, rechnungId);
+    },
+
+    /**
+     * Speichert Lieferant wenn geändert (für manuelle Eingabe ohne Auswahl)
+     */
+    saveLieferantIfChanged: async function(rechnungId, newName, oldName) {
+        if (newName && newName !== oldName) {
+            await this.updateLieferantName(rechnungId, newName);
         }
     },
 
@@ -6687,13 +6878,13 @@ const App = {
      * Erlaubt Änderung zwischen neu, kontrolliert und bezahlt
      */
     getStatusDropdown: function(r) {
-        const status = r.workflowStatus || 'neu';
-        const bookingId = r.id;
-
-        // Für Supabase-only Zeilen (ohne DATEV-Buchung) nur Badge anzeigen
-        if (r.isSupabaseOnly || !bookingId) {
-            return `<span class="status-badge ${status}">${status}</span>`;
+        // Status normalisieren - nur gültige Werte erlauben
+        let status = (r.workflowStatus || 'neu').toLowerCase();
+        if (!['neu', 'kontrolliert', 'bezahlt'].includes(status)) {
+            status = 'neu';
         }
+
+        const bookingId = r.id;
 
         // Farben für Status-Optionen
         const statusColors = {
@@ -6703,13 +6894,24 @@ const App = {
         };
 
         const bgColor = statusColors[status] || '#6c757d';
+        const textColor = status === 'kontrolliert' ? '#333' : 'white';
+
+        // Für Supabase-only Zeilen (ohne DATEV-Buchung) auch Dropdown aber disabled
+        if (r.isSupabaseOnly || !bookingId) {
+            return `<select class="form-control status-select" disabled
+                            style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
+                                   background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
+                                   font-weight: 500; opacity: 0.7;">
+                        <option selected>${status}</option>
+                    </select>`;
+        }
 
         return `<select class="form-control status-select"
                         style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
-                               background: ${bgColor}; color: white; border: none; border-radius: 4px;
+                               background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
                                cursor: pointer; font-weight: 500;"
                         onchange="App.updateWorkflowStatus('${bookingId}', this.value)">
-                    <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d;">neu</option>
+                    <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d; color: white;">neu</option>
                     <option value="kontrolliert" ${status === 'kontrolliert' ? 'selected' : ''} style="background: #ffc107; color: #333;">kontrolliert</option>
                     <option value="bezahlt" ${status === 'bezahlt' ? 'selected' : ''} style="background: #28a745;">bezahlt</option>
                 </select>`;
