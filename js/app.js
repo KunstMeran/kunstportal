@@ -45,6 +45,48 @@ const App = {
     // Berechtigungen des aktuellen Users
     userPermissions: null,
 
+    // Europäische MwSt-Sätze (Standard + Reduziert)
+    // Sortiert nach Häufigkeit der Nutzung
+    mwstSaetze: [
+        { rate: 0, label: '0%', country: '' },
+        { rate: 4, label: '4% IT', country: 'IT' },
+        { rate: 5, label: '5% IT', country: 'IT' },
+        { rate: 10, label: '10% IT', country: 'IT' },
+        { rate: 22, label: '22% IT', country: 'IT' },
+        { rate: 19, label: '19% DE', country: 'DE' },
+        { rate: 7, label: '7% DE', country: 'DE' },
+        { rate: 20, label: '20% AT', country: 'AT' },
+        { rate: 10, label: '10% AT', country: 'AT' },
+        { rate: 13, label: '13% AT', country: 'AT' },
+        { rate: 8.1, label: '8.1% CH', country: 'CH' },
+        { rate: 2.6, label: '2.6% CH', country: 'CH' },
+        { rate: 3.8, label: '3.8% CH', country: 'CH' },
+        { rate: 21, label: '21% BE', country: 'BE' },
+        { rate: 21, label: '21% ES', country: 'ES' },
+        { rate: 21, label: '21% NL', country: 'NL' },
+        { rate: 20, label: '20% FR', country: 'FR' },
+        { rate: 25, label: '25% DK', country: 'DK' },
+        { rate: 25, label: '25% SE', country: 'SE' },
+        { rate: 24, label: '24% FI', country: 'FI' },
+        { rate: 23, label: '23% PL', country: 'PL' },
+        { rate: 23, label: '23% PT', country: 'PT' },
+        { rate: 23, label: '23% IE', country: 'IE' },
+        { rate: 24, label: '24% GR', country: 'GR' },
+        { rate: 27, label: '27% HU', country: 'HU' },
+        { rate: 21, label: '21% CZ', country: 'CZ' },
+        { rate: 20, label: '20% SK', country: 'SK' },
+        { rate: 22, label: '22% SI', country: 'SI' },
+        { rate: 25, label: '25% HR', country: 'HR' },
+        { rate: 20, label: '20% BG', country: 'BG' },
+        { rate: 19, label: '19% RO', country: 'RO' },
+        { rate: 17, label: '17% LU', country: 'LU' },
+        { rate: 18, label: '18% MT', country: 'MT' },
+        { rate: 21, label: '21% LV', country: 'LV' },
+        { rate: 21, label: '21% LT', country: 'LT' },
+        { rate: 22, label: '22% EE', country: 'EE' },
+        { rate: 18, label: '18% CY', country: 'CY' }
+    ],
+
     /**
      * App initialisieren
      */
@@ -3896,13 +3938,8 @@ const App = {
                         <select class="form-control mwst-select"
                                 style="font-size: 0.7rem; padding: 0.15rem; width: 55px; text-align: right;"
                                 onchange="App.updateMwstRate('${r.id}', this.value)"
-                                ${!r.id ? 'disabled title="Nur für DATEV-Buchungen"' : ''}>
-                            <option value="0" ${mwstRate === 0 ? 'selected' : ''}>0%</option>
-                            <option value="4" ${mwstRate === 4 ? 'selected' : ''}>4% IT</option>
-                            <option value="10" ${mwstRate === 10 ? 'selected' : ''}>10% IT</option>
-                            <option value="19" ${mwstRate === 19 ? 'selected' : ''}>19% DE</option>
-                            <option value="20" ${mwstRate === 20 ? 'selected' : ''}>20% AT</option>
-                            <option value="22" ${mwstRate === 22 ? 'selected' : ''}>22% IT</option>
+                                ${r.isSupabaseOnly ? 'disabled title="Nur für DATEV-Buchungen"' : ''}>
+                            ${this.getMwstOptions(mwstRate)}
                         </select>
                         <span style="min-width: 60px; text-align: right;">${this.formatCurrency(mwst)}</span>
                     </div>
@@ -5705,15 +5742,23 @@ const App = {
             const mwstRate = parseFloat(rate);
             console.log('Aktualisiere MwSt-Satz:', { bookingId, mwstRate });
 
-            // Update in Supabase
+            // Update in Supabase - mit select() um zu prüfen ob Zeile existiert
             const { data, error } = await SupabaseService.client
                 .from('datev_bookings')
                 .update({ mwst_rate: mwstRate })
-                .eq('id', bookingId);
+                .eq('id', bookingId)
+                .select();
 
             if (error) {
                 console.error('Supabase Error:', error);
                 throw error;
+            }
+
+            // Prüfen ob eine Zeile aktualisiert wurde
+            if (!data || data.length === 0) {
+                console.warn('Keine Zeile mit dieser ID gefunden:', bookingId);
+                this.showToast('warning', 'Nicht gefunden', 'DATEV-Buchung wurde nicht gefunden');
+                return;
             }
 
             console.log('MwSt-Update erfolgreich:', data);
@@ -6433,6 +6478,43 @@ const App = {
         if (!dateTimeString) return '-';
         const date = new Date(dateTimeString);
         return date.toLocaleDateString('de-DE') + ' ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    /**
+     * Generiert MwSt-Dropdown Optionen
+     * @param {number} selectedRate - Der aktuell ausgewählte MwSt-Satz
+     * @returns {string} HTML-Optionen für das Dropdown
+     */
+    getMwstOptions: function(selectedRate) {
+        // Gruppiere nach Land für bessere Übersicht
+        const gruppen = {};
+        this.mwstSaetze.forEach(satz => {
+            const key = satz.country || 'Allgemein';
+            if (!gruppen[key]) gruppen[key] = [];
+            gruppen[key].push(satz);
+        });
+
+        // Priorität der Länder (häufigste zuerst)
+        const prioritaet = ['', 'IT', 'DE', 'AT', 'CH'];
+        const sortierteKeys = Object.keys(gruppen).sort((a, b) => {
+            const idxA = prioritaet.indexOf(a);
+            const idxB = prioritaet.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        let html = '';
+        sortierteKeys.forEach(key => {
+            gruppen[key].forEach(satz => {
+                const isSelected = satz.rate === selectedRate &&
+                    (satz.label.includes(String(selectedRate)) || selectedRate === 0);
+                html += `<option value="${satz.rate}" ${isSelected ? 'selected' : ''}>${satz.label}</option>`;
+            });
+        });
+
+        return html;
     },
 
     /**
