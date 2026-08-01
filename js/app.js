@@ -8206,15 +8206,16 @@ const App = {
 
         try {
             // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
+            // WICHTIG: ist_gutschrift und dokument_typ laden für korrekte Gutschrift-Berechnung
             const { data: buchungenAktuell, error: err1 } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag, datum')
+                .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
                 .gte('datum', `${jahr}-01-01`)
                 .lte('datum', `${jahr}-12-31`);
 
             const { data: buchungenVorjahr, error: err2 } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag, datum')
+                .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
                 .gte('datum', `${vorjahr}-01-01`)
                 .lte('datum', `${vorjahr}-12-31`);
 
@@ -8225,13 +8226,26 @@ const App = {
             console.log(`📊 Bilanz ${vorjahr}: ${buchungenVorjahr?.length || 0} Buchungen geladen`);
 
             // Nach Konto-Prefix gruppieren (erste 3 Zeichen)
+            // Gutschriften werden als negative Beträge behandelt
             const aggregiereNachKonto = (buchungen) => {
                 const result = {};
                 (buchungen || []).forEach(b => {
                     const konto = b.konto_nr || '';
                     const prefix = konto.substring(0, 3);
                     if (!result[prefix]) result[prefix] = 0;
-                    result[prefix] += parseFloat(b.betrag) || 0;
+
+                    let betrag = parseFloat(b.betrag) || 0;
+
+                    // Gutschrift-Erkennung: dokument_typ = 'NC' oder ist_gutschrift = true
+                    // Bei Gutschriften: Betrag negativ (wird von Aufwand/Umsatz abgezogen)
+                    const istGutschrift = b.dokument_typ === 'NC' || b.ist_gutschrift === true;
+                    if (istGutschrift) {
+                        // Gutschrift: Betrag negieren (falls positiv gespeichert)
+                        betrag = -Math.abs(betrag);
+                        console.log(`📋 Gutschrift erkannt: Konto ${konto}, Betrag: ${betrag}`);
+                    }
+
+                    result[prefix] += betrag;
                 });
                 return result;
             };
