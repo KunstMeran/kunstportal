@@ -2303,6 +2303,7 @@ const SupabaseDataAdapter = {
                 access_mitglieder: 'none',
                 access_einnahmen: 'none',
                 access_konfiguration: 'none',
+                access_inventar: 'none',
                 rechnungen_nur_zugewiesene: true,
                 isWorkspaceAdmin: false
             };
@@ -2321,6 +2322,7 @@ const SupabaseDataAdapter = {
                     permissions.access_mitglieder = aggregateLevel(permissions.access_mitglieder, ws.access_mitglieder);
                     permissions.access_einnahmen = aggregateLevel(permissions.access_einnahmen, ws.access_einnahmen);
                     permissions.access_konfiguration = aggregateLevel(permissions.access_konfiguration, ws.access_konfiguration);
+                    permissions.access_inventar = aggregateLevel(permissions.access_inventar, ws.access_inventar);
 
                     // Wenn mindestens ein Workspace vollen Rechnungszugriff hat
                     if (!ws.rechnungen_nur_zugewiesene) {
@@ -2388,6 +2390,7 @@ const SupabaseDataAdapter = {
             access_mitglieder: 'none',
             access_einnahmen: 'none',
             access_konfiguration: 'none',
+            access_inventar: 'none',
             rechnungen_nur_zugewiesene: true,
             isWorkspaceAdmin: false
         };
@@ -2409,6 +2412,7 @@ const SupabaseDataAdapter = {
             access_mitglieder: 'write',
             access_einnahmen: 'write',
             access_konfiguration: 'write',
+            access_inventar: 'write',
             rechnungen_nur_zugewiesene: false,
             isWorkspaceAdmin: true
         };
