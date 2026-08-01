@@ -212,11 +212,11 @@ const App = {
         const level = this.userPermissions[permKey];
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
-        return level === 'read' || level === 'write';
+        return level === 'read' || level === 'write' || level === 'delete';
     },
 
     /**
-     * Prüft ob User Schreibzugriff auf View hat
+     * Prüft ob User Schreibzugriff auf View hat (write oder delete)
      */
     hasWriteAccessToView: function(viewName) {
         if (!this.userPermissions) return true;
@@ -226,7 +226,22 @@ const App = {
         const level = this.userPermissions[permKey];
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
-        return level === 'write';
+        // write oder delete = Schreibzugriff
+        return level === 'write' || level === 'delete';
+    },
+
+    /**
+     * Prüft ob User Löschzugriff auf View hat
+     */
+    hasDeleteAccessToView: function(viewName) {
+        if (!this.userPermissions) return true;
+        const permKey = this.viewPermissionMap[viewName];
+        if (!permKey) return true;
+
+        const level = this.userPermissions[permKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'delete';
     },
 
     /**
@@ -285,6 +300,34 @@ const App = {
                 input.disabled = true;
                 input.classList.add('read-only-disabled');
             }
+        });
+    },
+
+    /**
+     * Wendet Write-Only-Modus auf eine View an (deaktiviert nur Löschen-Buttons)
+     * Für User mit write-Berechtigung aber ohne delete-Berechtigung
+     */
+    applyWriteOnlyMode: function(viewName) {
+        // Prüfen ob Löschzugriff fehlt aber Schreibzugriff vorhanden
+        if (this.hasDeleteAccessToView(viewName) || !this.hasWriteAccessToView(viewName)) {
+            return; // Entweder voller Zugriff oder nur Lesen
+        }
+
+        const viewElement = document.getElementById('view-' + viewName);
+        if (!viewElement) return;
+
+        // Nur Löschen-Buttons deaktivieren
+        const deleteSelectors = [
+            '.btn-danger',
+            '[onclick*="delete"]',
+            '[onclick*="remove"]',
+            '[onclick*="Delete"]',
+            '[onclick*="Remove"]'
+        ];
+        viewElement.querySelectorAll(deleteSelectors.join(', ')).forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('delete-disabled');
+            btn.title = 'Keine Berechtigung zum Löschen';
         });
     },
 
@@ -596,9 +639,12 @@ const App = {
         // View in localStorage speichern
         localStorage.setItem('lastView', viewName);
 
-        // Read-Only-Modus anwenden falls keine Schreibrechte
+        // Berechtigungsmodi anwenden
         // Verzögert ausführen, damit View-Inhalte erst geladen werden
-        setTimeout(() => this.applyReadOnlyMode(viewName), 200);
+        setTimeout(() => {
+            this.applyReadOnlyMode(viewName);  // Falls keine Schreibrechte
+            this.applyWriteOnlyMode(viewName); // Falls keine Löschrechte
+        }, 200);
 
         // View-spezifische Initialisierung
         switch(viewName) {

@@ -847,9 +847,8 @@ const SupabaseDataAdapter = {
                     matchingInvoices.push(...matchedByPartita);
                 }
 
-                // Lieferantenname aus suppliers-Tabelle holen
+                // Lieferantenname: Priorität 1. aus verknüpfter Invoice, 2. aus suppliers-Tabelle, 3. aus DATEV-Buchung
                 const supplierName = supplierMap.get(buchung.partitaIva);
-                const enrichedFornitoreName = supplierName || buchung.fornitoreName;
 
                 // Alle gefundenen Invoices als gematcht markieren
                 matchingInvoices.forEach(inv => matchedInvoiceIds.add(inv.id));
@@ -857,6 +856,8 @@ const SupabaseDataAdapter = {
                 if (matchingInvoices.length > 0) {
                     // Erstes PDF für Rückwärtskompatibilität (invoiceId, filePath, etc.)
                     const firstInvoice = matchingInvoices[0];
+                    // Lieferantenname aus Invoice hat Priorität (wenn manuell gesetzt)
+                    const enrichedFornitoreName = firstInvoice.fornitore_name || supplierName || buchung.fornitoreName;
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
@@ -881,9 +882,11 @@ const SupabaseDataAdapter = {
                     };
                 }
 
+                // Keine verknüpfte Invoice: Lieferantenname aus suppliers-Tabelle oder DATEV-Buchung
+                const fallbackFornitoreName = supplierName || buchung.fornitoreName;
                 return {
                     ...buchung,
-                    fornitoreName: enrichedFornitoreName,
+                    fornitoreName: fallbackFornitoreName,
                     linkedInvoices: [],
                     pdfCount: 0,
                     // Überschreibe alte pdfExists aus buchungen.json - nur true wenn Supabase-Invoice existiert
@@ -901,13 +904,13 @@ const SupabaseDataAdapter = {
                     const partitaIva = parsed.partitaIva || inv.partita_iva;
                     const dokumentNr = parsed.invoiceNumber || inv.invoice_number;
 
-                    // Lieferantenname aus suppliers-Tabelle holen anhand Partita IVA
+                    // Lieferantenname: Priorität 1. aus Invoice-Tabelle, 2. aus suppliers-Tabelle via Partita IVA
                     // Debug: Erste paar Einträge prüfen
                     if (supplierMap.size > 0 && !supplierMap.has(partitaIva)) {
                         const sampleKeys = Array.from(supplierMap.keys()).slice(0, 3);
                         console.log(`🔍 Suche Lieferant für ${partitaIva}, Beispiel-Keys in Map: ${sampleKeys.join(', ')}`);
                     }
-                    const supplierName = partitaIva ? supplierMap.get(partitaIva) : null;
+                    const supplierName = inv.fornitore_name || (partitaIva ? supplierMap.get(partitaIva) : null);
                     const fornitoreName = supplierName || 'Unbekannt';
 
                     return {
@@ -2219,12 +2222,13 @@ const SupabaseDataAdapter = {
 
     /**
      * Berechtigungslevel-Konstanten
-     * none = kein Zugriff, read = nur lesen, write = lesen+bearbeiten
+     * none = kein Zugriff, read = nur lesen, write = bearbeiten, delete = löschen
      */
     PERMISSION_LEVELS: {
         none: 0,
         read: 1,
-        write: 2
+        write: 2,
+        delete: 3
     },
 
     /**
@@ -2278,13 +2282,13 @@ const SupabaseDataAdapter = {
             // Hilfsfunktion: Aggregiert zwei Berechtigungslevel (höchste Stufe gewinnt)
             const aggregateLevel = (current, newLevel) => {
                 const levels = this.PERMISSION_LEVELS;
-                const levelNames = ['none', 'read', 'write'];
+                const levelNames = ['none', 'read', 'write', 'delete'];
                 // Konvertiere zu Nummer falls nötig (Abwärtskompatibilität für boolean)
                 const currentNum = typeof current === 'boolean'
-                    ? (current ? 2 : 0)
+                    ? (current ? 3 : 0)  // boolean true = volle Rechte (delete)
                     : (levels[current] ?? 0);
                 const newNum = typeof newLevel === 'boolean'
-                    ? (newLevel ? 2 : 0)
+                    ? (newLevel ? 3 : 0)  // boolean true = volle Rechte (delete)
                     : (levels[newLevel] ?? 0);
                 return levelNames[Math.max(currentNum, newNum)];
             };
@@ -2397,22 +2401,22 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Vollzugriff-Berechtigungen (für Admins)
+     * Vollzugriff-Berechtigungen (für Admins) - inkl. Löschen
      */
     getFullPermissions() {
         return {
             userId: null,
             userEmail: null,
             workspaces: [],
-            access_dashboard: 'write',
-            access_projekte: 'write',
-            access_rechnungen: 'write',
-            access_bewegungen: 'write',
-            access_lieferanten: 'write',
-            access_mitglieder: 'write',
-            access_einnahmen: 'write',
-            access_konfiguration: 'write',
-            access_inventar: 'write',
+            access_dashboard: 'delete',
+            access_projekte: 'delete',
+            access_rechnungen: 'delete',
+            access_bewegungen: 'delete',
+            access_lieferanten: 'delete',
+            access_mitglieder: 'delete',
+            access_einnahmen: 'delete',
+            access_konfiguration: 'delete',
+            access_inventar: 'delete',
             rechnungen_nur_zugewiesene: false,
             isWorkspaceAdmin: true
         };
