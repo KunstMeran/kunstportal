@@ -6834,39 +6834,56 @@ const App = {
 
     /**
      * Aktualisiert Lieferant mit Name und Partita IVA
-     * @param {string} idOrRechnungId - DB-ID (Zahl) oder rechnungId (partitaIva_dokumentNr)
+     * @param {string} idOrRechnungId - DB-ID (UUID oder Zahl) oder rechnungId (partitaIva_dokumentNr)
      */
     updateLieferantWithPartitaIva: async function(idOrRechnungId, name, partitaIva) {
         try {
             let dbId = null;
+            const idStr = String(idOrRechnungId);
 
-            // Prüfe ob es eine direkte DB-ID ist (nur Zahlen)
-            if (/^\d+$/.test(idOrRechnungId)) {
-                dbId = idOrRechnungId;
+            console.log('updateLieferantWithPartitaIva:', { idOrRechnungId, name, partitaIva });
+
+            // Prüfe ob es eine direkte DB-ID ist (Zahl oder UUID)
+            // UUID-Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr);
+            const isNumeric = /^\d+$/.test(idStr);
+
+            if (isUuid || isNumeric) {
+                dbId = idStr;
             } else {
                 // Suche in filteredRechnungen nach der DB-ID
-                const rechnung = (this.filteredRechnungen || []).find(r =>
-                    r.id === idOrRechnungId ||
-                    (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '') === idOrRechnungId ||
-                    r.rechnungId === idOrRechnungId
-                );
+                const rechnung = (this.filteredRechnungen || []).find(r => {
+                    const rIdStr = String(r.id || '');
+                    const rRechnungIdSafe = (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '');
+                    return rIdStr === idStr ||
+                           rRechnungIdSafe === idStr ||
+                           r.rechnungId === idStr;
+                });
                 if (rechnung && rechnung.id) {
-                    dbId = rechnung.id;
+                    dbId = String(rechnung.id);
+                    console.log('DB-ID gefunden via Suche:', dbId);
                 }
             }
 
+            console.log('Verwende DB-ID:', dbId);
+
             if (dbId) {
-                const { error } = await SupabaseService.client
+                const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .update({
                         fornitore_name: name,
                         partita_iva: partitaIva,
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', dbId);
+                    .eq('id', dbId)
+                    .select();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase Update Error:', error);
+                    throw error;
+                }
 
+                console.log('Update erfolgreich:', data);
                 this.showToast('success', 'Gespeichert', `Lieferant: ${name}`);
 
                 // Cache invalidieren und neu laden
