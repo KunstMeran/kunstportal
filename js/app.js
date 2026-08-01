@@ -4740,6 +4740,7 @@ const App = {
 
     /**
      * Verknüpft eine Supabase-Invoice mit einer DATEV-Bewegung
+     * und synchronisiert den Workflow-Status
      */
     linkInvoiceToDatev: async function(invoiceId, datevKey) {
         console.log('linkInvoiceToDatev aufgerufen:', { invoiceId, datevKey });
@@ -4764,18 +4765,73 @@ const App = {
 
             console.log('Verknüpfe:', { invoiceId, partitaIva, dokumentNr });
 
-            // Update in Supabase: setze partita_iva und invoice_number
+            // Zuerst: Invoice-Status laden (falls vorhanden)
+            const { data: invoiceData } = await SupabaseService.client
+                .from('invoices')
+                .select('workflow_status, kontrolled_at, kontrolled_by, paid_at, paid_by')
+                .eq('id', invoiceId)
+                .single();
+
+            // DATEV-Bewegung Status laden
+            const { data: datevData } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('workflow_status, kontrolled_at, kontrolled_by, paid_at, paid_by')
+                .eq('partita_iva', partitaIva)
+                .eq('dokument_nr', dokumentNr)
+                .single();
+
+            // Status-Synchronisation: Der "höhere" Status gewinnt (bezahlt > kontrolliert > neu)
+            const statusPriority = { 'neu': 0, 'kontrolliert': 1, 'bezahlt': 2 };
+            const invoiceStatus = invoiceData?.workflow_status || 'neu';
+            const datevStatus = datevData?.workflow_status || 'neu';
+
+            let finalStatus = invoiceStatus;
+            let finalKontrolledAt = invoiceData?.kontrolled_at;
+            let finalKontrolledBy = invoiceData?.kontrolled_by;
+            let finalPaidAt = invoiceData?.paid_at;
+            let finalPaidBy = invoiceData?.paid_by;
+
+            // Wenn DATEV-Status höher ist, übernehme diesen
+            if ((statusPriority[datevStatus] || 0) > (statusPriority[invoiceStatus] || 0)) {
+                finalStatus = datevStatus;
+                finalKontrolledAt = datevData?.kontrolled_at;
+                finalKontrolledBy = datevData?.kontrolled_by;
+                finalPaidAt = datevData?.paid_at;
+                finalPaidBy = datevData?.paid_by;
+            }
+
+            // Update Invoice: Verknüpfung + Status-Sync
             const { data, error } = await SupabaseService.client
                 .from('invoices')
                 .update({
                     partita_iva: partitaIva,
-                    invoice_number: dokumentNr
+                    invoice_number: dokumentNr,
+                    workflow_status: finalStatus,
+                    kontrolled_at: finalKontrolledAt,
+                    kontrolled_by: finalKontrolledBy,
+                    paid_at: finalPaidAt,
+                    paid_by: finalPaidBy
                 })
                 .eq('id', invoiceId);
 
             if (error) {
                 console.error('Supabase Verknüpfungs-Error:', error);
                 throw error;
+            }
+
+            // Auch DATEV-Buchung aktualisieren falls Invoice-Status höher war
+            if ((statusPriority[invoiceStatus] || 0) > (statusPriority[datevStatus] || 0)) {
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update({
+                        workflow_status: finalStatus,
+                        kontrolled_at: invoiceData?.kontrolled_at,
+                        kontrolled_by: invoiceData?.kontrolled_by,
+                        paid_at: invoiceData?.paid_at,
+                        paid_by: invoiceData?.paid_by
+                    })
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
             }
 
             console.log('Verknüpfung erfolgreich:', data);
@@ -7347,8 +7403,21 @@ const App = {
         const bgColor = statusColors[status] || '#6c757d';
         const textColor = status === 'kontrolliert' ? '#333' : 'white';
 
-        // Für Supabase-only Zeilen (ohne DATEV-Buchung) auch Dropdown aber disabled
-        if (r.isSupabaseOnly || !bookingId) {
+        // Für Supabase-only Zeilen: Invoice-Status verwenden
+        if (r.isSupabaseOnly && r.invoiceId) {
+            return `<select class="form-control status-select"
+                            style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
+                                   background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
+                                   cursor: pointer; font-weight: 500;"
+                            onchange="App.updateInvoiceWorkflowStatus('${r.invoiceId}', this.value)">
+                        <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d; color: white;">neu</option>
+                        <option value="kontrolliert" ${status === 'kontrolliert' ? 'selected' : ''} style="background: #ffc107; color: #333;">kontrolliert</option>
+                        <option value="bezahlt" ${status === 'bezahlt' ? 'selected' : ''} style="background: #28a745;">bezahlt</option>
+                    </select>`;
+        }
+
+        // Ohne bookingId und ohne invoiceId: disabled
+        if (!bookingId) {
             return `<select class="form-control status-select" disabled
                             style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
                                    background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
@@ -7370,6 +7439,7 @@ const App = {
 
     /**
      * Aktualisiert den Workflow-Status einer DATEV-Buchung
+     * und synchronisiert mit verknüpfter Invoice
      */
     updateWorkflowStatus: async function(bookingId, newStatus) {
         try {
@@ -7401,13 +7471,27 @@ const App = {
                 .from('datev_bookings')
                 .update(updateData)
                 .eq('id', bookingId)
-                .select();
+                .select('partita_iva, dokument_nr');
 
             if (error) throw error;
 
             if (!data || data.length === 0) {
                 this.showToast('warning', 'Nicht gefunden', 'Buchung wurde nicht gefunden');
                 return;
+            }
+
+            // Auch verknüpfte Invoice aktualisieren (falls vorhanden)
+            const { partita_iva, dokument_nr } = data[0];
+            if (partita_iva && dokument_nr) {
+                await SupabaseService.client
+                    .from('invoices')
+                    .update({
+                        workflow_status: newStatus,
+                        kontrolled_at: updateData.kontrolled_at,
+                        paid_at: updateData.paid_at
+                    })
+                    .eq('partita_iva', partita_iva)
+                    .eq('invoice_number', dokument_nr);
             }
 
             // Cache invalidieren und Ansicht neu laden
@@ -7421,6 +7505,55 @@ const App = {
             this.showToast('success', 'Status geändert', `Status auf "${statusLabels[newStatus]}" gesetzt`);
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Status:', error);
+            this.showToast('error', 'Fehler', `Status konnte nicht geändert werden: ${error.message}`);
+        }
+    },
+
+    /**
+     * Aktualisiert den Workflow-Status einer Supabase-only Invoice
+     */
+    updateInvoiceWorkflowStatus: async function(invoiceId, newStatus) {
+        try {
+            if (!invoiceId) {
+                console.warn('Keine invoiceId für Status-Update');
+                return;
+            }
+
+            console.log('Aktualisiere Invoice Workflow-Status:', { invoiceId, newStatus });
+
+            const updateData = {
+                workflow_status: newStatus
+            };
+
+            // Je nach Status: Datum setzen oder löschen
+            if (newStatus === 'kontrolliert') {
+                updateData.kontrolled_at = new Date().toISOString();
+                updateData.paid_at = null;
+            } else if (newStatus === 'bezahlt') {
+                updateData.paid_at = new Date().toISOString();
+            } else if (newStatus === 'neu') {
+                updateData.kontrolled_at = null;
+                updateData.paid_at = null;
+            }
+
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update(updateData)
+                .eq('id', invoiceId);
+
+            if (error) throw error;
+
+            // Cache invalidieren und Ansicht neu laden
+            if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+                SupabaseDataAdapter.invalidateCache();
+            }
+
+            await this.reloadRechnungenKeepState();
+
+            const statusLabels = { 'neu': 'Neu', 'kontrolliert': 'Kontrolliert', 'bezahlt': 'Bezahlt' };
+            this.showToast('success', 'Status geändert', `Status auf "${statusLabels[newStatus]}" gesetzt`);
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Invoice-Status:', error);
             this.showToast('error', 'Fehler', `Status konnte nicht geändert werden: ${error.message}`);
         }
     },

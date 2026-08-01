@@ -995,8 +995,12 @@ const SupabaseDataAdapter = {
                         uploadedAt: inv.created_at,
                         pdfExists: true,
                         status: inv.status,
-                        // workflowStatus für Filter: nur gültige Werte, sonst 'neu'
-                        workflowStatus: ['neu', 'kontrolliert', 'bezahlt'].includes(inv.status) ? inv.status : 'neu',
+                        // workflowStatus: Priorität 1. workflow_status Spalte, 2. status Fallback
+                        workflowStatus: inv.workflow_status || (['neu', 'kontrolliert', 'bezahlt'].includes(inv.status) ? inv.status : 'neu'),
+                        kontrolledAt: inv.kontrolled_at,
+                        kontrolledBy: inv.kontrolled_by,
+                        paidAt: inv.paid_at,
+                        paidBy: inv.paid_by,
                         notes: inv.notes,
                         kostentyp: inv.kostentyp || '',
                         funding_source_id: inv.funding_source_id,
