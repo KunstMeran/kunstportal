@@ -483,23 +483,31 @@ const ExcelImportService = {
         // VORZEICHEN-LOGIK
         // ============================================
         // Grundregel: Betrag GENAU so übernehmen wie in Excel
-        // AUSNAHME: Umsatzkonten (6xx) - Vorzeichen umdrehen
-        //   - Wenn minus → plus
-        //   - Wenn plus → minus
+        // AUSNAHME: Nur ERTRAGS-Konten (600-679, 840) - Vorzeichen umdrehen
+        //   - Diese haben im DATEV negative Beträge für Einnahmen (Habenbuchungen)
+        //   - Für korrekte GuV-Darstellung müssen sie positiv sein
+        //
+        // NICHT umdrehen: Aufwendungen (680+, 690+, 700+, etc.)
+        //   - Diese sind im DATEV bereits positiv = Kosten
+        //   - Bleiben positiv, Bilanz-Anzeige macht sie dann negativ
 
         const kontoStr = String(kontoNr);
-        const isUmsatzkonto = kontoStr.startsWith('6');
+        const kontoPrefix = parseInt(kontoStr.substring(0, 3)) || 0;
+
+        // Ertragskonten: 600-679 (Umsatzerlöse) und 840-849 (Finanzerträge)
+        const isErtragskonto = (kontoPrefix >= 600 && kontoPrefix <= 679) ||
+                               (kontoPrefix >= 840 && kontoPrefix <= 849);
 
         let betrag = betragParsed;
-        if (isUmsatzkonto) {
-            betrag = -betragParsed; // Vorzeichen umdrehen
+        if (isErtragskonto) {
+            betrag = -betragParsed; // Nur Erträge umdrehen
         }
 
         // ============================================
         // GUTSCHRIFT-ERKENNUNG
         // ============================================
-        // Nur bei NICHT-Umsatzkonten mit negativem Betrag = Gutschrift
-        const istGutschrift = !isUmsatzkonto && betragParsed < 0;
+        // Nur bei NICHT-Ertragskonten mit negativem Betrag = Gutschrift
+        const istGutschrift = !isErtragskonto && betragParsed < 0;
 
         // ============================================
         // ALLE DREI DATEN parsen
