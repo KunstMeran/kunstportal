@@ -5087,17 +5087,24 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
-                const { data, error } = await SupabaseService.client
+                // Query bauen - partita_iva kann NULL oder leer sein
+                let query = SupabaseService.client
                     .from('datev_bookings')
                     .update({
                         workflow_status: 'kontrolliert',
                         kontrolled_at: heute,
                         kontrolled_by: user?.id
-                    })
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr)
-                    .select('id');
+                    });
+
+                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
+                if (partitaIva && partitaIva.trim() !== '') {
+                    query = query.eq('partita_iva', partitaIva);
+                } else {
+                    query = query.or('partita_iva.is.null,partita_iva.eq.');
+                }
+                query = query.eq('dokument_nr', dokumentNr);
+
+                const { data, error } = await query.select('id');
 
                 if (error) {
                     console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
@@ -5137,8 +5144,8 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
-                const { data, error } = await SupabaseService.client
+                // Query bauen - partita_iva kann NULL oder leer sein
+                let query = SupabaseService.client
                     .from('datev_bookings')
                     .update({
                         workflow_status: 'neu',
@@ -5146,10 +5153,17 @@ const App = {
                         kontrolled_by: null,
                         paid_at: null,
                         paid_by: null
-                    })
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr)
-                    .select('id');
+                    });
+
+                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
+                if (partitaIva && partitaIva.trim() !== '') {
+                    query = query.eq('partita_iva', partitaIva);
+                } else {
+                    query = query.or('partita_iva.is.null,partita_iva.eq.');
+                }
+                query = query.eq('dokument_nr', dokumentNr);
+
+                const { data, error } = await query.select('id');
 
                 if (error) {
                     console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
@@ -5196,17 +5210,24 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
-                const { data, error } = await SupabaseService.client
+                // Query bauen - partita_iva kann NULL oder leer sein
+                let query = SupabaseService.client
                     .from('datev_bookings')
                     .update({
                         workflow_status: 'bezahlt',
                         paid_at: heute,
                         paid_by: user?.id
-                    })
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr)
-                    .select('id');
+                    });
+
+                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
+                if (partitaIva && partitaIva.trim() !== '') {
+                    query = query.eq('partita_iva', partitaIva);
+                } else {
+                    query = query.or('partita_iva.is.null,partita_iva.eq.');
+                }
+                query = query.eq('dokument_nr', dokumentNr);
+
+                const { data, error } = await query.select('id');
 
                 if (error) {
                     console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
