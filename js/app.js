@@ -6181,9 +6181,10 @@ const App = {
             }
         });
 
-        // Aktuelles Jahr immer hinzufügen
+        // Aktuelles Jahr und Vorjahr immer hinzufügen (für Vergleich)
         const currentYear = new Date().getFullYear();
         jahre.add(currentYear);
+        jahre.add(currentYear - 1);
 
         const jahreArray = Array.from(jahre).sort((a, b) => b - a);
 
