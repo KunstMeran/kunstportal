@@ -1274,33 +1274,40 @@ const DataManager = {
 
     /**
      * Prüft welche archivierten Jahre verfügbar sind
-     * Testet Jahre von 2020 bis aktuelles Jahr
+     * Holt Jahre aus Supabase datev_bookings Tabelle
      * @returns {Promise<Array>} Array mit verfügbaren Jahren
      */
     getAvailableYears: async function() {
         const availableYears = [];
         const currentYear = new Date().getFullYear();
 
-        // Aktuelles Jahr (buchungen.json) prüfen
         try {
-            const response = await fetch(this.PATHS.BUCHUNGEN_JSON + '?t=' + Date.now(), { method: 'HEAD' });
-            if (response.ok) {
-                availableYears.push({ year: null, label: 'Aktuell', isCurrent: true });
+            // Jahre aus Supabase laden
+            if (typeof SupabaseService !== 'undefined' && SupabaseService.client) {
+                const { data, error } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .select('import_year')
+                    .not('import_year', 'is', null);
+
+                if (!error && data) {
+                    const years = [...new Set(data.map(b => b.import_year))].sort((a, b) => b - a);
+
+                    years.forEach(year => {
+                        availableYears.push({
+                            year: year,
+                            label: String(year),
+                            isCurrent: year === currentYear
+                        });
+                    });
+                }
             }
         } catch (e) {
-            // Ignorieren
+            console.warn('Fehler beim Laden der Jahre aus Supabase:', e);
         }
 
-        // Archive von 2020 bis Vorjahr prüfen
-        for (let jahr = currentYear - 1; jahr >= 2020; jahr--) {
-            try {
-                const response = await fetch(`data/buchungen_${jahr}.json?t=` + Date.now(), { method: 'HEAD' });
-                if (response.ok) {
-                    availableYears.push({ year: jahr, label: String(jahr), isCurrent: false });
-                }
-            } catch (e) {
-                // Jahr nicht vorhanden, ignorieren
-            }
+        // Falls keine Jahre gefunden, aktuelles Jahr hinzufügen
+        if (availableYears.length === 0) {
+            availableYears.push({ year: currentYear, label: String(currentYear), isCurrent: true });
         }
 
         return availableYears;
