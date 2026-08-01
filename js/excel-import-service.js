@@ -7,46 +7,42 @@
 const ExcelImportService = {
 
     /**
-     * Generiert einen eindeutigen Key für eine Buchung
-     * MUSS exakt dem DB-Constraint idx_unique_datev_booking_v2 entsprechen:
-     * (partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name[50], beschreibung[50])
+     * Generiert einen eindeutigen Key für eine Buchung zum COUNT-basierten Matching.
      *
-     * WICHTIG: PostgreSQL verwendet COALESCE(LEFT(field, 50), '') - KEIN TRIM!
-     * Der JS-Code muss exakt das gleiche machen.
+     * WICHTIG: Wir verwenden NICHT den DB-Constraint-Key, weil:
+     * 1. partita_iva wird beim Import über Supplier-Matching gesetzt (variabel)
+     * 2. fornitore_name kann sich nach Supplier-Import ändern
+     *
+     * Stattdessen verwenden wir nur die UNVERÄNDERLICHEN Felder aus dem Excel:
+     * - dokument_nr (direkt aus Excel)
+     * - datum (direkt aus Excel)
+     * - betrag (direkt aus Excel)
+     * - konto_nr (direkt aus Excel)
+     * - beschreibung (direkt aus Excel)
+     *
+     * Diese Felder ändern sich nie nach dem initialen Import.
      */
     generateBookingKey(booking) {
-        // COALESCE(partita_iva, '') - kein Trim in DB!
-        const partitaIva = booking.partita_iva || '';
-
-        // COALESCE(dokument_nr, '') - kein Trim in DB!
+        // dokument_nr - direkt aus Excel, ändert sich nie
         const dokumentNr = booking.dokument_nr || '';
 
-        // datum - direkt verwenden
+        // datum - direkt aus Excel
         const datum = booking.datum || '';
 
-        // betrag - als Decimal gespeichert, aber mit String-Vergleich im Index
-        // PostgreSQL speichert z.B. 123.45 als "123.45" im Index
-        // Wir müssen sicherstellen dass die Formatierung übereinstimmt
+        // betrag - als String für Vergleich
         let betrag = '';
         if (booking.betrag !== null && booking.betrag !== undefined) {
             const num = parseFloat(booking.betrag);
-            // PostgreSQL Decimal-Darstellung: keine trailing zeros entfernen
-            // z.B. 100 wird als "100", nicht "100.00" gespeichert
-            // und 100.50 als "100.5", nicht "100.50"
             betrag = String(num);
         }
 
-        // COALESCE(konto_nr, '') - kein Trim in DB!
+        // konto_nr - direkt aus Excel
         const kontoNr = booking.konto_nr || '';
 
-        // COALESCE(LEFT(fornitore_name, 50), '') - KEIN TRIM!
-        // LEFT schneidet nur ab, trimmt nicht
-        const fornitoreName = (booking.fornitore_name || '').substring(0, 50);
-
-        // COALESCE(LEFT(beschreibung, 50), '') - KEIN TRIM!
+        // beschreibung - direkt aus Excel, auf 50 Zeichen begrenzen wie DB
         const beschreibung = (booking.beschreibung || '').substring(0, 50);
 
-        return `${partitaIva}_${dokumentNr}_${datum}_${betrag}_${kontoNr}_${fornitoreName}_${beschreibung}`;
+        return `${dokumentNr}_${datum}_${betrag}_${kontoNr}_${beschreibung}`;
     },
 
     async importDatevBookings(file, year = null) {
@@ -162,44 +158,6 @@ const ExcelImportService = {
                 dbKeyCounts.set(key, (dbKeyCounts.get(key) || 0) + 1);
             }
             console.log(`✅ ${existingBookings.length} Buchungen in DB, ${dbKeyCounts.size} unique Keys`);
-
-            // DEBUG: Vergleiche erste 3 Keys aus Excel und DB um Unterschiede zu finden
-            console.log('🔍 DEBUG: Erste 3 Excel-Buchungen:');
-            for (let i = 0; i < Math.min(3, excelBookings.length); i++) {
-                const b = excelBookings[i];
-                const key = this.generateBookingKey(b);
-                console.log(`  Excel[${i}]: key="${key}"`);
-                console.log(`    Raw: partita_iva="${b.partita_iva}", dokument_nr="${b.dokument_nr}", datum="${b.datum}", betrag=${b.betrag}, konto_nr="${b.konto_nr}"`);
-                console.log(`    fornitore_name="${b.fornitore_name?.substring(0,30)}", beschreibung="${b.beschreibung?.substring(0,30)}"`);
-            }
-            console.log('🔍 DEBUG: Erste 3 DB-Buchungen:');
-            for (let i = 0; i < Math.min(3, existingBookings.length); i++) {
-                const b = existingBookings[i];
-                const key = this.generateBookingKey(b);
-                console.log(`  DB[${i}]: key="${key}"`);
-                console.log(`    Raw: partita_iva="${b.partita_iva}", dokument_nr="${b.dokument_nr}", datum="${b.datum}", betrag=${b.betrag}, konto_nr="${b.konto_nr}"`);
-                console.log(`    fornitore_name="${b.fornitore_name?.substring(0,30)}", beschreibung="${b.beschreibung?.substring(0,30)}"`);
-            }
-
-            // DEBUG: Finde eine Excel-Buchung die in DB sein sollte aber nicht gefunden wird
-            console.log('🔍 DEBUG: Suche nach nicht-matchenden Keys...');
-            let debugCount = 0;
-            for (const [excelKey, excelCount] of excelKeyCounts) {
-                if (!dbKeyCounts.has(excelKey) && debugCount < 3) {
-                    console.log(`  Excel-Key nicht in DB: "${excelKey.substring(0, 100)}"`);
-                    // Finde ähnliche Keys in DB
-                    const excelParts = excelKey.split('_');
-                    for (const [dbKey, dbCount] of dbKeyCounts) {
-                        const dbParts = dbKey.split('_');
-                        // Vergleiche datum und betrag (Teile 2 und 3)
-                        if (excelParts[2] === dbParts[2] && excelParts[3] === dbParts[3]) {
-                            console.log(`    Ähnlicher DB-Key (gleiches Datum+Betrag): "${dbKey.substring(0, 100)}"`);
-                            break;
-                        }
-                    }
-                    debugCount++;
-                }
-            }
 
             // 4. Berechne Differenz: Wie viele von jedem Key müssen importiert werden?
             const keysToImport = new Map(); // key -> anzahl zu importieren
