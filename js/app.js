@@ -6045,7 +6045,18 @@ const App = {
 
         // Berechnete Werte für Sortierung vorbereiten
         const lieferantenMitWerten = lieferanten.map(l => {
-            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
+            // Verknüpfung über partitaIva ODER Lieferantenname (für ältere Buchungen ohne partita_iva)
+            const lieferantRechnungen = rechnungen.filter(r => {
+                // Primär: partitaIva Match
+                if (r.partitaIva && l.partitaIva && r.partitaIva === l.partitaIva) {
+                    return true;
+                }
+                // Fallback: Name-Match (case-insensitive) für Buchungen ohne partitaIva
+                if (!r.partitaIva && r.fornitoreName && l.name) {
+                    return r.fornitoreName.toLowerCase().trim() === l.name.toLowerCase().trim();
+                }
+                return false;
+            });
 
             const rechnungenJahr = lieferantRechnungen.filter(r => {
                 const datum = r.datum || r.belegdatum;
@@ -6110,7 +6121,14 @@ const App = {
         });
 
         lieferantenMitWerten.forEach((l, index) => {
-            const lieferantRechnungen = rechnungen.filter(r => r.partitaIva === l.partitaIva);
+            // Verknüpfung über partitaIva ODER Lieferantenname (für ältere Buchungen ohne partita_iva)
+            const lieferantRechnungen = rechnungen.filter(r => {
+                if (r.partitaIva && l.partitaIva && r.partitaIva === l.partitaIva) return true;
+                if (!r.partitaIva && r.fornitoreName && l.name) {
+                    return r.fornitoreName.toLowerCase().trim() === l.name.toLowerCase().trim();
+                }
+                return false;
+            });
             const hatName = l.name && l.name.trim() !== '';
             const displayName = hatName ? l.name : '(Unbekannt)';
             const nameStyle = hatName ? '' : 'color: #999; font-style: italic;';
@@ -7308,7 +7326,7 @@ const App = {
 
     // Aktueller Reporting-Tab
     currentReportingTab: 0,
-    totalReportingTabs: 5,
+    totalReportingTabs: 6,
 
     loadReporting: function() {
         const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
@@ -7843,6 +7861,313 @@ const App = {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `Kontenplan_ohne_Kostenstelle_${cache.jahr}.csv`;
+        link.click();
+    },
+
+    // ==========================================
+    // BILANZ / GUV REPORT
+    // ==========================================
+
+    bilanzReportCache: null,
+    bilanzExpanded: {},
+
+    /**
+     * Bilanz/GuV-Struktur basierend auf italienischem Bilanzschema
+     */
+    getBilanzStruktur: function() {
+        return {
+            guv: [
+                // A) GESAMTLEISTUNG
+                { id: 'A', label: 'A) Gesamtleistung', type: 'header', level: 0, color: '#d4edda', borderColor: '#28a745' },
+                { id: 'A1', label: '1) Erträge aus Lieferungen und Leistungen', type: 'group', level: 1, parent: 'A', kontoPattern: ['600'] },
+                { id: 'A5', label: '5) Sonstige betriebliche Erträge', type: 'group', level: 1, parent: 'A', kontoPattern: ['640'] },
+                { id: 'A_SUM', label: 'Summe Gesamtleistung (A)', type: 'sum', level: 0, sumOf: ['A1', 'A5'], color: '#c3e6cb', bold: true },
+
+                // B) BETRIEBLICHE AUFWENDUNGEN
+                { id: 'B', label: 'B) Betriebliche Aufwendungen', type: 'header', level: 0, color: '#f8d7da', borderColor: '#dc3545' },
+                { id: 'B6', label: '6) Roh-, Hilfs-, Betriebsstoffe & Waren', type: 'group', level: 1, parent: 'B', kontoPattern: ['680'], negative: true },
+                { id: 'B7', label: '7) Für bezogene Dienstleistungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['690'], negative: true },
+                { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'], negative: true },
+                { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negative: true },
+                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negative: true, isAbschreibung: true },
+                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negative: true },
+                { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negative: true },
+                { id: 'B_SUM', label: 'Summe betriebliche Aufwendungen (B)', type: 'sum', level: 0, sumOf: ['B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B14'], color: '#f5c6cb', bold: true },
+
+                // EBITDA
+                { id: 'EBITDA', label: 'EBITDA (A - B + Abschreibungen)', type: 'result', level: 0, color: '#d1ecf1', borderColor: '#17a2b8', bold: true, formula: 'A_SUM + B_SUM + B10' },
+
+                // BETRIEBSERFOLG (EBIT)
+                { id: 'EBIT', label: 'Betriebserfolg / EBIT (A - B)', type: 'result', level: 0, color: '#fff3cd', borderColor: '#ffc107', bold: true, formula: 'A_SUM + B_SUM' },
+
+                // C) FINANZERTRÄGE UND -AUFWENDUNGEN
+                { id: 'C', label: 'C) Finanzerträge und -aufwendungen', type: 'header', level: 0, color: '#e2e3e5', borderColor: '#6c757d' },
+                { id: 'C16', label: '16) Sonstige Finanzerträge', type: 'group', level: 1, parent: 'C', kontoPattern: ['840'] },
+                { id: 'C17', label: '17) Zinsen und ähnliche Aufwendungen', type: 'group', level: 1, parent: 'C', kontoPattern: ['850'], negative: true },
+                { id: 'C_SUM', label: 'Summe Finanzerträge/-aufwendungen (C)', type: 'sum', level: 0, sumOf: ['C16', 'C17'], color: '#ced4da' },
+
+                // ERGEBNIS VOR STEUERN
+                { id: 'EBT', label: 'Ergebnis vor Steuern (EBIT +/- C)', type: 'result', level: 0, color: '#cce5ff', borderColor: '#007bff', bold: true, formula: 'EBIT + C_SUM' },
+
+                // JAHRESERGEBNIS
+                { id: 'JAHRESERGEBNIS', label: 'Jahresüberschuss/-fehlbetrag', type: 'result', level: 0, color: '#1e3a5f', textColor: 'white', borderColor: '#0d47a1', bold: true, formula: 'EBT' }
+            ]
+        };
+    },
+
+    /**
+     * Bilanz-Report laden
+     */
+    loadBilanzReport: async function() {
+        const tbody = document.getElementById('bilanz-guv-body');
+        if (!tbody) return;
+
+        const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
+        const vorjahr = parseInt(document.getElementById('bilanz-vergleichsjahr')?.value || jahr - 1);
+
+        // Spaltenüberschriften aktualisieren
+        const colAktuell = document.getElementById('bilanz-col-aktuell');
+        const colVorjahr = document.getElementById('bilanz-col-vorjahr');
+        if (colAktuell) colAktuell.textContent = jahr;
+        if (colVorjahr) colVorjahr.textContent = vorjahr;
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Lade Bilanz-Daten...</td></tr>';
+
+        try {
+            // DATEV-Buchungen für beide Jahre laden
+            const { data: buchungenAktuell, error: err1 } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('konto_nr, kategorie, betrag')
+                .eq('import_year', jahr);
+
+            const { data: buchungenVorjahr, error: err2 } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('konto_nr, kategorie, betrag')
+                .eq('import_year', vorjahr);
+
+            if (err1) throw err1;
+            if (err2) throw err2;
+
+            // Nach Konto-Prefix gruppieren
+            const aggregiereNachKonto = (buchungen) => {
+                const result = {};
+                (buchungen || []).forEach(b => {
+                    const konto = b.konto_nr || '';
+                    const prefix = konto.substring(0, 3);
+                    if (!result[prefix]) result[prefix] = 0;
+                    result[prefix] += parseFloat(b.betrag) || 0;
+                });
+                return result;
+            };
+
+            const kontenAktuell = aggregiereNachKonto(buchungenAktuell);
+            const kontenVorjahr = aggregiereNachKonto(buchungenVorjahr);
+
+            // Struktur durchgehen und Werte berechnen
+            const struktur = this.getBilanzStruktur();
+            const werte = {};
+
+            // Gruppen-Werte berechnen
+            struktur.guv.filter(s => s.type === 'group').forEach(gruppe => {
+                let sumAktuell = 0, sumVorjahr = 0;
+                (gruppe.kontoPattern || []).forEach(pattern => {
+                    Object.keys(kontenAktuell).forEach(prefix => {
+                        if (prefix.startsWith(pattern)) {
+                            sumAktuell += kontenAktuell[prefix];
+                        }
+                    });
+                    Object.keys(kontenVorjahr).forEach(prefix => {
+                        if (prefix.startsWith(pattern)) {
+                            sumVorjahr += kontenVorjahr[prefix];
+                        }
+                    });
+                });
+                werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
+            });
+
+            // Summen berechnen
+            struktur.guv.filter(s => s.type === 'sum').forEach(summe => {
+                let sumAktuell = 0, sumVorjahr = 0;
+                (summe.sumOf || []).forEach(id => {
+                    if (werte[id]) {
+                        sumAktuell += werte[id].aktuell;
+                        sumVorjahr += werte[id].vorjahr;
+                    }
+                });
+                werte[summe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
+            });
+
+            // Ergebnisse berechnen (EBITDA, EBIT, etc.)
+            struktur.guv.filter(s => s.type === 'result').forEach(result => {
+                let aktuell = 0, vorjahr = 0;
+                if (result.formula) {
+                    // Einfache Formel-Verarbeitung
+                    const parts = result.formula.split(/\s*([+-])\s*/);
+                    let operator = '+';
+                    parts.forEach(part => {
+                        part = part.trim();
+                        if (part === '+' || part === '-') {
+                            operator = part;
+                        } else if (werte[part]) {
+                            if (operator === '+') {
+                                aktuell += werte[part].aktuell;
+                                vorjahr += werte[part].vorjahr;
+                            } else {
+                                aktuell -= werte[part].aktuell;
+                                vorjahr -= werte[part].vorjahr;
+                            }
+                        }
+                    });
+                }
+                werte[result.id] = { aktuell, vorjahr };
+            });
+
+            // Cache speichern
+            this.bilanzReportCache = { jahr, vorjahr, werte, struktur };
+
+            // KPIs aktualisieren
+            const gesamtleistung = werte['A_SUM']?.aktuell || 0;
+            const aufwendungen = Math.abs(werte['B_SUM']?.aktuell || 0);
+            const ebitda = werte['EBITDA']?.aktuell || 0;
+            const ebit = werte['EBIT']?.aktuell || 0;
+            const jahresergebnis = werte['JAHRESERGEBNIS']?.aktuell || 0;
+
+            document.getElementById('bilanz-gesamtleistung').textContent = this.formatNumber(gesamtleistung) + ' EUR';
+            document.getElementById('bilanz-aufwendungen').textContent = this.formatNumber(aufwendungen) + ' EUR';
+            document.getElementById('bilanz-ebitda').textContent = this.formatNumber(ebitda) + ' EUR';
+            document.getElementById('bilanz-ebitda-pct').textContent = gesamtleistung ? ((ebitda / gesamtleistung) * 100).toFixed(1) + '% der Gesamtleistung' : '0%';
+            document.getElementById('bilanz-ebit').textContent = this.formatNumber(ebit) + ' EUR';
+            document.getElementById('bilanz-ebit-pct').textContent = gesamtleistung ? ((ebit / gesamtleistung) * 100).toFixed(1) + '% der Gesamtleistung' : '0%';
+            document.getElementById('bilanz-jahresergebnis').textContent = this.formatNumber(jahresergebnis) + ' EUR';
+            document.getElementById('bilanz-jahresergebnis-pct').textContent = gesamtleistung ? ((jahresergebnis / gesamtleistung) * 100).toFixed(1) + '% der Gesamtleistung' : '0%';
+
+            // Tabelle rendern
+            this.renderBilanzTable(struktur, werte);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Bilanz:', error);
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #dc3545;">
+                Fehler beim Laden: ${error.message}
+            </td></tr>`;
+        }
+    },
+
+    /**
+     * Bilanz-Tabelle rendern mit aufklappbaren Gruppen
+     */
+    renderBilanzTable: function(struktur, werte) {
+        const tbody = document.getElementById('bilanz-guv-body');
+        if (!tbody) return;
+
+        let html = '';
+
+        struktur.guv.forEach(item => {
+            const w = werte[item.id] || { aktuell: 0, vorjahr: 0 };
+            const diff = w.aktuell - w.vorjahr;
+            const pct = w.vorjahr !== 0 ? ((diff / Math.abs(w.vorjahr)) * 100) : (w.aktuell !== 0 ? 100 : 0);
+
+            const bgColor = item.color || 'transparent';
+            const textColor = item.textColor || 'inherit';
+            const borderLeft = item.borderColor ? `5px solid ${item.borderColor}` : 'none';
+            const fontWeight = item.bold ? '700' : '400';
+            const paddingLeft = (item.level || 0) * 20 + 12;
+
+            const isHeader = item.type === 'header';
+            const isGroup = item.type === 'group';
+            const isSum = item.type === 'sum';
+            const isResult = item.type === 'result';
+
+            // Expand/Collapse Icon für Gruppen
+            let expandIcon = '';
+            if (isHeader) {
+                const expanded = this.bilanzExpanded[item.id] !== false;
+                expandIcon = `<span class="bilanz-expand" data-id="${item.id}" style="cursor: pointer; display: inline-block; width: 24px; height: 24px; text-align: center; line-height: 24px; background: ${item.borderColor || '#666'}; color: white; border-radius: 4px; font-weight: bold; margin-right: 8px;" onclick="App.toggleBilanzGroup('${item.id}')">${expanded ? '−' : '+'}</span>`;
+            }
+
+            // Zeile rendern
+            const rowClass = isGroup ? `bilanz-detail bilanz-child-${item.parent}` : '';
+            const displayStyle = isGroup && this.bilanzExpanded[item.parent] === false ? 'display: none;' : '';
+
+            const rowStyle = `background: ${bgColor}; color: ${textColor}; border-left: ${borderLeft}; ${displayStyle}`;
+
+            if (isHeader) {
+                html += `<tr style="${rowStyle}">
+                    <td style="padding: 14px 8px;">${expandIcon}</td>
+                    <td style="padding: 14px ${paddingLeft}px; font-weight: 700; font-size: 1rem;">${item.label}</td>
+                    <td style="text-align: right; font-weight: 600; padding: 14px 12px;"></td>
+                    <td style="text-align: right; font-weight: 600; padding: 14px 12px;"></td>
+                    <td style="text-align: right; padding: 14px 12px;"></td>
+                    <td style="text-align: right; padding: 14px 12px;"></td>
+                </tr>`;
+            } else {
+                const diffColor = diff > 0 ? '#28a745' : (diff < 0 ? '#dc3545' : '#666');
+                const diffBg = diff > 0 ? 'rgba(40,167,69,0.1)' : (diff < 0 ? 'rgba(220,53,69,0.1)' : 'transparent');
+
+                html += `<tr class="${rowClass}" style="${rowStyle}">
+                    <td style="padding: 10px 8px;"></td>
+                    <td style="padding: 10px ${paddingLeft}px; font-weight: ${fontWeight}; font-size: ${isResult || isSum ? '0.95rem' : '0.875rem'};">${item.label}</td>
+                    <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; font-size: ${isResult ? '1rem' : '0.875rem'};">${this.formatNumber(w.aktuell)}</td>
+                    <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; color: #666; font-size: 0.875rem;">${this.formatNumber(w.vorjahr)}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; background: ${diffBg}; font-weight: 600;">${diff >= 0 ? '+' : ''}${this.formatNumber(diff)}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; font-size: 0.8rem;">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</td>
+                </tr>`;
+            }
+        });
+
+        tbody.innerHTML = html;
+    },
+
+    /**
+     * Bilanz-Gruppe auf-/zuklappen
+     */
+    toggleBilanzGroup: function(groupId) {
+        this.bilanzExpanded[groupId] = this.bilanzExpanded[groupId] === false ? true : false;
+
+        // Zeilen ein-/ausblenden
+        const childRows = document.querySelectorAll(`.bilanz-child-${groupId}`);
+        childRows.forEach(row => {
+            row.style.display = this.bilanzExpanded[groupId] ? '' : 'none';
+        });
+
+        // Icon aktualisieren
+        const icon = document.querySelector(`.bilanz-expand[data-id="${groupId}"]`);
+        if (icon) {
+            icon.textContent = this.bilanzExpanded[groupId] ? '−' : '+';
+        }
+    },
+
+    /**
+     * Bilanz als CSV exportieren
+     */
+    exportBilanzCsv: function() {
+        if (!this.bilanzReportCache) {
+            alert('Bitte zuerst den Report laden (Aktualisieren klicken).');
+            return;
+        }
+
+        const { jahr, vorjahr, werte, struktur } = this.bilanzReportCache;
+        let csv = '\uFEFF'; // BOM für Excel
+        csv += `Bilanz / GuV Report\n`;
+        csv += `Jahr: ${jahr} vs. Vorjahr: ${vorjahr}\n\n`;
+        csv += `Position;${jahr};${vorjahr};Differenz;%\n`;
+
+        struktur.guv.forEach(item => {
+            const w = werte[item.id] || { aktuell: 0, vorjahr: 0 };
+            const diff = w.aktuell - w.vorjahr;
+            const pct = w.vorjahr !== 0 ? ((diff / Math.abs(w.vorjahr)) * 100).toFixed(1) : '0';
+
+            if (item.type !== 'header') {
+                const indent = '  '.repeat(item.level || 0);
+                csv += `"${indent}${item.label}";${w.aktuell.toFixed(2)};${w.vorjahr.toFixed(2)};${diff.toFixed(2)};${pct}%\n`;
+            } else {
+                csv += `\n"${item.label}";;;;\n`;
+            }
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Bilanz_GuV_${jahr}.csv`;
         link.click();
     },
 

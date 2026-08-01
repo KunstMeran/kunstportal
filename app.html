@@ -1187,6 +1187,7 @@
                         <button class="btn reporting-tab-btn" data-tab="2" onclick="App.showReportingTab(2)">3. Gesamt-DB</button>
                         <button class="btn reporting-tab-btn" data-tab="3" onclick="App.showReportingTab(3)">4. Kategorien</button>
                         <button class="btn reporting-tab-btn" data-tab="4" onclick="App.showReportingTab(4)">5. Kontenplan</button>
+                        <button class="btn reporting-tab-btn" data-tab="5" onclick="App.showReportingTab(5)">6. Bilanz/GuV</button>
                     </div>
                     <button class="btn btn-outline" onclick="App.nextReportingTab()" id="reporting-next-btn" style="padding: 0.5rem 1rem; font-size: 1.5rem; line-height: 1;">
                         &#8594;
@@ -1195,7 +1196,7 @@
 
                 <!-- Seiten-Indikator -->
                 <div style="text-align: center; margin-bottom: 1rem; color: #666; font-size: 0.9rem;">
-                    <span id="reporting-page-indicator">Seite 1 von 5</span>
+                    <span id="reporting-page-indicator">Seite 1 von 6</span>
                 </div>
 
                 <!-- TAB 1: Projektübersicht -->
@@ -1368,6 +1369,74 @@
                                 </tbody>
                                 <tfoot id="kontenplan-report-footer" style="font-weight: bold; background: #f5f5f5;">
                                 </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 6: Bilanz / GuV -->
+                <div class="reporting-tab-content hidden" id="reporting-tab-5">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Bilanz & Gewinn- und Verlustrechnung</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <select id="bilanz-vergleichsjahr" class="form-control" style="width: auto;" onchange="App.loadBilanzReport()">
+                                    <option value="2024">Vergleich: 2024</option>
+                                    <option value="2023">Vergleich: 2023</option>
+                                </select>
+                                <button class="btn btn-outline btn-sm" onclick="App.exportBilanzCsv()">CSV Export</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.loadBilanzReport()">Aktualisieren</button>
+                            </div>
+                        </div>
+
+                        <!-- GuV Zusammenfassung -->
+                        <div style="padding: 1rem; background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); color: white; margin-bottom: 1rem;">
+                            <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600;">Gewinn- und Verlustrechnung (GuV)</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                                <div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 8px;">
+                                    <div style="font-size: 0.75rem; opacity: 0.8;">Gesamtleistung</div>
+                                    <div id="bilanz-gesamtleistung" style="font-size: 1.25rem; font-weight: 700;">0 EUR</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 8px;">
+                                    <div style="font-size: 0.75rem; opacity: 0.8;">Betriebliche Aufwendungen</div>
+                                    <div id="bilanz-aufwendungen" style="font-size: 1.25rem; font-weight: 700;">0 EUR</div>
+                                </div>
+                                <div style="background: rgba(72, 187, 120, 0.3); padding: 0.75rem; border-radius: 8px; border: 2px solid #48bb78;">
+                                    <div style="font-size: 0.75rem; opacity: 0.8;">EBITDA</div>
+                                    <div id="bilanz-ebitda" style="font-size: 1.25rem; font-weight: 700;">0 EUR</div>
+                                    <div id="bilanz-ebitda-pct" style="font-size: 0.7rem; opacity: 0.8;">0% der Gesamtleistung</div>
+                                </div>
+                                <div style="background: rgba(237, 137, 54, 0.3); padding: 0.75rem; border-radius: 8px; border: 2px solid #ed8936;">
+                                    <div style="font-size: 0.75rem; opacity: 0.8;">EBIT (Betriebserfolg)</div>
+                                    <div id="bilanz-ebit" style="font-size: 1.25rem; font-weight: 700;">0 EUR</div>
+                                    <div id="bilanz-ebit-pct" style="font-size: 0.7rem; opacity: 0.8;">0% der Gesamtleistung</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.15); padding: 0.75rem; border-radius: 8px; border: 2px solid white;">
+                                    <div style="font-size: 0.75rem; opacity: 0.8;">Jahresergebnis</div>
+                                    <div id="bilanz-jahresergebnis" style="font-size: 1.25rem; font-weight: 700;">0 EUR</div>
+                                    <div id="bilanz-jahresergebnis-pct" style="font-size: 0.7rem; opacity: 0.8;">0% der Gesamtleistung</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GuV Tabelle -->
+                        <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                            <table id="bilanz-guv-table">
+                                <thead style="position: sticky; top: 0; background: linear-gradient(135deg, #f8f9fa, #e9ecef); z-index: 1;">
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th style="min-width: 300px;">Position</th>
+                                        <th style="text-align: right; min-width: 120px;" id="bilanz-col-aktuell">2025</th>
+                                        <th style="text-align: right; min-width: 120px;" id="bilanz-col-vorjahr">2024</th>
+                                        <th style="text-align: right; min-width: 100px;">Differenz</th>
+                                        <th style="text-align: right; min-width: 80px;">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bilanz-guv-body">
+                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                                        Lade Bilanz-Daten...
+                                    </td></tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
