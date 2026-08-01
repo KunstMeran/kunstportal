@@ -483,11 +483,18 @@ const ExcelImportService = {
         // VORZEICHEN-LOGIK
         // ============================================
         // Grundregel: Betrag GENAU so übernehmen wie in Excel
-        // AUSNAHME: Nur ERTRAGS-Konten (600-679, 840) - Vorzeichen umdrehen
-        //   - Diese haben im DATEV negative Beträge für Einnahmen (Habenbuchungen)
-        //   - Für korrekte GuV-Darstellung müssen sie positiv sein
         //
-        // NICHT umdrehen: Aufwendungen (680+, 690+, 700+, etc.)
+        // AUSNAHMEN:
+        // 1. Ertragskonten (600-679, 840-849): Vorzeichen umdrehen
+        //    - DATEV hat negative Beträge für Einnahmen (Habenbuchungen)
+        //    - Für GuV müssen sie positiv sein
+        //
+        // 2. Bestandsveränderungen (730): Vorzeichen umdrehen
+        //    - DATEV: Anfangsbestand positiv, Endbestand negativ
+        //    - Für GuV: Bestandserhöhung = Ertrag (positiv), Bestandsminderung = Aufwand (negativ)
+        //    - Summe muss umgedreht werden für korrekte GuV-Darstellung
+        //
+        // NICHT umdrehen: Sonstige Aufwendungen (680+, 690+, 700+, 710+, 720+, 760+, 850+)
         //   - Diese sind im DATEV bereits positiv = Kosten
         //   - Bleiben positiv, Bilanz-Anzeige macht sie dann negativ
 
@@ -498,16 +505,21 @@ const ExcelImportService = {
         const isErtragskonto = (kontoPrefix >= 600 && kontoPrefix <= 679) ||
                                (kontoPrefix >= 840 && kontoPrefix <= 849);
 
+        // Bestandsveränderungen: 730-739
+        const isBestandsveraenderung = (kontoPrefix >= 730 && kontoPrefix <= 739);
+
         let betrag = betragParsed;
         if (isErtragskonto) {
-            betrag = -betragParsed; // Nur Erträge umdrehen
+            betrag = -betragParsed; // Erträge umdrehen
+        } else if (isBestandsveraenderung) {
+            betrag = -betragParsed; // Bestandsveränderungen umdrehen
         }
 
         // ============================================
         // GUTSCHRIFT-ERKENNUNG
         // ============================================
-        // Nur bei NICHT-Ertragskonten mit negativem Betrag = Gutschrift
-        const istGutschrift = !isErtragskonto && betragParsed < 0;
+        // Nur bei NICHT-Ertragskonten und NICHT-Bestandsveränderungen mit negativem Betrag = Gutschrift
+        const istGutschrift = !isErtragskonto && !isBestandsveraenderung && betragParsed < 0;
 
         // ============================================
         // ALLE DREI DATEN parsen
