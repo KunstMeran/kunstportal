@@ -12502,24 +12502,32 @@ const App = {
         event.preventDefault();
 
         // Hilfsfunktion: Radio-Button-Wert auslesen
+        // Gibt 'none', 'read' oder 'write' zurück
         const getRadioValue = (name) => {
             const checked = document.querySelector(`input[name="${name}"]:checked`);
             return checked ? checked.value : 'none';
+        };
+
+        // Hilfsfunktion: Konvertiert 3-stufigen Wert zu boolean (für DB-Kompatibilität)
+        // TODO: Nach Migration entfernen und direkt Strings verwenden
+        const toBooleanForDB = (value) => {
+            return value === 'read' || value === 'write';
         };
 
         const workspaceId = document.getElementById('workspace-id').value;
         const workspaceData = {
             name: document.getElementById('workspace-name').value.trim(),
             description: document.getElementById('workspace-description').value.trim() || null,
-            // 3-stufige Berechtigungen: 'none', 'read', 'write'
-            access_dashboard: getRadioValue('workspace-access-dashboard'),
-            access_projekte: getRadioValue('workspace-access-projekte'),
-            access_rechnungen: getRadioValue('workspace-access-rechnungen'),
-            access_bewegungen: getRadioValue('workspace-access-bewegungen'),
-            access_lieferanten: getRadioValue('workspace-access-lieferanten'),
-            access_mitglieder: getRadioValue('workspace-access-mitglieder'),
-            access_einnahmen: getRadioValue('workspace-access-einnahmen'),
-            access_konfiguration: getRadioValue('workspace-access-konfiguration'),
+            // Aktuell: boolean für DB-Kompatibilität (true = read/write, false = none)
+            // Nach Migration: Direkt 'none', 'read', 'write' verwenden
+            access_dashboard: toBooleanForDB(getRadioValue('workspace-access-dashboard')),
+            access_projekte: toBooleanForDB(getRadioValue('workspace-access-projekte')),
+            access_rechnungen: toBooleanForDB(getRadioValue('workspace-access-rechnungen')),
+            access_bewegungen: toBooleanForDB(getRadioValue('workspace-access-bewegungen')),
+            access_lieferanten: toBooleanForDB(getRadioValue('workspace-access-lieferanten')),
+            access_mitglieder: toBooleanForDB(getRadioValue('workspace-access-mitglieder')),
+            access_einnahmen: toBooleanForDB(getRadioValue('workspace-access-einnahmen')),
+            access_konfiguration: toBooleanForDB(getRadioValue('workspace-access-konfiguration')),
             rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,
             is_active: true
         };
