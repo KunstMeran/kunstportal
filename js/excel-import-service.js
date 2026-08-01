@@ -7,14 +7,16 @@
 const ExcelImportService = {
 
     /**
-     * Parse Excel-Datei für DATEV-Buchungen
-     * Jahr wird automatisch aus dem Datum jeder Buchung erkannt
-     * @param {File} file - Excel-Datei
-     * @param {number} year - Optional: Wird ignoriert, Jahr kommt aus Datum
+     * Generiert einen eindeutigen Key für eine Buchung
+     * Key basiert auf: konto_nr + datum + betrag + beschreibung (erste 50 Zeichen)
      */
+    generateBookingKey(booking) {
+        return `${booking.konto_nr || ''}_${booking.datum}_${booking.betrag}_${(booking.beschreibung || '').substring(0, 50)}`;
+    },
+
     async importDatevBookings(file, year = null) {
         try {
-            console.log('📤 Importiere DATEV-Buchungen (Jahr wird aus Datum erkannt)');
+            console.log('📤 Importiere DATEV-Buchungen (Count-basiertes Matching)');
 
             // Excel-Datei parsen mit SheetJS
             const data = await this.parseExcelFile(file);
@@ -22,7 +24,10 @@ const ExcelImportService = {
                 throw new Error('Keine Daten in Excel-Datei gefunden');
             }
 
-            console.log(`📊 ${data.length} Zeilen gefunden`);
+            console.log(`📊 ${data.length} Zeilen in Excel gefunden`);
+
+            // Tracking für übersprungene Zeilen
+            const skippedRows = [];
 
             // Lieferanten-Liste laden für Partita IVA Lookup
             const { data: suppliers, error: supplierError } = await SupabaseService.client
@@ -36,7 +41,6 @@ const ExcelImportService = {
             const supplierMap = new Map();
             if (suppliers) {
                 suppliers.forEach(s => {
-                    // Map by name (case-insensitive)
                     const key = s.fornitore_name.toLowerCase().trim();
                     supplierMap.set(key, {
                         partita_iva: s.partita_iva,
@@ -46,73 +50,122 @@ const ExcelImportService = {
             }
             console.log(`📇 ${supplierMap.size} Lieferanten für Matching geladen`);
 
-            // 1. Prüfe, welche Buchungen bereits existieren (alle Jahre, da Jahr aus Datum kommt)
-            // Erweiterter Key: partita_iva + dokument_nr + datum + betrag + konto_nr + fornitore_name + beschreibung
-            // Dies ermöglicht auch den Import von Buchungen ohne Dokument-Nr. (z.B. Mitgliedsbeiträge)
+            // 1. Alle Excel-Zeilen zu Buchungen mappen
+            const excelBookings = [];
+            for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+                const row = data[rowIndex];
+                const booking = this.mapRowToDatevBooking(row, null, file.name, supplierMap);
+                booking._rowIndex = rowIndex + 2; // Excel-Zeile für Reporting
+
+                if (!booking.datum) {
+                    skippedRows.push({
+                        rowNumber: rowIndex + 2,
+                        reason: 'Kein gültiges Datum',
+                        reasonCode: 'NO_DATE',
+                        data: {
+                            konto: row['Conto'] || '',
+                            fornitore: row['Denominazione'] || row['Descrizione movimento'] || '',
+                            betrag: row['Importo'] || '',
+                            dokument: row['Numero documento'] || '',
+                            datum: row['Data documento'] || row['Data registrazione'] || ''
+                        }
+                    });
+                    continue;
+                }
+                excelBookings.push(booking);
+            }
+
+            console.log(`✅ ${excelBookings.length} gültige Buchungen in Excel`);
+
+            // 2. Zähle wie oft jeder Key in Excel vorkommt
+            const excelKeyCounts = new Map();
+            for (const booking of excelBookings) {
+                const key = this.generateBookingKey(booking);
+                excelKeyCounts.set(key, (excelKeyCounts.get(key) || 0) + 1);
+            }
+            console.log(`🔑 ${excelKeyCounts.size} unique Keys in Excel`);
+
+            // 3. Lade alle existierenden Buchungen aus DB und zähle
             const { data: existingBookings, error: fetchError } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name, beschreibung');
+                .select('konto_nr, datum, betrag, beschreibung');
 
             if (fetchError) throw fetchError;
 
-            const existingKeys = new Set(
-                existingBookings.map(b =>
-                    `${b.partita_iva || ''}_${b.dokument_nr || ''}_${b.datum}_${b.betrag}_${b.konto_nr || ''}_${(b.fornitore_name || '').substring(0, 30)}_${(b.beschreibung || '').substring(0, 30)}`
-                )
-            );
+            const dbKeyCounts = new Map();
+            for (const b of existingBookings) {
+                const key = this.generateBookingKey(b);
+                dbKeyCounts.set(key, (dbKeyCounts.get(key) || 0) + 1);
+            }
+            console.log(`✅ ${existingBookings.length} Buchungen in DB, ${dbKeyCounts.size} unique Keys`);
 
-            console.log(`✅ ${existingBookings.length} Buchungen bereits in Datenbank`);
+            // 4. Berechne Differenz: Wie viele von jedem Key müssen importiert werden?
+            const keysToImport = new Map(); // key -> anzahl zu importieren
+            for (const [key, excelCount] of excelKeyCounts) {
+                const dbCount = dbKeyCounts.get(key) || 0;
+                const diff = excelCount - dbCount;
+                if (diff > 0) {
+                    keysToImport.set(key, diff);
+                    console.log(`📥 Key "${key.substring(0, 40)}...": Excel=${excelCount}, DB=${dbCount}, Import=${diff}`);
+                } else if (diff < 0) {
+                    console.warn(`⚠️ Mehr in DB als Excel: "${key.substring(0, 40)}...": Excel=${excelCount}, DB=${dbCount}`);
+                }
+            }
 
-            // 2. Filter neue Buchungen (Jahr wird aus Datum erkannt)
-            const newBookings = data
-                .map(row => this.mapRowToDatevBooking(row, null, file.name, supplierMap))
-                .filter(booking => {
-                    // Überspringe Zeilen ohne Datum (NOT NULL Constraint)
-                    if (!booking.datum) {
-                        console.warn('⚠️ Zeile übersprungen: Kein Datum', booking);
-                        return false;
-                    }
+            // 5. Wähle die zu importierenden Buchungen aus
+            const bookingsToImport = [];
+            const keyImportedCounts = new Map(); // Tracking wie viele pro Key schon ausgewählt
 
-                    const key = `${booking.partita_iva || ''}_${booking.dokument_nr || ''}_${booking.datum}_${booking.betrag}_${booking.konto_nr || ''}_${(booking.fornitore_name || '').substring(0, 30)}_${(booking.beschreibung || '').substring(0, 30)}`;
-                    return !existingKeys.has(key);
-                });
+            for (const booking of excelBookings) {
+                const key = this.generateBookingKey(booking);
+                const needToImport = keysToImport.get(key) || 0;
+                const alreadySelected = keyImportedCounts.get(key) || 0;
 
-            console.log(`🆕 ${newBookings.length} neue Buchungen zum Import`);
+                if (alreadySelected < needToImport) {
+                    // Diese Buchung muss importiert werden
+                    keyImportedCounts.set(key, alreadySelected + 1);
+                    bookingsToImport.push(booking);
+                } else {
+                    // Buchung existiert bereits in DB
+                    skippedRows.push({
+                        rowNumber: booking._rowIndex,
+                        reason: 'Bereits in Datenbank vorhanden',
+                        reasonCode: 'DUPLICATE_DB',
+                        data: {
+                            konto: booking.konto_nr || '',
+                            fornitore: booking.fornitore_name || '',
+                            betrag: booking.betrag,
+                            dokument: booking.dokument_nr || '',
+                            datum: booking.datum
+                        }
+                    });
+                }
+            }
 
-            if (newBookings.length === 0) {
+            // _rowIndex entfernen vor dem Insert
+            for (const booking of bookingsToImport) {
+                delete booking._rowIndex;
+            }
+
+            console.log(`🆕 ${bookingsToImport.length} Buchungen zum Import`);
+
+            if (bookingsToImport.length === 0) {
                 return {
                     success: true,
                     imported: 0,
-                    skipped: data.length,
+                    skipped: skippedRows.length,
+                    skippedRows: skippedRows,
                     message: 'Alle Buchungen bereits vorhanden'
                 };
             }
 
-            // 3. Duplikate innerhalb der Batch entfernen
-            const uniqueNewBookings = [];
-            const seenInBatch = new Set();
-            for (const booking of newBookings) {
-                const key = `${booking.partita_iva || ''}_${booking.dokument_nr || ''}_${booking.datum}_${booking.betrag}_${booking.konto_nr || ''}_${(booking.fornitore_name || '').substring(0, 30)}_${(booking.beschreibung || '').substring(0, 30)}`;
-                if (!seenInBatch.has(key)) {
-                    seenInBatch.add(key);
-                    uniqueNewBookings.push(booking);
-                }
-            }
-
-            const batchDuplicates = newBookings.length - uniqueNewBookings.length;
-            if (batchDuplicates > 0) {
-                console.log(`🔄 ${batchDuplicates} Duplikate innerhalb der Datei entfernt`);
-            }
-
-            // 4. Import in Supabase - einzeln um Duplikat-Fehler abzufangen
+            // 6. Import in Supabase in Chunks
             let successCount = 0;
-            let duplicateDbCount = 0;
             const errors = [];
-
-            // Batch-Import in Chunks von 50 für bessere Performance
             const chunkSize = 50;
-            for (let i = 0; i < uniqueNewBookings.length; i += chunkSize) {
-                const chunk = uniqueNewBookings.slice(i, i + chunkSize);
+
+            for (let i = 0; i < bookingsToImport.length; i += chunkSize) {
+                const chunk = bookingsToImport.slice(i, i + chunkSize);
 
                 const { data: insertedChunk, error: insertError } = await SupabaseService.client
                     .from('datev_bookings')
@@ -120,27 +173,31 @@ const ExcelImportService = {
                     .select();
 
                 if (insertError) {
-                    // Bei Duplikat-Fehler: Einzeln importieren
-                    if (insertError.code === '23505') { // unique_violation
-                        console.log(`⚠️ Duplikat in Chunk ${i}-${i+chunkSize}, importiere einzeln...`);
-                        for (const booking of chunk) {
-                            const { data: singleInsert, error: singleError } = await SupabaseService.client
-                                .from('datev_bookings')
-                                .insert(booking)
-                                .select();
+                    console.error(`❌ Fehler bei Chunk ${i}-${i+chunkSize}:`, insertError);
+                    // Bei Fehler einzeln versuchen
+                    for (const booking of chunk) {
+                        const { data: singleInsert, error: singleError } = await SupabaseService.client
+                            .from('datev_bookings')
+                            .insert(booking)
+                            .select();
 
-                            if (singleError) {
-                                if (singleError.code === '23505') {
-                                    duplicateDbCount++;
-                                } else {
-                                    errors.push(singleError.message);
+                        if (singleError) {
+                            errors.push(singleError.message);
+                            skippedRows.push({
+                                rowNumber: '?',
+                                reason: `DB-Fehler: ${singleError.message}`,
+                                reasonCode: 'DB_ERROR',
+                                data: {
+                                    konto: booking.konto_nr || '',
+                                    fornitore: booking.fornitore_name || '',
+                                    betrag: booking.betrag,
+                                    dokument: booking.dokument_nr || '',
+                                    datum: booking.datum
                                 }
-                            } else if (singleInsert) {
-                                successCount += singleInsert.length;
-                            }
+                            });
+                        } else if (singleInsert) {
+                            successCount += singleInsert.length;
                         }
-                    } else {
-                        errors.push(insertError.message);
                     }
                 } else if (insertedChunk) {
                     successCount += insertedChunk.length;
@@ -148,19 +205,21 @@ const ExcelImportService = {
             }
 
             console.log(`✅ ${successCount} Buchungen erfolgreich importiert`);
-            if (duplicateDbCount > 0) {
-                console.log(`🔄 ${duplicateDbCount} Duplikate in Datenbank gefunden`);
-            }
 
-            const totalSkipped = (data.length - newBookings.length) + batchDuplicates + duplicateDbCount;
+            // Statistik
+            const finalDbCount = existingBookings.length + successCount;
+            console.log(`📊 Statistik: Excel=${excelBookings.length}, DB vorher=${existingBookings.length}, DB nachher=${finalDbCount}`);
+
             return {
                 success: errors.length === 0,
                 imported: successCount,
-                skipped: totalSkipped,
-                batchDuplicates: batchDuplicates,
-                dbDuplicates: duplicateDbCount,
+                skipped: skippedRows.length,
+                skippedRows: skippedRows,
+                excelTotal: excelBookings.length,
+                dbBefore: existingBookings.length,
+                dbAfter: finalDbCount,
                 errors: errors.length > 0 ? errors : undefined,
-                message: `${successCount} neue Buchungen importiert, ${totalSkipped} übersprungen`
+                message: `${successCount} neue Buchungen importiert, ${skippedRows.length} übersprungen (Excel: ${excelBookings.length}, DB: ${finalDbCount})`
             };
 
         } catch (error) {

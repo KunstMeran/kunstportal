@@ -11699,11 +11699,69 @@ const App = {
             const result = await ExcelImportService.importDatevBookings(file);
 
             if (result.success) {
-                resultDiv.innerHTML = `
-                    <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
+                // Basis-Erfolgsmeldung
+                let resultHtml = `
+                    <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724; margin-bottom: 1rem;">
                         <strong>${Icons.success} Import erfolgreich</strong><br>
                         ${result.message}
                     </div>`;
+
+                // Wenn es übersprungene Zeilen gibt, zeige Tabelle
+                if (result.skippedRows && result.skippedRows.length > 0) {
+                    // Gruppiere nach Grund
+                    const byReason = {};
+                    result.skippedRows.forEach(row => {
+                        const reason = row.reason;
+                        if (!byReason[reason]) byReason[reason] = [];
+                        byReason[reason].push(row);
+                    });
+
+                    resultHtml += `
+                        <div style="margin-top: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <strong>📋 Übersprungene Zeilen: ${result.skippedRows.length}</strong>
+                                <div>
+                                    <select id="skipped-filter" onchange="App.filterSkippedRows()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+                                        <option value="">Alle Gründe</option>
+                                        ${Object.keys(byReason).map(r => `<option value="${r}">${r} (${byReason[r].length})</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                                <table id="skipped-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                    <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                        <tr>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: left; cursor: pointer;" onclick="App.sortSkippedRows('rowNumber')">Zeile ↕</th>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: left; cursor: pointer;" onclick="App.sortSkippedRows('reason')">Grund ↕</th>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: left;">Konto</th>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: left;">Lieferant</th>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">Betrag</th>
+                                            <th style="padding: 6px; border-bottom: 1px solid #ddd; text-align: left;">Datum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${result.skippedRows.map(row => `
+                                            <tr data-reason="${row.reason}">
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.rowNumber}</td>
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee; color: ${row.reasonCode === 'DUPLICATE_DB' ? '#6c757d' : '#dc3545'};">${row.reason}</td>
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.data.konto}</td>
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.data.fornitore}">${row.data.fornitore}</td>
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee; text-align: right;">${typeof row.data.betrag === 'number' ? row.data.betrag.toLocaleString('de-DE', {minimumFractionDigits: 2}) : row.data.betrag}</td>
+                                                <td style="padding: 4px 6px; border-bottom: 1px solid #eee;">${row.data.datum}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>`;
+
+                    // Speichere Daten für Sortierung/Filter
+                    this._skippedRows = result.skippedRows;
+                    this._skippedSortColumn = null;
+                    this._skippedSortAsc = true;
+                }
+
+                resultDiv.innerHTML = resultHtml;
                 this.showToast('success', 'Import erfolgreich', result.message);
 
                 // Statistik aktualisieren

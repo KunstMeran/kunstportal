@@ -1406,7 +1406,7 @@ const SupabaseDataAdapter = {
                 supabaseUpdates.hourly_rate = updates.hourlyRate;
             }
             if (updates.name !== undefined) {
-                supabaseUpdates.name = updates.name;
+                supabaseUpdates.username = updates.name;
             }
             if (updates.role !== undefined) {
                 supabaseUpdates.role = updates.role;
@@ -1426,7 +1426,7 @@ const SupabaseDataAdapter = {
 
             return {
                 id: data.id,
-                name: data.name || data.email,
+                name: data.username || data.email,
                 email: data.email,
                 role: data.role || 'user',
                 hourlyRate: parseFloat(data.hourly_rate) || 0
