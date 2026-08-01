@@ -858,9 +858,13 @@ const SupabaseDataAdapter = {
                     const firstInvoice = matchingInvoices[0];
                     // Lieferantenname aus Invoice hat Priorität (wenn manuell gesetzt)
                     const enrichedFornitoreName = firstInvoice.fornitore_name || supplierName || buchung.fornitoreName;
+                    // workflowStatus: Invoice-Status hat Priorität, dann DATEV-Status, dann 'neu'
+                    const effectiveWorkflowStatus = firstInvoice.status || buchung.workflowStatus || 'neu';
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
+                        // workflowStatus aus Invoice überschreiben (für Filter)
+                        workflowStatus: effectiveWorkflowStatus,
                         // WICHTIG: buchung.id beibehalten (DATEV-Buchungs-ID), invoiceId ist PDF-ID
                         invoiceId: firstInvoice.id,
                         filePath: firstInvoice.file_path,
