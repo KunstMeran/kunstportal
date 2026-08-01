@@ -181,6 +181,27 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Hilfsfunktion: Fügt updated_at und updated_by zu Update-Objekten hinzu
+     * Wird bei allen Update-Operationen verwendet für Audit-Trail
+     */
+    async addUpdateMetadata(updates) {
+        try {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            return {
+                ...updates,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser?.id || null
+            };
+        } catch (error) {
+            console.warn('⚠️ Konnte Update-Metadaten nicht hinzufügen:', error);
+            return {
+                ...updates,
+                updated_at: new Date().toISOString()
+            };
+        }
+    },
+
+    /**
      * DATEV-Buchungen aus Supabase laden
      * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
      * Reichert Buchungen mit Lieferantennamen aus suppliers-Tabelle an
@@ -428,7 +449,7 @@ const SupabaseDataAdapter = {
 
     async updateProject(projectId, updates) {
         try {
-            const supabaseUpdates = {
+            let supabaseUpdates = {
                 name: updates.name,
                 description: updates.description,
                 location: updates.location,
@@ -441,6 +462,9 @@ const SupabaseDataAdapter = {
                 pl2: updates.pl2 || null,
                 dropbox_link: updates.dropboxLink || null
             };
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('projects')
@@ -544,7 +568,7 @@ const SupabaseDataAdapter = {
 
     async updateCost(costId, updates) {
         try {
-            const supabaseUpdates = {
+            let supabaseUpdates = {
                 category: this.mapCategoryToSupabase(updates.category),
                 description: updates.description,
                 amount: parseFloat(updates.amount),
@@ -559,6 +583,9 @@ const SupabaseDataAdapter = {
             Object.keys(supabaseUpdates).forEach(key =>
                 supabaseUpdates[key] === undefined && delete supabaseUpdates[key]
             );
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('costs')
@@ -696,8 +723,11 @@ const SupabaseDataAdapter = {
             const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
             const now = new Date().toISOString();
 
-            const updates = {
-                status: newStatus
+            let updates = {
+                status: newStatus,
+                // Audit-Trail: updated_at und updated_by
+                updated_at: now,
+                updated_by: currentUser?.id || null
             };
 
             // Je nach Status zusätzliche Felder setzen
@@ -727,9 +757,13 @@ const SupabaseDataAdapter = {
 
     async updateInvoiceKostentyp(invoiceId, kostentyp) {
         try {
+            let updates = { kostentyp: kostentyp };
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            updates = await this.addUpdateMetadata(updates);
+
             const { data, error } = await SupabaseService.client
                 .from('invoices')
-                .update({ kostentyp: kostentyp })
+                .update(updates)
                 .eq('id', invoiceId)
                 .select()
                 .single();
@@ -1151,7 +1185,7 @@ const SupabaseDataAdapter = {
 
     async updateTimeEntry(id, updates) {
         try {
-            const supabaseUpdates = {
+            let supabaseUpdates = {
                 project_id: updates.projectId,
                 user_id: updates.userId,
                 date: updates.date,
@@ -1166,6 +1200,9 @@ const SupabaseDataAdapter = {
                     delete supabaseUpdates[key];
                 }
             });
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('time_entries')
@@ -1306,13 +1343,18 @@ const SupabaseDataAdapter = {
 
     async updateCostType(id, updates) {
         try {
+            let supabaseUpdates = {
+                name: updates.name,
+                description: updates.description,
+                is_active: updates.active
+            };
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
+
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
-                .update({
-                    name: updates.name,
-                    description: updates.description,
-                    is_active: updates.active
-                })
+                .update(supabaseUpdates)
                 .eq('id', id)
                 .select()
                 .single();
@@ -1401,7 +1443,7 @@ const SupabaseDataAdapter = {
 
     async updateUser(id, updates) {
         try {
-            const supabaseUpdates = {};
+            let supabaseUpdates = {};
             if (updates.hourlyRate !== undefined) {
                 supabaseUpdates.hourly_rate = updates.hourlyRate;
             }
@@ -1411,6 +1453,9 @@ const SupabaseDataAdapter = {
             if (updates.role !== undefined) {
                 supabaseUpdates.role = updates.role;
             }
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('users')
@@ -1558,7 +1603,7 @@ const SupabaseDataAdapter = {
 
     async updateFundingSource(id, updates) {
         try {
-            const supabaseUpdates = {};
+            let supabaseUpdates = {};
             if (updates.code !== undefined) supabaseUpdates.code = updates.code;
             if (updates.name !== undefined) supabaseUpdates.name = updates.name;
             if (updates.source !== undefined) supabaseUpdates.source = updates.source;
@@ -1568,6 +1613,9 @@ const SupabaseDataAdapter = {
             if (updates.status !== undefined) supabaseUpdates.status = updates.status;
             if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
             if (updates.documentPath !== undefined) supabaseUpdates.document_path = updates.documentPath;
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('funding_sources')
@@ -1734,9 +1782,13 @@ const SupabaseDataAdapter = {
      */
     async updateInvoiceFundingSource(invoiceId, fundingSourceId) {
         try {
+            let updates = { funding_source_id: fundingSourceId };
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            updates = await this.addUpdateMetadata(updates);
+
             const { data, error } = await SupabaseService.client
                 .from('invoices')
-                .update({ funding_source_id: fundingSourceId })
+                .update(updates)
                 .eq('id', invoiceId)
                 .select()
                 .single();
@@ -1844,7 +1896,7 @@ const SupabaseDataAdapter = {
      */
     async updateMember(id, updates) {
         try {
-            const supabaseUpdates = {};
+            let supabaseUpdates = {};
 
             if (updates.member_number !== undefined) supabaseUpdates.member_number = updates.member_number;
             if (updates.last_name !== undefined) supabaseUpdates.last_name = updates.last_name;
@@ -1865,6 +1917,9 @@ const SupabaseDataAdapter = {
             if (updates.hashtag !== undefined) supabaseUpdates.hashtag = updates.hashtag;
             if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
             if (updates.is_active !== undefined) supabaseUpdates.is_active = updates.is_active;
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('members')
@@ -2130,24 +2185,29 @@ const SupabaseDataAdapter = {
      */
     async updateWorkspace(workspaceId, updates) {
         try {
+            let supabaseUpdates = {
+                name: updates.name,
+                description: updates.description,
+                access_dashboard: updates.access_dashboard || 'none',
+                access_projekte: updates.access_projekte || 'none',
+                access_rechnungen: updates.access_rechnungen || 'none',
+                access_bewegungen: updates.access_bewegungen || 'none',
+                access_lieferanten: updates.access_lieferanten || 'none',
+                access_mitglieder: updates.access_mitglieder || 'none',
+                access_einnahmen: updates.access_einnahmen || 'none',
+                access_konfiguration: updates.access_konfiguration || 'none',
+                access_inventar: updates.access_inventar || 'none',
+                access_reporting: updates.access_reporting || 'none',
+                rechnungen_nur_zugewiesene: updates.rechnungen_nur_zugewiesene,
+                is_active: updates.is_active
+            };
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
+
             const { data, error } = await SupabaseService.client
                 .from('workspaces')
-                .update({
-                    name: updates.name,
-                    description: updates.description,
-                    access_dashboard: updates.access_dashboard || 'none',
-                    access_projekte: updates.access_projekte || 'none',
-                    access_rechnungen: updates.access_rechnungen || 'none',
-                    access_bewegungen: updates.access_bewegungen || 'none',
-                    access_lieferanten: updates.access_lieferanten || 'none',
-                    access_mitglieder: updates.access_mitglieder || 'none',
-                    access_einnahmen: updates.access_einnahmen || 'none',
-                    access_konfiguration: updates.access_konfiguration || 'none',
-                    access_inventar: updates.access_inventar || 'none',
-                    access_reporting: updates.access_reporting || 'none',
-                    rechnungen_nur_zugewiesene: updates.rechnungen_nur_zugewiesene,
-                    is_active: updates.is_active
-                })
+                .update(supabaseUpdates)
                 .eq('id', workspaceId)
                 .select()
                 .single();
@@ -3052,28 +3112,33 @@ const SupabaseDataAdapter = {
      */
     async updateBudgetEntry(entryId, updates) {
         try {
+            let supabaseUpdates = {
+                konto_nr: updates.konto_nr,
+                konto_name: updates.konto_name,
+                projekt_id: updates.projekt_id,
+                description: updates.description,
+                jan: updates.jan,
+                feb: updates.feb,
+                mar: updates.mar,
+                apr: updates.apr,
+                mai: updates.mai,
+                jun: updates.jun,
+                jul: updates.jul,
+                aug: updates.aug,
+                sep: updates.sep,
+                okt: updates.okt,
+                nov: updates.nov,
+                dez: updates.dez,
+                entry_type: updates.entry_type,
+                notes: updates.notes
+            };
+
+            // Audit-Trail: updated_at und updated_by hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
+
             const { data, error } = await SupabaseService.client
                 .from('budget_entries')
-                .update({
-                    konto_nr: updates.konto_nr,
-                    konto_name: updates.konto_name,
-                    projekt_id: updates.projekt_id,
-                    description: updates.description,
-                    jan: updates.jan,
-                    feb: updates.feb,
-                    mar: updates.mar,
-                    apr: updates.apr,
-                    mai: updates.mai,
-                    jun: updates.jun,
-                    jul: updates.jul,
-                    aug: updates.aug,
-                    sep: updates.sep,
-                    okt: updates.okt,
-                    nov: updates.nov,
-                    dez: updates.dez,
-                    entry_type: updates.entry_type,
-                    notes: updates.notes
-                })
+                .update(supabaseUpdates)
                 .eq('id', entryId)
                 .select()
                 .single();

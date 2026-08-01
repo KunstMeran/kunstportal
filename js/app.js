@@ -4,6 +4,27 @@
  * Version: 3.0.0
  */
 
+/**
+ * Hilfsfunktion: Fügt updated_at und updated_by zu Update-Objekten hinzu
+ * Wird bei allen direkten Supabase-Update-Operationen verwendet für Audit-Trail
+ */
+async function addAuditMetadata(updates) {
+    try {
+        const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+        return {
+            ...updates,
+            updated_at: new Date().toISOString(),
+            updated_by: currentUser?.id || null
+        };
+    } catch (error) {
+        console.warn('⚠️ Konnte Audit-Metadaten nicht hinzufügen:', error);
+        return {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+    }
+}
+
 // Icon Helper - liefert SVG-Icon als HTML
 const Icons = {
     document: '<img src="icons/01-document.svg" alt="" class="icon">',
@@ -5022,13 +5043,15 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
+                const updates = await addAuditMetadata({
+                    workflow_status: 'kontrolliert',
+                    kontrolled_at: heute,
+                    kontrolled_by: user?.id
+                });
+
                 await SupabaseService.client
                     .from('datev_bookings')
-                    .update({
-                        workflow_status: 'kontrolliert',
-                        kontrolled_at: heute,
-                        kontrolled_by: user?.id
-                    })
+                    .update(updates)
                     .eq('partita_iva', partitaIva)
                     .eq('dokument_nr', dokumentNr);
 
@@ -5060,13 +5083,15 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
+                const updates = await addAuditMetadata({
+                    workflow_status: 'bezahlt',
+                    paid_at: heute,
+                    paid_by: user?.id
+                });
+
                 await SupabaseService.client
                     .from('datev_bookings')
-                    .update({
-                        workflow_status: 'bezahlt',
-                        paid_at: heute,
-                        paid_by: user?.id
-                    })
+                    .update(updates)
                     .eq('partita_iva', partitaIva)
                     .eq('dokument_nr', dokumentNr);
 
@@ -5094,10 +5119,11 @@ const App = {
             const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
             const dokumentNr = dokumentNrParts.join('_');
 
-            // Update in Supabase
+            // Update in Supabase mit Audit-Trail
+            const updates = await addAuditMetadata({ projekt_id: projektId });
             const { error } = await SupabaseService.client
                 .from('datev_bookings')
-                .update({ projekt_id: projektId })
+                .update(updates)
                 .eq('partita_iva', partitaIva)
                 .eq('dokument_nr', dokumentNr);
 
@@ -10888,31 +10914,63 @@ const App = {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            // Zuerst als Array lesen um Header-Zeile zu finden
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+            // Finde die Header-Zeile (enthält "Nachname")
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                const row = rawData[i];
+                if (Array.isArray(row) && row.some(cell => String(cell).includes('Nachname'))) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                alert('Keine Header-Zeile mit "Nachname" gefunden. Bitte prüfen Sie das Excel-Format.');
+                return;
+            }
+
+            console.log(`📊 Header gefunden in Zeile ${headerRowIndex + 1}`);
+
+            // Jetzt ab der Header-Zeile parsen
+            const json = XLSX.utils.sheet_to_json(sheet, {
+                defval: '',
+                range: headerRowIndex
+            });
 
             if (json.length === 0) {
                 alert('Die Datei enthält keine Daten.');
                 return;
             }
 
-            // Spalten-Mapping (flexibel)
+            // Spalten-Mapping (flexibel - unterstützt verschiedene Schreibweisen)
             const columnMap = {
                 'Nachname': 'last_name',
                 'Vorname': 'first_name',
-                'Art der M': 'gender',  // Art der Mitgliedschaft / Geschlecht
-                'N': 'member_number',   // Nummer
-                'p': 'language',        // Sprache (sp)
+                'Art der Mitgliedschaft': 'membership_type',
+                'Art der M': 'membership_type',
+                'Nummer': 'member_number',
+                'Sprache': 'language',
+                'p/d': 'language',
                 'Anschrift': 'address',
                 'CAP': 'postal_code',
+                'PLZ': 'postal_code',
                 'Ort': 'city',
                 'E-Mail': 'email',
+                'Email': 'email',
                 'Telefon': 'phone',
                 'Geburtsjahr': 'birth_year',
                 'StrNr': 'tax_number',
+                'StrNr.': 'tax_number',
                 'StNr': 'tax_number',
+                'seit Mitglied': 'join_year',
                 'Beitrag': 'membership_fee',
                 'Spende': 'donation',
-                'Datum B': 'join_date',
+                'Datum Beitrag': 'payment_date',
+                'Datum B': 'payment_date',
                 'Zahlungsart': 'payment_method',
                 'Hashtag': 'hashtag',
                 'Info': 'notes'
@@ -10922,20 +10980,22 @@ const App = {
             this.memberImportData = json.map(row => {
                 const mapped = {};
                 Object.keys(row).forEach(key => {
-                    // Exaktes Match oder Teilmatch
-                    let targetKey = null;
-                    for (const [searchKey, mappedKey] of Object.entries(columnMap)) {
-                        if (key === searchKey || key.includes(searchKey)) {
-                            targetKey = mappedKey;
-                            break;
-                        }
+                    const keyTrimmed = String(key).trim();
+                    // Exaktes Match zuerst
+                    if (columnMap[keyTrimmed]) {
+                        mapped[columnMap[keyTrimmed]] = row[key];
+                        return;
                     }
-                    if (targetKey) {
-                        mapped[targetKey] = row[key];
+                    // Teilmatch
+                    for (const [searchKey, mappedKey] of Object.entries(columnMap)) {
+                        if (keyTrimmed.includes(searchKey) || searchKey.includes(keyTrimmed)) {
+                            mapped[mappedKey] = row[key];
+                            return;
+                        }
                     }
                 });
                 return mapped;
-            }).filter(m => m.last_name); // Nur Zeilen mit Nachname
+            }).filter(m => m.last_name && String(m.last_name).trim()); // Nur Zeilen mit Nachname
 
             // Vorschau anzeigen
             const previewDiv = document.getElementById('member-import-preview-table');
