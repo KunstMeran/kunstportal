@@ -9221,16 +9221,18 @@ const App = {
                         const kDiff = konto.aktuell - konto.vorjahr;
                         const kPct = konto.vorjahr !== 0 ? ((kDiff / Math.abs(konto.vorjahr)) * 100) : (konto.aktuell !== 0 ? 100 : 0);
                         const kDiffColor = kDiff > 0 ? '#28a745' : (kDiff < 0 ? '#dc3545' : '#888');
-                        const escapedKategorie = (konto.kategorie || '').replace(/'/g, "\\'");
+                        const kontoId = konto.konto.replace(/[^a-zA-Z0-9]/g, '_');
+
+                        // + Button für Einzelbuchungen
+                        const buchungenExpandIcon = `<span class="bilanz-buchungen-expand" data-konto="${konto.konto}"
+                            style="cursor: pointer; display: inline-block; width: 18px; height: 18px; text-align: center; line-height: 18px; background: #ffc107; color: #333; border-radius: 3px; font-size: 12px; font-weight: bold; margin-right: 6px;"
+                            onclick="event.stopPropagation(); App.toggleKontoBuchungen('${konto.konto}', '${kontoId}')">+</span>`;
 
                         html += `<tr class="bilanz-konto-detail bilanz-konto-child-${item.id} bilanz-child-${item.parent}"
-                                     style="background: #f8f9fa; ${kontoDisplayStyle} ${parentHidden ? 'display: none;' : ''} cursor: pointer;"
-                                     onclick="App.showKontoBuchungen('${konto.konto}', '${escapedKategorie}')"
-                                     onmouseover="this.style.background='#e3f2fd'"
-                                     onmouseout="this.style.background='#f8f9fa'"
-                                     title="Klicken um alle Buchungen anzuzeigen">
-                            <td style="padding: 6px 8px;"></td>
-                            <td style="padding: 6px 12px; padding-left: ${paddingLeft + 30}px; font-size: 0.8rem; color: #666;">
+                                     style="background: #f8f9fa; ${kontoDisplayStyle} ${parentHidden ? 'display: none;' : ''}"
+                                     id="konto-row-${kontoId}">
+                            <td style="padding: 6px 8px;">${buchungenExpandIcon}</td>
+                            <td style="padding: 6px 12px; padding-left: ${paddingLeft + 20}px; font-size: 0.8rem; color: #666;">
                                 <span style="font-family: monospace; background: #e9ecef; padding: 2px 6px; border-radius: 3px; margin-right: 8px;">${konto.konto}</span>
                                 ${konto.kategorie || ''}
                             </td>
@@ -9238,6 +9240,15 @@ const App = {
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #888;">${this.formatNumber(konto.vorjahr)}</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: ${kDiffColor};">${kDiff >= 0 ? '+' : ''}${this.formatNumber(kDiff)}</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kDiffColor};">${kPct >= 0 ? '+' : ''}${kPct.toFixed(1)}%</td>
+                        </tr>`;
+
+                        // Platzhalter-Zeile für Buchungen (wird dynamisch befüllt)
+                        html += `<tr class="bilanz-buchungen-container" id="buchungen-container-${kontoId}" style="display: none;">
+                            <td colspan="6" style="padding: 0; background: #fff;">
+                                <div id="buchungen-content-${kontoId}" style="padding: 0.5rem 1rem 1rem 60px;">
+                                    <div style="text-align: center; padding: 1rem; color: #666;">Lade Buchungen...</div>
+                                </div>
+                            </td>
                         </tr>`;
                     });
                 }
@@ -9322,7 +9333,124 @@ const App = {
     },
 
     // ========================================
-    // KONTO-BUCHUNGEN MODAL
+    // KONTO-BUCHUNGEN INLINE (in Bilanz-Tabelle)
+    // ========================================
+
+    // Cache für geladene Konto-Buchungen
+    kontoBuchungenLoaded: {},
+
+    /**
+     * Klappt die Einzelbuchungen für ein Konto auf/zu (inline in der Bilanz-Tabelle)
+     */
+    toggleKontoBuchungen: async function(kontoNr, kontoId) {
+        const container = document.getElementById(`buchungen-container-${kontoId}`);
+        const content = document.getElementById(`buchungen-content-${kontoId}`);
+        const icon = document.querySelector(`.bilanz-buchungen-expand[data-konto="${kontoNr}"]`);
+
+        if (!container) {
+            console.error('Container nicht gefunden:', kontoId);
+            return;
+        }
+
+        // Toggle visibility
+        const isVisible = container.style.display !== 'none';
+
+        if (isVisible) {
+            // Zuklappen
+            container.style.display = 'none';
+            if (icon) icon.textContent = '+';
+        } else {
+            // Aufklappen
+            container.style.display = '';
+            if (icon) icon.textContent = '−';
+
+            // Daten laden falls noch nicht geladen
+            if (!this.kontoBuchungenLoaded[kontoNr]) {
+                content.innerHTML = '<div style="text-align: center; padding: 1rem; color: #666;"><span style="display: inline-block; animation: spin 1s linear infinite;">⟳</span> Lade Buchungen...</div>';
+
+                try {
+                    // Jahr aus dem aktuellen Bilanz-Filter
+                    const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
+
+                    // Buchungen laden
+                    const { data: buchungen, error } = await SupabaseService.client
+                        .from('datev_bookings')
+                        .select('*')
+                        .eq('konto_nr', kontoNr)
+                        .eq('archived', false)
+                        .gte('datum', `${jahr}-01-01`)
+                        .lte('datum', `${jahr}-12-31`)
+                        .order('datum', { ascending: false });
+
+                    if (error) throw error;
+
+                    this.kontoBuchungenLoaded[kontoNr] = buchungen || [];
+                    this.renderInlineBuchungen(kontoNr, kontoId, buchungen || []);
+
+                } catch (error) {
+                    console.error('Fehler beim Laden:', error);
+                    content.innerHTML = `<div style="text-align: center; padding: 1rem; color: #dc3545;">Fehler: ${error.message}</div>`;
+                }
+            }
+        }
+    },
+
+    /**
+     * Rendert die Buchungen inline unterhalb des Kontos
+     */
+    renderInlineBuchungen: function(kontoNr, kontoId, buchungen) {
+        const content = document.getElementById(`buchungen-content-${kontoId}`);
+        if (!content) return;
+
+        if (!buchungen || buchungen.length === 0) {
+            content.innerHTML = '<div style="padding: 0.5rem; color: #666; font-style: italic;">Keine Buchungen im ausgewählten Jahr</div>';
+            return;
+        }
+
+        // Summe berechnen
+        const total = buchungen.reduce((sum, b) => sum + (parseFloat(b.betrag) || 0), 0);
+
+        let html = `
+            <div style="margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #e3f2fd; border-radius: 4px;">
+                <span style="font-size: 0.8rem; color: #1565c0;">${buchungen.length} Buchung${buchungen.length !== 1 ? 'en' : ''}</span>
+                <span style="font-weight: 600; color: ${total >= 0 ? '#28a745' : '#dc3545'};">Summe: ${this.formatNumber(total)} EUR</span>
+            </div>
+            <table style="width: 100%; font-size: 0.75rem; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f3f4; text-align: left;">
+                        <th style="padding: 6px 8px; width: 80px;">Datum</th>
+                        <th style="padding: 6px 8px;">Lieferant</th>
+                        <th style="padding: 6px 8px; width: 80px;">Dok-Nr</th>
+                        <th style="padding: 6px 8px;">Beschreibung</th>
+                        <th style="padding: 6px 8px; text-align: right; width: 100px;">Betrag</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        buchungen.forEach((b, idx) => {
+            const betrag = parseFloat(b.betrag) || 0;
+            const betragColor = betrag >= 0 ? '#28a745' : '#dc3545';
+            const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-';
+            const rowBg = idx % 2 === 0 ? '#fff' : '#fafafa';
+
+            html += `
+                <tr style="background: ${rowBg}; border-bottom: 1px solid #eee;">
+                    <td style="padding: 5px 8px; white-space: nowrap;">${datum}</td>
+                    <td style="padding: 5px 8px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${b.fornitore_name || ''}">${b.fornitore_name || '-'}</td>
+                    <td style="padding: 5px 8px;"><code style="background: #e9ecef; padding: 1px 4px; border-radius: 2px; font-size: 0.7rem;">${b.dokument_nr || '-'}</code></td>
+                    <td style="padding: 5px 8px; max-width: 250px; overflow: hidden; text-overflow: ellipsis;" title="${b.beschreibung || ''}">${b.beschreibung || '-'}</td>
+                    <td style="padding: 5px 8px; text-align: right; font-weight: 500; color: ${betragColor}; white-space: nowrap;">${this.formatNumber(betrag)}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        content.innerHTML = html;
+    },
+
+    // ========================================
+    // KONTO-BUCHUNGEN MODAL (Legacy)
     // ========================================
 
     // Cache für Konto-Buchungen
