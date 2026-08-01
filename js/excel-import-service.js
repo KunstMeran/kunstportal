@@ -25,7 +25,23 @@ const ExcelImportService = {
      */
     generateBookingKey(booking) {
         const dokumentNr = String(booking.dokument_nr || '').trim();
-        const datum = String(booking.datum || '').trim();
+
+        // Datum normalisieren: DB kann Date-Objekt oder String zurückgeben
+        let datum = '';
+        if (booking.datum) {
+            if (booking.datum instanceof Date) {
+                // Date-Objekt zu ISO-String
+                const year = booking.datum.getFullYear();
+                const month = String(booking.datum.getMonth() + 1).padStart(2, '0');
+                const day = String(booking.datum.getDate()).padStart(2, '0');
+                datum = `${year}-${month}-${day}`;
+            } else if (typeof booking.datum === 'string') {
+                // ISO-String: nur ersten 10 Zeichen (YYYY-MM-DD)
+                datum = booking.datum.substring(0, 10);
+            } else {
+                datum = String(booking.datum).trim();
+            }
+        }
 
         // Betrag auf 2 Dezimalstellen runden für konsistenten Vergleich
         let betrag = '';
