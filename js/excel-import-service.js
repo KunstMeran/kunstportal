@@ -353,11 +353,12 @@ const ExcelImportService = {
                 return betrag < 0 && !isErloskonto && !isFinanzErtrag;
             })(),
 
-            // Beträge
-            betrag: Math.abs(this.parseDecimal(row['Importo'])),
-            betrag_netto: Math.abs(this.parseDecimal(row['Importo'])), // Vereinfachung
+            // Beträge - Original-Vorzeichen beibehalten für korrekte Bilanz-Berechnung!
+            // Negative Beträge = Storno/Ausbuchung, werden in der Summe abgezogen
+            betrag: this.parseDecimal(row['Importo']),
+            betrag_netto: this.parseDecimal(row['Importo']),
             betrag_mwst: null, // Nicht im Export enthalten
-            betrag_gesamt: Math.abs(this.parseDecimal(row['Importo'])),
+            betrag_gesamt: this.parseDecimal(row['Importo']),
             mwst_typ: null,
 
             // Daten
