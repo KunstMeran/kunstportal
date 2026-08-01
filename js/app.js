@@ -6838,61 +6838,81 @@ const App = {
      */
     updateLieferantWithPartitaIva: async function(idOrRechnungId, name, partitaIva) {
         try {
-            let dbId = null;
             const idStr = String(idOrRechnungId);
 
             console.log('updateLieferantWithPartitaIva:', { idOrRechnungId, name, partitaIva });
 
-            // Prüfe ob es eine direkte DB-ID ist (Zahl oder UUID)
-            // UUID-Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+            // UUID = Invoice (invoices-Tabelle), Zahl = DATEV-Buchung (datev_bookings-Tabelle)
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr);
             const isNumeric = /^\d+$/.test(idStr);
 
-            if (isUuid || isNumeric) {
-                dbId = idStr;
-            } else {
-                // Suche in filteredRechnungen nach der DB-ID
-                const rechnung = (this.filteredRechnungen || []).find(r => {
-                    const rIdStr = String(r.id || '');
-                    const rRechnungIdSafe = (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '');
-                    return rIdStr === idStr ||
-                           rRechnungIdSafe === idStr ||
-                           r.rechnungId === idStr;
-                });
-                if (rechnung && rechnung.id) {
-                    dbId = String(rechnung.id);
-                    console.log('DB-ID gefunden via Suche:', dbId);
+            let success = false;
+
+            if (isUuid) {
+                // UUID = Invoice-ID -> invoices-Tabelle aktualisieren
+                console.log('UUID erkannt - aktualisiere invoices-Tabelle');
+
+                const updateData = {
+                    partita_iva: partitaIva && String(partitaIva).trim() !== '' ? String(partitaIva).trim() : null
+                };
+
+                const { data, error } = await SupabaseService.client
+                    .from('invoices')
+                    .update(updateData)
+                    .eq('id', idStr)
+                    .select();
+
+                if (error) {
+                    console.error('Supabase Invoice Update Error:', error);
+                    throw error;
                 }
-            }
+                console.log('Invoice Update erfolgreich:', data);
+                success = true;
 
-            console.log('Verwende DB-ID:', dbId);
+            } else if (isNumeric) {
+                // Zahl = DATEV-Buchungs-ID -> datev_bookings-Tabelle aktualisieren
+                console.log('Numerische ID erkannt - aktualisiere datev_bookings-Tabelle');
 
-            if (dbId) {
-                // Update-Objekt erstellen - nur Name, partita_iva nur wenn vorhanden
                 const updateData = {
                     fornitore_name: name || null
                 };
-
-                // partita_iva nur setzen wenn vorhanden und nicht leer
                 if (partitaIva && String(partitaIva).trim() !== '') {
                     updateData.partita_iva = String(partitaIva).trim();
                 }
 
-                console.log('Update-Daten:', updateData);
-
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .update(updateData)
-                    .eq('id', dbId)
+                    .eq('id', idStr)
                     .select();
 
                 if (error) {
-                    console.error('Supabase Update Error:', error);
-                    console.error('Error details:', JSON.stringify(error, null, 2));
+                    console.error('Supabase DATEV Update Error:', error);
                     throw error;
                 }
+                console.log('DATEV Update erfolgreich:', data);
+                success = true;
 
-                console.log('Update erfolgreich:', data);
+            } else {
+                // Suche in filteredRechnungen
+                const rechnung = (this.filteredRechnungen || []).find(r => {
+                    const rIdStr = String(r.id || '');
+                    const rRechnungIdSafe = (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '');
+                    return rIdStr === idStr || rRechnungIdSafe === idStr || r.rechnungId === idStr;
+                });
+
+                if (rechnung && rechnung.id) {
+                    // Rekursiv mit gefundener ID aufrufen
+                    await this.updateLieferantWithPartitaIva(rechnung.id, name, partitaIva);
+                    return;
+                } else {
+                    console.warn('Keine ID gefunden für:', idOrRechnungId);
+                    this.showToast('warning', 'Hinweis', 'Buchung nicht gefunden');
+                    return;
+                }
+            }
+
+            if (success) {
                 this.showToast('success', 'Gespeichert', `Lieferant: ${name}`);
 
                 // Cache invalidieren und neu laden
@@ -6901,9 +6921,6 @@ const App = {
                 }
                 this.suppliersCache = null;
                 await this.reloadRechnungenKeepState();
-            } else {
-                console.warn('Keine DB-ID gefunden für:', idOrRechnungId);
-                this.showToast('warning', 'Hinweis', 'Buchung nicht gefunden');
             }
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Lieferanten:', error);
@@ -8679,28 +8696,16 @@ const App = {
             console.log('═══════════════════════════════════════════════════════════════');
             console.log(`📊 DETAILLIERTE BILANZ-ANALYSE FÜR ${jahr}`);
             console.log('═══════════════════════════════════════════════════════════════');
-            console.log('A) GESAMTLEISTUNG (Erträge):');
-            console.log('  600 (Erlöse):', kontenAktuell['600'] || 0);
-            console.log('  640 (sonstige Erträge):', kontenAktuell['640'] || 0);
-            console.log('  Summe A:', (kontenAktuell['600'] || 0) + (kontenAktuell['640'] || 0));
+            console.log('ALLE KONTO-PREFIXE IN DER DATENBANK:');
+            const allePrefixe = Object.keys(kontenAktuell).sort();
+            allePrefixe.forEach(prefix => {
+                console.log(`  ${prefix}: ${kontenAktuell[prefix].toFixed(2)}`);
+            });
             console.log('───────────────────────────────────────────────────────────────');
-            console.log('B) BETRIEBLICHE AUFWENDUNGEN:');
-            console.log('  680 (Roh/Hilfs/Betriebsstoffe):', kontenAktuell['680'] || 0);
-            console.log('  690 (bezogene Dienstleistungen):', kontenAktuell['690'] || 0);
-            console.log('  700 (Güter Dritter):', kontenAktuell['700'] || 0);
-            console.log('  710 (Personalaufwand):', kontenAktuell['710'] || 0);
-            console.log('  720 (Abschreibungen):', kontenAktuell['720'] || 0);
-            console.log('  730 (Bestandsveränderungen):', kontenAktuell['730'] || 0);
-            console.log('  760 (sonstige betr. Aufwendungen):', kontenAktuell['760'] || 0);
-            const summeB = (kontenAktuell['680'] || 0) + (kontenAktuell['690'] || 0) +
-                          (kontenAktuell['700'] || 0) + (kontenAktuell['710'] || 0) +
-                          (kontenAktuell['720'] || 0) + (kontenAktuell['730'] || 0) +
-                          (kontenAktuell['760'] || 0);
-            console.log('  Summe B (Rohwerte):', summeB);
-            console.log('───────────────────────────────────────────────────────────────');
-            console.log('C) FINANZERTRÄGE/-AUFWENDUNGEN:');
-            console.log('  840 (Finanzerträge):', kontenAktuell['840'] || 0);
-            console.log('  850 (Zinsaufwendungen):', kontenAktuell['850'] || 0);
+            console.log('Beispiel erste 10 Buchungen (Rohformat):');
+            (buchungenAktuell || []).slice(0, 10).forEach(b => {
+                console.log(`  Konto: "${b.konto_nr}", Betrag: ${b.betrag}, Datum: ${b.datum}`);
+            });
             console.log('═══════════════════════════════════════════════════════════════');
 
             // Struktur durchgehen und Werte berechnen
