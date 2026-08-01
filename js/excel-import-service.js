@@ -123,23 +123,41 @@ const ExcelImportService = {
 
             // ============================================
             // SCHRITT 3: Existierende Buchungen laden (für Duplikat-Check)
+            // Supabase hat ein Limit von 1000 Zeilen - daher paginiert laden
             // ============================================
-            const { data: existingBookings, error: existingError } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('dokument_nr, datum, betrag, konto_nr');
+            const existingKeys = new Set();
+            const pageSize = 1000;
+            let offset = 0;
+            let totalLoaded = 0;
+            let hasMore = true;
 
-            if (existingError) {
-                console.warn('⚠️ Existierende Buchungen konnten nicht geladen werden:', existingError);
+            while (hasMore) {
+                const { data: existingBookings, error: existingError } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .select('dokument_nr, datum, betrag, konto_nr')
+                    .range(offset, offset + pageSize - 1);
+
+                if (existingError) {
+                    console.warn('⚠️ Existierende Buchungen konnten nicht geladen werden:', existingError);
+                    break;
+                }
+
+                if (existingBookings && existingBookings.length > 0) {
+                    existingBookings.forEach(b => {
+                        const key = this.generateBookingKey(b);
+                        existingKeys.add(key);
+                    });
+                    totalLoaded += existingBookings.length;
+                    console.log(`📚 ${totalLoaded} Buchungen geladen...`);
+                }
+
+                // Prüfen ob es weitere Seiten gibt
+                hasMore = existingBookings && existingBookings.length === pageSize;
+                offset += pageSize;
             }
 
-            // Set mit existierenden Keys erstellen
-            const existingKeys = new Set();
-            if (existingBookings && existingBookings.length > 0) {
-                existingBookings.forEach(b => {
-                    const key = this.generateBookingKey(b);
-                    existingKeys.add(key);
-                });
-                console.log(`📚 ${existingKeys.size} existierende Buchungen in DB`);
+            if (existingKeys.size > 0) {
+                console.log(`📚 ${existingKeys.size} existierende Buchungen in DB (gesamt)`);
             } else {
                 console.log('📚 Datenbank ist leer - alle Buchungen werden importiert');
             }
