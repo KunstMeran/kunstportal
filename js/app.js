@@ -8820,35 +8820,36 @@ const App = {
      * Bilanz/GuV-Struktur basierend auf italienischem Bilanzschema
      */
     getBilanzStruktur: function() {
+        // Vorzeichen kommen direkt aus DATEV/Excel - keine Umrechnung nötig
         return {
             guv: [
-                // A) GESAMTLEISTUNG
+                // A) GESAMTLEISTUNG (Erträge: positiv in Excel)
                 { id: 'A', label: 'A) Gesamtleistung', type: 'header', level: 0, color: '#d4edda', borderColor: '#28a745' },
-                { id: 'A1', label: '1) Erträge aus Lieferungen und Leistungen', type: 'group', level: 1, parent: 'A', kontoPattern: ['600'], positive: true },
-                { id: 'A5', label: '5) Sonstige betriebliche Erträge', type: 'group', level: 1, parent: 'A', kontoPattern: ['640'], positive: true },
+                { id: 'A1', label: '1) Erträge aus Lieferungen und Leistungen', type: 'group', level: 1, parent: 'A', kontoPattern: ['600'] },
+                { id: 'A5', label: '5) Sonstige betriebliche Erträge', type: 'group', level: 1, parent: 'A', kontoPattern: ['640'] },
                 { id: 'A_SUM', label: 'Summe Gesamtleistung (A)', type: 'sum', level: 0, sumOf: ['A1', 'A5'], color: '#c3e6cb', bold: true },
 
-                // B) BETRIEBLICHE AUFWENDUNGEN
+                // B) BETRIEBLICHE AUFWENDUNGEN (Aufwendungen: negativ in Excel)
                 { id: 'B', label: 'B) Betriebliche Aufwendungen', type: 'header', level: 0, color: '#f8d7da', borderColor: '#dc3545' },
-                { id: 'B6', label: '6) Roh-, Hilfs-, Betriebsstoffe & Waren', type: 'group', level: 1, parent: 'B', kontoPattern: ['680'], negative: true },
-                { id: 'B7', label: '7) Für bezogene Dienstleistungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['690'], negative: true },
-                { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'], negative: true },
-                { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negative: true },
-                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negative: true, isAbschreibung: true },
-                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], keepSign: true },
-                { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negative: true },
+                { id: 'B6', label: '6) Roh-, Hilfs-, Betriebsstoffe & Waren', type: 'group', level: 1, parent: 'B', kontoPattern: ['680'] },
+                { id: 'B7', label: '7) Für bezogene Dienstleistungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['690'] },
+                { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'] },
+                { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'] },
+                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], isAbschreibung: true },
+                { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'] },
+                { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'] },
                 { id: 'B_SUM', label: 'Summe betriebliche Aufwendungen (B)', type: 'sum', level: 0, sumOf: ['B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B14'], color: '#f5c6cb', bold: true },
 
-                // EBITDA
-                { id: 'EBITDA', label: 'EBITDA (A - B + Abschreibungen)', type: 'result', level: 0, color: '#d1ecf1', borderColor: '#17a2b8', bold: true, formula: 'A_SUM + B_SUM + B10' },
+                // EBITDA = A + B + Abschreibungen (B ist negativ, also A - |B| + |Abschr|)
+                { id: 'EBITDA', label: 'EBITDA (A - B + Abschreibungen)', type: 'result', level: 0, color: '#d1ecf1', borderColor: '#17a2b8', bold: true, formula: 'A_SUM + B_SUM - B10' },
 
-                // BETRIEBSERFOLG (EBIT)
+                // BETRIEBSERFOLG (EBIT) = A + B (B ist negativ)
                 { id: 'EBIT', label: 'Betriebserfolg / EBIT (A - B)', type: 'result', level: 0, color: '#fff3cd', borderColor: '#ffc107', bold: true, formula: 'A_SUM + B_SUM' },
 
                 // C) FINANZERTRÄGE UND -AUFWENDUNGEN
                 { id: 'C', label: 'C) Finanzerträge und -aufwendungen', type: 'header', level: 0, color: '#e2e3e5', borderColor: '#6c757d' },
-                { id: 'C16', label: '16) Sonstige Finanzerträge', type: 'group', level: 1, parent: 'C', kontoPattern: ['840'], positive: true },
-                { id: 'C17', label: '17) Zinsen und ähnliche Aufwendungen', type: 'group', level: 1, parent: 'C', kontoPattern: ['850'], negative: true },
+                { id: 'C16', label: '16) Sonstige Finanzerträge', type: 'group', level: 1, parent: 'C', kontoPattern: ['840'] },
+                { id: 'C17', label: '17) Zinsen und ähnliche Aufwendungen', type: 'group', level: 1, parent: 'C', kontoPattern: ['850'] },
                 { id: 'C_SUM', label: 'Summe Finanzerträge/-aufwendungen (C)', type: 'sum', level: 0, sumOf: ['C16', 'C17'], color: '#ced4da' },
 
                 // ERGEBNIS VOR STEUERN
@@ -9059,20 +9060,12 @@ const App = {
                 details.sort((a, b) => a.konto.localeCompare(b.konto));
                 kontenDetails[gruppe.id] = details;
 
-                // Bei Aufwendungen (negative: true) als negative Werte speichern für korrekte Berechnung
-                // Bei keepSign: true (z.B. Bestandsveränderungen) Vorzeichen beibehalten
-                // Bei Erträgen (positive: true) als positive Werte darstellen
-                if (gruppe.negative) {
-                    werte[gruppe.id] = { aktuell: -Math.abs(sumAktuell), vorjahr: -Math.abs(sumVorjahr) };
-                } else if (gruppe.keepSign) {
-                    // Bestandsveränderungen: Vorzeichen beibehalten, aber für B-Summe negativ darstellen
-                    werte[gruppe.id] = { aktuell: -sumAktuell, vorjahr: -sumVorjahr };
-                } else if (gruppe.positive) {
-                    // Erträge: immer positiv darstellen (Vorzeichen umkehren falls negativ aus DB)
-                    werte[gruppe.id] = { aktuell: Math.abs(sumAktuell), vorjahr: Math.abs(sumVorjahr) };
-                } else {
-                    werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
-                }
+                // Vorzeichen direkt aus DATEV/Excel übernehmen
+                // Das korrekte Vorzeichen ist bereits in der Quelldatei:
+                // - Aufwendungen: negativ (Kosten)
+                // - Erträge: positiv (Einnahmen)
+                // - Gutschriften: invertiert (Korrektur)
+                werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
             });
 
             // Summen berechnen
