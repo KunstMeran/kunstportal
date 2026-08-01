@@ -2301,7 +2301,7 @@ const SupabaseDataAdapter = {
                 userId: user.id,
                 userEmail: user.email,
                 workspaces: [],
-                // 3-stufige Berechtigungen: 'none', 'read', 'write'
+                // 4-stufige Berechtigungen: 'none', 'read', 'write', 'delete'
                 access_dashboard: 'none',
                 access_projekte: 'none',
                 access_rechnungen: 'none',
@@ -2311,6 +2311,7 @@ const SupabaseDataAdapter = {
                 access_einnahmen: 'none',
                 access_konfiguration: 'none',
                 access_inventar: 'none',
+                access_reporting: 'none',
                 rechnungen_nur_zugewiesene: true,
                 isWorkspaceAdmin: false
             };
@@ -2330,6 +2331,7 @@ const SupabaseDataAdapter = {
                     permissions.access_einnahmen = aggregateLevel(permissions.access_einnahmen, ws.access_einnahmen);
                     permissions.access_konfiguration = aggregateLevel(permissions.access_konfiguration, ws.access_konfiguration);
                     permissions.access_inventar = aggregateLevel(permissions.access_inventar, ws.access_inventar);
+                    permissions.access_reporting = aggregateLevel(permissions.access_reporting, ws.access_reporting);
 
                     // Wenn mindestens ein Workspace vollen Rechnungszugriff hat
                     if (!ws.rechnungen_nur_zugewiesene) {
@@ -2398,6 +2400,7 @@ const SupabaseDataAdapter = {
             access_einnahmen: 'none',
             access_konfiguration: 'none',
             access_inventar: 'none',
+            access_reporting: 'none',
             rechnungen_nur_zugewiesene: true,
             isWorkspaceAdmin: false
         };
@@ -2420,6 +2423,7 @@ const SupabaseDataAdapter = {
             access_einnahmen: 'delete',
             access_konfiguration: 'delete',
             access_inventar: 'delete',
+            access_reporting: 'delete',
             rechnungen_nur_zugewiesene: false,
             isWorkspaceAdmin: true
         };

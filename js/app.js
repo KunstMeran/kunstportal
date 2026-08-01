@@ -12710,7 +12710,7 @@ const App = {
         document.getElementById('workspace-description').value = '';
 
         // Alle Radio-Buttons auf 'none' setzen
-        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'inventar'];
+        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'inventar', 'reporting'];
         areas.forEach(area => {
             setRadioValue(`workspace-access-${area}`, 'none');
         });

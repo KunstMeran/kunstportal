@@ -33,6 +33,8 @@ ALTER TABLE workspaces
     ADD COLUMN IF NOT EXISTS perm_konfiguration permission_level DEFAULT 'none';
 ALTER TABLE workspaces
     ADD COLUMN IF NOT EXISTS perm_inventar permission_level DEFAULT 'none';
+ALTER TABLE workspaces
+    ADD COLUMN IF NOT EXISTS perm_reporting permission_level DEFAULT 'none';
 
 -- 4. Daten migrieren (boolean true -> 'delete' für volle Rechte, false -> 'none')
 UPDATE workspaces SET
@@ -44,7 +46,8 @@ UPDATE workspaces SET
     perm_mitglieder = CASE WHEN access_mitglieder = true THEN 'delete'::permission_level ELSE 'none'::permission_level END,
     perm_einnahmen = CASE WHEN access_einnahmen = true THEN 'delete'::permission_level ELSE 'none'::permission_level END,
     perm_konfiguration = CASE WHEN access_konfiguration = true THEN 'delete'::permission_level ELSE 'none'::permission_level END,
-    perm_inventar = 'none'::permission_level
+    perm_inventar = 'none'::permission_level,
+    perm_reporting = 'none'::permission_level
 WHERE perm_dashboard = 'none' AND access_dashboard IS NOT NULL;
 
 -- 5. Alte boolean-Spalten löschen
@@ -67,6 +70,7 @@ ALTER TABLE workspaces RENAME COLUMN perm_mitglieder TO access_mitglieder;
 ALTER TABLE workspaces RENAME COLUMN perm_einnahmen TO access_einnahmen;
 ALTER TABLE workspaces RENAME COLUMN perm_konfiguration TO access_konfiguration;
 ALTER TABLE workspaces RENAME COLUMN perm_inventar TO access_inventar;
+ALTER TABLE workspaces RENAME COLUMN perm_reporting TO access_reporting;
 
 -- 7. View für User-Berechtigungen neu erstellen (mit numerischer Aggregation)
 CREATE OR REPLACE VIEW user_permissions AS
@@ -93,6 +97,8 @@ SELECT
         WHEN 3 THEN 'delete' WHEN 2 THEN 'write' WHEN 1 THEN 'read' ELSE 'none' END::permission_level as access_konfiguration,
     CASE MAX(CASE w.access_inventar WHEN 'delete' THEN 3 WHEN 'write' THEN 2 WHEN 'read' THEN 1 ELSE 0 END)
         WHEN 3 THEN 'delete' WHEN 2 THEN 'write' WHEN 1 THEN 'read' ELSE 'none' END::permission_level as access_inventar,
+    CASE MAX(CASE w.access_reporting WHEN 'delete' THEN 3 WHEN 'write' THEN 2 WHEN 'read' THEN 1 ELSE 0 END)
+        WHEN 3 THEN 'delete' WHEN 2 THEN 'write' WHEN 1 THEN 'read' ELSE 'none' END::permission_level as access_reporting,
     -- Wenn mindestens ein Workspace vollen Rechnungszugriff hat
     BOOL_AND(w.rechnungen_nur_zugewiesene) as rechnungen_nur_zugewiesene,
     BOOL_OR(uw.is_admin) as is_workspace_admin
@@ -113,7 +119,8 @@ SET
     access_mitglieder = 'delete',
     access_einnahmen = 'delete',
     access_konfiguration = 'delete',
-    access_inventar = 'delete'
+    access_inventar = 'delete',
+    access_reporting = 'delete'
 WHERE name = 'Admin';
 
 -- 9. Kommentare
