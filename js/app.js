@@ -9397,7 +9397,7 @@ const App = {
                         .from('datev_bookings')
                         .select('*')
                         .eq('konto_nr', kontoNr)
-                        .eq('archived', false)
+                        .or('archived.is.null,archived.eq.false')
                         .gte('datum', `${jahr}-01-01`)
                         .lte('datum', `${jahr}-12-31`)
                         .order('datum', { ascending: false });
@@ -9577,7 +9577,7 @@ const App = {
                     .from('datev_bookings')
                     .select('*')
                     .eq('konto_nr', kontoNr)
-                    .eq('archived', false)
+                    .or('archived.is.null,archived.eq.false')
                     .order('datum', { ascending: false })
                     .range(page * pageSize, (page + 1) * pageSize - 1);
 
