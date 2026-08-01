@@ -6853,6 +6853,7 @@ const App = {
                 console.log('UUID erkannt - aktualisiere invoices-Tabelle');
 
                 const updateData = {
+                    fornitore_name: name || null,
                     partita_iva: partitaIva && String(partitaIva).trim() !== '' ? String(partitaIva).trim() : null
                 };
 
@@ -8711,11 +8712,31 @@ const App = {
             // Struktur durchgehen und Werte berechnen
             const struktur = this.getBilanzStruktur();
             const werte = {};
+            const kontenDetails = {}; // Speichert Detail-Konten pro Gruppe
+
+            // Auch nach vollständiger Kontonummer aggregieren für Details
+            const aggregiereNachVollemKonto = (buchungen) => {
+                const result = {};
+                (buchungen || []).forEach(b => {
+                    const konto = b.konto_nr || '';
+                    if (!result[konto]) result[konto] = { betrag: 0, kategorie: b.kategorie || konto };
+                    let betrag = parseFloat(b.betrag) || 0;
+                    const istGutschrift = b.dokument_typ === 'NC' || b.ist_gutschrift === true;
+                    if (istGutschrift) betrag = -Math.abs(betrag);
+                    result[konto].betrag += betrag;
+                });
+                return result;
+            };
+            const volleKontenAktuell = aggregiereNachVollemKonto(buchungenAktuell);
+            const volleKontenVorjahr = aggregiereNachVollemKonto(buchungenVorjahr);
 
             // Gruppen-Werte berechnen
             struktur.guv.filter(s => s.type === 'group').forEach(gruppe => {
                 let sumAktuell = 0, sumVorjahr = 0;
+                const details = [];
+
                 (gruppe.kontoPattern || []).forEach(pattern => {
+                    // Für Summen: 3-stellige Prefixe
                     Object.keys(kontenAktuell).forEach(prefix => {
                         if (prefix.startsWith(pattern)) {
                             sumAktuell += kontenAktuell[prefix];
@@ -8726,7 +8747,44 @@ const App = {
                             sumVorjahr += kontenVorjahr[prefix];
                         }
                     });
+
+                    // Für Details: vollständige Kontonummern
+                    Object.keys(volleKontenAktuell).forEach(konto => {
+                        if (konto.startsWith(pattern)) {
+                            const existing = details.find(d => d.konto === konto);
+                            if (existing) {
+                                existing.aktuell = volleKontenAktuell[konto].betrag;
+                            } else {
+                                details.push({
+                                    konto: konto,
+                                    kategorie: volleKontenAktuell[konto].kategorie,
+                                    aktuell: volleKontenAktuell[konto].betrag,
+                                    vorjahr: 0
+                                });
+                            }
+                        }
+                    });
+                    Object.keys(volleKontenVorjahr).forEach(konto => {
+                        if (konto.startsWith(pattern)) {
+                            const existing = details.find(d => d.konto === konto);
+                            if (existing) {
+                                existing.vorjahr = volleKontenVorjahr[konto].betrag;
+                            } else {
+                                details.push({
+                                    konto: konto,
+                                    kategorie: volleKontenVorjahr[konto].kategorie,
+                                    aktuell: 0,
+                                    vorjahr: volleKontenVorjahr[konto].betrag
+                                });
+                            }
+                        }
+                    });
                 });
+
+                // Details nach Kontonummer sortieren
+                details.sort((a, b) => a.konto.localeCompare(b.konto));
+                kontenDetails[gruppe.id] = details;
+
                 // Bei Aufwendungen (negative: true) als negative Werte speichern für korrekte Berechnung
                 // Bei keepSign: true (z.B. Bestandsveränderungen) Vorzeichen beibehalten
                 if (gruppe.negative) {
@@ -8777,9 +8835,10 @@ const App = {
             });
 
             // Cache speichern
-            this.bilanzReportCache = { jahr, vorjahr, werte, struktur };
+            this.bilanzReportCache = { jahr, vorjahr, werte, struktur, kontenDetails };
 
             console.log('📊 Berechnete Werte:', werte);
+            console.log('📊 Konten-Details:', kontenDetails);
 
             // KPIs aktualisieren
             const gesamtleistung = werte['A_SUM']?.aktuell || 0;
@@ -8800,7 +8859,7 @@ const App = {
             document.getElementById('bilanz-jahresergebnis-pct').textContent = gesamtleistung ? ((jahresergebnis / gesamtleistung) * 100).toFixed(1) + '% der Gesamtleistung' : '0%';
 
             // Tabelle rendern
-            this.renderBilanzTable(struktur, werte);
+            this.renderBilanzTable(struktur, werte, kontenDetails);
 
         } catch (error) {
             console.error('Fehler beim Laden der Bilanz:', error);
@@ -8811,11 +8870,14 @@ const App = {
     },
 
     /**
-     * Bilanz-Tabelle rendern mit aufklappbaren Gruppen
+     * Bilanz-Tabelle rendern mit aufklappbaren Gruppen und Konten-Details
      */
-    renderBilanzTable: function(struktur, werte) {
+    renderBilanzTable: function(struktur, werte, kontenDetails) {
         const tbody = document.getElementById('bilanz-guv-body');
         if (!tbody) return;
+
+        // Initialisiere bilanzKontoExpanded falls nicht vorhanden
+        if (!this.bilanzKontoExpanded) this.bilanzKontoExpanded = {};
 
         let html = '';
 
@@ -8835,7 +8897,7 @@ const App = {
             const isSum = item.type === 'sum';
             const isResult = item.type === 'result';
 
-            // Expand/Collapse Icon für Gruppen
+            // Expand/Collapse Icon für Header-Gruppen (A, B, C)
             let expandIcon = '';
             if (isHeader) {
                 const expanded = this.bilanzExpanded[item.id] !== false;
@@ -8861,18 +8923,71 @@ const App = {
                 const diffColor = diff > 0 ? '#28a745' : (diff < 0 ? '#dc3545' : '#666');
                 const diffBg = diff > 0 ? 'rgba(40,167,69,0.1)' : (diff < 0 ? 'rgba(220,53,69,0.1)' : 'transparent');
 
+                // Bei Gruppen: Plus-Button für Konten-Details hinzufügen
+                let kontoExpandIcon = '';
+                const details = kontenDetails && kontenDetails[item.id];
+                if (isGroup && details && details.length > 0) {
+                    const kontoExpanded = this.bilanzKontoExpanded[item.id] === true;
+                    kontoExpandIcon = `<span class="bilanz-konto-expand" data-id="${item.id}" style="cursor: pointer; display: inline-block; width: 20px; height: 20px; text-align: center; line-height: 20px; background: #6c757d; color: white; border-radius: 3px; font-size: 14px; font-weight: bold; margin-right: 6px;" onclick="App.toggleBilanzKonten('${item.id}')">${kontoExpanded ? '−' : '+'}</span>`;
+                }
+
                 html += `<tr class="${rowClass}" style="${rowStyle}">
-                    <td style="padding: 10px 8px;"></td>
+                    <td style="padding: 10px 8px;">${kontoExpandIcon}</td>
                     <td style="padding: 10px ${paddingLeft}px; font-weight: ${fontWeight}; font-size: ${isResult || isSum ? '0.95rem' : '0.875rem'};">${item.label}</td>
                     <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; font-size: ${isResult ? '1rem' : '0.875rem'};">${this.formatNumber(w.aktuell)}</td>
                     <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; color: #666; font-size: 0.875rem;">${this.formatNumber(w.vorjahr)}</td>
                     <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; background: ${diffBg}; font-weight: 600;">${diff >= 0 ? '+' : ''}${this.formatNumber(diff)}</td>
                     <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; font-size: 0.8rem;">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</td>
                 </tr>`;
+
+                // Konten-Detail-Zeilen (initial versteckt)
+                if (isGroup && details && details.length > 0) {
+                    const kontoExpanded = this.bilanzKontoExpanded[item.id] === true;
+                    const kontoDisplayStyle = kontoExpanded ? '' : 'display: none;';
+                    const parentHidden = this.bilanzExpanded[item.parent] === false;
+
+                    details.forEach(konto => {
+                        const kDiff = konto.aktuell - konto.vorjahr;
+                        const kPct = konto.vorjahr !== 0 ? ((kDiff / Math.abs(konto.vorjahr)) * 100) : (konto.aktuell !== 0 ? 100 : 0);
+                        const kDiffColor = kDiff > 0 ? '#28a745' : (kDiff < 0 ? '#dc3545' : '#888');
+
+                        html += `<tr class="bilanz-konto-detail bilanz-konto-child-${item.id} bilanz-child-${item.parent}" style="background: #f8f9fa; ${kontoDisplayStyle} ${parentHidden ? 'display: none;' : ''}">
+                            <td style="padding: 6px 8px;"></td>
+                            <td style="padding: 6px 12px; padding-left: ${paddingLeft + 30}px; font-size: 0.8rem; color: #666;">
+                                <span style="font-family: monospace; background: #e9ecef; padding: 2px 6px; border-radius: 3px; margin-right: 8px;">${konto.konto}</span>
+                                ${konto.kategorie || ''}
+                            </td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #666;">${this.formatNumber(konto.aktuell)}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #888;">${this.formatNumber(konto.vorjahr)}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: ${kDiffColor};">${kDiff >= 0 ? '+' : ''}${this.formatNumber(kDiff)}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kDiffColor};">${kPct >= 0 ? '+' : ''}${kPct.toFixed(1)}%</td>
+                        </tr>`;
+                    });
+                }
             }
         });
 
         tbody.innerHTML = html;
+    },
+
+    /**
+     * Konten-Details einer Gruppe auf-/zuklappen
+     */
+    toggleBilanzKonten: function(groupId) {
+        if (!this.bilanzKontoExpanded) this.bilanzKontoExpanded = {};
+        this.bilanzKontoExpanded[groupId] = this.bilanzKontoExpanded[groupId] !== true;
+
+        // Zeilen ein-/ausblenden
+        const childRows = document.querySelectorAll(`.bilanz-konto-child-${groupId}`);
+        childRows.forEach(row => {
+            row.style.display = this.bilanzKontoExpanded[groupId] ? '' : 'none';
+        });
+
+        // Icon aktualisieren
+        const icon = document.querySelector(`.bilanz-konto-expand[data-id="${groupId}"]`);
+        if (icon) {
+            icon.textContent = this.bilanzKontoExpanded[groupId] ? '−' : '+';
+        }
     },
 
     /**
