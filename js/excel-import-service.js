@@ -384,9 +384,15 @@ const ExcelImportService = {
                 return betrag < 0 && !isErloskonto && !isFinanzErtrag;
             })(),
 
-            // Beträge - Vorzeichen basierend auf Kontoart korrigieren für korrekte GuV
-            // Erträge (600-679, 840-849): POSITIV in GuV
-            // Aufwendungen (680-839, 850+): NEGATIV in GuV
+            // Beträge - Vorzeichen-Logik für korrekte GuV:
+            //
+            // DATEV-Export liefert:
+            // - Aufwendungen (690xxx): +200 = Kosten, -200 = Gutschrift → 1:1 übernehmen
+            // - Erträge (600xxx, 640xxx): -500 = Einnahmen, +500 = Storno → Vorzeichen umdrehen!
+            //
+            // Ergebnis in DB:
+            // - Aufwendungen: negativ (Kosten reduzieren Gewinn)
+            // - Erträge: positiv (Einnahmen erhöhen Gewinn)
             betrag: (() => {
                 const rawBetrag = this.parseDecimal(row['Importo']);
                 if (rawBetrag === null) return null;
@@ -395,22 +401,20 @@ const ExcelImportService = {
                 const kontoPrefix2 = parseInt(konto.substring(0, 2)) || 0;
                 const kontoPrefix3 = parseInt(konto.substring(0, 3)) || 0;
 
-                // Ertragskonten: 600-679, 840-849 → sollten positiv sein
+                // Ertragskonten: 600-679, 840-849
                 const isErtrag = (kontoPrefix2 >= 60 && kontoPrefix2 <= 67) ||
                                  (kontoPrefix3 >= 840 && kontoPrefix3 <= 849);
 
-                // Aufwandskonten: 680-839, 850-899 → sollten negativ sein
-                const isAufwand = (kontoPrefix2 >= 68 && kontoPrefix2 <= 89) &&
-                                  !(kontoPrefix3 >= 840 && kontoPrefix3 <= 849);
-
                 if (isErtrag) {
-                    // Erträge: immer positiv (Absolutwert)
-                    return Math.abs(rawBetrag);
-                } else if (isAufwand) {
-                    // Aufwendungen: immer negativ
-                    return -Math.abs(rawBetrag);
+                    // Erträge: Vorzeichen umdrehen
+                    // DATEV: -500 (Einnahme) → DB: +500 (positiv in GuV)
+                    // DATEV: +100 (Storno) → DB: -100 (reduziert Ertrag)
+                    return -rawBetrag;
                 }
-                // Sonstige Konten: Original beibehalten
+
+                // Aufwendungen und sonstige Konten: 1:1 übernehmen
+                // DATEV: +200 (Kosten) → DB: +200 (wird in Bilanz als Aufwand summiert)
+                // DATEV: -50 (Gutschrift) → DB: -50 (reduziert Aufwand)
                 return rawBetrag;
             })(),
             betrag_netto: this.parseDecimal(row['Importo']), // Original für Referenz
