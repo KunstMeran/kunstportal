@@ -10,17 +10,41 @@ const ExcelImportService = {
      * Generiert einen eindeutigen Key für eine Buchung
      * MUSS exakt dem DB-Constraint idx_unique_datev_booking_v2 entsprechen:
      * (partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name[50], beschreibung[50])
+     *
+     * WICHTIG: PostgreSQL verwendet COALESCE(LEFT(field, 50), '') - KEIN TRIM!
+     * Der JS-Code muss exakt das gleiche machen.
      */
     generateBookingKey(booking) {
-        const partitaIva = (booking.partita_iva || '').trim();
-        const dokumentNr = (booking.dokument_nr || '').trim();
+        // COALESCE(partita_iva, '') - kein Trim in DB!
+        const partitaIva = booking.partita_iva || '';
+
+        // COALESCE(dokument_nr, '') - kein Trim in DB!
+        const dokumentNr = booking.dokument_nr || '';
+
+        // datum - direkt verwenden
         const datum = booking.datum || '';
-        const betrag = booking.betrag !== null && booking.betrag !== undefined
-            ? parseFloat(booking.betrag).toFixed(2)
-            : '0.00';
-        const kontoNr = (booking.konto_nr || '').trim();
-        const fornitoreName = (booking.fornitore_name || '').substring(0, 50).trim();
-        const beschreibung = (booking.beschreibung || '').substring(0, 50).trim();
+
+        // betrag - als Decimal gespeichert, aber mit String-Vergleich im Index
+        // PostgreSQL speichert z.B. 123.45 als "123.45" im Index
+        // Wir müssen sicherstellen dass die Formatierung übereinstimmt
+        let betrag = '';
+        if (booking.betrag !== null && booking.betrag !== undefined) {
+            const num = parseFloat(booking.betrag);
+            // PostgreSQL Decimal-Darstellung: keine trailing zeros entfernen
+            // z.B. 100 wird als "100", nicht "100.00" gespeichert
+            // und 100.50 als "100.5", nicht "100.50"
+            betrag = String(num);
+        }
+
+        // COALESCE(konto_nr, '') - kein Trim in DB!
+        const kontoNr = booking.konto_nr || '';
+
+        // COALESCE(LEFT(fornitore_name, 50), '') - KEIN TRIM!
+        // LEFT schneidet nur ab, trimmt nicht
+        const fornitoreName = (booking.fornitore_name || '').substring(0, 50);
+
+        // COALESCE(LEFT(beschreibung, 50), '') - KEIN TRIM!
+        const beschreibung = (booking.beschreibung || '').substring(0, 50);
 
         return `${partitaIva}_${dokumentNr}_${datum}_${betrag}_${kontoNr}_${fornitoreName}_${beschreibung}`;
     },
