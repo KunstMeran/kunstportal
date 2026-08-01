@@ -384,8 +384,8 @@ const ExcelImportService = {
                 return betrag < 0 && !isErloskonto && !isFinanzErtrag;
             })(),
 
-            // Beträge - Original-Vorzeichen beibehalten für korrekte Bilanz-Berechnung!
-            // Negative Beträge = Storno/Ausbuchung, werden in der Summe abgezogen
+            // Beträge - Original aus Excel übernehmen
+            // Vorzeichen-Korrektur erfolgt in der Bilanz-Berechnung basierend auf Kontoart
             betrag: this.parseDecimal(row['Importo']),
             betrag_netto: this.parseDecimal(row['Importo']),
             betrag_mwst: null, // Nicht im Export enthalten
