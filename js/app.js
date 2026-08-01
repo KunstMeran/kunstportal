@@ -3599,6 +3599,10 @@ const App = {
     loadRechnungen: async function() {
         // Statistiken aktualisieren
         const rechnungen = await DataManager.getRechnungenMitStatus();
+
+        // Alle Rechnungen cachen für Verknüpfungs-Suche
+        this.allRechnungenUnfiltered = rechnungen;
+
         const neuCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.NEU).length;
         const kontrolliertCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.KONTROLLIERT).length;
         const bezahltCount = rechnungen.filter(r => r.workflowStatus === RECHNUNG_STATUS.BEZAHLT).length;
@@ -4267,16 +4271,15 @@ const App = {
      * Generiert Optionen für DATEV-Bewegungen ohne PDF (für Datalist)
      */
     getUnlinkedDatevOptionsAsDatalist: function() {
-        // Alle DATEV-Buchungen ohne pdfExists
-        const allRechnungen = this.filteredRechnungen || [];
+        // ALLE DATEV-Buchungen ohne pdfExists (nicht gefiltert!)
+        const allRechnungen = this.allRechnungenUnfiltered || this.filteredRechnungen || [];
         const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
 
         return unlinked.map(r => {
             const projekt = DataManager.getKunstMeranProjekt(r.projektId);
             const projektName = projekt?.name || r.projektId || 'N/A';
-            // Kürzer formatiert: Lieferant (max 30 Zeichen), Dokument-Nr, Betrag, Projekt
-            const shortName = r.fornitoreName.length > 30 ? r.fornitoreName.substring(0, 30) + '...' : r.fornitoreName;
-            const label = `${shortName} | ${r.dokumentNr} | ${this.formatCurrency(r.betrag)} | ${projektName}`;
+            // Format muss mit linkInvoiceToDatevFromInput übereinstimmen
+            const label = `${r.fornitoreName} - ${r.dokumentNr} - ${projektName} - ${this.formatCurrency(r.betrag)}`;
             return `<option value="${label}"></option>`;
         }).join('');
     },
@@ -4711,8 +4714,8 @@ const App = {
         if (!selectedLabel) return;
 
         try {
-            // Finde die passende DATEV-Bewegung anhand des Labels
-            const allRechnungen = this.filteredRechnungen || [];
+            // Lade ALLE Rechnungen (nicht nur gefilterte), um die DATEV-Bewegung zu finden
+            const allRechnungen = await DataManager.getRechnungenMitStatus();
             const unlinked = allRechnungen.filter(r => !r.isSupabaseOnly && !r.pdfExists);
 
             const matchedRechnung = unlinked.find(r => {

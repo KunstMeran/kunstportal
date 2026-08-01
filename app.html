@@ -530,14 +530,9 @@
                 <div id="archive-notice" class="alert alert-info" style="display: none; margin-bottom: 1rem; background: #fff3cd; border: 1px solid #ffc107; padding: 0.75rem 1rem; border-radius: 6px; color: #856404;">
                 </div>
 
-                <div class="page-header">
+                <div class="page-header" style="margin-bottom: 1rem;">
                     <h1 class="page-title">EK-Rechnungen</h1>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <!-- Jahr-Auswahl -->
-                        <select id="year-selector" class="form-control" style="width: auto; display: none;">
-                            <option value="">Aktuell</option>
-                        </select>
-                        <span id="year-loading" style="display: none; font-size: 0.75rem; color: #666;">Lade...</span>
                         <span id="datev-last-update" style="font-size: 0.75rem; color: #666;"></span>
                         <button class="btn btn-outline btn-sm" onclick="App.refreshDatevData()">
                             Aktualisieren
@@ -551,39 +546,40 @@
                     </div>
                 </div>
 
-                <!-- Dashboard: Anzahl und Summen in einer Zeile -->
-                <div class="stats-grid" style="grid-template-columns: repeat(8, 1fr); margin-bottom: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-value" id="stat-rechnungen-total">0</div>
-                        <div class="stat-label">Gesamt</div>
+                <!-- Statistik-Übersicht: Kompakt in einer Zeile -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #6c757d;">
+                        <span style="font-weight: 600; font-size: 1.1rem;" id="stat-rechnungen-total">0</span>
+                        <span style="color: #666; font-size: 0.8rem;">Gesamt</span>
                     </div>
-                    <div class="stat-card warning">
-                        <div class="stat-value" id="stat-rechnungen-neu">0</div>
-                        <div class="stat-label">Neu</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff3e0; border-radius: 6px; border-left: 3px solid #ff9800;">
+                        <span style="font-weight: 600; font-size: 1.1rem; color: #e65100;" id="stat-rechnungen-neu">0</span>
+                        <span style="color: #666; font-size: 0.8rem;">Neu</span>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="stat-rechnungen-kontrolliert">0</div>
-                        <div class="stat-label">Kontrolliert</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff8e1; border-radius: 6px; border-left: 3px solid #ffc107;">
+                        <span style="font-weight: 600; font-size: 1.1rem;" id="stat-rechnungen-kontrolliert">0</span>
+                        <span style="color: #666; font-size: 0.8rem;">Kontrolliert</span>
                     </div>
-                    <div class="stat-card success">
-                        <div class="stat-value" id="stat-rechnungen-bezahlt">0</div>
-                        <div class="stat-label">Bezahlt</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e8f5e9; border-radius: 6px; border-left: 3px solid #4caf50;">
+                        <span style="font-weight: 600; font-size: 1.1rem; color: #2e7d32;" id="stat-rechnungen-bezahlt">0</span>
+                        <span style="color: #666; font-size: 0.8rem;">Bezahlt</span>
                     </div>
-                    <div class="stat-card" style="border-left-color: #2196F3;">
-                        <div class="stat-value" id="stat-summe-netto" style="font-size: 1.1rem;">0,00 €</div>
-                        <div class="stat-label">Netto</div>
+                    <div style="flex: 1;"></div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e3f2fd; border-radius: 6px;">
+                        <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-netto">0,00 €</span>
+                        <span style="color: #666; font-size: 0.75rem;">Netto</span>
                     </div>
-                    <div class="stat-card" style="border-left-color: #9C27B0;">
-                        <div class="stat-value" id="stat-summe-mwst" style="font-size: 1.1rem;">0,00 €</div>
-                        <div class="stat-label">MwSt</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #f3e5f5; border-radius: 6px;">
+                        <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-mwst">0,00 €</span>
+                        <span style="color: #666; font-size: 0.75rem;">MwSt</span>
                     </div>
-                    <div class="stat-card" style="border-left-color: #FF9800;">
-                        <div class="stat-value" id="stat-summe-offen" style="font-size: 1.1rem;">0,00 €</div>
-                        <div class="stat-label">Offen</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff3e0; border-radius: 6px;">
+                        <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-offen">0,00 €</span>
+                        <span style="color: #666; font-size: 0.75rem;">Offen</span>
                     </div>
-                    <div class="stat-card" style="border-left-color: #4CAF50;">
-                        <div class="stat-value" id="stat-summe-bezahlt" style="font-size: 1.1rem;">0,00 €</div>
-                        <div class="stat-label">Bezahlt €</div>
+                    <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e8f5e9; border-radius: 6px;">
+                        <span style="font-weight: 500; font-size: 0.95rem; color: #2e7d32;" id="stat-summe-bezahlt">0,00 €</span>
+                        <span style="color: #666; font-size: 0.75rem;">Bezahlt €</span>
                     </div>
                 </div>
 
