@@ -4012,7 +4012,7 @@ const App = {
                     </div>
                 </td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(gesamt)}</td>
-                <td><span class="status-badge ${r.workflowStatus}">${r.workflowStatus}</span></td>
+                <td>${this.getStatusDropdown(r)}</td>
                 <td>${r.pdfExists ?
                     (() => {
                         const uploadId = r.id ? `id:${r.id}` : r.rechnungId;
@@ -6627,6 +6627,96 @@ const App = {
                         ${Icons.edit}
                     </button>
                 </div>${sponsorInfo}`;
+        }
+    },
+
+    /**
+     * Generiert Status-Dropdown für Workflow-Status
+     * Erlaubt Änderung zwischen neu, kontrolliert und bezahlt
+     */
+    getStatusDropdown: function(r) {
+        const status = r.workflowStatus || 'neu';
+        const bookingId = r.id;
+
+        // Für Supabase-only Zeilen (ohne DATEV-Buchung) nur Badge anzeigen
+        if (r.isSupabaseOnly || !bookingId) {
+            return `<span class="status-badge ${status}">${status}</span>`;
+        }
+
+        // Farben für Status-Optionen
+        const statusColors = {
+            'neu': '#6c757d',
+            'kontrolliert': '#ffc107',
+            'bezahlt': '#28a745'
+        };
+
+        const bgColor = statusColors[status] || '#6c757d';
+
+        return `<select class="form-control status-select"
+                        style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
+                               background: ${bgColor}; color: white; border: none; border-radius: 4px;
+                               cursor: pointer; font-weight: 500;"
+                        onchange="App.updateWorkflowStatus('${bookingId}', this.value)">
+                    <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d;">neu</option>
+                    <option value="kontrolliert" ${status === 'kontrolliert' ? 'selected' : ''} style="background: #ffc107; color: #333;">kontrolliert</option>
+                    <option value="bezahlt" ${status === 'bezahlt' ? 'selected' : ''} style="background: #28a745;">bezahlt</option>
+                </select>`;
+    },
+
+    /**
+     * Aktualisiert den Workflow-Status einer DATEV-Buchung
+     */
+    updateWorkflowStatus: async function(bookingId, newStatus) {
+        try {
+            if (!bookingId) {
+                console.warn('Keine bookingId für Status-Update');
+                return;
+            }
+
+            console.log('Aktualisiere Workflow-Status:', { bookingId, newStatus });
+
+            const updateData = {
+                workflow_status: newStatus,
+                updated_at: new Date().toISOString()
+            };
+
+            // Je nach Status: Datum setzen oder löschen
+            if (newStatus === 'kontrolliert') {
+                updateData.kontrolled_at = new Date().toISOString();
+                updateData.paid_at = null; // Bezahlt-Datum löschen
+            } else if (newStatus === 'bezahlt') {
+                updateData.paid_at = new Date().toISOString();
+                // Kontrolliert-Datum beibehalten falls vorhanden
+            } else if (newStatus === 'neu') {
+                updateData.kontrolled_at = null;
+                updateData.paid_at = null;
+            }
+
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update(updateData)
+                .eq('id', bookingId)
+                .select();
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                this.showToast('warning', 'Nicht gefunden', 'Buchung wurde nicht gefunden');
+                return;
+            }
+
+            // Cache invalidieren und Ansicht neu laden
+            if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+                SupabaseDataAdapter.invalidateCache();
+            }
+
+            await this.reloadRechnungenKeepState();
+
+            const statusLabels = { 'neu': 'Neu', 'kontrolliert': 'Kontrolliert', 'bezahlt': 'Bezahlt' };
+            this.showToast('success', 'Status geändert', `Status auf "${statusLabels[newStatus]}" gesetzt`);
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Status:', error);
+            this.showToast('error', 'Fehler', `Status konnte nicht geändert werden: ${error.message}`);
         }
     },
 
