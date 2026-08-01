@@ -5248,15 +5248,21 @@ const App = {
             // Suche die Rechnung in filteredRechnungen um Typ zu bestimmen
             const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
 
-            if (/^\d+$/.test(rechnungId)) {
-                // Nur Zahlen = Supabase-only Invoice
-                invoiceIds.push(rechnungId);
-            } else if (rechnung && rechnung.id && !rechnung.isSupabaseOnly) {
-                // DATEV-Buchung mit DB-ID
-                datevBookings.push({ rechnungId, dbId: rechnung.id, dokumentNr: rechnung.dokumentNr });
+            if (rechnung) {
+                // Rechnung gefunden - basierend auf Eigenschaften kategorisieren
+                if (rechnung.isSupabaseOnly) {
+                    // Supabase-only Invoice (UUID)
+                    invoiceIds.push(rechnung.id);
+                } else if (rechnung.id) {
+                    // DATEV-Buchung mit DB-ID
+                    datevBookings.push({ rechnungId, dbId: rechnung.id, dokumentNr: rechnung.dokumentNr });
+                }
             } else if (rechnungId.startsWith('id:')) {
-                // Format id:123
+                // Format id:123 (DATEV ohne dokumentNr)
                 datevBookings.push({ rechnungId, dbId: rechnungId.substring(3), dokumentNr: null });
+            } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rechnungId)) {
+                // UUID = Invoice
+                invoiceIds.push(rechnungId);
             }
         }
 
