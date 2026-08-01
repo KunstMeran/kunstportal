@@ -8,10 +8,14 @@ const ExcelImportService = {
 
     /**
      * Generiert einen eindeutigen Key für eine Buchung
-     * Key basiert auf: konto_nr + datum + betrag + beschreibung (erste 50 Zeichen)
+     * Key basiert auf: konto_nr + datum + betrag (ohne beschreibung wegen Encoding-Problemen)
      */
     generateBookingKey(booking) {
-        return `${booking.konto_nr || ''}_${booking.datum}_${booking.betrag}_${(booking.beschreibung || '').substring(0, 50)}`;
+        // Betrag normalisieren (auf 2 Dezimalstellen, als String)
+        const betrag = booking.betrag !== null && booking.betrag !== undefined
+            ? parseFloat(booking.betrag).toFixed(2)
+            : '0.00';
+        return `${booking.konto_nr || ''}_${booking.datum || ''}_${betrag}`;
     },
 
     async importDatevBookings(file, year = null) {
@@ -130,16 +134,44 @@ const ExcelImportService = {
 
             // 4. Berechne Differenz: Wie viele von jedem Key müssen importiert werden?
             const keysToImport = new Map(); // key -> anzahl zu importieren
+            let keysWithMore = 0;
+            let keysWithLess = 0;
+            let keysEqual = 0;
+            let totalToImport = 0;
+
             for (const [key, excelCount] of excelKeyCounts) {
                 const dbCount = dbKeyCounts.get(key) || 0;
                 const diff = excelCount - dbCount;
                 if (diff > 0) {
                     keysToImport.set(key, diff);
-                    console.log(`📥 Key "${key.substring(0, 40)}...": Excel=${excelCount}, DB=${dbCount}, Import=${diff}`);
+                    keysWithLess++;
+                    totalToImport += diff;
+                    if (keysWithLess <= 10) { // Nur erste 10 loggen
+                        console.log(`📥 Key "${key.substring(0, 50)}": Excel=${excelCount}, DB=${dbCount}, Import=${diff}`);
+                    }
                 } else if (diff < 0) {
-                    console.warn(`⚠️ Mehr in DB als Excel: "${key.substring(0, 40)}...": Excel=${excelCount}, DB=${dbCount}`);
+                    keysWithMore++;
+                    if (keysWithMore <= 5) { // Nur erste 5 Warnungen
+                        console.warn(`⚠️ Mehr in DB als Excel: "${key.substring(0, 50)}": Excel=${excelCount}, DB=${dbCount}`);
+                    }
+                } else {
+                    keysEqual++;
                 }
             }
+
+            // Prüfe auch Keys die nur in DB sind (nicht in Excel)
+            let keysOnlyInDb = 0;
+            for (const [key, dbCount] of dbKeyCounts) {
+                if (!excelKeyCounts.has(key)) {
+                    keysOnlyInDb++;
+                    if (keysOnlyInDb <= 5) {
+                        console.warn(`🔴 Key nur in DB (nicht in Excel): "${key.substring(0, 50)}": DB=${dbCount}`);
+                    }
+                }
+            }
+
+            console.log(`📊 Key-Analyse: ${keysEqual} gleich, ${keysWithLess} fehlen in DB (${totalToImport} zu importieren), ${keysWithMore} mehr in DB, ${keysOnlyInDb} nur in DB`);
+            console.log(`📊 Summen: Excel=${excelBookings.length}, DB=${existingBookings.length}, Differenz=${excelBookings.length - existingBookings.length}`);
 
             // 5. Wähle die zu importierenden Buchungen aus
             const bookingsToImport = [];
