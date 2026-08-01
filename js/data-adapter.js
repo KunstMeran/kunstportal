@@ -892,8 +892,9 @@ const SupabaseDataAdapter = {
             });
 
             // 4. Nicht-gematchte Supabase Invoices als eigene Zeilen hinzufügen
+            // WICHTIG: Invoices mit linked_booking_id sind IMMER verknüpft und sollten NICHT als separate Zeilen erscheinen
             const unmatchedInvoices = supabaseInvoices
-                .filter(inv => !matchedInvoiceIds.has(inv.id))
+                .filter(inv => !matchedInvoiceIds.has(inv.id) && !inv.linked_booking_id)
                 .map(inv => {
                     // IMMER aus Dateiname parsen für korrekte Trennung von Partita IVA und Rechnungsnr.
                     const parsed = this.parseInvoiceFilename(inv.file_name);
