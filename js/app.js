@@ -8839,7 +8839,7 @@ const App = {
                 { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negate: true },
                 // Abschreibungen: Alle 720er, aber steuerliche (fisc.) werden in der Berechnung gefiltert
                 { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negate: true, isAbschreibung: true, excludeKategorie: ['fisc', 'Magg'] },
-                // Bestandsveränderungen: negate: true - Import dreht Vorzeichen bereits um
+                // Bestandsveränderungen: negate: true wie andere Aufwendungen
                 { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negate: true },
                 { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negate: true },
                 { id: 'B_SUM', label: 'Summe betriebliche Aufwendungen (B)', type: 'sum', level: 0, sumOf: ['B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B14'], color: '#f5c6cb', bold: true },
