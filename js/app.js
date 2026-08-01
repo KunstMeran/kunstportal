@@ -12774,6 +12774,7 @@ const App = {
             access_einnahmen: toBooleanForDB(getRadioValue('workspace-access-einnahmen')),
             access_konfiguration: toBooleanForDB(getRadioValue('workspace-access-konfiguration')),
             access_inventar: toBooleanForDB(getRadioValue('workspace-access-inventar')),
+            access_reporting: toBooleanForDB(getRadioValue('workspace-access-reporting')),
             rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,
             is_active: true
         };
