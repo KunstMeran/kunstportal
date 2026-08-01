@@ -881,7 +881,14 @@ const SupabaseDataAdapter = {
                     // Lieferantenname aus Invoice hat Priorität (wenn manuell gesetzt)
                     const enrichedFornitoreName = firstInvoice.fornitore_name || supplierName || buchung.fornitoreName;
                     // workflowStatus: Invoice-Status hat Priorität, dann DATEV-Status, dann 'neu'
-                    const effectiveWorkflowStatus = firstInvoice.status || buchung.workflowStatus || 'neu';
+                    // Nur gültige Status-Werte akzeptieren
+                    const validStatuses = ['neu', 'kontrolliert', 'bezahlt'];
+                    let effectiveWorkflowStatus = 'neu';
+                    if (firstInvoice.status && validStatuses.includes(firstInvoice.status)) {
+                        effectiveWorkflowStatus = firstInvoice.status;
+                    } else if (buchung.workflowStatus && validStatuses.includes(buchung.workflowStatus)) {
+                        effectiveWorkflowStatus = buchung.workflowStatus;
+                    }
                     return {
                         ...buchung,
                         fornitoreName: enrichedFornitoreName,
@@ -950,8 +957,8 @@ const SupabaseDataAdapter = {
                         uploadedAt: inv.created_at,
                         pdfExists: true,
                         status: inv.status,
-                        // workflowStatus für Filter: aus status ableiten oder 'neu' als Default
-                        workflowStatus: inv.status || 'neu',
+                        // workflowStatus für Filter: nur gültige Werte, sonst 'neu'
+                        workflowStatus: ['neu', 'kontrolliert', 'bezahlt'].includes(inv.status) ? inv.status : 'neu',
                         notes: inv.notes,
                         kostentyp: inv.kostentyp || '',
                         funding_source_id: inv.funding_source_id,
@@ -2398,7 +2405,8 @@ const SupabaseDataAdapter = {
         const level = perms[permissionKey];
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
-        return level === 'read' || level === 'write';
+        // read, write oder delete = mindestens Lesezugriff
+        return level === 'read' || level === 'write' || level === 'delete';
     },
 
     /**
@@ -2412,7 +2420,22 @@ const SupabaseDataAdapter = {
         const level = perms[permissionKey];
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
-        return level === 'write';
+        // write oder delete = Schreibzugriff
+        return level === 'write' || level === 'delete';
+    },
+
+    /**
+     * Prüft ob User Löschzugriff auf einen Bereich hat
+     * @param {string} permissionKey - z.B. 'access_dashboard'
+     * @returns {boolean}
+     */
+    hasDeleteAccess(permissionKey) {
+        const perms = this.permissionsCache;
+        if (!perms) return true; // Fallback: Vollzugriff
+        const level = perms[permissionKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'delete';
     },
 
     /**
