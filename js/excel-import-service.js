@@ -163,6 +163,44 @@ const ExcelImportService = {
             }
             console.log(`✅ ${existingBookings.length} Buchungen in DB, ${dbKeyCounts.size} unique Keys`);
 
+            // DEBUG: Vergleiche erste 3 Keys aus Excel und DB um Unterschiede zu finden
+            console.log('🔍 DEBUG: Erste 3 Excel-Buchungen:');
+            for (let i = 0; i < Math.min(3, excelBookings.length); i++) {
+                const b = excelBookings[i];
+                const key = this.generateBookingKey(b);
+                console.log(`  Excel[${i}]: key="${key}"`);
+                console.log(`    Raw: partita_iva="${b.partita_iva}", dokument_nr="${b.dokument_nr}", datum="${b.datum}", betrag=${b.betrag}, konto_nr="${b.konto_nr}"`);
+                console.log(`    fornitore_name="${b.fornitore_name?.substring(0,30)}", beschreibung="${b.beschreibung?.substring(0,30)}"`);
+            }
+            console.log('🔍 DEBUG: Erste 3 DB-Buchungen:');
+            for (let i = 0; i < Math.min(3, existingBookings.length); i++) {
+                const b = existingBookings[i];
+                const key = this.generateBookingKey(b);
+                console.log(`  DB[${i}]: key="${key}"`);
+                console.log(`    Raw: partita_iva="${b.partita_iva}", dokument_nr="${b.dokument_nr}", datum="${b.datum}", betrag=${b.betrag}, konto_nr="${b.konto_nr}"`);
+                console.log(`    fornitore_name="${b.fornitore_name?.substring(0,30)}", beschreibung="${b.beschreibung?.substring(0,30)}"`);
+            }
+
+            // DEBUG: Finde eine Excel-Buchung die in DB sein sollte aber nicht gefunden wird
+            console.log('🔍 DEBUG: Suche nach nicht-matchenden Keys...');
+            let debugCount = 0;
+            for (const [excelKey, excelCount] of excelKeyCounts) {
+                if (!dbKeyCounts.has(excelKey) && debugCount < 3) {
+                    console.log(`  Excel-Key nicht in DB: "${excelKey.substring(0, 100)}"`);
+                    // Finde ähnliche Keys in DB
+                    const excelParts = excelKey.split('_');
+                    for (const [dbKey, dbCount] of dbKeyCounts) {
+                        const dbParts = dbKey.split('_');
+                        // Vergleiche datum und betrag (Teile 2 und 3)
+                        if (excelParts[2] === dbParts[2] && excelParts[3] === dbParts[3]) {
+                            console.log(`    Ähnlicher DB-Key (gleiches Datum+Betrag): "${dbKey.substring(0, 100)}"`);
+                            break;
+                        }
+                    }
+                    debugCount++;
+                }
+            }
+
             // 4. Berechne Differenz: Wie viele von jedem Key müssen importiert werden?
             const keysToImport = new Map(); // key -> anzahl zu importieren
             let keysWithMore = 0;
