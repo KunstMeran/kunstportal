@@ -363,9 +363,13 @@ const ExcelImportService = {
         // ============================================
         // DATUM ermitteln (Pflichtfeld)
         // ============================================
+        // WICHTIG: Data registrazione (Buchungsdatum) hat Priorität!
+        // Data documento kann ein anderes Jahr haben (z.B. Rechnung vom 31.12.2024,
+        // aber gebucht am 05.01.2025 → gehört ins Jahr 2025)
         const datumSpalten = [
-            'Data documento',
             'Data registrazione',
+            'Data competenza bilancio',
+            'Data documento',
             'Data',
             'Datum',
             'Data doc.',
