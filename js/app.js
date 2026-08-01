@@ -169,7 +169,11 @@ const App = {
         'einnahmen': 'access_einnahmen',
         'konfiguration': 'access_konfiguration',
         'inventar': 'access_inventar',
-        'reporting': 'access_reporting'
+        'reporting': 'access_reporting',
+        // Zusätzliche Views die zur Konfiguration gehören
+        'zeiterfassung': 'access_konfiguration',
+        'budgetplanung': 'access_konfiguration',
+        'import': 'access_konfiguration'
     },
 
     /**
@@ -5248,23 +5252,41 @@ const App = {
             // Suche die Rechnung in filteredRechnungen um Typ zu bestimmen
             const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
 
+            console.log('🗑️ massDelete - Prüfe:', {
+                rechnungId,
+                gefunden: !!rechnung,
+                isSupabaseOnly: rechnung?.isSupabaseOnly,
+                dbId: rechnung?.id,
+                dokumentNr: rechnung?.dokumentNr
+            });
+
             if (rechnung) {
                 // Rechnung gefunden - basierend auf Eigenschaften kategorisieren
                 if (rechnung.isSupabaseOnly) {
                     // Supabase-only Invoice (UUID)
                     invoiceIds.push(rechnung.id);
+                    console.log('  → Als Invoice kategorisiert');
                 } else if (rechnung.id) {
                     // DATEV-Buchung mit DB-ID
                     datevBookings.push({ rechnungId, dbId: rechnung.id, dokumentNr: rechnung.dokumentNr });
+                    console.log('  → Als DATEV-Buchung kategorisiert, dbId:', rechnung.id);
+                } else {
+                    console.log('  → Keine ID gefunden, wird übersprungen');
                 }
             } else if (rechnungId.startsWith('id:')) {
                 // Format id:123 (DATEV ohne dokumentNr)
                 datevBookings.push({ rechnungId, dbId: rechnungId.substring(3), dokumentNr: null });
+                console.log('  → id: Format erkannt');
             } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rechnungId)) {
                 // UUID = Invoice
                 invoiceIds.push(rechnungId);
+                console.log('  → UUID erkannt');
+            } else {
+                console.log('  → Nicht kategorisiert!');
             }
         }
+
+        console.log('🗑️ Ergebnis:', { invoiceIds, datevBookings });
 
         const totalCount = invoiceIds.length + datevBookings.length;
         if (totalCount === 0) {
