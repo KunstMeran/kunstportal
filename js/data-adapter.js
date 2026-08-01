@@ -316,14 +316,13 @@ const SupabaseDataAdapter = {
 
             console.log(`✅ ${this.datevBuchungenCache.length} DATEV-Buchungen aus Supabase geladen`);
 
-            // Für Kompatibilität: Auch in localStorage speichern
+            // Kompatibilitäts-Objekt zurückgeben (NICHT in localStorage speichern - zu groß!)
             const compatData = {
                 buchungen: this.datevBuchungenCache,
                 lieferanten: [],
                 projekte: {},
                 lastUpdate: new Date().toISOString()
             };
-            DataManager.save(DataManager.KEYS.DATEV_BUCHUNGEN, compatData);
 
             return compatData;
 
@@ -1365,14 +1364,14 @@ const SupabaseDataAdapter = {
         try {
             const { data, error } = await SupabaseService.client
                 .from('users')
-                .select('*')
-                .order('name', { ascending: true });
+                .select('id, username, email, role, hourly_rate')
+                .order('username', { ascending: true });
 
             if (error) throw error;
 
             this.usersCache = (data || []).map(u => ({
                 id: u.id,
-                name: u.name || u.email,
+                name: u.username || u.email,
                 email: u.email,
                 role: u.role || 'user',
                 hourlyRate: parseFloat(u.hourly_rate) || 0
