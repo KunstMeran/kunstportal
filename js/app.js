@@ -9372,7 +9372,7 @@ const App = {
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .select('*')
-                    .like('konto_nr', `${kontoNr}%`)
+                    .eq('konto_nr', kontoNr)
                     .eq('archived', false)
                     .order('datum', { ascending: false })
                     .range(page * pageSize, (page + 1) * pageSize - 1);

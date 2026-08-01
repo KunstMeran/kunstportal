@@ -384,12 +384,38 @@ const ExcelImportService = {
                 return betrag < 0 && !isErloskonto && !isFinanzErtrag;
             })(),
 
-            // Beträge - Original aus Excel übernehmen
-            // Vorzeichen-Korrektur erfolgt in der Bilanz-Berechnung basierend auf Kontoart
-            betrag: this.parseDecimal(row['Importo']),
-            betrag_netto: this.parseDecimal(row['Importo']),
+            // Beträge - Vorzeichen basierend auf Kontoart korrigieren für korrekte GuV
+            // Erträge (600-679, 840-849): POSITIV in GuV
+            // Aufwendungen (680-839, 850+): NEGATIV in GuV
+            betrag: (() => {
+                const rawBetrag = this.parseDecimal(row['Importo']);
+                if (rawBetrag === null) return null;
+
+                const konto = String(row['Conto'] || '');
+                const kontoPrefix2 = parseInt(konto.substring(0, 2)) || 0;
+                const kontoPrefix3 = parseInt(konto.substring(0, 3)) || 0;
+
+                // Ertragskonten: 600-679, 840-849 → sollten positiv sein
+                const isErtrag = (kontoPrefix2 >= 60 && kontoPrefix2 <= 67) ||
+                                 (kontoPrefix3 >= 840 && kontoPrefix3 <= 849);
+
+                // Aufwandskonten: 680-839, 850-899 → sollten negativ sein
+                const isAufwand = (kontoPrefix2 >= 68 && kontoPrefix2 <= 89) &&
+                                  !(kontoPrefix3 >= 840 && kontoPrefix3 <= 849);
+
+                if (isErtrag) {
+                    // Erträge: immer positiv (Absolutwert)
+                    return Math.abs(rawBetrag);
+                } else if (isAufwand) {
+                    // Aufwendungen: immer negativ
+                    return -Math.abs(rawBetrag);
+                }
+                // Sonstige Konten: Original beibehalten
+                return rawBetrag;
+            })(),
+            betrag_netto: this.parseDecimal(row['Importo']), // Original für Referenz
             betrag_mwst: null, // Nicht im Export enthalten
-            betrag_gesamt: this.parseDecimal(row['Importo']),
+            betrag_gesamt: this.parseDecimal(row['Importo']), // Original für Referenz
             mwst_typ: null,
 
             // Daten
