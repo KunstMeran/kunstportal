@@ -5087,16 +5087,14 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                const updates = await addAuditMetadata({
-                    workflow_status: 'kontrolliert',
-                    kontrolled_at: heute,
-                    kontrolled_by: user?.id
-                });
-
-                // Update mit Fehlerprüfung
+                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
-                    .update(updates)
+                    .update({
+                        workflow_status: 'kontrolliert',
+                        kontrolled_at: heute,
+                        kontrolled_by: user?.id
+                    })
                     .eq('partita_iva', partitaIva)
                     .eq('dokument_nr', dokumentNr)
                     .select('id');
@@ -5139,18 +5137,16 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                const updates = await addAuditMetadata({
-                    workflow_status: 'neu',
-                    kontrolled_at: null,
-                    kontrolled_by: null,
-                    paid_at: null,
-                    paid_by: null
-                });
-
-                // Update mit Fehlerprüfung
+                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
-                    .update(updates)
+                    .update({
+                        workflow_status: 'neu',
+                        kontrolled_at: null,
+                        kontrolled_by: null,
+                        paid_at: null,
+                        paid_by: null
+                    })
                     .eq('partita_iva', partitaIva)
                     .eq('dokument_nr', dokumentNr)
                     .select('id');
@@ -5200,16 +5196,14 @@ const App = {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                const updates = await addAuditMetadata({
-                    workflow_status: 'bezahlt',
-                    paid_at: heute,
-                    paid_by: user?.id
-                });
-
-                // Update mit Fehlerprüfung
+                // Update mit Fehlerprüfung (ohne addAuditMetadata - datev_bookings hat kein updated_by)
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
-                    .update(updates)
+                    .update({
+                        workflow_status: 'bezahlt',
+                        paid_at: heute,
+                        paid_by: user?.id
+                    })
                     .eq('partita_iva', partitaIva)
                     .eq('dokument_nr', dokumentNr)
                     .select('id');
