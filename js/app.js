@@ -3919,11 +3919,15 @@ const App = {
                         const pdfCount = r.pdfCount || 1;
                         const linkedInvoices = r.linkedInvoices || [];
 
-                        // Wenn mehrere PDFs existieren, alle anzeigen
+                        // Wenn mehrere PDFs existieren, alle anzeigen - jedes mit eigenem X zum Entfernen
                         let pdfLinks = '';
                         if (linkedInvoices.length > 1) {
                             pdfLinks = linkedInvoices.map((inv, idx) =>
-                                `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${inv.filePath || ''}')" style="margin-right: 0.25rem;">PDF${idx + 1}</a>`
+                                `<span style="display: inline-flex; align-items: center; margin-right: 0.25rem; background: #e3f2fd; border-radius: 3px; padding: 0 0.25rem;">
+                                    <a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${inv.filePath || ''}')" style="margin-right: 0.15rem;">PDF${idx + 1}</a>
+                                    <button class="btn btn-sm" style="padding: 0; font-size: 0.6rem; background: transparent; color: #ff5722; border: none; cursor: pointer; line-height: 1;"
+                                        onclick="App.unlinkPdfFromDatev('${inv.id}')" title="PDF${idx + 1} trennen">×</button>
+                                </span>`
                             ).join('');
                         } else {
                             pdfLinks = `<a class="pdf-link" onclick="App.showPdfPreview('${r.partitaIva}', '${r.dokumentNr}', '${r.filePath || ''}')">PDF</a>`;
@@ -3941,7 +3945,7 @@ const App = {
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #2196F3; color: white;"
                                 onclick="document.getElementById('${addPdfInputId}').click()"
                                 title="Weiteres PDF hinzufügen (oder hierhin ziehen)">+</button>
-                            ${r.invoiceId ? `<button class="btn btn-sm"
+                            ${linkedInvoices.length === 1 && r.invoiceId ? `<button class="btn btn-sm"
                                 style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
                                 onclick="App.unlinkPdfFromDatev('${r.invoiceId}')"
                                 title="PDF-Verknüpfung trennen">${Icons.close}</button>` : ''}

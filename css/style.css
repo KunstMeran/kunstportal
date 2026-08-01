@@ -178,6 +178,85 @@ h4 { font-size: 1.1rem; }
     display: block;
 }
 
+/* --- Microsoft SSO --- */
+.login-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0;
+    color: #999;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #ddd;
+}
+
+.login-divider span {
+    padding: 0 1rem;
+    font-size: 0.875rem;
+}
+
+.btn-microsoft {
+    background: var(--color-white);
+    border: 1px solid #ddd;
+    color: var(--color-gray-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-microsoft:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+
+.microsoft-hint {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+}
+
+/* --- Read-Only Mode --- */
+.read-only-banner {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.read-only-banner svg {
+    flex-shrink: 0;
+}
+
+/* Navigation Read-Only Indikator */
+.nav-item.read-only-access {
+    opacity: 0.85;
+}
+
+.nav-item.read-only-access::after {
+    content: '(R)';
+    font-size: 0.625rem;
+    margin-left: 0.5rem;
+    opacity: 0.6;
+    font-weight: normal;
+}
+
+/* Read-Only deaktivierte Elemente */
+.read-only-disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
 /* --- Buttons --- */
 .btn {
     display: inline-block;
