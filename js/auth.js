@@ -56,6 +56,61 @@ const Auth = {
     },
 
     /**
+     * Microsoft SSO Login starten
+     */
+    handleMicrosoftLogin: async function() {
+        if (!Config.features.useSupabase) {
+            console.error('Microsoft Login erfordert Supabase');
+            const errorElement = document.getElementById('login-error');
+            if (errorElement) {
+                errorElement.textContent = 'Microsoft-Anmeldung ist nicht verfügbar';
+                errorElement.classList.add('show');
+            }
+            return;
+        }
+
+        try {
+            // OAuth-Flow starten - Redirect zu Microsoft
+            await SupabaseService.signInWithMicrosoft();
+            // Nach erfolgreichem OAuth wird automatisch zu app.html weitergeleitet
+        } catch (error) {
+            console.error('Microsoft Login Error:', error);
+            const errorElement = document.getElementById('login-error');
+            if (errorElement) {
+                errorElement.textContent = error.message || 'Microsoft-Anmeldung fehlgeschlagen';
+                errorElement.classList.add('show');
+            }
+        }
+    },
+
+    /**
+     * OAuth-Callback verarbeiten (wird beim Zurückkommen von Microsoft aufgerufen)
+     */
+    handleOAuthCallback: async function() {
+        try {
+            const session = await SupabaseService.handleOAuthCallback();
+
+            if (session) {
+                // Session erstellen wie bei normalem Login
+                DataManager.setSession({
+                    id: session.user.id,
+                    email: session.user.email,
+                    username: session.user.email.split('@')[0],
+                    role: 'User',
+                    authProvider: 'microsoft'
+                });
+
+                return true;
+            }
+        } catch (error) {
+            console.error('OAuth Callback Error:', error);
+            // Bei Fehler zur Login-Seite mit Fehlermeldung
+            window.location.href = 'index.html?error=' + encodeURIComponent(error.message);
+        }
+        return false;
+    },
+
+    /**
      * Logout durchführen
      */
     logout: async function() {

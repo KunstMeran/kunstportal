@@ -25,6 +25,13 @@ const Config = {
         useSupabase: true, // Auf false setzen für lokalen localStorage-Modus
         enableRealtime: false, // Erstmal deaktiviert
         enableBackups: true
+    },
+
+    // Microsoft SSO Konfiguration
+    microsoftSSO: {
+        enabled: true,
+        allowedDomain: 'kunstmeranoarte.org', // Nur diese Domain darf sich mit Microsoft anmelden
+        providerName: 'azure' // Supabase Provider-Name für Azure AD
     }
 };
 

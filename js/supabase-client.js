@@ -40,6 +40,44 @@ const SupabaseService = {
         return session;
     },
 
+    // MICROSOFT SSO METHODS
+    async signInWithMicrosoft() {
+        const { data, error } = await this.client.auth.signInWithOAuth({
+            provider: Config.microsoftSSO.providerName,
+            options: {
+                scopes: 'email profile openid',
+                redirectTo: window.location.origin + '/app.html'
+            }
+        });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * OAuth-Callback verarbeiten (nach Redirect von Microsoft)
+     * Prüft auch die Domain-Einschränkung
+     */
+    async handleOAuthCallback() {
+        const { data: { session }, error } = await this.client.auth.getSession();
+
+        if (error) throw error;
+
+        // Domain-Prüfung für Microsoft-Login
+        if (session?.user?.email && Config.microsoftSSO.enabled) {
+            const email = session.user.email;
+            const domain = email.split('@')[1];
+
+            if (domain !== Config.microsoftSSO.allowedDomain) {
+                // Ungültige Domain - User ausloggen
+                await this.signOut();
+                throw new Error(`Anmeldung nur für @${Config.microsoftSSO.allowedDomain} erlaubt`);
+            }
+        }
+
+        return session;
+    },
+
     // USER METHODS
     async getUserProfile(userId) {
         const { data, error } = await this.client

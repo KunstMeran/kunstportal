@@ -28,8 +28,24 @@
                 <button type="submit" class="btn btn-black btn-block">Anmelden</button>
             </form>
 
+            <!-- Microsoft SSO -->
+            <div class="login-divider">
+                <span>oder</span>
+            </div>
+
+            <button type="button" class="btn btn-microsoft btn-block" onclick="Auth.handleMicrosoftLogin()">
+                <svg viewBox="0 0 21 21" width="21" height="21" style="margin-right: 8px;">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="1" y="11" width="9" height="9" fill="#7fba00"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                </svg>
+                Mit Microsoft anmelden
+            </button>
+            <p class="microsoft-hint">Nur für @kunstmeranoarte.org</p>
+
             <p style="margin-top: 2rem; font-size: 0.75rem; color: #999;">
-                Version 1.0.0 | Controlling Solutions
+                Version 2.0.0 | Controlling Solutions
             </p>
         </div>
     </div>
@@ -50,6 +66,21 @@
 
         // Login-Formular Event
         document.getElementById('login-form').addEventListener('submit', Auth.handleLogin);
+
+        // OAuth-Fehler aus URL-Parameter anzeigen
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            if (error) {
+                const errorElement = document.getElementById('login-error');
+                if (errorElement) {
+                    errorElement.textContent = decodeURIComponent(error);
+                    errorElement.classList.add('show');
+                }
+                // URL bereinigen
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
     </script>
 </body>
 </html>

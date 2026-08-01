@@ -115,40 +115,134 @@ const App = {
     },
 
     /**
+     * View-Map für Berechtigungsprüfung
+     */
+    viewPermissionMap: {
+        'dashboard': 'access_dashboard',
+        'projekte': 'access_projekte',
+        'rechnungen': 'access_rechnungen',
+        'bewegungen': 'access_bewegungen',
+        'lieferanten': 'access_lieferanten',
+        'mitglieder': 'access_mitglieder',
+        'einnahmen': 'access_einnahmen',
+        'konfiguration': 'access_konfiguration'
+    },
+
+    /**
      * Navigation basierend auf Berechtigungen ein-/ausblenden
+     * Unterstützt 3-stufige Berechtigungen: 'none', 'read', 'write'
      */
     applyNavigationPermissions: function() {
         if (!this.userPermissions) return;
 
-        const viewMap = {
-            'dashboard': 'access_dashboard', 'projekte': 'access_projekte',
-            'rechnungen': 'access_rechnungen', 'bewegungen': 'access_bewegungen',
-            'lieferanten': 'access_lieferanten', 'mitglieder': 'access_mitglieder',
-            'einnahmen': 'access_einnahmen', 'konfiguration': 'access_konfiguration'
-        };
-
         document.querySelectorAll('.nav-item[data-view]').forEach(navItem => {
             const viewName = navItem.getAttribute('data-view');
-            const permKey = viewMap[viewName];
-            if (permKey && this.userPermissions[permKey] === false) {
-                navItem.style.display = 'none';
+            const permKey = this.viewPermissionMap[viewName];
+
+            if (permKey) {
+                const level = this.userPermissions[permKey];
+
+                // Verstecken wenn 'none' oder false
+                if (level === 'none' || level === false) {
+                    navItem.style.display = 'none';
+                } else {
+                    navItem.style.display = '';
+                    // Visueller Hinweis für Read-Only
+                    if (level === 'read') {
+                        navItem.classList.add('read-only-access');
+                    } else {
+                        navItem.classList.remove('read-only-access');
+                    }
+                }
             }
         });
     },
 
     /**
-     * Prüft ob User Zugriff auf View hat
+     * Prüft ob User mindestens Lesezugriff auf View hat
      */
     hasAccessToView: function(viewName) {
         if (!this.userPermissions) return true;
-        const viewMap = {
-            'dashboard': 'access_dashboard', 'projekte': 'access_projekte',
-            'rechnungen': 'access_rechnungen', 'bewegungen': 'access_bewegungen',
-            'lieferanten': 'access_lieferanten', 'mitglieder': 'access_mitglieder',
-            'einnahmen': 'access_einnahmen', 'konfiguration': 'access_konfiguration'
-        };
-        const permKey = viewMap[viewName];
-        return !permKey || this.userPermissions[permKey] !== false;
+        const permKey = this.viewPermissionMap[viewName];
+        if (!permKey) return true;
+
+        const level = this.userPermissions[permKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'read' || level === 'write';
+    },
+
+    /**
+     * Prüft ob User Schreibzugriff auf View hat
+     */
+    hasWriteAccessToView: function(viewName) {
+        if (!this.userPermissions) return true;
+        const permKey = this.viewPermissionMap[viewName];
+        if (!permKey) return true;
+
+        const level = this.userPermissions[permKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'write';
+    },
+
+    /**
+     * Wendet Read-Only-Modus auf eine View an (deaktiviert Bearbeitungselemente)
+     */
+    applyReadOnlyMode: function(viewName) {
+        // Prüfen ob nur Lesezugriff
+        if (this.hasWriteAccessToView(viewName)) {
+            return; // Vollzugriff, nichts zu tun
+        }
+
+        const viewElement = document.getElementById('view-' + viewName);
+        if (!viewElement) return;
+
+        // Bestehenden Banner entfernen falls vorhanden
+        const existingBanner = viewElement.querySelector('.read-only-banner');
+        if (existingBanner) existingBanner.remove();
+
+        // Read-Only Banner am Anfang der View einfügen
+        const banner = document.createElement('div');
+        banner.className = 'read-only-banner';
+        banner.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> Nur Lesezugriff - Bearbeiten nicht möglich';
+
+        // Nach dem Header einfügen (falls vorhanden)
+        const header = viewElement.querySelector('.view-header');
+        if (header && header.nextSibling) {
+            header.parentNode.insertBefore(banner, header.nextSibling);
+        } else {
+            viewElement.insertBefore(banner, viewElement.firstChild);
+        }
+
+        // Alle Bearbeitungs-Buttons deaktivieren
+        const editSelectors = [
+            '.btn-primary',
+            '.btn-success',
+            '.btn-danger',
+            '[onclick*="save"]',
+            '[onclick*="add"]',
+            '[onclick*="delete"]',
+            '[onclick*="edit"]',
+            '[onclick*="create"]',
+            '[onclick*="remove"]',
+            '[onclick*="update"]'
+        ];
+        viewElement.querySelectorAll(editSelectors.join(', ')).forEach(btn => {
+            if (!btn.classList.contains('btn-outline')) {
+                btn.disabled = true;
+                btn.classList.add('read-only-disabled');
+                btn.title = 'Keine Berechtigung zum Bearbeiten';
+            }
+        });
+
+        // Formulare deaktivieren (außer Filter)
+        viewElement.querySelectorAll('input:not([type="search"]):not(.filter-input), textarea, select:not(.filter-select)').forEach(input => {
+            if (!input.closest('.filter-group') && !input.closest('.search-box')) {
+                input.disabled = true;
+                input.classList.add('read-only-disabled');
+            }
+        });
     },
 
     /**
@@ -458,6 +552,10 @@ const App = {
 
         // View in localStorage speichern
         localStorage.setItem('lastView', viewName);
+
+        // Read-Only-Modus anwenden falls keine Schreibrechte
+        // Verzögert ausführen, damit View-Inhalte erst geladen werden
+        setTimeout(() => this.applyReadOnlyMode(viewName), 200);
 
         // View-spezifische Initialisierung
         switch(viewName) {
@@ -4522,7 +4620,8 @@ const App = {
                 .from('invoices')
                 .update({
                     partita_iva: null,
-                    invoice_number: null
+                    invoice_number: null,
+                    linked_booking_id: null
                 })
                 .eq('id', invoiceId);
 
@@ -7953,21 +8052,26 @@ const App = {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Lade Bilanz-Daten...</td></tr>';
 
         try {
-            // DATEV-Buchungen für beide Jahre laden
+            // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
             const { data: buchungenAktuell, error: err1 } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag')
-                .eq('import_year', jahr);
+                .select('konto_nr, kategorie, betrag, datum')
+                .gte('datum', `${jahr}-01-01`)
+                .lte('datum', `${jahr}-12-31`);
 
             const { data: buchungenVorjahr, error: err2 } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag')
-                .eq('import_year', vorjahr);
+                .select('konto_nr, kategorie, betrag, datum')
+                .gte('datum', `${vorjahr}-01-01`)
+                .lte('datum', `${vorjahr}-12-31`);
 
             if (err1) throw err1;
             if (err2) throw err2;
 
-            // Nach Konto-Prefix gruppieren
+            console.log(`📊 Bilanz ${jahr}: ${buchungenAktuell?.length || 0} Buchungen geladen`);
+            console.log(`📊 Bilanz ${vorjahr}: ${buchungenVorjahr?.length || 0} Buchungen geladen`);
+
+            // Nach Konto-Prefix gruppieren (erste 3 Zeichen)
             const aggregiereNachKonto = (buchungen) => {
                 const result = {};
                 (buchungen || []).forEach(b => {
@@ -7981,6 +8085,9 @@ const App = {
 
             const kontenAktuell = aggregiereNachKonto(buchungenAktuell);
             const kontenVorjahr = aggregiereNachKonto(buchungenVorjahr);
+
+            console.log('📊 Konten aktuell:', kontenAktuell);
+            console.log('📊 Konten vorjahr:', kontenVorjahr);
 
             // Struktur durchgehen und Werte berechnen
             const struktur = this.getBilanzStruktur();
@@ -8001,7 +8108,12 @@ const App = {
                         }
                     });
                 });
-                werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
+                // Bei Aufwendungen (negative: true) als negative Werte speichern für korrekte Berechnung
+                if (gruppe.negative) {
+                    werte[gruppe.id] = { aktuell: -Math.abs(sumAktuell), vorjahr: -Math.abs(sumVorjahr) };
+                } else {
+                    werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
+                }
             });
 
             // Summen berechnen
@@ -8044,12 +8156,16 @@ const App = {
             // Cache speichern
             this.bilanzReportCache = { jahr, vorjahr, werte, struktur };
 
+            console.log('📊 Berechnete Werte:', werte);
+
             // KPIs aktualisieren
             const gesamtleistung = werte['A_SUM']?.aktuell || 0;
             const aufwendungen = Math.abs(werte['B_SUM']?.aktuell || 0);
             const ebitda = werte['EBITDA']?.aktuell || 0;
             const ebit = werte['EBIT']?.aktuell || 0;
             const jahresergebnis = werte['JAHRESERGEBNIS']?.aktuell || 0;
+
+            console.log(`📊 Gesamtleistung: ${gesamtleistung}, Aufwendungen: ${aufwendungen}, EBIT: ${ebit}, Jahresergebnis: ${jahresergebnis}`);
 
             document.getElementById('bilanz-gesamtleistung').textContent = this.formatNumber(gesamtleistung) + ' EUR';
             document.getElementById('bilanz-aufwendungen').textContent = this.formatNumber(aufwendungen) + ' EUR';
@@ -11792,18 +11908,25 @@ const App = {
         const modal = document.getElementById('workspace-form-modal');
         const title = document.getElementById('workspace-modal-title');
 
+        // Hilfsfunktion: Radio-Button auf bestimmten Wert setzen
+        const setRadioValue = (name, value) => {
+            // Konvertiere boolean zu string für Abwärtskompatibilität
+            const strValue = typeof value === 'boolean' ? (value ? 'write' : 'none') : (value || 'none');
+            const radio = document.querySelector(`input[name="${name}"][value="${strValue}"]`);
+            if (radio) radio.checked = true;
+        };
+
         // Formular zurücksetzen
         document.getElementById('workspace-id').value = '';
         document.getElementById('workspace-name').value = '';
         document.getElementById('workspace-description').value = '';
-        document.getElementById('workspace-access-dashboard').checked = false;
-        document.getElementById('workspace-access-projekte').checked = false;
-        document.getElementById('workspace-access-rechnungen').checked = false;
-        document.getElementById('workspace-access-bewegungen').checked = false;
-        document.getElementById('workspace-access-lieferanten').checked = false;
-        document.getElementById('workspace-access-mitglieder').checked = false;
-        document.getElementById('workspace-access-einnahmen').checked = false;
-        document.getElementById('workspace-access-konfiguration').checked = false;
+
+        // Alle Radio-Buttons auf 'none' setzen
+        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration'];
+        areas.forEach(area => {
+            setRadioValue(`workspace-access-${area}`, 'none');
+        });
+
         document.getElementById('workspace-rechnungen-nur-zugewiesene').checked = false;
 
         if (workspaceId) {
@@ -11813,14 +11936,12 @@ const App = {
                 document.getElementById('workspace-id').value = ws.id;
                 document.getElementById('workspace-name').value = ws.name || '';
                 document.getElementById('workspace-description').value = ws.description || '';
-                document.getElementById('workspace-access-dashboard').checked = ws.access_dashboard;
-                document.getElementById('workspace-access-projekte').checked = ws.access_projekte;
-                document.getElementById('workspace-access-rechnungen').checked = ws.access_rechnungen;
-                document.getElementById('workspace-access-bewegungen').checked = ws.access_bewegungen;
-                document.getElementById('workspace-access-lieferanten').checked = ws.access_lieferanten;
-                document.getElementById('workspace-access-mitglieder').checked = ws.access_mitglieder;
-                document.getElementById('workspace-access-einnahmen').checked = ws.access_einnahmen;
-                document.getElementById('workspace-access-konfiguration').checked = ws.access_konfiguration;
+
+                // Radio-Buttons setzen (3-stufige Berechtigungen)
+                areas.forEach(area => {
+                    setRadioValue(`workspace-access-${area}`, ws[`access_${area}`]);
+                });
+
                 document.getElementById('workspace-rechnungen-nur-zugewiesene').checked = ws.rechnungen_nur_zugewiesene;
             }
         } else {
@@ -11837,18 +11958,25 @@ const App = {
     saveWorkspace: async function(event) {
         event.preventDefault();
 
+        // Hilfsfunktion: Radio-Button-Wert auslesen
+        const getRadioValue = (name) => {
+            const checked = document.querySelector(`input[name="${name}"]:checked`);
+            return checked ? checked.value : 'none';
+        };
+
         const workspaceId = document.getElementById('workspace-id').value;
         const workspaceData = {
             name: document.getElementById('workspace-name').value.trim(),
             description: document.getElementById('workspace-description').value.trim() || null,
-            access_dashboard: document.getElementById('workspace-access-dashboard').checked,
-            access_projekte: document.getElementById('workspace-access-projekte').checked,
-            access_rechnungen: document.getElementById('workspace-access-rechnungen').checked,
-            access_bewegungen: document.getElementById('workspace-access-bewegungen').checked,
-            access_lieferanten: document.getElementById('workspace-access-lieferanten').checked,
-            access_mitglieder: document.getElementById('workspace-access-mitglieder').checked,
-            access_einnahmen: document.getElementById('workspace-access-einnahmen').checked,
-            access_konfiguration: document.getElementById('workspace-access-konfiguration').checked,
+            // 3-stufige Berechtigungen: 'none', 'read', 'write'
+            access_dashboard: getRadioValue('workspace-access-dashboard'),
+            access_projekte: getRadioValue('workspace-access-projekte'),
+            access_rechnungen: getRadioValue('workspace-access-rechnungen'),
+            access_bewegungen: getRadioValue('workspace-access-bewegungen'),
+            access_lieferanten: getRadioValue('workspace-access-lieferanten'),
+            access_mitglieder: getRadioValue('workspace-access-mitglieder'),
+            access_einnahmen: getRadioValue('workspace-access-einnahmen'),
+            access_konfiguration: getRadioValue('workspace-access-konfiguration'),
             rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,
             is_active: true
         };

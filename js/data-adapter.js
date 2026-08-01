@@ -2218,8 +2218,19 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Berechtigungslevel-Konstanten
+     * none = kein Zugriff, read = nur lesen, write = lesen+bearbeiten
+     */
+    PERMISSION_LEVELS: {
+        none: 0,
+        read: 1,
+        write: 2
+    },
+
+    /**
      * Lädt die Berechtigungen des aktuellen Users
-     * Aggregiert aus allen zugewiesenen Workspaces (OR-Verknüpfung)
+     * Aggregiert aus allen zugewiesenen Workspaces (höchste Stufe gewinnt)
+     * Unterstützt 3-stufige Berechtigungen: 'none', 'read', 'write'
      */
     async getCurrentUserPermissions() {
         try {
@@ -2260,24 +2271,39 @@ const SupabaseDataAdapter = {
 
             // Wenn keine Workspaces zugewiesen, Vollzugriff (für Admins/Erstnutzer)
             if (!data || data.length === 0) {
-                console.log('⚠️ Kein Workspace zugewiesen - Vollzugriff gewährt');
+                console.log('Kein Workspace zugewiesen - Vollzugriff gewährt');
                 return this.getFullPermissions();
             }
 
-            // Berechtigungen aggregieren (OR über alle Workspaces)
+            // Hilfsfunktion: Aggregiert zwei Berechtigungslevel (höchste Stufe gewinnt)
+            const aggregateLevel = (current, newLevel) => {
+                const levels = this.PERMISSION_LEVELS;
+                const levelNames = ['none', 'read', 'write'];
+                // Konvertiere zu Nummer falls nötig (Abwärtskompatibilität für boolean)
+                const currentNum = typeof current === 'boolean'
+                    ? (current ? 2 : 0)
+                    : (levels[current] ?? 0);
+                const newNum = typeof newLevel === 'boolean'
+                    ? (newLevel ? 2 : 0)
+                    : (levels[newLevel] ?? 0);
+                return levelNames[Math.max(currentNum, newNum)];
+            };
+
+            // Berechtigungen aggregieren (höchste Stufe über alle Workspaces gewinnt)
             const permissions = {
                 userId: user.id,
                 userEmail: user.email,
                 workspaces: [],
-                access_dashboard: false,
-                access_projekte: false,
-                access_rechnungen: false,
-                access_bewegungen: false,
-                access_lieferanten: false,
-                access_mitglieder: false,
-                access_einnahmen: false,
-                access_konfiguration: false,
-                rechnungen_nur_zugewiesene: true, // Startet mit true, wird auf false gesetzt wenn ein Workspace vollen Zugriff hat
+                // 3-stufige Berechtigungen: 'none', 'read', 'write'
+                access_dashboard: 'none',
+                access_projekte: 'none',
+                access_rechnungen: 'none',
+                access_bewegungen: 'none',
+                access_lieferanten: 'none',
+                access_mitglieder: 'none',
+                access_einnahmen: 'none',
+                access_konfiguration: 'none',
+                rechnungen_nur_zugewiesene: true,
                 isWorkspaceAdmin: false
             };
 
@@ -2286,15 +2312,15 @@ const SupabaseDataAdapter = {
                     const ws = uw.workspaces;
                     permissions.workspaces.push({ id: ws.id, name: ws.name });
 
-                    // OR-Verknüpfung für alle Zugriffsrechte
-                    permissions.access_dashboard = permissions.access_dashboard || ws.access_dashboard;
-                    permissions.access_projekte = permissions.access_projekte || ws.access_projekte;
-                    permissions.access_rechnungen = permissions.access_rechnungen || ws.access_rechnungen;
-                    permissions.access_bewegungen = permissions.access_bewegungen || ws.access_bewegungen;
-                    permissions.access_lieferanten = permissions.access_lieferanten || ws.access_lieferanten;
-                    permissions.access_mitglieder = permissions.access_mitglieder || ws.access_mitglieder;
-                    permissions.access_einnahmen = permissions.access_einnahmen || ws.access_einnahmen;
-                    permissions.access_konfiguration = permissions.access_konfiguration || ws.access_konfiguration;
+                    // Aggregation mit höchster Stufe
+                    permissions.access_dashboard = aggregateLevel(permissions.access_dashboard, ws.access_dashboard);
+                    permissions.access_projekte = aggregateLevel(permissions.access_projekte, ws.access_projekte);
+                    permissions.access_rechnungen = aggregateLevel(permissions.access_rechnungen, ws.access_rechnungen);
+                    permissions.access_bewegungen = aggregateLevel(permissions.access_bewegungen, ws.access_bewegungen);
+                    permissions.access_lieferanten = aggregateLevel(permissions.access_lieferanten, ws.access_lieferanten);
+                    permissions.access_mitglieder = aggregateLevel(permissions.access_mitglieder, ws.access_mitglieder);
+                    permissions.access_einnahmen = aggregateLevel(permissions.access_einnahmen, ws.access_einnahmen);
+                    permissions.access_konfiguration = aggregateLevel(permissions.access_konfiguration, ws.access_konfiguration);
 
                     // Wenn mindestens ein Workspace vollen Rechnungszugriff hat
                     if (!ws.rechnungen_nur_zugewiesene) {
@@ -2319,6 +2345,34 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Prüft ob User mindestens Lesezugriff auf einen Bereich hat
+     * @param {string} permissionKey - z.B. 'access_dashboard'
+     * @returns {boolean}
+     */
+    hasReadAccess(permissionKey) {
+        const perms = this.permissionsCache;
+        if (!perms) return true; // Fallback: Vollzugriff
+        const level = perms[permissionKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'read' || level === 'write';
+    },
+
+    /**
+     * Prüft ob User Schreibzugriff auf einen Bereich hat
+     * @param {string} permissionKey - z.B. 'access_dashboard'
+     * @returns {boolean}
+     */
+    hasWriteAccess(permissionKey) {
+        const perms = this.permissionsCache;
+        if (!perms) return true; // Fallback: Vollzugriff
+        const level = perms[permissionKey];
+        // Abwärtskompatibilität für boolean
+        if (typeof level === 'boolean') return level;
+        return level === 'write';
+    },
+
+    /**
      * Standard-Berechtigungen (kein Zugriff)
      */
     getDefaultPermissions() {
@@ -2326,14 +2380,14 @@ const SupabaseDataAdapter = {
             userId: null,
             userEmail: null,
             workspaces: [],
-            access_dashboard: false,
-            access_projekte: false,
-            access_rechnungen: false,
-            access_bewegungen: false,
-            access_lieferanten: false,
-            access_mitglieder: false,
-            access_einnahmen: false,
-            access_konfiguration: false,
+            access_dashboard: 'none',
+            access_projekte: 'none',
+            access_rechnungen: 'none',
+            access_bewegungen: 'none',
+            access_lieferanten: 'none',
+            access_mitglieder: 'none',
+            access_einnahmen: 'none',
+            access_konfiguration: 'none',
             rechnungen_nur_zugewiesene: true,
             isWorkspaceAdmin: false
         };
@@ -2347,14 +2401,14 @@ const SupabaseDataAdapter = {
             userId: null,
             userEmail: null,
             workspaces: [],
-            access_dashboard: true,
-            access_projekte: true,
-            access_rechnungen: true,
-            access_bewegungen: true,
-            access_lieferanten: true,
-            access_mitglieder: true,
-            access_einnahmen: true,
-            access_konfiguration: true,
+            access_dashboard: 'write',
+            access_projekte: 'write',
+            access_rechnungen: 'write',
+            access_bewegungen: 'write',
+            access_lieferanten: 'write',
+            access_mitglieder: 'write',
+            access_einnahmen: 'write',
+            access_konfiguration: 'write',
             rechnungen_nur_zugewiesene: false,
             isWorkspaceAdmin: true
         };
