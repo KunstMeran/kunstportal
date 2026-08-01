@@ -12649,11 +12649,26 @@ const App = {
         const file = fileInput.files[0];
 
         resultDiv.style.display = 'block';
-        resultDiv.innerHTML = '<div style="color: #666;">⏳ Import läuft...</div>';
+
+        // Progress-Anzeige mit Fortschrittsbalken
+        const updateProgress = (percent, message) => {
+            resultDiv.innerHTML = `
+                <div style="color: #666;">
+                    <div style="margin-bottom: 8px;">⏳ ${message}</div>
+                    <div style="background: #e9ecef; border-radius: 4px; height: 20px; overflow: hidden;">
+                        <div style="background: #3498db; height: 100%; width: ${percent}%; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="text-align: right; font-size: 12px; margin-top: 4px;">${percent}%</div>
+                </div>`;
+        };
+
+        updateProgress(0, 'Import wird gestartet...');
 
         try {
             // Jahr wird automatisch aus dem Datum jeder Buchung erkannt
-            const result = await ExcelImportService.importDatevBookings(file);
+            const result = await ExcelImportService.importDatevBookings(file, {
+                onProgress: updateProgress
+            });
 
             // Erfolg wenn Buchungen importiert wurden (auch bei teilweisen Fehlern/Duplikaten)
             if (result.success || result.imported > 0) {

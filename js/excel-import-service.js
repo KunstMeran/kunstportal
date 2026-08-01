@@ -2,246 +2,568 @@
  * EXCEL IMPORT SERVICE
  * Import von DATEV-Buchungen und Lieferanten aus Excel-Exporten
  * Projektsoftware Kunst Meran
+ *
+ * Version 2.1 - Überarbeitet:
+ * - Intelligente Duplikat-Erkennung (nur fehlende importieren)
+ * - Progress-Callback für UI-Feedback
+ * - raw: true für bessere Zahlenverarbeitung
+ * - Vorzeichen: nur bei Umsatzkonten (6xx) umdrehen
+ * - Detaillierte Dokumentation für jede übersprungene Zeile
  */
 
 const ExcelImportService = {
 
     /**
-     * Generiert einen eindeutigen Key für eine Buchung zum COUNT-basierten Matching.
+     * Generiert einen eindeutigen Key für eine Buchung.
+     * Wird verwendet um zu prüfen ob eine Buchung bereits in der DB existiert.
      *
-     * Key-Felder (passend zum DB-Constraint idx_unique_datev_booking_v3):
+     * Key-Felder:
      * - dokument_nr
      * - datum
-     * - betrag
+     * - betrag (gerundet auf 2 Dezimalstellen)
      * - konto_nr
-     *
-     * NICHT im Key (weil variabel zwischen Importen):
-     * - partita_iva (wird via Supplier-Matching gesetzt)
-     * - fornitore_name (kann sich ändern)
-     * - beschreibung (variiert zwischen Excel-Exporten)
      */
     generateBookingKey(booking) {
-        // dokument_nr - direkt aus Excel
-        const dokumentNr = booking.dokument_nr || '';
+        const dokumentNr = String(booking.dokument_nr || '').trim();
+        const datum = String(booking.datum || '').trim();
 
-        // datum - direkt aus Excel
-        const datum = booking.datum || '';
-
-        // betrag - als String für Vergleich
+        // Betrag auf 2 Dezimalstellen runden für konsistenten Vergleich
         let betrag = '';
         if (booking.betrag !== null && booking.betrag !== undefined) {
             const num = parseFloat(booking.betrag);
-            betrag = String(num);
+            if (!isNaN(num)) {
+                betrag = num.toFixed(2);
+            }
         }
 
-        // konto_nr - direkt aus Excel
-        const kontoNr = booking.konto_nr || '';
+        const kontoNr = String(booking.konto_nr || '').trim();
 
-        return `${dokumentNr}_${datum}_${betrag}_${kontoNr}`;
+        return `${dokumentNr}|${datum}|${betrag}|${kontoNr}`;
     },
 
-    async importDatevBookings(file, year = null) {
-        try {
-            console.log('📤 Importiere DATEV-Buchungen (Direkt-Import)');
+    /**
+     * Haupt-Import-Funktion für DATEV-Buchungen
+     *
+     * @param {File} file - Excel-Datei
+     * @param {Object} options - Optionen
+     * @param {Function} options.onProgress - Callback für Fortschritt (0-100)
+     * @returns {Object} Import-Ergebnis mit detaillierter Statistik
+     */
+    async importDatevBookings(file, options = {}) {
+        const onProgress = options.onProgress || (() => {});
+        const skippedRows = [];
+        const importedRows = [];
 
-            // Excel-Datei parsen mit SheetJS
+        try {
+            console.log('📤 DATEV-Import gestartet:', file.name);
+            onProgress(5, 'Excel-Datei wird gelesen...');
+
+            // ============================================
+            // SCHRITT 1: Excel-Datei parsen
+            // ============================================
             const data = await this.parseExcelFile(file);
+
             if (!data || data.length === 0) {
-                throw new Error('Keine Daten in Excel-Datei gefunden');
+                return {
+                    success: false,
+                    error: 'Keine Daten in Excel-Datei gefunden',
+                    imported: 0,
+                    skipped: 0,
+                    skippedRows: []
+                };
             }
 
             console.log(`📊 ${data.length} Zeilen in Excel gefunden`);
+            console.log('📋 Spalten:', Object.keys(data[0]));
 
-            // Debug: Erste Zeile ausgeben um Spaltenstruktur zu sehen
-            if (data.length > 0) {
-                console.log('📋 Excel-Spalten:', Object.keys(data[0]));
-                console.log('📋 Beispiel-Zeile 1:', data[0]);
-            }
+            onProgress(10, `${data.length} Zeilen gefunden, lade Lieferanten...`);
 
-            // Tracking für übersprungene Zeilen
-            const skippedRows = [];
-
-            // Lieferanten-Liste laden für Partita IVA Lookup
+            // ============================================
+            // SCHRITT 2: Lieferanten für Matching laden
+            // ============================================
             const { data: suppliers, error: supplierError } = await SupabaseService.client
                 .from('suppliers')
                 .select('fornitore_name, partita_iva, fornitore_nr');
 
             if (supplierError) {
-                console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+                console.warn('⚠️ Lieferanten konnten nicht geladen werden:', supplierError);
             }
 
             const supplierMap = new Map();
             if (suppliers) {
                 suppliers.forEach(s => {
-                    const key = s.fornitore_name.toLowerCase().trim();
-                    supplierMap.set(key, {
-                        partita_iva: s.partita_iva,
-                        fornitore_nr: s.fornitore_nr
-                    });
+                    if (s.fornitore_name) {
+                        const key = s.fornitore_name.toLowerCase().trim();
+                        supplierMap.set(key, {
+                            partita_iva: s.partita_iva,
+                            fornitore_nr: s.fornitore_nr
+                        });
+                    }
                 });
             }
             console.log(`📇 ${supplierMap.size} Lieferanten für Matching geladen`);
 
-            // 1. Alle Excel-Zeilen zu Buchungen mappen
+            onProgress(15, 'Lade existierende Buchungen...');
+
+            // ============================================
+            // SCHRITT 3: Existierende Buchungen laden (für Duplikat-Check)
+            // ============================================
+            const { data: existingBookings, error: existingError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('dokument_nr, datum, betrag, konto_nr');
+
+            if (existingError) {
+                console.warn('⚠️ Existierende Buchungen konnten nicht geladen werden:', existingError);
+            }
+
+            // Set mit existierenden Keys erstellen
+            const existingKeys = new Set();
+            if (existingBookings && existingBookings.length > 0) {
+                existingBookings.forEach(b => {
+                    const key = this.generateBookingKey(b);
+                    existingKeys.add(key);
+                });
+                console.log(`📚 ${existingKeys.size} existierende Buchungen in DB`);
+            } else {
+                console.log('📚 Datenbank ist leer - alle Buchungen werden importiert');
+            }
+
+            onProgress(20, 'Verarbeite Excel-Zeilen...');
+
+            // ============================================
+            // SCHRITT 4: Excel-Zeilen zu Buchungen mappen
+            // ============================================
             const bookingsToImport = [];
-            for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            const totalRows = data.length;
+
+            for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
                 const row = data[rowIndex];
-                const booking = this.mapRowToDatevBooking(row, null, file.name, supplierMap);
+                const excelRowNumber = rowIndex + 2; // +2 weil Header = Zeile 1, Index startet bei 0
 
-                if (!booking.datum) {
-                    // Debug: Alle verfügbaren Datum-Spalten loggen
-                    const datumFelder = Object.keys(row).filter(k =>
-                        k.toLowerCase().includes('data') || k.toLowerCase().includes('datum')
-                    );
-                    console.warn(`⚠️ Zeile ${rowIndex + 2} übersprungen - kein Datum. Verfügbare Datum-Felder:`, datumFelder, row);
+                // Progress alle 100 Zeilen aktualisieren
+                if (rowIndex % 100 === 0) {
+                    const progressPercent = 20 + Math.floor((rowIndex / totalRows) * 40);
+                    onProgress(progressPercent, `Verarbeite Zeile ${rowIndex + 1} von ${totalRows}...`);
+                }
 
+                // Mapping der Zeile
+                const mappingResult = this.mapRowToDatevBooking(row, file.name, supplierMap, excelRowNumber);
+
+                // Wenn Mapping fehlgeschlagen, dokumentieren und überspringen
+                if (mappingResult.error) {
                     skippedRows.push({
-                        rowNumber: rowIndex + 2,
-                        reason: 'Kein gültiges Datum',
-                        reasonCode: 'NO_DATE',
+                        rowNumber: excelRowNumber,
+                        reason: mappingResult.error,
+                        reasonCode: mappingResult.errorCode,
                         data: {
+                            rawRow: this.sanitizeRowForLog(row),
                             konto: row['Conto'] || '',
                             fornitore: row['Denominazione'] || row['Descrizione movimento'] || '',
                             betrag: row['Importo'] || '',
                             dokument: row['Numero documento'] || '',
-                            datum: row['Data documento'] || row['Data registrazione'] || '',
-                            alleDateFields: datumFelder.join(', ')
+                            datum: row['Data documento'] || row['Data registrazione'] || ''
                         }
                     });
                     continue;
                 }
+
+                const booking = mappingResult.booking;
+
+                // Duplikat-Check: Existiert diese Buchung bereits in der DB?
+                const bookingKey = this.generateBookingKey(booking);
+                if (existingKeys.has(bookingKey)) {
+                    skippedRows.push({
+                        rowNumber: excelRowNumber,
+                        reason: 'Bereits in Datenbank vorhanden',
+                        reasonCode: 'DUPLICATE_EXISTS',
+                        data: {
+                            konto: booking.konto_nr || '',
+                            fornitore: booking.fornitore_name || '',
+                            betrag: booking.betrag,
+                            dokument: booking.dokument_nr || '',
+                            datum: booking.datum,
+                            key: bookingKey
+                        }
+                    });
+                    continue;
+                }
+
+                // Buchung ist neu - zur Import-Liste hinzufügen
+                // Key auch zu existingKeys hinzufügen um Duplikate innerhalb der Excel zu erlauben
+                // (gleiche Zeile kann mehrfach vorkommen - wird trotzdem importiert)
                 bookingsToImport.push(booking);
+                importedRows.push({
+                    rowNumber: excelRowNumber,
+                    data: {
+                        konto: booking.konto_nr,
+                        fornitore: booking.fornitore_name,
+                        betrag: booking.betrag,
+                        dokument: booking.dokument_nr,
+                        datum: booking.datum
+                    }
+                });
             }
 
-            console.log(`✅ ${bookingsToImport.length} gültige Buchungen zum Import`);
+            console.log(`✅ ${bookingsToImport.length} neue Buchungen zum Import`);
+            console.log(`⏭️ ${skippedRows.length} Zeilen übersprungen`);
 
+            onProgress(60, `${bookingsToImport.length} neue Buchungen werden importiert...`);
+
+            // ============================================
+            // SCHRITT 5: Import in Supabase (Chunk-weise)
+            // ============================================
             if (bookingsToImport.length === 0) {
+                onProgress(100, 'Fertig - keine neuen Buchungen');
                 return {
                     success: true,
                     imported: 0,
                     skipped: skippedRows.length,
                     skippedRows: skippedRows,
-                    message: 'Keine gültigen Buchungen gefunden'
+                    excelTotal: totalRows,
+                    message: `Keine neuen Buchungen. ${skippedRows.length} Zeilen übersprungen (bereits vorhanden oder ungültig).`
                 };
             }
 
-            // 2. Import in Supabase in Chunks - DB-Constraint prüft auf Duplikate
             let successCount = 0;
-            const errors = [];
-            const chunkSize = 50;
+            const importErrors = [];
+            const chunkSize = 100; // Größere Chunks für bessere Performance
+            const totalChunks = Math.ceil(bookingsToImport.length / chunkSize);
 
-            for (let i = 0; i < bookingsToImport.length; i += chunkSize) {
-                const chunk = bookingsToImport.slice(i, i + chunkSize);
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * chunkSize;
+                const end = Math.min(start + chunkSize, bookingsToImport.length);
+                const chunk = bookingsToImport.slice(start, end);
 
-                const { data: insertedChunk, error: insertError } = await SupabaseService.client
+                const progressPercent = 60 + Math.floor((chunkIndex / totalChunks) * 35);
+                onProgress(progressPercent, `Importiere Chunk ${chunkIndex + 1} von ${totalChunks}...`);
+
+                const { data: insertedData, error: insertError } = await SupabaseService.client
                     .from('datev_bookings')
                     .insert(chunk)
-                    .select();
+                    .select('id');
 
                 if (insertError) {
-                    // Prüfe ob Chunk-Fehler ein Duplikat ist (409 Conflict oder 23505)
-                    const isChunkDuplicate = insertError.code === '23505' ||
-                        insertError.code === '409' ||
-                        insertError.message?.toLowerCase().includes('duplicate') ||
-                        insertError.message?.toLowerCase().includes('conflict') ||
-                        insertError.message?.toLowerCase().includes('unique');
+                    console.error(`❌ Fehler bei Chunk ${chunkIndex + 1}:`, insertError);
 
-                    if (!isChunkDuplicate) {
-                        console.error(`❌ Fehler bei Chunk ${i}-${i+chunkSize}:`, insertError);
-                    }
-
-                    // Bei Fehler einzeln versuchen
-                    for (const booking of chunk) {
-                        const { data: singleInsert, error: singleError } = await SupabaseService.client
+                    // Bei Fehler: Einzeln versuchen um zu sehen welche Zeilen fehlschlagen
+                    for (let i = 0; i < chunk.length; i++) {
+                        const singleBooking = chunk[i];
+                        const { data: singleResult, error: singleError } = await SupabaseService.client
                             .from('datev_bookings')
-                            .insert(booking)
-                            .select();
+                            .insert(singleBooking)
+                            .select('id');
 
                         if (singleError) {
-                            // Duplikat-Erkennung: 409 HTTP, 23505 PG, oder Text-Hinweise
-                            const isDuplicate = singleError.code === '23505' ||
-                                singleError.code === '409' ||
-                                singleError.message?.toLowerCase().includes('duplicate') ||
-                                singleError.message?.toLowerCase().includes('conflict') ||
-                                singleError.message?.toLowerCase().includes('unique');
+                            const rowInfo = importedRows[start + i];
+                            importErrors.push({
+                                rowNumber: rowInfo?.rowNumber || '?',
+                                error: singleError.message,
+                                data: singleBooking
+                            });
 
-                            if (!isDuplicate) {
-                                errors.push(singleError.message);
-                                console.warn(`⚠️ Nicht-Duplikat-Fehler:`, singleError);
-                            }
+                            // Zur skippedRows hinzufügen
                             skippedRows.push({
-                                rowNumber: '?',
-                                reason: isDuplicate ? 'Bereits in DB vorhanden' : `DB-Fehler: ${singleError.message}`,
-                                reasonCode: isDuplicate ? 'DUPLICATE_DB' : 'DB_ERROR',
+                                rowNumber: rowInfo?.rowNumber || '?',
+                                reason: `DB-Fehler: ${singleError.message}`,
+                                reasonCode: 'DB_ERROR',
                                 data: {
-                                    konto: booking.konto_nr || '',
-                                    fornitore: booking.fornitore_name || '',
-                                    betrag: booking.betrag,
-                                    dokument: booking.dokument_nr || '',
-                                    datum: booking.datum
+                                    konto: singleBooking.konto_nr || '',
+                                    fornitore: singleBooking.fornitore_name || '',
+                                    betrag: singleBooking.betrag,
+                                    dokument: singleBooking.dokument_nr || '',
+                                    datum: singleBooking.datum
                                 }
                             });
-                        } else if (singleInsert) {
-                            successCount += singleInsert.length;
+                        } else {
+                            successCount++;
                         }
                     }
-                } else if (insertedChunk) {
-                    successCount += insertedChunk.length;
+                } else {
+                    successCount += chunk.length;
                 }
             }
 
-            console.log(`✅ ${successCount} Buchungen erfolgreich importiert`);
-            console.log(`📊 Statistik: Excel=${bookingsToImport.length}, Importiert=${successCount}, Übersprungen=${skippedRows.length}`);
+            onProgress(100, 'Import abgeschlossen');
 
-            // Import ist erfolgreich wenn mindestens etwas importiert wurde oder keine echten Fehler auftraten
-            const hasRealErrors = errors.length > 0;
-            const importSuccess = successCount > 0 || !hasRealErrors;
+            console.log(`✅ ${successCount} Buchungen erfolgreich importiert`);
+            if (importErrors.length > 0) {
+                console.warn(`⚠️ ${importErrors.length} Fehler beim Import`);
+            }
 
             return {
-                success: importSuccess,
+                success: true,
                 imported: successCount,
                 skipped: skippedRows.length,
                 skippedRows: skippedRows,
-                excelTotal: bookingsToImport.length,
-                errors: hasRealErrors ? errors : undefined,
-                message: `${successCount} neue Buchungen importiert, ${skippedRows.length} übersprungen`
+                excelTotal: totalRows,
+                errors: importErrors.length > 0 ? importErrors : undefined,
+                message: `${successCount} Buchungen importiert, ${skippedRows.length} übersprungen`
             };
 
         } catch (error) {
             console.error('❌ Import-Fehler:', error);
+            onProgress(100, 'Fehler beim Import');
             return {
                 success: false,
-                error: error.message
+                error: error.message,
+                imported: 0,
+                skipped: skippedRows.length,
+                skippedRows: skippedRows
             };
         }
     },
 
     /**
+     * Excel-Datei parsen mit SheetJS
+     * Verwendet raw: true für bessere Zahlenverarbeitung
+     */
+    async parseExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {
+                        type: 'array',
+                        raw: true,           // Rohe Werte statt formatierte Strings
+                        cellDates: true,     // Datum als Date-Objekt
+                        cellNF: true         // Zahlenformat beibehalten
+                    });
+
+                    // Erstes Sheet verwenden
+                    const firstSheetName = workbook.SheetNames[0];
+                    const firstSheet = workbook.Sheets[firstSheetName];
+
+                    // Zu JSON konvertieren
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
+                        raw: true,           // Rohe Werte
+                        defval: null         // Leere Zellen als null
+                    });
+
+                    console.log(`📄 Sheet "${firstSheetName}" mit ${jsonData.length} Zeilen geladen`);
+                    resolve(jsonData);
+
+                } catch (error) {
+                    console.error('❌ Excel-Parse-Fehler:', error);
+                    reject(new Error(`Excel konnte nicht gelesen werden: ${error.message}`));
+                }
+            };
+
+            reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei'));
+            reader.readAsArrayBuffer(file);
+        });
+    },
+
+    /**
+     * Excel-Zeile zu DATEV-Buchung mappen
+     * Gibt entweder { booking: ... } oder { error: ..., errorCode: ... } zurück
+     */
+    mapRowToDatevBooking(row, fileName, supplierMap, rowNumber) {
+        // ============================================
+        // DATUM ermitteln (Pflichtfeld)
+        // ============================================
+        const datumSpalten = [
+            'Data documento',
+            'Data registrazione',
+            'Data',
+            'Datum',
+            'Data doc.',
+            'Data reg.'
+        ];
+
+        let datum = null;
+        let datumSource = null;
+
+        for (const spalte of datumSpalten) {
+            if (row[spalte] !== null && row[spalte] !== undefined && row[spalte] !== '') {
+                datum = this.parseDate(row[spalte]);
+                if (datum) {
+                    datumSource = spalte;
+                    break;
+                }
+            }
+        }
+
+        if (!datum) {
+            const availableDateFields = datumSpalten
+                .filter(s => row[s] !== null && row[s] !== undefined)
+                .map(s => `${s}="${row[s]}"`)
+                .join(', ');
+
+            return {
+                error: `Kein gültiges Datum gefunden. Geprüfte Felder: ${availableDateFields || 'keine'}`,
+                errorCode: 'NO_DATE'
+            };
+        }
+
+        // ============================================
+        // BETRAG ermitteln (Pflichtfeld)
+        // ============================================
+        const betragRaw = row['Importo'];
+        if (betragRaw === null || betragRaw === undefined || betragRaw === '') {
+            return {
+                error: 'Kein Betrag (Importo) vorhanden',
+                errorCode: 'NO_AMOUNT'
+            };
+        }
+
+        const betragParsed = this.parseDecimal(betragRaw);
+        if (betragParsed === null || isNaN(betragParsed)) {
+            return {
+                error: `Betrag "${betragRaw}" konnte nicht als Zahl interpretiert werden`,
+                errorCode: 'INVALID_AMOUNT'
+            };
+        }
+
+        // ============================================
+        // KONTO ermitteln
+        // ============================================
+        const kontoNr = row['Conto'] || null;
+        if (!kontoNr) {
+            return {
+                error: 'Kein Konto (Conto) vorhanden',
+                errorCode: 'NO_ACCOUNT'
+            };
+        }
+
+        // ============================================
+        // LIEFERANTENNAME ermitteln
+        // ============================================
+        let fornitoreName = row['Denominazione'] || '';
+
+        // Fallback: Aus Descrizione movimento extrahieren
+        if (!fornitoreName && row['Descrizione movimento']) {
+            const descrizione = String(row['Descrizione movimento']).trim();
+            const separators = [' - ', ' vom ', ' del '];
+            for (const sep of separators) {
+                if (descrizione.includes(sep)) {
+                    fornitoreName = descrizione.split(sep)[0].trim();
+                    break;
+                }
+            }
+        }
+
+        // Letzter Fallback: Kontoname
+        if (!fornitoreName) {
+            fornitoreName = row['Descrizione conto'] || 'Unbekannt';
+        }
+
+        // ============================================
+        // LIEFERANTEN-MATCHING (Partita IVA, Fornitore Nr)
+        // ============================================
+        let partitaIva = null;
+        let fornitoreNr = null;
+
+        if (supplierMap && fornitoreName !== 'Unbekannt') {
+            const key = fornitoreName.toLowerCase().trim();
+            const supplier = supplierMap.get(key);
+            if (supplier) {
+                partitaIva = supplier.partita_iva;
+                fornitoreNr = supplier.fornitore_nr;
+            }
+        }
+
+        // ============================================
+        // VORZEICHEN-LOGIK
+        // ============================================
+        // Grundregel: Betrag GENAU so übernehmen wie in Excel
+        // AUSNAHME: Umsatzkonten (6xx) - Vorzeichen umdrehen
+        //   - Wenn minus → plus
+        //   - Wenn plus → minus
+
+        const kontoStr = String(kontoNr);
+        const isUmsatzkonto = kontoStr.startsWith('6');
+
+        let betrag = betragParsed;
+        if (isUmsatzkonto) {
+            betrag = -betragParsed; // Vorzeichen umdrehen
+        }
+
+        // ============================================
+        // GUTSCHRIFT-ERKENNUNG
+        // ============================================
+        // Nur bei NICHT-Umsatzkonten mit negativem Betrag = Gutschrift
+        const istGutschrift = !isUmsatzkonto && betragParsed < 0;
+
+        // ============================================
+        // BUCHUNGS-OBJEKT erstellen
+        // ============================================
+        const importYear = new Date(datum).getFullYear();
+
+        return {
+            booking: {
+                import_year: importYear,
+                import_file_name: fileName,
+
+                partita_iva: partitaIva,
+                partita_iva_cliente: null,
+                konto_nr: kontoNr,
+                fornitore_nr: fornitoreNr,
+                fornitore_name: fornitoreName,
+                dokument_nr: row['Numero documento'] || '',
+                dokument_typ: 'F',
+                ist_gutschrift: istGutschrift,
+
+                betrag: betrag,
+                betrag_netto: betragParsed,  // Original-Betrag für Referenz
+                betrag_mwst: null,
+                betrag_gesamt: betragParsed,
+                mwst_typ: null,
+
+                datum: datum,
+                projekt_id: row['Centro di costo'] || null,
+                beschreibung: row['Descrizione movimento'] || null,
+                kategorie: row['Descrizione conto'] || null
+            }
+        };
+    },
+
+    /**
+     * Sanitize Row für Logging (keine sensiblen Daten, gekürzt)
+     */
+    sanitizeRowForLog(row) {
+        const sanitized = {};
+        for (const key of Object.keys(row).slice(0, 10)) {
+            let value = row[key];
+            if (typeof value === 'string' && value.length > 50) {
+                value = value.substring(0, 50) + '...';
+            }
+            sanitized[key] = value;
+        }
+        return sanitized;
+    },
+
+    /**
      * Parse Excel-Datei für Lieferanten
      */
-    async importSuppliers(file) {
+    async importSuppliers(file, options = {}) {
+        const onProgress = options.onProgress || (() => {});
+
         try {
             console.log('📤 Importiere Lieferanten');
+            onProgress(10, 'Excel wird gelesen...');
 
             const data = await this.parseExcelFile(file);
             if (!data || data.length === 0) {
                 throw new Error('Keine Daten in Excel-Datei gefunden');
             }
 
-            console.log(`📊 ${data.length} Lieferanten gefunden`);
+            console.log(`📊 ${data.length} Zeilen gefunden`);
+            onProgress(30, 'Verarbeite Lieferanten...');
 
             // Map zu Supplier-Objekten
             const suppliers = data
                 .map(row => this.mapRowToSupplier(row, file.name))
-                .filter(s => s.partita_iva); // Nur mit Partita IVA
+                .filter(s => s.partita_iva);
 
-            console.log(`✅ ${suppliers.length} gültige Lieferanten`);
+            console.log(`✅ ${suppliers.length} gültige Lieferanten (mit Partita IVA)`);
 
             if (suppliers.length === 0) {
                 throw new Error('Keine gültigen Lieferanten gefunden (Partita IVA fehlt)');
             }
 
-            // Duplikate in der Excel-Datei entfernen (nur erste Zeile pro partita_iva behalten)
+            // Duplikate in der Excel-Datei entfernen
             const uniqueSuppliers = [];
             const seenPartitaIva = new Set();
             for (const supplier of suppliers) {
@@ -251,9 +573,10 @@ const ExcelImportService = {
                 }
             }
 
-            console.log(`🔄 ${suppliers.length - uniqueSuppliers.length} Duplikate in Datei entfernt`);
+            console.log(`🔄 ${suppliers.length - uniqueSuppliers.length} Duplikate entfernt`);
+            onProgress(50, 'Speichere in Datenbank...');
 
-            // Upsert (INSERT or UPDATE on conflict) - ignoreDuplicates: true für bereits existierende
+            // Upsert
             const { data: upsertedData, error: upsertError } = await SupabaseService.client
                 .from('suppliers')
                 .upsert(uniqueSuppliers, {
@@ -265,6 +588,7 @@ const ExcelImportService = {
             if (upsertError) throw upsertError;
 
             console.log(`✅ ${upsertedData.length} Lieferanten importiert/aktualisiert`);
+            onProgress(80, 'Aktualisiere DATEV-Buchungen...');
 
             // DATEV-Buchungen mit Lieferantennamen aktualisieren
             let updatedBookings = 0;
@@ -279,7 +603,9 @@ const ExcelImportService = {
                     updatedBookings += updated.length;
                 }
             }
+
             console.log(`🔄 ${updatedBookings} DATEV-Buchungen aktualisiert`);
+            onProgress(100, 'Fertig');
 
             return {
                 success: true,
@@ -290,6 +616,7 @@ const ExcelImportService = {
 
         } catch (error) {
             console.error('❌ Import-Fehler:', error);
+            onProgress(100, 'Fehler');
             return {
                 success: false,
                 error: error.message
@@ -298,176 +625,13 @@ const ExcelImportService = {
     },
 
     /**
-     * Excel-Datei parsen mit SheetJS
-     */
-    async parseExcelFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-
-                    // Erstes Sheet verwenden
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: false });
-
-                    resolve(jsonData);
-                } catch (error) {
-                    reject(error);
-                }
-            };
-
-            reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei'));
-            reader.readAsArrayBuffer(file);
-        });
-    },
-
-    /**
-     * Excel-Zeile zu DATEV-Buchung mappen
-     * Mapping für DATEV-Export Spalten
-     */
-    mapRowToDatevBooking(row, year, fileName, supplierMap) {
-        // Lieferantenname ermitteln:
-        // 1. Aus Denominazione (Firmenname)
-        // 2. Aus Descrizione movimento extrahieren (z.B. "Agnelli Mario - Honorarnote vom 29.04.2026")
-        // 3. Fallback: Descrizione conto (Kontoname wie "Costi altri servizi")
-        let fornitoreName = row['Denominazione'] || '';
-
-        // Falls kein Denominazione, versuche aus Descrizione movimento zu extrahieren
-        if (!fornitoreName && row['Descrizione movimento']) {
-            const descrizione = row['Descrizione movimento'].trim();
-            // Format: "Name - Beschreibung" oder "Name vom Datum"
-            const separators = [' - ', ' vom '];
-            for (const sep of separators) {
-                if (descrizione.includes(sep)) {
-                    fornitoreName = descrizione.split(sep)[0].trim();
-                    break;
-                }
-            }
-        }
-
-        // Fallback auf Kontoname
-        if (!fornitoreName) {
-            fornitoreName = row['Descrizione conto'] || 'Unbekannt';
-        }
-
-        // Lookup Partita IVA und Fornitore Nr aus Lieferanten-Tabelle
-        let partitaIva = null;
-        let fornitoreNr = null;
-
-        if (supplierMap && fornitoreName !== 'Unbekannt') {
-            const key = fornitoreName.toLowerCase().trim();
-            const supplier = supplierMap.get(key);
-            if (supplier) {
-                partitaIva = supplier.partita_iva;
-                fornitoreNr = supplier.fornitore_nr;
-                console.log(`✅ Matched: "${fornitoreName}" → ${partitaIva}`);
-            }
-        }
-
-        // Datum parsen und Jahr extrahieren - verschiedene mögliche Spalten prüfen
-        const datumSpalten = [
-            'Data documento',
-            'Data registrazione',
-            'Data',
-            'Datum',
-            'Data doc.',
-            'Data reg.'
-        ];
-        let datum = null;
-        for (const spalte of datumSpalten) {
-            if (row[spalte]) {
-                datum = this.parseDate(row[spalte]);
-                if (datum) break;
-            }
-        }
-        const importYear = datum ? new Date(datum).getFullYear() : new Date().getFullYear();
-
-        return {
-            import_year: importYear, // Jahr aus Datum automatisch erkannt
-            import_file_name: fileName,
-
-            // DATEV-Spalten-Mapping
-            partita_iva: partitaIva, // Aus Lieferanten-Tabelle via Name
-            partita_iva_cliente: null,
-            konto_nr: row['Conto'] || null, // Buchhaltungs-Kontonummer
-            fornitore_nr: fornitoreNr, // Lieferanten-Nummer aus suppliers Tabelle
-            fornitore_name: fornitoreName,
-            dokument_nr: row['Numero documento'] || '',
-            dokument_typ: 'F', // Standard: Fattura
-
-            // Gutschrift-Erkennung: NICHT einfach negatives Importo!
-            // Erlöskonten (600-679, 840) haben negative Beträge = Habenbuchung, KEINE Gutschrift
-            // Kostenkonten (680-850 außer 840) mit negativem Betrag = echte Gutschrift
-            ist_gutschrift: (() => {
-                const betrag = this.parseDecimal(row['Importo']);
-                const konto = String(row['Conto'] || '');
-                // Erlöskonten: 600-679 und 840 (Finanzerträge)
-                const isErloskonto = konto.startsWith('6') && konto.length >= 3 && parseInt(konto.substring(0, 2)) < 68;
-                const isFinanzErtrag = konto.startsWith('84');
-                // Nur bei Kostenkonten mit negativem Betrag = Gutschrift
-                return betrag < 0 && !isErloskonto && !isFinanzErtrag;
-            })(),
-
-            // Beträge - Vorzeichen-Logik für korrekte GuV:
-            //
-            // DATEV-Export liefert:
-            // - Aufwendungen (690xxx): +200 = Kosten, -200 = Gutschrift → 1:1 übernehmen
-            // - Erträge (600xxx, 640xxx): -500 = Einnahmen, +500 = Storno → Vorzeichen umdrehen!
-            //
-            // Ergebnis in DB:
-            // - Aufwendungen: negativ (Kosten reduzieren Gewinn)
-            // - Erträge: positiv (Einnahmen erhöhen Gewinn)
-            betrag: (() => {
-                const rawBetrag = this.parseDecimal(row['Importo']);
-                if (rawBetrag === null) return null;
-
-                const konto = String(row['Conto'] || '');
-                const kontoPrefix2 = parseInt(konto.substring(0, 2)) || 0;
-                const kontoPrefix3 = parseInt(konto.substring(0, 3)) || 0;
-
-                // Ertragskonten: 600-679, 840-849
-                const isErtrag = (kontoPrefix2 >= 60 && kontoPrefix2 <= 67) ||
-                                 (kontoPrefix3 >= 840 && kontoPrefix3 <= 849);
-
-                if (isErtrag) {
-                    // Erträge: Vorzeichen umdrehen
-                    // DATEV: -500 (Einnahme) → DB: +500 (positiv in GuV)
-                    // DATEV: +100 (Storno) → DB: -100 (reduziert Ertrag)
-                    return -rawBetrag;
-                }
-
-                // Aufwendungen und sonstige Konten: 1:1 übernehmen
-                // DATEV: +200 (Kosten) → DB: +200 (wird in Bilanz als Aufwand summiert)
-                // DATEV: -50 (Gutschrift) → DB: -50 (reduziert Aufwand)
-                return rawBetrag;
-            })(),
-            betrag_netto: this.parseDecimal(row['Importo']), // Original für Referenz
-            betrag_mwst: null, // Nicht im Export enthalten
-            betrag_gesamt: this.parseDecimal(row['Importo']), // Original für Referenz
-            mwst_typ: null,
-
-            // Daten
-            datum: datum,
-            projekt_id: row['Centro di costo'] || null,
-            beschreibung: row['Descrizione movimento'] || null,
-            kategorie: row['Descrizione conto'] || null
-        };
-    },
-
-    /**
      * Excel-Zeile zu Lieferant mappen
-     * Unterstützt verschiedene Spaltenformate:
-     * - Format 1: Codice Cli, Nominativo, Indirizzo, CodiceFisc, Partita IVA
-     * - Format 2: Numero, Nome/Denominazione, Via, Località, Partita IVA, Codice fiscale
      */
     mapRowToSupplier(row, fileName) {
-        // Partita IVA aus verschiedenen möglichen Spalten
+        // Partita IVA aus verschiedenen Spalten
         let partitaIva = row['Partita IVA'] || row['CodiceFisc'] || row['P.IVA'] || null;
 
-        // Als String konvertieren falls Zahl (Excel wissenschaftliche Notation)
+        // Als String konvertieren
         if (partitaIva && typeof partitaIva === 'number') {
             partitaIva = String(Math.round(partitaIva));
         }
@@ -475,24 +639,23 @@ const ExcelImportService = {
             partitaIva = String(partitaIva).trim();
         }
 
-        // IT-Prefix hinzufügen wenn nicht vorhanden
-        if (partitaIva && !partitaIva.startsWith('IT') && !partitaIva.startsWith('DE') && !partitaIva.startsWith('AT') && !partitaIva.startsWith('CF:')) {
+        // IT-Prefix hinzufügen wenn nötig
+        if (partitaIva && !partitaIva.startsWith('IT') && !partitaIva.startsWith('DE') &&
+            !partitaIva.startsWith('AT') && !partitaIva.startsWith('CF:')) {
             partitaIva = 'IT' + partitaIva;
         }
 
-        // Für ausländische Lieferanten: Partita IVA Estera + IDISO
+        // Ausländische Lieferanten
         const partitaIvaEstera = row['Partita IVA estera'];
         const idIso = row['IDISO'];
         if (partitaIvaEstera && idIso) {
             partitaIva = idIso + partitaIvaEstera;
         }
 
-        // Codice Fiscale (für Künstler ohne Partita IVA)
+        // Codice Fiscale als Fallback
         const codiceFiscale = row['Codice fiscale'] || row['CodiceFisc'] || row['C.F.'] || null;
-
-        // Falls keine Partita IVA, aber Codice Fiscale vorhanden
         if (!partitaIva && codiceFiscale) {
-            partitaIva = 'CF:' + codiceFiscale; // CF: Prefix für Codice Fiscale
+            partitaIva = 'CF:' + codiceFiscale;
         }
 
         return {
@@ -510,40 +673,37 @@ const ExcelImportService = {
     },
 
     /**
-     * Helper: Decimal parsen (europäisches Format: 1.234,56)
+     * Helper: Decimal parsen (europäisches + US Format)
      */
     parseDecimal(value) {
         if (value === null || value === undefined || value === '') return null;
 
-        // Wenn bereits eine Zahl, direkt zurückgeben
+        // Bereits eine Zahl
         if (typeof value === 'number') return value;
 
         let str = String(value).trim();
 
-        // Prüfe ob europäisches Format (Komma als Dezimaltrennzeichen)
-        // Europäisch: 1.234,56 oder 1234,56
-        // US/UK: 1,234.56 oder 1234.56
+        // Leerer String
+        if (str === '') return null;
 
         const hasComma = str.includes(',');
         const hasDot = str.includes('.');
 
         if (hasComma && hasDot) {
-            // Beide vorhanden - prüfe welches zuletzt kommt
             const lastComma = str.lastIndexOf(',');
             const lastDot = str.lastIndexOf('.');
 
             if (lastComma > lastDot) {
-                // Europäisch: 1.234,56 - Komma ist Dezimaltrennzeichen
+                // Europäisch: 1.234,56
                 str = str.replace(/\./g, '').replace(',', '.');
             } else {
-                // US: 1,234.56 - Punkt ist Dezimaltrennzeichen
+                // US: 1,234.56
                 str = str.replace(/,/g, '');
             }
         } else if (hasComma && !hasDot) {
-            // Nur Komma: 1234,56 - europäisches Dezimaltrennzeichen
+            // Nur Komma: 1234,56
             str = str.replace(',', '.');
         }
-        // Wenn nur Punkt, ist es bereits im richtigen Format
 
         const parsed = parseFloat(str);
         return isNaN(parsed) ? null : parsed;
@@ -556,24 +716,33 @@ const ExcelImportService = {
         if (typeof value === 'boolean') return value;
         if (typeof value === 'string') {
             const lower = value.toLowerCase().trim();
-            return lower === 'true' || lower === 'ja' || lower === 'yes' || lower === '1';
+            return lower === 'true' || lower === 'ja' || lower === 'yes' || lower === '1' || lower === 'sì';
         }
         return Boolean(value);
     },
 
     /**
-     * Helper: Datum parsen
+     * Helper: Datum parsen (mehrere Formate)
      */
     parseDate(value) {
         if (!value) return null;
 
+        // Bereits ein Date-Objekt (von SheetJS mit cellDates: true)
+        if (value instanceof Date) {
+            if (isNaN(value.getTime())) return null;
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // ISO-Format: 2026-06-04
-        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
             return value;
         }
 
         // DD.MM.YYYY oder DD/MM/YYYY
-        if (/^\d{1,2}[./]\d{1,2}[./]\d{4}$/.test(value)) {
+        if (typeof value === 'string' && /^\d{1,2}[./]\d{1,2}[./]\d{4}$/.test(value)) {
             const parts = value.split(/[./]/);
             const day = parts[0].padStart(2, '0');
             const month = parts[1].padStart(2, '0');
@@ -581,11 +750,13 @@ const ExcelImportService = {
             return `${year}-${month}-${day}`;
         }
 
-        // Excel Datum (serielle Nummer seit 1900-01-01)
-        if (typeof value === 'number' && value > 0) {
+        // Excel Serial Number (Tage seit 1900-01-01)
+        if (typeof value === 'number' && value > 0 && value < 100000) {
             const excelEpoch = new Date(1900, 0, 1);
-            const days = value - 2; // Excel hat einen Off-by-2 Fehler
+            const days = value - 2; // Excel Off-by-2 Bug
             const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+
+            if (isNaN(date.getTime())) return null;
 
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -594,20 +765,22 @@ const ExcelImportService = {
         }
 
         // Fallback: Date-Objekt erstellen
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-            console.warn('⚠️ Datum konnte nicht geparst werden:', value);
-            return null;
+        if (typeof value === 'string') {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
         }
 
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        console.warn('⚠️ Datum konnte nicht geparst werden:', value, typeof value);
+        return null;
     },
 
     /**
-     * Alle Jahre mit DATEV-Buchungen abrufen (für Jahres-Auswahl)
+     * Alle Jahre mit DATEV-Buchungen abrufen
      */
     async getAvailableYears() {
         try {
@@ -618,7 +791,7 @@ const ExcelImportService = {
 
             if (error) throw error;
 
-            const years = [...new Set(data.map(b => b.import_year))];
+            const years = [...new Set(data.map(b => b.import_year).filter(y => y))];
             return years;
 
         } catch (error) {
@@ -628,4 +801,4 @@ const ExcelImportService = {
     }
 };
 
-console.log('📊 Excel Import Service geladen');
+console.log('📊 Excel Import Service v2.1 geladen');
