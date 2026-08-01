@@ -3756,8 +3756,43 @@ const App = {
         const datumVon = document.getElementById('rechnung-filter-datum-von')?.value || '';
         const datumBis = document.getElementById('rechnung-filter-datum-bis')?.value || '';
         const geaendertAb = document.getElementById('rechnung-filter-geaendert-ab')?.value || '';
+        const meineRechnungenFilter = document.getElementById('rechnung-filter-meine')?.checked || false;
 
         let rechnungen = await DataManager.getRechnungenMitStatus();
+
+        // Lieferanten und Users laden für Ansprechperson-Anreicherung
+        const lieferanten = await DataManager.getDatevLieferanten();
+        const users = await DataManager.getUsers();
+
+        // Maps für schnellen Lookup erstellen
+        const lieferantenMap = new Map();
+        lieferanten.forEach(l => {
+            if (l.partitaIva) lieferantenMap.set(l.partitaIva, l);
+        });
+        const userMap = new Map();
+        users.forEach(u => {
+            userMap.set(u.id, u.name || u.email || 'Unbekannt');
+        });
+
+        // Rechnungen mit Ansprechperson-Infos anreichern
+        rechnungen = rechnungen.map(r => {
+            const lieferant = lieferantenMap.get(r.partitaIva);
+            const contactUserId = lieferant?.contactUserId || null;
+            const contactUserName = contactUserId ? userMap.get(contactUserId) : null;
+            return {
+                ...r,
+                contactUserId,
+                contactUserName
+            };
+        });
+
+        // Filter: "Meine Rechnungen" (ohne Projekt, wo ich Ansprechperson bin)
+        if (meineRechnungenFilter) {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            rechnungen = rechnungen.filter(r =>
+                !r.projektId && r.contactUserId === currentUser?.id
+            );
+        }
 
         // Jahresfilter anwenden
         if (jahrFilter) {
@@ -4041,22 +4076,31 @@ const App = {
                 }
             } else {
                 // DATEV-Buchung ohne Projekt: Dropdown zur Projekt-Auswahl
+                // + Ansprechperson anzeigen wenn vorhanden
                 const selectId = `projekt-select-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+                const contactInfo = r.contactUserName
+                    ? `<div style="font-size: 0.7rem; color: #666; margin-top: 0.25rem;">
+                        <span title="Zuständig für Rechnungskontrolle">👤 ${r.contactUserName}</span>
+                       </div>`
+                    : '';
                 projektCell = `
-                    <select class="form-control"
-                            id="${selectId}"
-                            style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
-                            onchange="App.setProjektForRechnung('${r.rechnungId}', this.value)">
-                        <option value="">-- Projekt wählen --</option>
-                        <option value="strukturkosten">Strukturkosten</option>
-                        <option value="2601">Complice</option>
-                        <option value="2602">Animacies</option>
-                        <option value="2603">Stadtraum Meran</option>
-                        <option value="2604">Wanderausstellung</option>
-                        <option value="2605">Konzertreihe</option>
-                        <option value="2606">Menschenbilder</option>
-                        <option value="2607">Rahmenprogramm</option>
-                    </select>`;
+                    <div>
+                        <select class="form-control"
+                                id="${selectId}"
+                                style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
+                                onchange="App.setProjektForRechnung('${r.rechnungId}', this.value)">
+                            <option value="">-- Projekt wählen --</option>
+                            <option value="strukturkosten">Strukturkosten</option>
+                            <option value="2601">Complice</option>
+                            <option value="2602">Animacies</option>
+                            <option value="2603">Stadtraum Meran</option>
+                            <option value="2604">Wanderausstellung</option>
+                            <option value="2605">Konzertreihe</option>
+                            <option value="2606">Menschenbilder</option>
+                            <option value="2607">Rahmenprogramm</option>
+                        </select>
+                        ${contactInfo}
+                    </div>`;
             }
 
             row.innerHTML = `
@@ -6221,10 +6265,12 @@ const App = {
     loadLieferanten: async function() {
         const lieferanten = await DataManager.getDatevLieferanten();
         const rechnungen = await DataManager.getRechnungenMitStatus();
+        const users = await DataManager.getUsers();
 
         // Daten speichern für Filter
         this.allLieferanten = lieferanten;
         this.allLieferantenRechnungen = rechnungen;
+        this.allUsers = users; // Cache für User-Lookup
 
         // Jahre aus Rechnungen ermitteln
         const jahre = new Set();
@@ -6397,7 +6443,7 @@ const App = {
         }
 
         // Sort-Icons aktualisieren
-        ['name', 'partitaIva', 'adresse', 'jahr', 'vorjahr', 'prozent'].forEach(col => {
+        ['name', 'partitaIva', 'adresse', 'ansprechperson', 'jahr', 'vorjahr', 'prozent'].forEach(col => {
             const icon = document.getElementById(`sort-icon-lieferant-${col}`);
             if (icon) {
                 if (col === column) {
@@ -6443,9 +6489,15 @@ const App = {
         const vorjahr = selectedYear - 1;
 
         if (lieferanten.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666; padding: 2rem;">Keine Lieferanten gefunden.</td></tr>';
             return;
         }
+
+        // User-Map für schnellen Lookup erstellen
+        const userMap = new Map();
+        (this.allUsers || []).forEach(u => {
+            userMap.set(u.id, u.name || u.email || 'Unbekannt');
+        });
 
         // Berechnete Werte für Sortierung vorbereiten
         const lieferantenMitWerten = lieferanten.map(l => {
@@ -6481,7 +6533,9 @@ const App = {
                 prozent = Infinity; // "neu" ganz oben
             }
 
-            return { ...l, summeJahr, summeVorjahr, prozent };
+            // Ansprechperson-Name für Sortierung hinzufügen
+            const contactUserName = l.contactUserId ? (userMap.get(l.contactUserId) || '') : '';
+            return { ...l, summeJahr, summeVorjahr, prozent, contactUserName };
         });
 
         // Sortieren
@@ -6501,6 +6555,10 @@ const App = {
                 case 'adresse':
                     valA = [a.address, a.city, a.country].filter(Boolean).join(', ').toLowerCase();
                     valB = [b.address, b.city, b.country].filter(Boolean).join(', ').toLowerCase();
+                    break;
+                case 'ansprechperson':
+                    valA = (a.contactUserName || '').toLowerCase();
+                    valB = (b.contactUserName || '').toLowerCase();
                     break;
                 case 'jahr':
                     valA = a.summeJahr;
@@ -6577,6 +6635,10 @@ const App = {
             const safeId = `lieferant-${index}`;
             const partitaIvaEscaped = (l.partitaIva || '').replace(/'/g, "\\'");
 
+            // Ansprechperson anzeigen
+            const contactUserName = l.contactUserName || '';
+            const contactDisplay = contactUserName || '<span style="color: #999; font-style: italic;">-</span>';
+
             // Hauptzeile mit Expand-Button
             const row = document.createElement('tr');
             row.className = 'lieferant-row';
@@ -6594,6 +6656,12 @@ const App = {
                 </td>
                 <td>${l.partitaIva || '-'}</td>
                 <td style="font-size: 0.85rem; color: #666;">${adresse}</td>
+                <td>
+                    ${contactDisplay}
+                    <button class="btn btn-sm" style="padding: 0.1rem 0.3rem; margin-left: 0.5rem;" onclick="event.stopPropagation(); App.editLieferantAnsprechperson('${partitaIvaEscaped}')" title="Ansprechperson bearbeiten">
+                        ${Icons.edit}
+                    </button>
+                </td>
                 <td style="text-align: right;">${this.formatCurrency(summeJahr)}</td>
                 <td style="text-align: right; color: #666;">${this.formatCurrency(summeVorjahr)}</td>
                 <td style="text-align: right; ${prozentStyle}">${prozentText}</td>
@@ -6605,7 +6673,7 @@ const App = {
             detailRow.id = `detail-${safeId}`;
             detailRow.style.display = 'none';
             detailRow.innerHTML = `
-                <td colspan="7" style="background: #f8f9fa; padding: 1rem;">
+                <td colspan="8" style="background: #f8f9fa; padding: 1rem;">
                     <div style="margin-bottom: 0.75rem;">
                         <strong>${selectedYear}:</strong> ${rechnungenJahr.length} Rechnungen, ${this.formatCurrency(summeJahr)}
                         <span style="color: #666; margin-left: 1rem;">| ${vorjahr}: ${rechnungenVorjahrDetail.length} Rechnungen, ${this.formatCurrency(summeVorjahr)}</span>
@@ -6702,6 +6770,78 @@ const App = {
             if (document.getElementById('view-rechnungen').classList.contains('active')) {
                 this.filterRechnungen();
             }
+        }
+    },
+
+    /**
+     * Ansprechperson für einen Lieferanten bearbeiten
+     * Diese Person ist zuständig für die Rechnungskontrolle bei Rechnungen ohne Projekt
+     */
+    editLieferantAnsprechperson: async function(partitaIva) {
+        // Lieferant finden
+        const lieferant = this.allLieferanten.find(l => l.partitaIva === partitaIva);
+        if (!lieferant) {
+            this.showToast('error', 'Fehler', 'Lieferant nicht gefunden');
+            return;
+        }
+
+        // Users laden falls nicht im Cache
+        const users = this.allUsers || await DataManager.getUsers();
+
+        // Modal erstellen
+        const modalHtml = `
+            <div id="ansprechperson-modal" class="modal-backdrop" onclick="if(event.target === this) App.hideModal('ansprechperson-modal')">
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3>Ansprechperson zuweisen</h3>
+                        <button class="btn btn-icon" onclick="App.hideModal('ansprechperson-modal')">${Icons.close}</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 1rem;">
+                            <strong>${lieferant.name || partitaIva}</strong>
+                        </p>
+                        <p style="margin-bottom: 1rem; font-size: 0.9rem; color: #666;">
+                            Die Ansprechperson ist zuständig für die Rechnungskontrolle bei Rechnungen ohne Projektzuweisung.
+                        </p>
+                        <div class="form-group">
+                            <label for="ansprechperson-select">Ansprechperson:</label>
+                            <select id="ansprechperson-select" class="form-control">
+                                <option value="">-- Keine Ansprechperson --</option>
+                                ${users.map(u => `
+                                    <option value="${u.id}" ${u.id === lieferant.contactUserId ? 'selected' : ''}>
+                                        ${u.name || u.email}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn" onclick="App.hideModal('ansprechperson-modal')">Abbrechen</button>
+                        <button class="btn btn-primary" onclick="App.saveLieferantAnsprechperson('${partitaIva.replace(/'/g, "\\'")}')">Speichern</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Modal einfügen und anzeigen
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Ansprechperson für Lieferanten speichern
+     */
+    saveLieferantAnsprechperson: async function(partitaIva) {
+        const select = document.getElementById('ansprechperson-select');
+        const userId = select.value || null;
+
+        try {
+            await DataManager.updateSupplier(partitaIva, { contactUserId: userId });
+            this.hideModal('ansprechperson-modal');
+            this.showToast('success', 'Gespeichert', 'Ansprechperson wurde aktualisiert');
+            this.loadLieferanten();
+        } catch (error) {
+            console.error('Fehler beim Speichern der Ansprechperson:', error);
+            this.showToast('error', 'Fehler', 'Ansprechperson konnte nicht gespeichert werden');
         }
     },
 

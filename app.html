@@ -689,6 +689,12 @@
                             <label class="form-label">Geändert ab</label>
                             <input type="date" id="rechnung-filter-geaendert-ab" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
+                        <div class="form-group" style="display: flex; align-items: center; padding-top: 1.5rem;">
+                            <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; white-space: nowrap;">
+                                <input type="checkbox" id="rechnung-filter-meine" onchange="App.filterRechnungen()">
+                                Meine Rechnungen
+                            </label>
+                        </div>
                     </div>
                     <!-- IVA-Hinweis -->
                     <div style="padding: 0.5rem 1rem; background: #fff3cd; border-radius: 0 0 8px 8px; font-size: 0.8rem; color: #856404;">
@@ -862,6 +868,9 @@
                                     </th>
                                     <th class="sortable" onclick="App.sortLieferanten('adresse')">
                                         Adresse <span id="sort-icon-lieferant-adresse"></span>
+                                    </th>
+                                    <th class="sortable" onclick="App.sortLieferanten('ansprechperson')">
+                                        Ansprechperson <span id="sort-icon-lieferant-ansprechperson"></span>
                                     </th>
                                     <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('jahr')">
                                         <span id="th-lieferant-jahr">2026</span> <span id="sort-icon-lieferant-jahr"></span>

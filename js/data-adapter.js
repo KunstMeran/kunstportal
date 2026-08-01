@@ -61,6 +61,7 @@ const SupabaseDataAdapter = {
         // Lieferanten-Funktionen überschreiben
         DataManager._getDatevLieferantenOriginal = DataManager.getDatevLieferanten;
         DataManager.getDatevLieferanten = this.getSuppliers.bind(this);
+        DataManager.updateSupplier = this.updateSupplier.bind(this);
 
         // Zeiterfassungs-Funktionen überschreiben
         DataManager._getTimeEntriesOriginal = DataManager.getTimeEntries;
