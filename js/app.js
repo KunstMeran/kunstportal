@@ -3800,9 +3800,11 @@ const App = {
                                 onchange="App.updateMwstRate('${r.id}', this.value)"
                                 ${!r.id ? 'disabled title="Nur für DATEV-Buchungen"' : ''}>
                             <option value="0" ${mwstRate === 0 ? 'selected' : ''}>0%</option>
-                            <option value="4" ${mwstRate === 4 ? 'selected' : ''}>4%</option>
-                            <option value="10" ${mwstRate === 10 ? 'selected' : ''}>10%</option>
-                            <option value="22" ${mwstRate === 22 ? 'selected' : ''}>22%</option>
+                            <option value="4" ${mwstRate === 4 ? 'selected' : ''}>4% IT</option>
+                            <option value="10" ${mwstRate === 10 ? 'selected' : ''}>10% IT</option>
+                            <option value="19" ${mwstRate === 19 ? 'selected' : ''}>19% DE</option>
+                            <option value="20" ${mwstRate === 20 ? 'selected' : ''}>20% AT</option>
+                            <option value="22" ${mwstRate === 22 ? 'selected' : ''}>22% IT</option>
                         </select>
                         <span style="min-width: 60px; text-align: right;">${this.formatCurrency(mwst)}</span>
                     </div>
@@ -7923,7 +7925,24 @@ const App = {
         if (!tbody) return;
 
         const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
-        const vorjahr = parseInt(document.getElementById('bilanz-vergleichsjahr')?.value || jahr - 1);
+
+        // Vergleichsjahr-Dropdown automatisch aktualisieren basierend auf ausgewähltem Jahr
+        const vergleichsjahrSelect = document.getElementById('bilanz-vergleichsjahr');
+        if (vergleichsjahrSelect) {
+            const currentSelection = parseInt(vergleichsjahrSelect.value);
+            const minYear = 2018;
+            let html = '';
+            for (let y = jahr - 1; y >= minYear; y--) {
+                // Behalte aktuelle Auswahl wenn möglich, sonst Vorjahr
+                const selected = (currentSelection && currentSelection < jahr && currentSelection >= minYear)
+                    ? (y === currentSelection ? 'selected' : '')
+                    : (y === jahr - 1 ? 'selected' : '');
+                html += `<option value="${y}" ${selected}>Vergleich: ${y}</option>`;
+            }
+            vergleichsjahrSelect.innerHTML = html;
+        }
+
+        const vorjahr = parseInt(vergleichsjahrSelect?.value || jahr - 1);
 
         // Spaltenüberschriften aktualisieren
         const colAktuell = document.getElementById('bilanz-col-aktuell');
