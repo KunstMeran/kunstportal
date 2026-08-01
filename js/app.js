@@ -5070,9 +5070,33 @@ const App = {
 
         try {
             const heute = new Date().toISOString();
+            let archivedCount = 0;
+
+            // Hole alle Rechnungen um die DB-ID zu finden
+            const allRechnungen = this.filteredRechnungen || [];
 
             for (const rechnungId of this.selectedRechnungen) {
                 console.log('Archiviere:', rechnungId);
+
+                // Versuche zuerst die Rechnung in filteredRechnungen zu finden (hat DB-ID)
+                const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
+
+                // Wenn wir die DB-ID haben, direkt damit archivieren (zuverlässigste Methode)
+                if (rechnung && rechnung.id && !rechnung.isSupabaseOnly) {
+                    const { error } = await SupabaseService.client
+                        .from('datev_bookings')
+                        .update({
+                            archived: true,
+                            archived_at: heute
+                        })
+                        .eq('id', rechnung.id);
+                    if (error) {
+                        console.error('Archiv-Fehler (via DB-ID):', error);
+                    } else {
+                        archivedCount++;
+                    }
+                    continue;
+                }
 
                 // Format 1: "id:123" - Datenbank-ID (für DATEV-Buchungen ohne dokumentNr)
                 if (rechnungId.startsWith('id:')) {
@@ -5084,7 +5108,11 @@ const App = {
                             archived_at: heute
                         })
                         .eq('id', dbId);
-                    if (error) console.error('Archiv-Fehler (id:):', error);
+                    if (error) {
+                        console.error('Archiv-Fehler (id:):', error);
+                    } else {
+                        archivedCount++;
+                    }
                 }
                 // Format 2: Nur Zahlen - Supabase-only Invoice (PDF ohne DATEV-Match)
                 else if (/^\d+$/.test(rechnungId)) {
@@ -5095,31 +5123,55 @@ const App = {
                             archived_at: heute
                         })
                         .eq('id', rechnungId);
-                    if (error) console.error('Archiv-Fehler (invoice):', error);
+                    if (error) {
+                        console.error('Archiv-Fehler (invoice):', error);
+                    } else {
+                        archivedCount++;
+                    }
                 }
                 // Format 3: "partitaIva_dokumentNr" - DATEV-Buchung mit Rechnungsnummer
                 else {
                     const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                     const dokumentNr = dokumentNrParts.join('_');
 
-                    // Nur archivieren wenn dokumentNr vorhanden ist
+                    // Archivieren mit partitaIva und dokumentNr
                     if (dokumentNr) {
-                        const { error } = await SupabaseService.client
+                        const { data, error } = await SupabaseService.client
                             .from('datev_bookings')
                             .update({
                                 archived: true,
                                 archived_at: heute
                             })
                             .eq('partita_iva', partitaIva)
-                            .eq('dokument_nr', dokumentNr);
-                        if (error) console.error('Archiv-Fehler (partita_dokumentNr):', error);
+                            .eq('dokument_nr', dokumentNr)
+                            .select();
+                        if (error) {
+                            console.error('Archiv-Fehler (partita_dokumentNr):', error);
+                        } else if (data && data.length > 0) {
+                            archivedCount++;
+                        } else {
+                            // Fallback: Nur nach dokumentNr suchen (falls partitaIva leer)
+                            const { data: data2, error: error2 } = await SupabaseService.client
+                                .from('datev_bookings')
+                                .update({
+                                    archived: true,
+                                    archived_at: heute
+                                })
+                                .eq('dokument_nr', dokumentNr)
+                                .select();
+                            if (!error2 && data2 && data2.length > 0) {
+                                archivedCount++;
+                            } else {
+                                console.warn('Konnte nicht archivieren:', rechnungId);
+                            }
+                        }
                     } else {
                         console.warn('Kann nicht archivieren ohne dokumentNr:', rechnungId);
                     }
                 }
             }
 
-            this.showToast('success', 'Archiviert', `${count} Rechnung(en) archiviert`);
+            this.showToast('success', 'Archiviert', `${archivedCount} Rechnung(en) archiviert`);
         } catch (error) {
             console.error('Fehler beim Archivieren:', error);
             this.showToast('error', 'Fehler', 'Archivierung fehlgeschlagen');
