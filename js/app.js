@@ -6676,7 +6676,10 @@ const App = {
         const name = r.fornitoreName || '';
         const partitaIva = r.partitaIva || '';
         const sponsorInfo = r.partitaIvaCliente ? `<br><small style="color:#666;">Sponsor: ${r.partitaIvaCliente}</small>` : '';
+        // Verwende DB-ID wenn vorhanden (zuverlässiger), sonst safeRechnungId für HTML-IDs
         const safeRechnungId = (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '');
+        // Die tatsächliche DB-ID für Updates
+        const dbId = r.id || null;
 
         // Prüfe ob der Name ein Kontoname ist (z.B. "Costi altri servizi")
         const isKontoName = name.toLowerCase().startsWith('costi ') ||
@@ -6695,11 +6698,12 @@ const App = {
                     <input type="text"
                            id="${inputId}"
                            class="form-control lieferant-autocomplete"
+                           data-db-id="${dbId || ''}"
                            style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
                            placeholder="${beschreibungHint || 'Lieferant suchen...'}"
                            value=""
                            autocomplete="off"
-                           onfocus="App.showLieferantDropdown('${inputId}', '${dropdownId}', '${safeRechnungId}')"
+                           onfocus="App.showLieferantDropdown('${inputId}', '${dropdownId}', '${dbId || safeRechnungId}')"
                            oninput="App.filterLieferantDropdown('${dropdownId}', this.value)"
                            onblur="setTimeout(() => App.hideLieferantDropdown('${dropdownId}'), 200)">
                     <div id="${dropdownId}" class="lieferant-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
@@ -6715,7 +6719,7 @@ const App = {
                         <span>${name}</span>
                         <button class="btn btn-sm"
                                 style="padding: 0.1rem 0.2rem; font-size: 0.6rem; background: transparent; border: none; cursor: pointer;"
-                                onclick="App.showLieferantEditWithAutocomplete('${inputId}', '${dropdownId}', '${safeRechnungId}', '${name.replace(/'/g, "\\'")}')"
+                                onclick="App.showLieferantEditWithAutocomplete('${inputId}', '${dropdownId}', '${dbId || safeRechnungId}', '${name.replace(/'/g, "\\'")}')"
                                 title="Lieferant bearbeiten">
                             ${Icons.edit}
                         </button>
@@ -6829,16 +6833,28 @@ const App = {
 
     /**
      * Aktualisiert Lieferant mit Name und Partita IVA
+     * @param {string} idOrRechnungId - DB-ID (Zahl) oder rechnungId (partitaIva_dokumentNr)
      */
-    updateLieferantWithPartitaIva: async function(rechnungId, name, partitaIva) {
+    updateLieferantWithPartitaIva: async function(idOrRechnungId, name, partitaIva) {
         try {
-            // Finde die Buchung in filteredRechnungen um die DB-ID zu bekommen
-            const rechnung = (this.filteredRechnungen || []).find(r =>
-                (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '') === rechnungId ||
-                r.rechnungId === rechnungId
-            );
+            let dbId = null;
 
-            if (rechnung && rechnung.id) {
+            // Prüfe ob es eine direkte DB-ID ist (nur Zahlen)
+            if (/^\d+$/.test(idOrRechnungId)) {
+                dbId = idOrRechnungId;
+            } else {
+                // Suche in filteredRechnungen nach der DB-ID
+                const rechnung = (this.filteredRechnungen || []).find(r =>
+                    r.id === idOrRechnungId ||
+                    (r.rechnungId || '').replace(/[^a-zA-Z0-9-]/g, '') === idOrRechnungId ||
+                    r.rechnungId === idOrRechnungId
+                );
+                if (rechnung && rechnung.id) {
+                    dbId = rechnung.id;
+                }
+            }
+
+            if (dbId) {
                 const { error } = await SupabaseService.client
                     .from('datev_bookings')
                     .update({
@@ -6846,7 +6862,7 @@ const App = {
                         partita_iva: partitaIva,
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', rechnung.id);
+                    .eq('id', dbId);
 
                 if (error) throw error;
 
@@ -6859,8 +6875,8 @@ const App = {
                 this.suppliersCache = null;
                 await this.reloadRechnungenKeepState();
             } else {
-                // Fallback: updateLieferantName verwenden
-                await this.updateLieferantName(rechnungId, name);
+                console.warn('Keine DB-ID gefunden für:', idOrRechnungId);
+                this.showToast('warning', 'Hinweis', 'Buchung nicht gefunden');
             }
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Lieferanten:', error);
