@@ -1095,13 +1095,15 @@ const SupabaseDataAdapter = {
             if (error) throw error;
 
             // Format anpassen an bisheriges Format (für Kompatibilität)
+            // NEU: contact_user_id für Ansprechperson bei Rechnungskontrolle
             return (data || []).map(s => ({
                 partitaIva: s.partita_iva,
                 name: s.fornitore_name,
                 fornitoreNr: s.fornitore_nr,
                 address: s.address,
                 city: s.city,
-                country: s.country
+                country: s.country,
+                contactUserId: s.contact_user_id || null
             }));
 
         } catch (error) {
@@ -1109,6 +1111,47 @@ const SupabaseDataAdapter = {
             // Fallback auf alte Funktion
             return DataManager._getDatevLieferantenOriginal ?
                 DataManager._getDatevLieferantenOriginal() : [];
+        }
+    },
+
+    /**
+     * Aktualisiert einen Lieferanten (z.B. Ansprechperson setzen)
+     */
+    async updateSupplier(partitaIva, updates) {
+        try {
+            let supabaseUpdates = {};
+
+            if (updates.name !== undefined) supabaseUpdates.fornitore_name = updates.name;
+            if (updates.fornitoreNr !== undefined) supabaseUpdates.fornitore_nr = updates.fornitoreNr;
+            if (updates.address !== undefined) supabaseUpdates.address = updates.address;
+            if (updates.city !== undefined) supabaseUpdates.city = updates.city;
+            if (updates.country !== undefined) supabaseUpdates.country = updates.country;
+            if (updates.contactUserId !== undefined) supabaseUpdates.contact_user_id = updates.contactUserId;
+
+            // Audit-Trail hinzufügen
+            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
+
+            const { data, error } = await SupabaseService.client
+                .from('suppliers')
+                .update(supabaseUpdates)
+                .eq('partita_iva', partitaIva)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return {
+                partitaIva: data.partita_iva,
+                name: data.fornitore_name,
+                fornitoreNr: data.fornitore_nr,
+                address: data.address,
+                city: data.city,
+                country: data.country,
+                contactUserId: data.contact_user_id || null
+            };
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Lieferanten:', error);
+            throw error;
         }
     },
 

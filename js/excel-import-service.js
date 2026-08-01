@@ -8,14 +8,21 @@ const ExcelImportService = {
 
     /**
      * Generiert einen eindeutigen Key für eine Buchung
-     * Key basiert auf: konto_nr + datum + betrag (ohne beschreibung wegen Encoding-Problemen)
+     * MUSS exakt dem DB-Constraint idx_unique_datev_booking_v2 entsprechen:
+     * (partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name[50], beschreibung[50])
      */
     generateBookingKey(booking) {
-        // Betrag normalisieren (auf 2 Dezimalstellen, als String)
+        const partitaIva = (booking.partita_iva || '').trim();
+        const dokumentNr = (booking.dokument_nr || '').trim();
+        const datum = booking.datum || '';
         const betrag = booking.betrag !== null && booking.betrag !== undefined
             ? parseFloat(booking.betrag).toFixed(2)
             : '0.00';
-        return `${booking.konto_nr || ''}_${booking.datum || ''}_${betrag}`;
+        const kontoNr = (booking.konto_nr || '').trim();
+        const fornitoreName = (booking.fornitore_name || '').substring(0, 50).trim();
+        const beschreibung = (booking.beschreibung || '').substring(0, 50).trim();
+
+        return `${partitaIva}_${dokumentNr}_${datum}_${betrag}_${kontoNr}_${fornitoreName}_${beschreibung}`;
     },
 
     async importDatevBookings(file, year = null) {
@@ -102,7 +109,7 @@ const ExcelImportService = {
                 pageNum++;
                 const { data: page, error: fetchError } = await SupabaseService.client
                     .from('datev_bookings')
-                    .select('konto_nr, datum, betrag, beschreibung')
+                    .select('partita_iva, dokument_nr, datum, betrag, konto_nr, fornitore_name, beschreibung')
                     .range(offset, offset + pageSize - 1)
                     .order('id', { ascending: true });
 
