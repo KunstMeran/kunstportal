@@ -5183,44 +5183,58 @@ const App = {
     },
 
     /**
-     * Löscht ausgewählte Rechnungen (nur Supabase-only PDFs können gelöscht werden)
+     * Löscht ausgewählte Rechnungen (PDFs und DATEV-Buchungen)
+     * DATEV-Buchungen werden beim nächsten Import wieder angelegt
      */
     massDelete: async function() {
         if (this.selectedRechnungen.size === 0) return;
 
-        // Prüfen ob nur löschbare Einträge ausgewählt sind
         const allRechnungen = this.filteredRechnungen || [];
         const selectedList = Array.from(this.selectedRechnungen);
-        const deletableIds = [];
-        const nonDeletableIds = [];
+
+        // Kategorisiere die Einträge
+        const invoiceIds = [];      // Supabase-only PDFs
+        const datevBookings = [];   // DATEV-Buchungen (mit DB-ID)
 
         for (const rechnungId of selectedList) {
-            // Nur reine Zahlen sind Supabase-only Invoices (löschbar)
+            // Suche die Rechnung in filteredRechnungen um Typ zu bestimmen
+            const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
+
             if (/^\d+$/.test(rechnungId)) {
-                deletableIds.push(rechnungId);
-            } else {
-                nonDeletableIds.push(rechnungId);
+                // Nur Zahlen = Supabase-only Invoice
+                invoiceIds.push(rechnungId);
+            } else if (rechnung && rechnung.id && !rechnung.isSupabaseOnly) {
+                // DATEV-Buchung mit DB-ID
+                datevBookings.push({ rechnungId, dbId: rechnung.id, dokumentNr: rechnung.dokumentNr });
+            } else if (rechnungId.startsWith('id:')) {
+                // Format id:123
+                datevBookings.push({ rechnungId, dbId: rechnungId.substring(3), dokumentNr: null });
             }
         }
 
-        if (deletableIds.length === 0) {
-            this.showToast('warning', 'Hinweis', 'Es wurden keine löschbaren Einträge ausgewählt. Nur PDFs ohne DATEV-Verknüpfung können gelöscht werden.');
+        const totalCount = invoiceIds.length + datevBookings.length;
+        if (totalCount === 0) {
+            this.showToast('warning', 'Hinweis', 'Keine löschbaren Einträge ausgewählt.');
             return;
         }
 
-        let message = `${deletableIds.length} PDF(s) ohne DATEV-Verknüpfung löschen?`;
-        if (nonDeletableIds.length > 0) {
-            message += `\n\n${nonDeletableIds.length} DATEV-Buchung(en) werden übersprungen (nur archivierbar).`;
+        let message = `${totalCount} Eintrag/Einträge löschen?\n\n`;
+        if (invoiceIds.length > 0) {
+            message += `• ${invoiceIds.length} PDF(s) ohne DATEV-Verknüpfung (werden dauerhaft gelöscht)\n`;
         }
-        message += '\n\nDie PDFs werden unwiderruflich gelöscht!';
+        if (datevBookings.length > 0) {
+            message += `• ${datevBookings.length} DATEV-Buchung(en) (werden beim nächsten Import wieder angelegt)\n`;
+        }
+        message += '\nFortfahren?';
 
         if (!confirm(message)) return;
 
         try {
             let deletedCount = 0;
 
-            for (const invoiceId of deletableIds) {
-                // 1. PDF aus Storage löschen
+            // 1. Supabase-only PDFs löschen
+            for (const invoiceId of invoiceIds) {
+                // PDF aus Storage löschen
                 const { data: invoice } = await SupabaseService.client
                     .from('invoices')
                     .select('file_path')
@@ -5233,20 +5247,38 @@ const App = {
                         .remove([invoice.file_path]);
                 }
 
-                // 2. Invoice-Eintrag aus Datenbank löschen
+                // Invoice-Eintrag löschen
                 const { error } = await SupabaseService.client
                     .from('invoices')
                     .delete()
                     .eq('id', invoiceId);
 
+                if (!error) deletedCount++;
+            }
+
+            // 2. DATEV-Buchungen löschen
+            for (const booking of datevBookings) {
+                // Erst verknüpfte Invoices trennen (linked_booking_id auf null setzen)
+                await SupabaseService.client
+                    .from('invoices')
+                    .update({ linked_booking_id: null })
+                    .eq('linked_booking_id', booking.dbId);
+
+                // Dann DATEV-Buchung löschen
+                const { error } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .delete()
+                    .eq('id', booking.dbId);
+
                 if (error) {
-                    console.error('Lösch-Fehler für Invoice:', invoiceId, error);
+                    console.error('Lösch-Fehler für DATEV-Buchung:', booking.dbId, error);
                 } else {
                     deletedCount++;
+                    console.log('DATEV-Buchung gelöscht:', booking.dokumentNr || booking.dbId);
                 }
             }
 
-            this.showToast('success', 'Gelöscht', `${deletedCount} PDF(s) gelöscht`);
+            this.showToast('success', 'Gelöscht', `${deletedCount} Eintrag/Einträge gelöscht`);
         } catch (error) {
             console.error('Fehler beim Löschen:', error);
             this.showToast('error', 'Fehler', 'Löschen fehlgeschlagen: ' + error.message);
