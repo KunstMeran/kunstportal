@@ -52,6 +52,12 @@ const ExcelImportService = {
 
             console.log(`📊 ${data.length} Zeilen in Excel gefunden`);
 
+            // Debug: Erste Zeile ausgeben um Spaltenstruktur zu sehen
+            if (data.length > 0) {
+                console.log('📋 Excel-Spalten:', Object.keys(data[0]));
+                console.log('📋 Beispiel-Zeile 1:', data[0]);
+            }
+
             // Tracking für übersprungene Zeilen
             const skippedRows = [];
 
@@ -83,6 +89,12 @@ const ExcelImportService = {
                 const booking = this.mapRowToDatevBooking(row, null, file.name, supplierMap);
 
                 if (!booking.datum) {
+                    // Debug: Alle verfügbaren Datum-Spalten loggen
+                    const datumFelder = Object.keys(row).filter(k =>
+                        k.toLowerCase().includes('data') || k.toLowerCase().includes('datum')
+                    );
+                    console.warn(`⚠️ Zeile ${rowIndex + 2} übersprungen - kein Datum. Verfügbare Datum-Felder:`, datumFelder, row);
+
                     skippedRows.push({
                         rowNumber: rowIndex + 2,
                         reason: 'Kein gültiges Datum',
@@ -92,7 +104,8 @@ const ExcelImportService = {
                             fornitore: row['Denominazione'] || row['Descrizione movimento'] || '',
                             betrag: row['Importo'] || '',
                             dokument: row['Numero documento'] || '',
-                            datum: row['Data documento'] || row['Data registrazione'] || ''
+                            datum: row['Data documento'] || row['Data registrazione'] || '',
+                            alleDateFields: datumFelder.join(', ')
                         }
                     });
                     continue;
@@ -354,8 +367,22 @@ const ExcelImportService = {
             }
         }
 
-        // Datum parsen und Jahr extrahieren
-        const datum = this.parseDate(row['Data documento']) || this.parseDate(row['Data registrazione']);
+        // Datum parsen und Jahr extrahieren - verschiedene mögliche Spalten prüfen
+        const datumSpalten = [
+            'Data documento',
+            'Data registrazione',
+            'Data',
+            'Datum',
+            'Data doc.',
+            'Data reg.'
+        ];
+        let datum = null;
+        for (const spalte of datumSpalten) {
+            if (row[spalte]) {
+                datum = this.parseDate(row[spalte]);
+                if (datum) break;
+            }
+        }
         const importYear = datum ? new Date(datum).getFullYear() : new Date().getFullYear();
 
         return {
