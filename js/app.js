@@ -6868,18 +6868,27 @@ const App = {
             console.log('Verwende DB-ID:', dbId);
 
             if (dbId) {
+                // Update-Objekt erstellen - nur Name, partita_iva nur wenn vorhanden
+                const updateData = {
+                    fornitore_name: name || null
+                };
+
+                // partita_iva nur setzen wenn vorhanden und nicht leer
+                if (partitaIva && String(partitaIva).trim() !== '') {
+                    updateData.partita_iva = String(partitaIva).trim();
+                }
+
+                console.log('Update-Daten:', updateData);
+
                 const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
-                    .update({
-                        fornitore_name: name,
-                        partita_iva: partitaIva,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update(updateData)
                     .eq('id', dbId)
                     .select();
 
                 if (error) {
                     console.error('Supabase Update Error:', error);
+                    console.error('Error details:', JSON.stringify(error, null, 2));
                     throw error;
                 }
 
@@ -8665,6 +8674,34 @@ const App = {
 
             console.log('📊 Konten aktuell:', kontenAktuell);
             console.log('📊 Konten vorjahr:', kontenVorjahr);
+
+            // DETAILLIERTE DEBUG-AUSGABE für Bilanz-Vergleich mit PDF
+            console.log('═══════════════════════════════════════════════════════════════');
+            console.log(`📊 DETAILLIERTE BILANZ-ANALYSE FÜR ${jahr}`);
+            console.log('═══════════════════════════════════════════════════════════════');
+            console.log('A) GESAMTLEISTUNG (Erträge):');
+            console.log('  600 (Erlöse):', kontenAktuell['600'] || 0);
+            console.log('  640 (sonstige Erträge):', kontenAktuell['640'] || 0);
+            console.log('  Summe A:', (kontenAktuell['600'] || 0) + (kontenAktuell['640'] || 0));
+            console.log('───────────────────────────────────────────────────────────────');
+            console.log('B) BETRIEBLICHE AUFWENDUNGEN:');
+            console.log('  680 (Roh/Hilfs/Betriebsstoffe):', kontenAktuell['680'] || 0);
+            console.log('  690 (bezogene Dienstleistungen):', kontenAktuell['690'] || 0);
+            console.log('  700 (Güter Dritter):', kontenAktuell['700'] || 0);
+            console.log('  710 (Personalaufwand):', kontenAktuell['710'] || 0);
+            console.log('  720 (Abschreibungen):', kontenAktuell['720'] || 0);
+            console.log('  730 (Bestandsveränderungen):', kontenAktuell['730'] || 0);
+            console.log('  760 (sonstige betr. Aufwendungen):', kontenAktuell['760'] || 0);
+            const summeB = (kontenAktuell['680'] || 0) + (kontenAktuell['690'] || 0) +
+                          (kontenAktuell['700'] || 0) + (kontenAktuell['710'] || 0) +
+                          (kontenAktuell['720'] || 0) + (kontenAktuell['730'] || 0) +
+                          (kontenAktuell['760'] || 0);
+            console.log('  Summe B (Rohwerte):', summeB);
+            console.log('───────────────────────────────────────────────────────────────');
+            console.log('C) FINANZERTRÄGE/-AUFWENDUNGEN:');
+            console.log('  840 (Finanzerträge):', kontenAktuell['840'] || 0);
+            console.log('  850 (Zinsaufwendungen):', kontenAktuell['850'] || 0);
+            console.log('═══════════════════════════════════════════════════════════════');
 
             // Struktur durchgehen und Werte berechnen
             const struktur = this.getBilanzStruktur();
