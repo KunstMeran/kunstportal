@@ -8837,8 +8837,8 @@ const App = {
                 { id: 'B7', label: '7) Für bezogene Dienstleistungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['690'], negate: true },
                 { id: 'B8', label: '8) Für die Verwendung von Gütern Dritter', type: 'group', level: 1, parent: 'B', kontoPattern: ['700'], negate: true },
                 { id: 'B9', label: '9) Personalaufwand', type: 'group', level: 1, parent: 'B', kontoPattern: ['710'], negate: true },
-                // Abschreibungen: NUR ordentliche (720151015, 720151025, 720151029), NICHT steuerliche (fisc.)
-                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720151015', '720151025', '720151029'], negate: true, isAbschreibung: true },
+                // Abschreibungen: Alle 720er, aber steuerliche (fisc.) werden in der Berechnung gefiltert
+                { id: 'B10', label: '10) Abschreibungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['720'], negate: true, isAbschreibung: true, excludeKategorie: ['fisc', 'Magg'] },
                 // Bestandsveränderungen: NICHT negieren - Saldo ist bereits korrekt (Anfangsbestand - Endbestand)
                 { id: 'B11', label: '11) Bestandsveränderungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['730'], negate: false },
                 { id: 'B14', label: '14) Sonstige betriebliche Aufwendungen', type: 'group', level: 1, parent: 'B', kontoPattern: ['760'], negate: true },
@@ -9014,30 +9014,32 @@ const App = {
                 let sumAktuell = 0, sumVorjahr = 0;
                 const details = [];
 
-                (gruppe.kontoPattern || []).forEach(pattern => {
-                    // Für Summen: 3-stellige Prefixe
-                    Object.keys(kontenAktuell).forEach(prefix => {
-                        if (prefix.startsWith(pattern)) {
-                            sumAktuell += kontenAktuell[prefix];
-                        }
-                    });
-                    Object.keys(kontenVorjahr).forEach(prefix => {
-                        if (prefix.startsWith(pattern)) {
-                            sumVorjahr += kontenVorjahr[prefix];
-                        }
-                    });
+                // Hilfsfunktion: Prüft ob Kategorie ausgeschlossen werden soll
+                const shouldExclude = (kategorie) => {
+                    if (!gruppe.excludeKategorie || !kategorie) return false;
+                    const kat = kategorie.toLowerCase();
+                    return gruppe.excludeKategorie.some(ex => kat.includes(ex.toLowerCase()));
+                };
 
-                    // Für Details: vollständige Kontonummern
+                (gruppe.kontoPattern || []).forEach(pattern => {
+                    // Für Details: vollständige Kontonummern (mit excludeKategorie Filter)
                     Object.keys(volleKontenAktuell).forEach(konto => {
                         if (konto.startsWith(pattern)) {
+                            const kontoData = volleKontenAktuell[konto];
+                            // Prüfe ob Kategorie ausgeschlossen werden soll
+                            if (shouldExclude(kontoData.kategorie)) {
+                                console.log(`🚫 Ausgeschlossen: ${konto} - ${kontoData.kategorie}`);
+                                return;
+                            }
+                            sumAktuell += kontoData.betrag;
                             const existing = details.find(d => d.konto === konto);
                             if (existing) {
-                                existing.aktuell = volleKontenAktuell[konto].betrag;
+                                existing.aktuell = kontoData.betrag;
                             } else {
                                 details.push({
                                     konto: konto,
-                                    kategorie: volleKontenAktuell[konto].kategorie,
-                                    aktuell: volleKontenAktuell[konto].betrag,
+                                    kategorie: kontoData.kategorie,
+                                    aktuell: kontoData.betrag,
                                     vorjahr: 0
                                 });
                             }
@@ -9045,15 +9047,21 @@ const App = {
                     });
                     Object.keys(volleKontenVorjahr).forEach(konto => {
                         if (konto.startsWith(pattern)) {
+                            const kontoData = volleKontenVorjahr[konto];
+                            // Prüfe ob Kategorie ausgeschlossen werden soll
+                            if (shouldExclude(kontoData.kategorie)) {
+                                return;
+                            }
+                            sumVorjahr += kontoData.betrag;
                             const existing = details.find(d => d.konto === konto);
                             if (existing) {
-                                existing.vorjahr = volleKontenVorjahr[konto].betrag;
+                                existing.vorjahr = kontoData.betrag;
                             } else {
                                 details.push({
                                     konto: konto,
-                                    kategorie: volleKontenVorjahr[konto].kategorie,
+                                    kategorie: kontoData.kategorie,
                                     aktuell: 0,
-                                    vorjahr: volleKontenVorjahr[konto].betrag
+                                    vorjahr: kontoData.betrag
                                 });
                             }
                         }
