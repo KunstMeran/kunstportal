@@ -8824,8 +8824,8 @@ const App = {
             guv: [
                 // A) GESAMTLEISTUNG
                 { id: 'A', label: 'A) Gesamtleistung', type: 'header', level: 0, color: '#d4edda', borderColor: '#28a745' },
-                { id: 'A1', label: '1) Erträge aus Lieferungen und Leistungen', type: 'group', level: 1, parent: 'A', kontoPattern: ['600'] },
-                { id: 'A5', label: '5) Sonstige betriebliche Erträge', type: 'group', level: 1, parent: 'A', kontoPattern: ['640'] },
+                { id: 'A1', label: '1) Erträge aus Lieferungen und Leistungen', type: 'group', level: 1, parent: 'A', kontoPattern: ['600'], positive: true },
+                { id: 'A5', label: '5) Sonstige betriebliche Erträge', type: 'group', level: 1, parent: 'A', kontoPattern: ['640'], positive: true },
                 { id: 'A_SUM', label: 'Summe Gesamtleistung (A)', type: 'sum', level: 0, sumOf: ['A1', 'A5'], color: '#c3e6cb', bold: true },
 
                 // B) BETRIEBLICHE AUFWENDUNGEN
@@ -8847,7 +8847,7 @@ const App = {
 
                 // C) FINANZERTRÄGE UND -AUFWENDUNGEN
                 { id: 'C', label: 'C) Finanzerträge und -aufwendungen', type: 'header', level: 0, color: '#e2e3e5', borderColor: '#6c757d' },
-                { id: 'C16', label: '16) Sonstige Finanzerträge', type: 'group', level: 1, parent: 'C', kontoPattern: ['840'] },
+                { id: 'C16', label: '16) Sonstige Finanzerträge', type: 'group', level: 1, parent: 'C', kontoPattern: ['840'], positive: true },
                 { id: 'C17', label: '17) Zinsen und ähnliche Aufwendungen', type: 'group', level: 1, parent: 'C', kontoPattern: ['850'], negative: true },
                 { id: 'C_SUM', label: 'Summe Finanzerträge/-aufwendungen (C)', type: 'sum', level: 0, sumOf: ['C16', 'C17'], color: '#ced4da' },
 
@@ -9061,11 +9061,15 @@ const App = {
 
                 // Bei Aufwendungen (negative: true) als negative Werte speichern für korrekte Berechnung
                 // Bei keepSign: true (z.B. Bestandsveränderungen) Vorzeichen beibehalten
+                // Bei Erträgen (positive: true) als positive Werte darstellen
                 if (gruppe.negative) {
                     werte[gruppe.id] = { aktuell: -Math.abs(sumAktuell), vorjahr: -Math.abs(sumVorjahr) };
                 } else if (gruppe.keepSign) {
                     // Bestandsveränderungen: Vorzeichen beibehalten, aber für B-Summe negativ darstellen
                     werte[gruppe.id] = { aktuell: -sumAktuell, vorjahr: -sumVorjahr };
+                } else if (gruppe.positive) {
+                    // Erträge: immer positiv darstellen (Vorzeichen umkehren falls negativ aus DB)
+                    werte[gruppe.id] = { aktuell: Math.abs(sumAktuell), vorjahr: Math.abs(sumVorjahr) };
                 } else {
                     werte[gruppe.id] = { aktuell: sumAktuell, vorjahr: sumVorjahr };
                 }
