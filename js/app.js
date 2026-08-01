@@ -8692,23 +8692,40 @@ const App = {
         try {
             // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
             // WICHTIG: ist_gutschrift und dokument_typ laden für korrekte Gutschrift-Berechnung
-            // WICHTIG: Limit auf 10000 setzen, da Supabase Standard-Limit von 1000 hat!
-            const { data: buchungenAktuell, error: err1 } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
-                .gte('datum', `${jahr}-01-01`)
-                .lte('datum', `${jahr}-12-31`)
-                .limit(50000);
+            // WICHTIG: Supabase hat ein serverseitiges Limit von 1000 Zeilen - wir müssen paginieren!
 
-            const { data: buchungenVorjahr, error: err2 } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
-                .gte('datum', `${vorjahr}-01-01`)
-                .lte('datum', `${vorjahr}-12-31`)
-                .limit(50000);
+            // Hilfsfunktion für paginierte Abfrage
+            const loadAllBuchungen = async (startDate, endDate) => {
+                const allData = [];
+                const pageSize = 1000;
+                let offset = 0;
+                let hasMore = true;
 
-            if (err1) throw err1;
-            if (err2) throw err2;
+                while (hasMore) {
+                    const { data, error } = await SupabaseService.client
+                        .from('datev_bookings')
+                        .select('konto_nr, kategorie, betrag, datum, ist_gutschrift, dokument_typ')
+                        .gte('datum', startDate)
+                        .lte('datum', endDate)
+                        .range(offset, offset + pageSize - 1)
+                        .order('datum', { ascending: true });
+
+                    if (error) throw error;
+
+                    if (data && data.length > 0) {
+                        allData.push(...data);
+                        offset += pageSize;
+                        hasMore = data.length === pageSize;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                return allData;
+            };
+
+            const buchungenAktuell = await loadAllBuchungen(`${jahr}-01-01`, `${jahr}-12-31`);
+            const buchungenVorjahr = await loadAllBuchungen(`${vorjahr}-01-01`, `${vorjahr}-12-31`);
 
             console.log(`📊 Bilanz ${jahr}: ${buchungenAktuell?.length || 0} Buchungen geladen`);
             console.log(`📊 Bilanz ${vorjahr}: ${buchungenVorjahr?.length || 0} Buchungen geladen`);
