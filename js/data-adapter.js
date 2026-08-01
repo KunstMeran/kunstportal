@@ -894,6 +894,8 @@ const SupabaseDataAdapter = {
                         fornitoreName: enrichedFornitoreName,
                         // workflowStatus aus Invoice überschreiben (für Filter)
                         workflowStatus: effectiveWorkflowStatus,
+                        // WICHTIG: Dies ist eine DATEV-Buchung, nicht nur Invoice
+                        isSupabaseOnly: false,
                         // WICHTIG: buchung.id beibehalten (DATEV-Buchungs-ID), invoiceId ist PDF-ID
                         invoiceId: firstInvoice.id,
                         filePath: firstInvoice.file_path,
@@ -919,6 +921,8 @@ const SupabaseDataAdapter = {
                 const fallbackFornitoreName = supplierName || buchung.fornitoreName;
                 return {
                     ...buchung,
+                    // WICHTIG: Dies ist eine DATEV-Buchung, nicht nur Invoice
+                    isSupabaseOnly: false,
                     fornitoreName: fallbackFornitoreName,
                     linkedInvoices: [],
                     pdfCount: 0,
