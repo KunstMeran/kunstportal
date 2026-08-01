@@ -10548,6 +10548,8 @@ const App = {
             document.getElementById('members-unpaid').textContent = unpaidMembers;
             document.getElementById('members-amount').textContent = this.formatCurrency(totalAmount);
 
+            // Filter-Dropdowns befüllen
+            this.populateMemberFilters();
             this.filterMembers();
         } catch (error) {
             console.error('Fehler beim Laden der Mitglieder:', error);
@@ -10557,6 +10559,8 @@ const App = {
 
     filterMembers: function() {
         const paidFilter = document.getElementById('members-filter-paid')?.value || '';
+        const cityFilter = document.getElementById('members-filter-city')?.value || '';
+        const paymentMethodFilter = document.getElementById('members-filter-payment-method')?.value || '';
         const searchFilter = (document.getElementById('members-filter-search')?.value || '').toLowerCase();
 
         this.filteredMembers = this.membersData.filter(m => {
@@ -10564,9 +10568,15 @@ const App = {
             if (paidFilter === 'paid' && !m.isPaid) return false;
             if (paidFilter === 'unpaid' && m.isPaid) return false;
 
-            // Suche
+            // Ort-Filter
+            if (cityFilter && m.city !== cityFilter) return false;
+
+            // Zahlungsart-Filter
+            if (paymentMethodFilter && m.payment_method !== paymentMethodFilter) return false;
+
+            // Suche (inkl. Notizen)
             if (searchFilter) {
-                const searchStr = `${m.last_name} ${m.first_name} ${m.email || ''} ${m.city || ''}`.toLowerCase();
+                const searchStr = `${m.last_name} ${m.first_name} ${m.email || ''} ${m.city || ''} ${m.notes || ''}`.toLowerCase();
                 if (!searchStr.includes(searchFilter)) return false;
             }
 
@@ -10574,6 +10584,32 @@ const App = {
         });
 
         this.renderMembersTable();
+    },
+
+    populateMemberFilters: function() {
+        // Orte sammeln
+        const cities = [...new Set(this.membersData.map(m => m.city).filter(Boolean))].sort();
+        const citySelect = document.getElementById('members-filter-city');
+        if (citySelect) {
+            const currentValue = citySelect.value;
+            citySelect.innerHTML = '<option value="">Alle Orte</option>';
+            cities.forEach(city => {
+                citySelect.innerHTML += `<option value="${city}">${city}</option>`;
+            });
+            citySelect.value = currentValue;
+        }
+
+        // Zahlungsarten sammeln
+        const methods = [...new Set(this.membersData.map(m => m.payment_method).filter(Boolean))].sort();
+        const methodSelect = document.getElementById('members-filter-payment-method');
+        if (methodSelect) {
+            const currentValue = methodSelect.value;
+            methodSelect.innerHTML = '<option value="">Alle</option>';
+            methods.forEach(method => {
+                methodSelect.innerHTML += `<option value="${method}">${method}</option>`;
+            });
+            methodSelect.value = currentValue;
+        }
     },
 
     renderMembersTable: function() {
@@ -10599,6 +10635,10 @@ const App = {
                 ? `<span title="${m.payment.datev_buchungstext}" style="max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.payment.datev_buchungstext}</span>`
                 : '-';
 
+            const notesDisplay = m.notes
+                ? `<span class="member-note" onclick="App.editMemberNote('${m.id}')" title="Klicken zum Bearbeiten" style="cursor: pointer; max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.notes}</span>`
+                : `<span class="member-note-empty" onclick="App.editMemberNote('${m.id}')" title="Notiz hinzufügen" style="cursor: pointer; color: #999; font-style: italic;">+ Notiz</span>`;
+
             tr.innerHTML = `
                 <td>${m.member_number || index + 1}</td>
                 <td><strong>${m.last_name}</strong></td>
@@ -10609,6 +10649,7 @@ const App = {
                 <td style="text-align: center;">${paidBadge}</td>
                 <td>${paymentDate}</td>
                 <td>${datevBuchung}</td>
+                <td>${notesDisplay}</td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         ${!m.isPaid ? `<button class="btn btn-sm btn-success" onclick="App.showPaymentModal('${m.id}')" title="Zahlung zuweisen">€</button>` : ''}
@@ -10890,6 +10931,257 @@ const App = {
                     alert('Fehler: ' + err.message);
                 });
             }
+        }
+    },
+
+    // Notiz direkt bearbeiten
+    editMemberNote: async function(memberId) {
+        const member = this.membersData.find(m => m.id === memberId);
+        if (!member) return;
+
+        const newNote = prompt(`Notiz für ${member.last_name}, ${member.first_name || ''}:`, member.notes || '');
+
+        if (newNote !== null) {
+            try {
+                await DataManager.updateMember(memberId, { notes: newNote || null });
+                this.showToast('success', 'Gespeichert', 'Notiz wurde aktualisiert');
+                await this.loadMembers();
+            } catch (error) {
+                console.error('Fehler beim Speichern der Notiz:', error);
+                alert('Fehler: ' + error.message);
+            }
+        }
+    },
+
+    // ==========================================
+    // BUCHUNGSZUWEISUNG MODAL (Verbessertes Modal)
+    // ==========================================
+
+    buchungenZuweisungData: [],
+    filteredBuchungenZuweisung: [],
+    selectedBuchungId: null,
+    selectedMitgliedId: null,
+
+    showBuchungenZuweisungModal: async function() {
+        this.selectedBuchungId = null;
+        this.selectedMitgliedId = null;
+        document.getElementById('zuweisung-preview').style.display = 'none';
+        document.getElementById('buchung-search').value = '';
+        document.getElementById('mitglied-search').value = '';
+        document.getElementById('buchung-filter-status').value = 'unassigned';
+
+        // DATEV-Buchungen für Konto 6401550 laden
+        try {
+            this.buchungenZuweisungData = await DataManager.getDatevBuchungenForKonto('6401550');
+
+            // Bereits zugewiesene Buchung-IDs ermitteln
+            const assignedIds = new Set(this.memberPaymentsData.map(p => p.datev_buchung_id));
+            this.buchungenZuweisungData = this.buchungenZuweisungData.map(b => ({
+                ...b,
+                isAssigned: assignedIds.has(b.rechnungId || b.id)
+            }));
+
+            this.filterBuchungenZuweisung();
+            this.renderMitgliederZuweisungListe();
+            this.showModal('buchungen-zuweisung-modal');
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Buchungen:', error);
+            this.showToast('error', 'Fehler', 'Buchungen konnten nicht geladen werden');
+        }
+    },
+
+    filterBuchungenZuweisung: function() {
+        const search = (document.getElementById('buchung-search')?.value || '').toLowerCase();
+        const statusFilter = document.getElementById('buchung-filter-status')?.value || 'unassigned';
+
+        this.filteredBuchungenZuweisung = this.buchungenZuweisungData.filter(b => {
+            // Status-Filter
+            if (statusFilter === 'unassigned' && b.isAssigned) return false;
+            if (statusFilter === 'assigned' && !b.isAssigned) return false;
+
+            // Suche
+            if (search) {
+                const searchStr = `${b.buchungstext || b.beschreibung || ''} ${b.betrag || ''} ${b.buchungsdatum || b.belegdatum || ''}`.toLowerCase();
+                if (!searchStr.includes(search)) return false;
+            }
+
+            return true;
+        });
+
+        this.renderBuchungenZuweisungListe();
+    },
+
+    renderBuchungenZuweisungListe: function() {
+        const container = document.getElementById('buchungen-liste');
+        if (!container) return;
+
+        if (this.filteredBuchungenZuweisung.length === 0) {
+            container.innerHTML = '<p style="padding: 1rem; color: #666; text-align: center;">Keine Buchungen gefunden</p>';
+            document.getElementById('buchungen-count').textContent = '0 Buchungen';
+            return;
+        }
+
+        let html = '';
+        this.filteredBuchungenZuweisung.forEach(b => {
+            const isSelected = this.selectedBuchungId === (b.rechnungId || b.id);
+            const assignedClass = b.isAssigned ? 'background: #f0f0f0; color: #888;' : '';
+            const selectedClass = isSelected ? 'background: #e3f2fd; border-left: 3px solid #3182ce;' : '';
+            const assignedBadge = b.isAssigned ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">zugewiesen</span>' : '';
+
+            html += `
+                <div onclick="App.selectBuchungForZuweisung('${b.rechnungId || b.id}')"
+                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${assignedClass} ${selectedClass}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <strong style="font-size: 0.9rem;">${b.buchungstext || b.beschreibung || 'Ohne Text'}</strong>${assignedBadge}
+                            <div style="font-size: 0.8rem; color: #666; margin-top: 2px;">
+                                ${this.formatDate(b.buchungsdatum || b.belegdatum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('buchungen-count').textContent = `${this.filteredBuchungenZuweisung.length} Buchungen`;
+    },
+
+    renderMitgliederZuweisungListe: function() {
+        const container = document.getElementById('mitglieder-liste');
+        if (!container) return;
+
+        const search = (document.getElementById('mitglied-search')?.value || '').toLowerCase();
+
+        // Nur Mitglieder ohne Zahlung im aktuellen Jahr anzeigen (bevorzugt)
+        let members = this.membersData.filter(m => {
+            if (search) {
+                const searchStr = `${m.last_name} ${m.first_name || ''} ${m.city || ''}`.toLowerCase();
+                if (!searchStr.includes(search)) return false;
+            }
+            return true;
+        });
+
+        // Sortieren: unbezahlte zuerst
+        members.sort((a, b) => {
+            if (a.isPaid === b.isPaid) return a.last_name.localeCompare(b.last_name);
+            return a.isPaid ? 1 : -1;
+        });
+
+        if (members.length === 0) {
+            container.innerHTML = '<p style="padding: 1rem; color: #666; text-align: center;">Keine Mitglieder gefunden</p>';
+            return;
+        }
+
+        let html = '';
+        members.forEach(m => {
+            const isSelected = this.selectedMitgliedId === m.id;
+            const paidClass = m.isPaid ? 'background: #f0f0f0; color: #888;' : '';
+            const selectedClass = isSelected ? 'background: #e8f5e9; border-left: 3px solid #27ae60;' : '';
+            const paidBadge = m.isPaid
+                ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">bezahlt</span>'
+                : '<span style="background: #e74c3c; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">offen</span>';
+
+            html += `
+                <div onclick="App.selectMitgliedForZuweisung('${m.id}')"
+                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${paidClass} ${selectedClass}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${m.last_name}, ${m.first_name || ''}</strong>${paidBadge}
+                            <div style="font-size: 0.8rem; color: #666;">${m.city || ''} | ${this.formatCurrency(m.membership_fee || 0)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    },
+
+    filterMitgliederZuweisung: function() {
+        this.renderMitgliederZuweisungListe();
+    },
+
+    selectBuchungForZuweisung: function(buchungId) {
+        this.selectedBuchungId = buchungId;
+        this.renderBuchungenZuweisungListe();
+        this.updateZuweisungPreview();
+    },
+
+    selectMitgliedForZuweisung: function(mitgliedId) {
+        this.selectedMitgliedId = mitgliedId;
+        this.renderMitgliederZuweisungListe();
+        this.updateZuweisungPreview();
+    },
+
+    updateZuweisungPreview: function() {
+        const preview = document.getElementById('zuweisung-preview');
+
+        if (this.selectedBuchungId && this.selectedMitgliedId) {
+            const buchung = this.buchungenZuweisungData.find(b => (b.rechnungId || b.id) === this.selectedBuchungId);
+            const mitglied = this.membersData.find(m => m.id === this.selectedMitgliedId);
+
+            if (buchung && mitglied) {
+                document.getElementById('selected-buchung-text').textContent =
+                    `${buchung.buchungstext || buchung.beschreibung || 'Ohne Text'} (${this.formatCurrency(Math.abs(buchung.betrag || 0))})`;
+                document.getElementById('selected-mitglied-text').textContent =
+                    `${mitglied.last_name}, ${mitglied.first_name || ''} (Beitrag: ${this.formatCurrency(mitglied.membership_fee || 0)})`;
+                preview.style.display = 'block';
+            }
+        } else {
+            preview.style.display = 'none';
+        }
+    },
+
+    confirmBuchungZuweisung: async function() {
+        if (!this.selectedBuchungId || !this.selectedMitgliedId) {
+            alert('Bitte wählen Sie eine Buchung und ein Mitglied aus.');
+            return;
+        }
+
+        const buchung = this.buchungenZuweisungData.find(b => (b.rechnungId || b.id) === this.selectedBuchungId);
+        const mitglied = this.membersData.find(m => m.id === this.selectedMitgliedId);
+
+        if (!buchung || !mitglied) {
+            alert('Fehler: Buchung oder Mitglied nicht gefunden.');
+            return;
+        }
+
+        const year = parseInt(document.getElementById('members-filter-year')?.value || new Date().getFullYear());
+
+        try {
+            await DataManager.addMemberPayment({
+                member_id: mitglied.id,
+                year: year,
+                amount: Math.abs(buchung.betrag || 0),
+                payment_date: buchung.buchungsdatum || buchung.belegdatum || null,
+                datev_buchung_id: buchung.rechnungId || buchung.id,
+                datev_buchungstext: buchung.buchungstext || buchung.beschreibung || null
+            });
+
+            this.showToast('success', 'Zugewiesen', `Buchung wurde ${mitglied.last_name} zugewiesen`);
+
+            // Zurücksetzen
+            this.selectedBuchungId = null;
+            this.selectedMitgliedId = null;
+            document.getElementById('zuweisung-preview').style.display = 'none';
+
+            // Daten neu laden
+            await this.loadMembers();
+
+            // Buchungen-Liste aktualisieren
+            const assignedIds = new Set(this.memberPaymentsData.map(p => p.datev_buchung_id));
+            this.buchungenZuweisungData = this.buchungenZuweisungData.map(b => ({
+                ...b,
+                isAssigned: assignedIds.has(b.rechnungId || b.id)
+            }));
+            this.filterBuchungenZuweisung();
+            this.renderMitgliederZuweisungListe();
+
+        } catch (error) {
+            console.error('Fehler bei der Zuweisung:', error);
+            alert('Fehler: ' + error.message);
         }
     },
 

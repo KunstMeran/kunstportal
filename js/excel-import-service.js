@@ -90,15 +90,25 @@ const ExcelImportService = {
             const pageSize = 1000;
             let offset = 0;
             let hasMore = true;
+            let pageNum = 0;
+
+            console.log('📚 Lade Buchungen aus DB mit Pagination...');
 
             while (hasMore) {
+                pageNum++;
                 const { data: page, error: fetchError } = await SupabaseService.client
                     .from('datev_bookings')
                     .select('konto_nr, datum, betrag, beschreibung')
                     .range(offset, offset + pageSize - 1)
                     .order('id', { ascending: true });
 
-                if (fetchError) throw fetchError;
+                if (fetchError) {
+                    console.error(`❌ Fehler bei Page ${pageNum}:`, fetchError);
+                    throw fetchError;
+                }
+
+                const pageLength = page ? page.length : 0;
+                console.log(`📄 Page ${pageNum}: ${pageLength} Buchungen geladen (offset: ${offset})`);
 
                 if (page && page.length > 0) {
                     existingBookings.push(...page);
@@ -108,6 +118,8 @@ const ExcelImportService = {
                     hasMore = false;
                 }
             }
+
+            console.log(`📚 Pagination fertig: ${pageNum} Pages, ${existingBookings.length} Buchungen total`);
 
             const dbKeyCounts = new Map();
             for (const b of existingBookings) {

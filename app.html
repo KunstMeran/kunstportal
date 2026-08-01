@@ -1743,12 +1743,24 @@
                                 <option value="unpaid">Offen</option>
                             </select>
                         </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Ort</label>
+                            <select id="members-filter-city" class="form-control" onchange="App.filterMembers()">
+                                <option value="">Alle Orte</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Zahlungsart</label>
+                            <select id="members-filter-payment-method" class="form-control" onchange="App.filterMembers()">
+                                <option value="">Alle</option>
+                            </select>
+                        </div>
                         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
                             <label class="form-label">Suche</label>
-                            <input type="text" id="members-filter-search" class="form-control" placeholder="Name, E-Mail..." oninput="App.filterMembers()">
+                            <input type="text" id="members-filter-search" class="form-control" placeholder="Name, E-Mail, Notiz..." oninput="App.filterMembers()">
                         </div>
-                        <button class="btn btn-outline" onclick="App.showUnmatchedPayments()" style="white-space: nowrap;">
-                            Nicht zugeordnete Zahlungen
+                        <button class="btn btn-outline" onclick="App.showBuchungenZuweisungModal()" style="white-space: nowrap;">
+                            Buchungen zuweisen
                         </button>
                     </div>
                 </div>
@@ -1772,6 +1784,7 @@
                                     <th style="text-align: center;">Bezahlt</th>
                                     <th>Zahlungsdatum</th>
                                     <th>DATEV-Buchung</th>
+                                    <th>Notiz</th>
                                     <th>Aktionen</th>
                                 </tr>
                             </thead>
@@ -3909,31 +3922,65 @@
         </div>
     </div>
 
-    <!-- Nicht zugeordnete Zahlungen Modal -->
-    <div id="unmatched-payments-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 900px;">
+    <!-- Buchungen zuweisen Modal (verbessertes Modal mit Suche) -->
+    <div id="buchungen-zuweisung-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 1100px;">
             <div class="modal-header">
-                <h2>Nicht zugeordnete Mitgliedsbeiträge</h2>
-                <button type="button" class="modal-close" onclick="App.hideModal('unmatched-payments-modal')">&times;</button>
+                <h2>DATEV-Buchungen Mitgliedern zuweisen</h2>
+                <button type="button" class="modal-close" onclick="App.hideModal('buchungen-zuweisung-modal')">&times;</button>
             </div>
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
                 <p style="margin-bottom: 1rem; color: #666;">
-                    DATEV-Buchungen auf Konto 6401550, die noch keinem Mitglied zugewiesen sind.
-                    Klicken Sie auf "Zuweisen" um eine Buchung mit einem Mitglied zu verknüpfen.
+                    Buchungen vom Konto 6401550 (Mitgliedsbeiträge) suchen und Mitgliedern zuweisen.
                 </p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Datum</th>
-                            <th>Buchungstext</th>
-                            <th style="text-align: right;">Betrag</th>
-                            <th>Aktion</th>
-                        </tr>
-                    </thead>
-                    <tbody id="unmatched-payments-body">
-                        <!-- Wird dynamisch geladen -->
-                    </tbody>
-                </table>
+
+                <!-- Filter -->
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                        <label class="form-label">Buchung suchen</label>
+                        <input type="text" id="buchung-search" class="form-control" placeholder="Name, Betrag, Datum..." oninput="App.filterBuchungenZuweisung()">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Status</label>
+                        <select id="buchung-filter-status" class="form-control" onchange="App.filterBuchungenZuweisung()">
+                            <option value="unassigned">Nicht zugewiesen</option>
+                            <option value="all">Alle</option>
+                            <option value="assigned">Bereits zugewiesen</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <!-- Linke Seite: Buchungen -->
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #3182ce; padding-bottom: 0.5rem;">Buchungen (Konto 6401550)</h4>
+                        <div id="buchungen-liste" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                        <p id="buchungen-count" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem;"></p>
+                    </div>
+
+                    <!-- Rechte Seite: Mitglieder -->
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem;">Mitglied auswählen</h4>
+                        <input type="text" id="mitglied-search" class="form-control" placeholder="Mitglied suchen..." oninput="App.filterMitgliederZuweisung()" style="margin-bottom: 0.5rem;">
+                        <div id="mitglieder-liste" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ausgewählte Zuweisung -->
+                <div id="zuweisung-preview" style="display: none; margin-top: 1rem; padding: 1rem; background: #e8f5e9; border-radius: 8px; border: 2px solid #27ae60;">
+                    <h4 style="margin-bottom: 0.5rem;">Zuweisung vornehmen:</h4>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>Buchung:</strong> <span id="selected-buchung-text"></span><br>
+                            <strong>Mitglied:</strong> <span id="selected-mitglied-text"></span>
+                        </div>
+                        <button class="btn btn-success" onclick="App.confirmBuchungZuweisung()">Jetzt zuweisen</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
