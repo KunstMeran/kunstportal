@@ -5080,10 +5080,10 @@ const App = {
         try {
             const heute = new Date().toISOString().split('T')[0];
             const user = (await SupabaseService.client.auth.getUser()).data.user;
+            let successCount = 0;
+            let errorCount = 0;
 
-            // Alle ausgewählten Rechnungen in Supabase updaten
             for (const rechnungId of this.selectedRechnungen) {
-                // rechnungId Format: partitaIva_dokumentNr
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
@@ -5093,24 +5093,95 @@ const App = {
                     kontrolled_by: user?.id
                 });
 
-                await SupabaseService.client
+                // Update mit Fehlerprüfung
+                const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .update(updates)
                     .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr);
+                    .eq('dokument_nr', dokumentNr)
+                    .select('id');
 
-                // Auch localStorage updaten für Kompatibilität
-                DataManager.markAsKontrolliert(rechnungId);
+                if (error) {
+                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
+                    errorCount++;
+                } else {
+                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} als kontrolliert markiert`);
+                    successCount++;
+                    DataManager.markAsKontrolliert(rechnungId);
+                }
             }
 
-            this.showToast('success', 'Erledigt', `${count} Rechnung(en) als kontrolliert markiert`);
+            if (errorCount > 0) {
+                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
+            } else {
+                this.showToast('success', 'Erledigt', `${count} Rechnung(en) als kontrolliert markiert`);
+            }
         } catch (error) {
             console.error('Fehler bei Massen-Markierung:', error);
             this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
         }
 
         this.clearSelection();
-        this.loadRechnungen();
+        await this.loadRechnungen();
+    },
+
+    massMarkNeu: async function() {
+        if (this.selectedRechnungen.size === 0) return;
+
+        const count = this.selectedRechnungen.size;
+        if (!confirm(`${count} Rechnung(en) auf "neu" zurücksetzen?`)) return;
+
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const rechnungId of this.selectedRechnungen) {
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                const updates = await addAuditMetadata({
+                    workflow_status: 'neu',
+                    kontrolled_at: null,
+                    kontrolled_by: null,
+                    paid_at: null,
+                    paid_by: null
+                });
+
+                // Update mit Fehlerprüfung
+                const { data, error } = await SupabaseService.client
+                    .from('datev_bookings')
+                    .update(updates)
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr)
+                    .select('id');
+
+                if (error) {
+                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
+                    errorCount++;
+                } else {
+                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} auf neu zurückgesetzt`);
+                    successCount++;
+                    DataManager.setRechnungStatus(rechnungId, {
+                        status: 'neu',
+                        kontrolliertAm: null,
+                        kontrolliertVon: null,
+                        bezahltAm: null
+                    });
+                }
+            }
+
+            if (errorCount > 0) {
+                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
+            } else {
+                this.showToast('success', 'Erledigt', `${count} Rechnung(en) auf "neu" zurückgesetzt`);
+            }
+        } catch (error) {
+            console.error('Fehler bei Massen-Zurücksetzen:', error);
+            this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
+
+        this.clearSelection();
+        await this.loadRechnungen();
     },
 
     massMarkBezahlt: async function() {
@@ -5122,6 +5193,8 @@ const App = {
         try {
             const heute = new Date().toISOString().split('T')[0];
             const user = (await SupabaseService.client.auth.getUser()).data.user;
+            let successCount = 0;
+            let errorCount = 0;
 
             for (const rechnungId of this.selectedRechnungen) {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
@@ -5133,23 +5206,36 @@ const App = {
                     paid_by: user?.id
                 });
 
-                await SupabaseService.client
+                // Update mit Fehlerprüfung
+                const { data, error } = await SupabaseService.client
                     .from('datev_bookings')
                     .update(updates)
                     .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr);
+                    .eq('dokument_nr', dokumentNr)
+                    .select('id');
 
-                DataManager.markAsBezahlt(rechnungId);
+                if (error) {
+                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
+                    errorCount++;
+                } else {
+                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} als bezahlt markiert`);
+                    successCount++;
+                    DataManager.markAsBezahlt(rechnungId);
+                }
             }
 
-            this.showToast('success', 'Erledigt', `${count} Rechnung(en) als bezahlt markiert`);
+            if (errorCount > 0) {
+                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
+            } else {
+                this.showToast('success', 'Erledigt', `${count} Rechnung(en) als bezahlt markiert`);
+            }
         } catch (error) {
             console.error('Fehler bei Massen-Markierung:', error);
             this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
         }
 
         this.clearSelection();
-        this.loadRechnungen();
+        await this.loadRechnungen();
     },
 
     /**
