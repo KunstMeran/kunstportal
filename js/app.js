@@ -12415,16 +12415,7 @@ const App = {
 
     openDatevVerknuepfungModal: async function() {
         try {
-            // DATEV-Bewegungen laden (alle, auch mit PDF)
-            const { data: datevBookings, error: datevError } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('id, partita_iva, dokument_nr, fornitore_name, buchungstext, betrag, belegdatum, linked_invoice_id')
-                .eq('archived', false)
-                .order('belegdatum', { ascending: false });
-
-            if (datevError) throw datevError;
-
-            // PDFs (Invoices) laden
+            // PDFs (Invoices) zuerst laden um verknüpfte Buchungen zu ermitteln
             const { data: invoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
                 .select('id, file_name, file_path, uploaded_at, linked_booking_id')
@@ -12432,10 +12423,24 @@ const App = {
 
             if (invoiceError) throw invoiceError;
 
-            // Daten vorbereiten
+            // Set mit allen verknüpften Booking-IDs erstellen
+            const linkedBookingIds = new Set(
+                invoices.filter(inv => inv.linked_booking_id).map(inv => inv.linked_booking_id)
+            );
+
+            // DATEV-Bewegungen laden
+            const { data: datevBookings, error: datevError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('id, partita_iva, dokument_nr, fornitore_name, buchungstext, betrag, belegdatum')
+                .eq('archived', false)
+                .order('belegdatum', { ascending: false });
+
+            if (datevError) throw datevError;
+
+            // Daten vorbereiten - hasPdf basierend auf invoices ermitteln
             this.datevBewegungModalData = datevBookings.map(b => ({
                 ...b,
-                hasPdf: !!b.linked_invoice_id || invoices.some(inv => inv.linked_booking_id === b.id)
+                hasPdf: linkedBookingIds.has(b.id)
             }));
 
             this.pdfModalData = invoices.map(inv => ({
@@ -12635,19 +12640,13 @@ const App = {
         const pdf = this.selectedPdfForVerknuepfung;
 
         try {
-            // Invoice mit DATEV-Buchung verknüpfen
+            // Invoice mit DATEV-Buchung verknüpfen (nur in invoices-Tabelle)
             const { error } = await SupabaseService.client
                 .from('invoices')
                 .update({ linked_booking_id: bewegung.id })
                 .eq('id', pdf.id);
 
             if (error) throw error;
-
-            // Optional: linked_invoice_id in datev_bookings setzen (für Rückwärtskompatibilität)
-            await SupabaseService.client
-                .from('datev_bookings')
-                .update({ linked_invoice_id: pdf.id })
-                .eq('id', bewegung.id);
 
             this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Bewegung verknüpft');
 
