@@ -10616,17 +10616,6 @@ const App = {
             const db2KostenGesamt = getSum(null, 'DB2_KOSTEN');
             const db3KostenGesamt = getSum(null, 'DB3_KOSTEN');
 
-            // DEBUG: Zeige Vorjahr-Daten
-            console.log('=== DEBUG VORJAHR ===');
-            console.log('Zeitraum Vorjahr:', vorjahrStart, '-', vorjahrEnd);
-            console.log('groupedVorjahr UMSATZ-Konten:');
-            for (const [pattern, d] of Object.entries(groupedVorjahr)) {
-                if (d.db_zuordnung === 'UMSATZ') {
-                    console.log(`  ${pattern}: ${d.betrag} (${d.count} Buchungen)`);
-                }
-            }
-            console.log('=====================');
-
             const umsatzVorjahr = getSum(null, 'UMSATZ', groupedVorjahr);
             const db1KostenVorjahr = getSum(null, 'DB1_KOSTEN', groupedVorjahr);
             const db2KostenVorjahr = getSum(null, 'DB2_KOSTEN', groupedVorjahr);
