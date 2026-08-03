@@ -12508,7 +12508,7 @@ const App = {
 
         let html = '';
         this.filteredDatevBewegungen.forEach(b => {
-            const isSelected = this.selectedBewegungForVerknuepfung?.id === b.id;
+            const isSelected = this.selectedBewegungForVerknuepfung && String(this.selectedBewegungForVerknuepfung.id) === String(b.id);
             const pdfClass = b.hasPdf ? 'background: #e8f5e9;' : '';
             const selectedClass = isSelected ? 'background: #e3f2fd; border-left: 3px solid #3182ce;' : '';
             const pdfBadge = b.hasPdf ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">PDF</span>' : '';
@@ -12568,7 +12568,7 @@ const App = {
 
         let html = '';
         this.filteredPdfs.forEach(p => {
-            const isSelected = this.selectedPdfForVerknuepfung?.id === p.id;
+            const isSelected = this.selectedPdfForVerknuepfung && String(this.selectedPdfForVerknuepfung.id) === String(p.id);
             const linkedClass = p.isLinked ? 'background: #f0f0f0; color: #888;' : '';
             const selectedClass = isSelected ? 'background: #e8f5e9; border-left: 3px solid #27ae60;' : '';
             const linkedBadge = p.isLinked
@@ -12595,13 +12595,16 @@ const App = {
     },
 
     selectBewegungForVerknuepfung: function(bewegungId) {
-        this.selectedBewegungForVerknuepfung = this.datevBewegungModalData.find(b => b.id === bewegungId);
+        // ID-Vergleich mit == um String/Number-Unterschiede zu ignorieren
+        this.selectedBewegungForVerknuepfung = this.datevBewegungModalData.find(b => String(b.id) === String(bewegungId));
+        console.log('Bewegung ausgewählt:', bewegungId, this.selectedBewegungForVerknuepfung);
         this.renderDatevBewegungListe();
         this.updateVerknuepfungPreview();
     },
 
     selectPdfForVerknuepfung: async function(pdfId) {
-        this.selectedPdfForVerknuepfung = this.pdfModalData.find(p => p.id === pdfId);
+        this.selectedPdfForVerknuepfung = this.pdfModalData.find(p => String(p.id) === String(pdfId));
+        console.log('PDF ausgewählt:', pdfId, this.selectedPdfForVerknuepfung);
         this.renderPdfListe();
         this.updateVerknuepfungPreview();
 
