@@ -10386,8 +10386,18 @@ const App = {
             const { grouped, details } = await SupabaseDataAdapter.getBookingsGroupedByAccount(startDate, endDate);
             this.dbDetailCache = details;
 
-            // Vorjahr-Buchungen laden
-            const { grouped: groupedVorjahr } = await SupabaseDataAdapter.getBookingsGroupedByAccount(vorjahrStart, vorjahrEnd);
+            // Vorjahr-Buchungen laden (auch Details für Vorjahr-Vergleich)
+            const { grouped: groupedVorjahr, details: detailsVorjahr } = await SupabaseDataAdapter.getBookingsGroupedByAccount(vorjahrStart, vorjahrEnd);
+
+            // Vorjahr-Cache für Detail-Ansicht erstellen (Konto -> Summe)
+            this.dbVorjahrCache = {};
+            for (const [pattern, buchungen] of Object.entries(detailsVorjahr || {})) {
+                for (const b of buchungen) {
+                    const konto = b.konto_nr || '';
+                    if (!this.dbVorjahrCache[konto]) this.dbVorjahrCache[konto] = 0;
+                    this.dbVorjahrCache[konto] += Math.abs(parseFloat(b.betrag) || 0);
+                }
+            }
 
             // Budget-Einträge für das Jahr laden
             const { data: budgetEntries } = await SupabaseService.client
@@ -10396,15 +10406,35 @@ const App = {
                 .eq('fiscal_year', parseInt(jahr))
                 .eq('entry_type', 'budget');
 
-            // Budget-Map erstellen (Konto -> Jahres-Summe)
-            const budgetMap = new Map();
+            // Budget-Map erstellen (volle Kontonummer -> Jahres-Summe)
+            const budgetByKonto = new Map();
             (budgetEntries || []).forEach(entry => {
                 const jahresSumme = (entry.jan || 0) + (entry.feb || 0) + (entry.mar || 0) +
                                    (entry.apr || 0) + (entry.mai || 0) + (entry.jun || 0) +
                                    (entry.jul || 0) + (entry.aug || 0) + (entry.sep || 0) +
                                    (entry.okt || 0) + (entry.nov || 0) + (entry.dez || 0);
-                budgetMap.set(entry.konto_nr, jahresSumme);
+                budgetByKonto.set(entry.konto_nr, jahresSumme);
             });
+
+            console.log('📊 Budget geladen:', budgetByKonto.size, 'Einträge');
+
+            // Budget-Cache für Detail-Ansicht speichern (Konto -> Jahres-Summe)
+            this.dbBudgetCache = Object.fromEntries(budgetByKonto);
+
+            // Hilfsfunktion: Budget für ein Konto-Pattern summieren
+            // Pattern kann "680%" sein -> alle Konten die mit "680" beginnen
+            const getBudgetForPattern = (pattern) => {
+                if (!pattern) return 0;
+                // Pattern ohne % am Ende
+                const prefix = pattern.replace(/%$/, '');
+                let sum = 0;
+                for (const [konto, betrag] of budgetByKonto.entries()) {
+                    if (konto.startsWith(prefix)) {
+                        sum += betrag;
+                    }
+                }
+                return sum;
+            };
 
             // Einnahmen aus funding_sources laden (für Umsatz-Plan)
             const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
@@ -10426,7 +10456,7 @@ const App = {
                 let sum = 0;
                 for (const [pattern, data] of Object.entries(grouped)) {
                     if (data.db_zuordnung === zuordnung) {
-                        sum += budgetMap.get(pattern) || 0;
+                        sum += getBudgetForPattern(pattern);
                     }
                 }
                 return sum;
@@ -10470,7 +10500,7 @@ const App = {
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: budgetMap.get(pattern) || 0,
+                        plan: getBudgetForPattern(pattern),
                         vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
@@ -10492,7 +10522,7 @@ const App = {
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: budgetMap.get(pattern) || 0,
+                        plan: getBudgetForPattern(pattern),
                         vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
@@ -10517,7 +10547,7 @@ const App = {
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: budgetMap.get(pattern) || 0,
+                        plan: getBudgetForPattern(pattern),
                         vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
@@ -10542,7 +10572,7 @@ const App = {
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: budgetMap.get(pattern) || 0,
+                        plan: getBudgetForPattern(pattern),
                         vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
@@ -10658,57 +10688,53 @@ const App = {
     },
 
     /**
-     * Detail-Tabelle rendern mit Sortierung/Filter/Suche
+     * Detail-Tabelle rendern - gruppiert nach Einzelkonto mit IST, Plan, Vorjahr
      */
-    renderDbDetailTable: function(pattern, detailRow, searchTerm = '', sortCol = 'datum', sortDir = 'desc') {
-        let buchungen = [...(this.dbDetailCache[pattern] || [])];
+    renderDbDetailTable: function(pattern, detailRow, searchTerm = '') {
+        const buchungen = this.dbDetailCache[pattern] || [];
         const safePattern = pattern.replace('%', '');
+
+        // Nach Einzelkonto gruppieren
+        const kontoGruppen = {};
+        for (const b of buchungen) {
+            const konto = b.konto_nr || 'Unbekannt';
+            if (!kontoGruppen[konto]) {
+                kontoGruppen[konto] = {
+                    konto: konto,
+                    kategorie: b.kategorie || b.buchungstext || '',
+                    ist: 0,
+                    buchungen: []
+                };
+            }
+            kontoGruppen[konto].ist += Math.abs(parseFloat(b.betrag) || 0);
+            kontoGruppen[konto].buchungen.push(b);
+        }
+
+        // In Array umwandeln und sortieren
+        let konten = Object.values(kontoGruppen);
 
         // Suche anwenden
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
-            buchungen = buchungen.filter(b =>
-                (b.buchungstext || '').toLowerCase().includes(term) ||
-                (b.konto_nr || '').toLowerCase().includes(term) ||
-                (b.datum || '').includes(term)
+            konten = konten.filter(k =>
+                k.konto.toLowerCase().includes(term) ||
+                k.kategorie.toLowerCase().includes(term)
             );
         }
 
-        // Sortierung anwenden
-        buchungen.sort((a, b) => {
-            let valA, valB;
-            if (sortCol === 'datum') {
-                valA = new Date(a.datum || '1900-01-01').getTime();
-                valB = new Date(b.datum || '1900-01-01').getTime();
-            } else if (sortCol === 'betrag') {
-                valA = Math.abs(parseFloat(a.betrag) || 0);
-                valB = Math.abs(parseFloat(b.betrag) || 0);
-            } else if (sortCol === 'konto') {
-                valA = a.konto_nr || '';
-                valB = b.konto_nr || '';
-            } else {
-                valA = (a.buchungstext || '').toLowerCase();
-                valB = (b.buchungstext || '').toLowerCase();
-            }
-            if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-            if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-            return 0;
-        });
+        // Nach Konto sortieren
+        konten.sort((a, b) => a.konto.localeCompare(b.konto));
+
+        // Budget & Vorjahr aus Cache holen (falls vorhanden)
+        const budgetCache = this.dbBudgetCache || {};
+        const vorjahrCache = this.dbVorjahrCache || {};
 
         // Summe berechnen
-        const summe = buchungen.reduce((sum, b) => sum + Math.abs(parseFloat(b.betrag) || 0), 0);
-
-        // Sortier-Pfeil
-        const arrow = (col) => {
-            if (sortCol === col) return sortDir === 'asc' ? ' ▲' : ' ▼';
-            return ' ↕';
-        };
-
-        const headerStyle = 'cursor: pointer; user-select: none; padding: 6px; background: #e0e0e0;';
+        const summeIst = konten.reduce((sum, k) => sum + k.ist, 0);
 
         let detailHtml = `
-            <td colspan="5" style="padding: 0;">
-                <div style="padding: 10px 20px;">
+            <td colspan="8" style="padding: 0;">
+                <div style="padding: 10px 20px; background: #f9f9f9;">
                     <!-- Suchfeld -->
                     <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                         <input type="text"
@@ -10716,59 +10742,78 @@ const App = {
                                placeholder="Suchen in Buchungstext, Konto..."
                                value="${searchTerm}"
                                onkeyup="App.filterDbDetails('${pattern}', this.value)"
-                               style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
-                        <span style="color: #666; font-size: 0.85em;">${buchungen.length} Buchungen | Summe: ${this.formatCurrency(summe)}</span>
+                               style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; max-width: 300px;">
+                        <span style="color: #666; font-size: 0.85em;">${konten.length} Konten | Summe: ${this.formatCurrency(summeIst)}</span>
                     </div>
 
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        <table style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 0.85em; border-collapse: collapse;">
                             <thead>
-                                <tr>
-                                    <th style="${headerStyle} text-align: left; width: 100px;"
-                                        onclick="App.sortDbDetails('${pattern}', 'datum')">
-                                        Datum${arrow('datum')}
-                                    </th>
-                                    <th style="${headerStyle} text-align: left; width: 120px;"
-                                        onclick="App.sortDbDetails('${pattern}', 'konto')">
-                                        Konto${arrow('konto')}
-                                    </th>
-                                    <th style="${headerStyle} text-align: left;"
-                                        onclick="App.sortDbDetails('${pattern}', 'text')">
-                                        Buchungstext${arrow('text')}
-                                    </th>
-                                    <th style="${headerStyle} text-align: right; width: 120px;"
-                                        onclick="App.sortDbDetails('${pattern}', 'betrag')">
-                                        Betrag${arrow('betrag')}
-                                    </th>
+                                <tr style="background: #e0e0e0;">
+                                    <th style="padding: 8px; text-align: left; width: 30px;"></th>
+                                    <th style="padding: 8px; text-align: left; width: 120px;">Konto</th>
+                                    <th style="padding: 8px; text-align: left;">Bezeichnung</th>
+                                    <th style="padding: 8px; text-align: right; width: 100px;">IST</th>
+                                    <th style="padding: 8px; text-align: right; width: 100px;">Plan</th>
+                                    <th style="padding: 8px; text-align: right; width: 80px;">Abw. €</th>
+                                    <th style="padding: 8px; text-align: right; width: 100px;">Vorjahr</th>
+                                    <th style="padding: 8px; text-align: right; width: 80px;">VJ %</th>
                                 </tr>
                             </thead>
                             <tbody>
         `;
 
-        if (buchungen.length === 0) {
-            detailHtml += `<tr><td colspan="4" style="padding: 10px; color: #666;">Keine Buchungen gefunden</td></tr>`;
+        if (konten.length === 0) {
+            detailHtml += `<tr><td colspan="8" style="padding: 10px; color: #666;">Keine Buchungen gefunden</td></tr>`;
         } else {
-            for (const b of buchungen) {
-                const datum = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-';
-                const betrag = parseFloat(b.betrag) || 0;
-
-                // Suchbegriff hervorheben
-                let buchungstext = b.buchungstext || '-';
-                if (searchTerm && buchungstext !== '-') {
-                    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                    buchungstext = buchungstext.replace(regex, '<mark style="background: #fff3cd;">$1</mark>');
-                }
+            for (const k of konten) {
+                const plan = budgetCache[k.konto] || 0;
+                const vorjahr = vorjahrCache[k.konto] || 0;
+                const abw = k.ist - plan;
+                const vjPct = vorjahr ? ((k.ist - vorjahr) / Math.abs(vorjahr) * 100) : 0;
+                const abwColor = abw <= 0 ? '#27ae60' : '#e74c3c';
+                const vjColor = vjPct <= 0 ? '#27ae60' : '#e74c3c';
+                const kontoId = k.konto.replace(/[^a-zA-Z0-9]/g, '_');
 
                 detailHtml += `
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 6px;">${datum}</td>
-                        <td style="padding: 6px;">${b.konto_nr}</td>
-                        <td style="padding: 6px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                            title="${(b.buchungstext || '').replace(/"/g, '&quot;')}">
-                            ${buchungstext}
+                    <tr style="border-bottom: 1px solid #ddd; background: white;">
+                        <td style="padding: 6px; text-align: center;">
+                            <button onclick="App.toggleKontoBuchungenDb('${pattern}', '${k.konto}', this)"
+                                    style="background: #ffc107; color: #333; border: none; border-radius: 3px;
+                                           width: 20px; height: 20px; cursor: pointer; font-weight: bold; font-size: 12px;">+</button>
                         </td>
-                        <td style="padding: 6px; text-align: right; ${betrag < 0 ? 'color: #e74c3c;' : ''}">
-                            ${this.formatCurrency(Math.abs(betrag))}
+                        <td style="padding: 6px; font-family: monospace; font-size: 0.9em;">${k.konto}</td>
+                        <td style="padding: 6px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                            title="${k.kategorie}">${k.kategorie}</td>
+                        <td style="padding: 6px; text-align: right; font-weight: 600;">${this.formatCurrency(k.ist)}</td>
+                        <td style="padding: 6px; text-align: right; color: #666;">${plan ? this.formatCurrency(plan) : '-'}</td>
+                        <td style="padding: 6px; text-align: right; color: ${abwColor};">${plan ? this.formatCurrency(abw) : '-'}</td>
+                        <td style="padding: 6px; text-align: right; color: #666;">${vorjahr ? this.formatCurrency(vorjahr) : '-'}</td>
+                        <td style="padding: 6px; text-align: right; color: ${vjColor};">${vorjahr ? (vjPct >= 0 ? '+' : '') + vjPct.toFixed(1) + '%' : '-'}</td>
+                    </tr>
+                    <tr id="buchungen-${safePattern}-${kontoId}" style="display: none;">
+                        <td colspan="8" style="padding: 0; background: #fff8e1;">
+                            <div style="padding: 8px 20px 8px 50px; max-height: 200px; overflow-y: auto;">
+                                <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #fff3cd;">
+                                            <th style="padding: 4px 6px; text-align: left; width: 90px;">Datum</th>
+                                            <th style="padding: 4px 6px; text-align: left;">Buchungstext</th>
+                                            <th style="padding: 4px 6px; text-align: right; width: 100px;">Betrag</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${k.buchungen.sort((a, b) => (b.datum || '').localeCompare(a.datum || '')).map(b => `
+                                            <tr style="border-bottom: 1px solid #eee;">
+                                                <td style="padding: 4px 6px;">${b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '-'}</td>
+                                                <td style="padding: 4px 6px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                                    title="${(b.buchungstext || '').replace(/"/g, '&quot;')}">${b.buchungstext || '-'}</td>
+                                                <td style="padding: 4px 6px; text-align: right;">${this.formatCurrency(Math.abs(parseFloat(b.betrag) || 0))}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -10784,6 +10829,23 @@ const App = {
         `;
 
         detailRow.innerHTML = detailHtml;
+    },
+
+    /**
+     * Einzelbuchungen eines Kontos ein-/ausklappen
+     */
+    toggleKontoBuchungenDb: function(pattern, konto, btn) {
+        const safePattern = pattern.replace('%', '');
+        const kontoId = konto.replace(/[^a-zA-Z0-9]/g, '_');
+        const row = document.getElementById(`buchungen-${safePattern}-${kontoId}`);
+
+        if (row) {
+            const isHidden = row.style.display === 'none';
+            row.style.display = isHidden ? '' : 'none';
+            btn.textContent = isHidden ? '−' : '+';
+            btn.style.background = isHidden ? '#e74c3c' : '#ffc107';
+            btn.style.color = isHidden ? 'white' : '#333';
+        }
     },
 
     /**
