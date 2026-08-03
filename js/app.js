@@ -12425,7 +12425,7 @@ const App = {
             // PDFs (Invoices) laden - nur benötigte Spalten für Performance
             const { data: invoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
-                .select('id, file_name, file_path, uploaded_at, linked_booking_id, partita_iva, invoice_number')
+                .select('id, file_name, file_path, uploaded_at, linked_booking_id, partita_iva, invoice_number, notes')
                 .order('uploaded_at', { ascending: false });
 
             if (invoiceError) throw invoiceError;
@@ -12537,15 +12537,12 @@ const App = {
 
             html += `
                 <div onclick="App.selectBewegungForVerknuepfung('${b.id}')"
-                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${pdfClass} ${selectedClass}">
+                     style="padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${pdfClass} ${selectedClass}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div style="flex: 1; min-width: 0;">
-                            <strong style="font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.fornitore_name || 'Unbekannt'}</strong>${pdfBadge}
-                            <div style="font-size: 0.75rem; color: #666; margin-top: 2px;">
-                                ${this.formatDate(b.datum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}
-                            </div>
-                            <div style="font-size: 0.7rem; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                ${b.dokument_nr || ''} ${b.beschreibung ? '- ' + b.beschreibung : ''}
+                            <strong style="font-size: 0.8rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.fornitore_name || 'Unbekannt'}</strong>
+                            <div style="font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                ${this.formatDate(b.datum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}${pdfBadge}
                             </div>
                         </div>
                     </div>
@@ -12560,15 +12557,26 @@ const App = {
     filterPdfsForVerknuepfung: function() {
         const search = (document.getElementById('pdf-search')?.value || '').toLowerCase();
         const statusFilter = document.getElementById('pdf-filter-status')?.value || 'unverknuepft';
+        const datumVon = document.getElementById('pdf-datum-von')?.value || '';
+        const datumBis = document.getElementById('pdf-datum-bis')?.value || '';
 
         this.filteredPdfs = this.pdfModalData.filter(p => {
             // Status-Filter
             if (statusFilter === 'unverknuepft' && p.isLinked) return false;
             if (statusFilter === 'verknuepft' && !p.isLinked) return false;
+            if (statusFilter === 'ohne-notiz' && p.notes && p.notes.trim() !== '') return false;
+            if (statusFilter === 'mit-notiz' && (!p.notes || p.notes.trim() === '')) return false;
 
-            // Suche
+            // Datumsfilter (Hochgeladen zwischen)
+            if (datumVon || datumBis) {
+                const uploadDate = p.uploaded_at ? p.uploaded_at.substring(0, 10) : '';
+                if (datumVon && uploadDate < datumVon) return false;
+                if (datumBis && uploadDate > datumBis) return false;
+            }
+
+            // Suche (auch in Notiz)
             if (search) {
-                const searchStr = `${p.file_name || ''}`.toLowerCase();
+                const searchStr = `${p.file_name || ''} ${p.notes || ''}`.toLowerCase();
                 if (!searchStr.includes(search)) return false;
             }
 
@@ -12596,15 +12604,18 @@ const App = {
             const linkedBadge = p.isLinked
                 ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">verknüpft</span>'
                 : '';
+            const notizBadge = p.notes && p.notes.trim()
+                ? `<span style="background: #ff9800; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;" title="${this.escapeHtml(p.notes)}">Notiz</span>`
+                : '';
 
             html += `
                 <div onclick="App.selectPdfForVerknuepfung('${p.id}')"
-                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${linkedClass} ${selectedClass}">
+                     style="padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${linkedClass} ${selectedClass}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="flex: 1; min-width: 0;">
-                            <strong style="font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.file_name || 'Unbekannt'}</strong>${linkedBadge}
-                            <div style="font-size: 0.75rem; color: #666;">
-                                ${this.formatDate(p.uploaded_at)}
+                            <strong style="font-size: 0.8rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.file_name || 'Unbekannt'}</strong>
+                            <div style="font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                ${this.formatDate(p.uploaded_at)}${linkedBadge}${notizBadge}
                             </div>
                         </div>
                     </div>
@@ -12630,6 +12641,17 @@ const App = {
         this.renderPdfListe();
         this.updateVerknuepfungPreview();
 
+        // Notiz-Bereich anzeigen und befüllen
+        const notizBereich = document.getElementById('pdf-notiz-bereich');
+        const notizInput = document.getElementById('pdf-notiz-input');
+        if (this.selectedPdfForVerknuepfung) {
+            notizBereich.style.display = 'block';
+            notizInput.value = this.selectedPdfForVerknuepfung.notes || '';
+        } else {
+            notizBereich.style.display = 'none';
+            notizInput.value = '';
+        }
+
         // PDF-Vorschau laden
         if (this.selectedPdfForVerknuepfung?.file_path) {
             try {
@@ -12645,6 +12667,37 @@ const App = {
                 console.error('Fehler beim Laden der PDF-Vorschau:', error);
                 document.getElementById('pdf-vorschau-container').innerHTML = '<p style="color: #e74c3c; text-align: center;">PDF konnte nicht geladen werden</p>';
             }
+        }
+    },
+
+    // Notiz für ausgewähltes PDF speichern
+    savePdfNotiz: async function() {
+        if (!this.selectedPdfForVerknuepfung) {
+            this.showToast('warning', 'Hinweis', 'Bitte zuerst ein PDF auswählen');
+            return;
+        }
+
+        const notiz = document.getElementById('pdf-notiz-input').value.trim();
+        const pdfId = this.selectedPdfForVerknuepfung.id;
+
+        try {
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({ notes: notiz || null })
+                .eq('id', pdfId);
+
+            if (error) throw error;
+
+            // Lokalen Cache aktualisieren
+            this.selectedPdfForVerknuepfung.notes = notiz;
+            const pdfInList = this.pdfModalData.find(p => String(p.id) === String(pdfId));
+            if (pdfInList) pdfInList.notes = notiz;
+
+            this.renderPdfListe();
+            this.showToast('success', 'Gespeichert', 'Notiz wurde gespeichert');
+        } catch (error) {
+            console.error('Fehler beim Speichern der Notiz:', error);
+            this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
         }
     },
 

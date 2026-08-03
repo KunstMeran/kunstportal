@@ -4038,69 +4038,79 @@
 
     <!-- DATEV-Rechnung Verknüpfung Modal (mit PDF-Vorschau) -->
     <div id="datev-verknuepfung-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 1400px; width: 95%;">
-            <div class="modal-header">
+        <div class="modal" style="max-width: 1400px; width: 95%; height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h2>DATEV-Bewegung mit Rechnung verknüpfen</h2>
                 <button type="button" class="modal-close" onclick="App.hideModal('datev-verknuepfung-modal')">&times;</button>
             </div>
-            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-                <p style="margin-bottom: 1rem; color: #666;">
-                    Wählen Sie eine DATEV-Bewegung und ein hochgeladenes PDF um diese zu verknüpfen.
-                </p>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                    <!-- Linke Spalte: DATEV-Bewegungen -->
-                    <div>
-                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #3182ce; padding-bottom: 0.5rem;">DATEV-Bewegungen</h4>
-                        <input type="text" id="datev-bewegung-search" class="form-control" placeholder="Bewegung suchen..." oninput="App.filterDatevBewegungen()" style="margin-bottom: 0.5rem;">
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                            <select id="datev-bewegung-filter-status" class="form-control" onchange="App.filterDatevBewegungen()" style="font-size: 0.85rem;">
-                                <option value="ohne-pdf">Ohne PDF</option>
-                                <option value="alle">Alle</option>
-                                <option value="mit-pdf">Mit PDF</option>
-                            </select>
+            <div class="modal-body" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                <!-- Verknüpfungs-Vorschau OBEN (sticky) -->
+                <div id="verknuepfung-preview" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; background: #e8f5e9; border-radius: 8px; border: 2px solid #27ae60; flex-shrink: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                        <div style="flex: 1; font-size: 0.9rem;">
+                            <strong>DATEV:</strong> <span id="selected-bewegung-text"></span> |
+                            <strong>PDF:</strong> <span id="selected-pdf-text"></span>
                         </div>
-                        <div id="datev-bewegungen-liste" style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
-                            <!-- Wird dynamisch geladen -->
-                        </div>
-                        <p id="datev-bewegungen-count" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem;"></p>
-                    </div>
-
-                    <!-- Mittlere Spalte: PDFs -->
-                    <div>
-                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem;">Hochgeladene PDFs</h4>
-                        <input type="text" id="pdf-search" class="form-control" placeholder="PDF suchen..." oninput="App.filterPdfsForVerknuepfung()" style="margin-bottom: 0.5rem;">
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                            <select id="pdf-filter-status" class="form-control" onchange="App.filterPdfsForVerknuepfung()" style="font-size: 0.85rem;">
-                                <option value="unverknuepft">Nicht verknüpft</option>
-                                <option value="alle">Alle</option>
-                                <option value="verknuepft">Bereits verknüpft</option>
-                            </select>
-                        </div>
-                        <div id="pdfs-liste" style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
-                            <!-- Wird dynamisch geladen -->
-                        </div>
-                        <p id="pdfs-count" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem;"></p>
-                    </div>
-
-                    <!-- Rechte Spalte: PDF-Vorschau -->
-                    <div>
-                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #9c27b0; padding-bottom: 0.5rem;">PDF-Vorschau</h4>
-                        <div id="pdf-vorschau-container" style="height: 500px; border: 1px solid #ddd; border-radius: 6px; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
-                            <p style="color: #999; text-align: center;">Wählen Sie ein PDF aus der Liste<br>um die Vorschau zu sehen</p>
-                        </div>
+                        <button class="btn btn-success" onclick="App.confirmDatevVerknuepfung()" style="white-space: nowrap;">Jetzt verknüpfen</button>
                     </div>
                 </div>
 
-                <!-- Verknüpfungs-Vorschau -->
-                <div id="verknuepfung-preview" style="display: none; margin-top: 1rem; padding: 1rem; background: #e8f5e9; border-radius: 8px; border: 2px solid #27ae60;">
-                    <h4 style="margin-bottom: 0.5rem;">Verknüpfung vornehmen:</h4>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>DATEV-Bewegung:</strong> <span id="selected-bewegung-text"></span><br>
-                            <strong>PDF:</strong> <span id="selected-pdf-text"></span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; flex: 1; overflow: hidden;">
+                    <!-- Linke Spalte: DATEV-Bewegungen -->
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #3182ce; padding-bottom: 0.5rem; flex-shrink: 0;">DATEV-Bewegungen</h4>
+                        <input type="text" id="datev-bewegung-search" class="form-control" placeholder="Bewegung suchen..." oninput="App.filterDatevBewegungen()" style="margin-bottom: 0.5rem; flex-shrink: 0;">
+                        <select id="datev-bewegung-filter-status" class="form-control" onchange="App.filterDatevBewegungen()" style="font-size: 0.85rem; margin-bottom: 0.5rem; flex-shrink: 0;">
+                            <option value="ohne-pdf">Ohne PDF</option>
+                            <option value="alle">Alle</option>
+                            <option value="mit-pdf">Mit PDF</option>
+                        </select>
+                        <div id="datev-bewegungen-liste" style="flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; min-height: 0;">
+                            <!-- Wird dynamisch geladen -->
                         </div>
-                        <button class="btn btn-success" onclick="App.confirmDatevVerknuepfung()">Jetzt verknüpfen</button>
+                        <p id="datev-bewegungen-count" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem; flex-shrink: 0;"></p>
+                    </div>
+
+                    <!-- Mittlere Spalte: PDFs -->
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem; flex-shrink: 0;">Hochgeladene PDFs</h4>
+                        <input type="text" id="pdf-search" class="form-control" placeholder="PDF suchen..." oninput="App.filterPdfsForVerknuepfung()" style="margin-bottom: 0.5rem; flex-shrink: 0;">
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-shrink: 0;">
+                            <select id="pdf-filter-status" class="form-control" onchange="App.filterPdfsForVerknuepfung()" style="font-size: 0.85rem; flex: 1;">
+                                <option value="unverknuepft">Nicht verknüpft</option>
+                                <option value="alle">Alle</option>
+                                <option value="verknuepft">Bereits verknüpft</option>
+                                <option value="ohne-notiz">Ohne Notiz</option>
+                                <option value="mit-notiz">Mit Notiz</option>
+                            </select>
+                        </div>
+                        <!-- Datumsfilter -->
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-shrink: 0; align-items: center;">
+                            <input type="date" id="pdf-datum-von" class="form-control" onchange="App.filterPdfsForVerknuepfung()" style="font-size: 0.8rem; padding: 0.25rem;" title="Hochgeladen ab">
+                            <span style="color: #666;">-</span>
+                            <input type="date" id="pdf-datum-bis" class="form-control" onchange="App.filterPdfsForVerknuepfung()" style="font-size: 0.8rem; padding: 0.25rem;" title="Hochgeladen bis">
+                            <button type="button" class="btn btn-sm" onclick="document.getElementById('pdf-datum-von').value=''; document.getElementById('pdf-datum-bis').value=''; App.filterPdfsForVerknuepfung();" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Datumsfilter löschen">X</button>
+                        </div>
+                        <div id="pdfs-liste" style="flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; min-height: 0;">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                        <p id="pdfs-count" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem; flex-shrink: 0;"></p>
+                    </div>
+
+                    <!-- Rechte Spalte: PDF-Vorschau + Notiz -->
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #9c27b0; padding-bottom: 0.5rem; flex-shrink: 0;">PDF-Vorschau</h4>
+                        <div id="pdf-vorschau-container" style="flex: 1; border: 1px solid #ddd; border-radius: 6px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; min-height: 0;">
+                            <p style="color: #999; text-align: center;">Wählen Sie ein PDF aus der Liste<br>um die Vorschau zu sehen</p>
+                        </div>
+                        <!-- Notiz-Bereich für ausgewähltes PDF -->
+                        <div id="pdf-notiz-bereich" style="display: none; margin-top: 0.5rem; flex-shrink: 0;">
+                            <label style="font-size: 0.85rem; font-weight: 500; color: #333;">Notiz zum PDF:</label>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                <input type="text" id="pdf-notiz-input" class="form-control" placeholder="Notiz eingeben..." style="flex: 1; font-size: 0.85rem;">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="App.savePdfNotiz()" style="white-space: nowrap;">Speichern</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
