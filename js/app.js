@@ -12541,8 +12541,11 @@ const App = {
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div style="flex: 1; min-width: 0;">
                             <strong style="font-size: 0.8rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.fornitore_name || 'Unbekannt'}</strong>
-                            <div style="font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                            <div style="font-size: 0.7rem; color: #666;">
                                 ${this.formatDate(b.datum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}${pdfBadge}
+                            </div>
+                            <div style="font-size: 0.65rem; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${b.partita_iva || ''} ${b.dokument_nr ? '| Nr: ' + b.dokument_nr : ''}
                             </div>
                         </div>
                     </div>
