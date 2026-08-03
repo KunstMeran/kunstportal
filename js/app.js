@@ -12414,6 +12414,7 @@ const App = {
     selectedPdfForVerknuepfung: null,
 
     openDatevVerknuepfungModal: async function() {
+        console.log('openDatevVerknuepfungModal gestartet');
         try {
             // PDFs (Invoices) zuerst laden um verknüpfte Buchungen zu ermitteln
             const { data: invoices, error: invoiceError } = await SupabaseService.client
@@ -12421,6 +12422,7 @@ const App = {
                 .select('id, file_name, file_path, uploaded_at, linked_booking_id')
                 .order('uploaded_at', { ascending: false });
 
+            console.log('Invoices geladen:', invoices?.length, 'Fehler:', invoiceError);
             if (invoiceError) throw invoiceError;
 
             // Set mit allen verknüpften Booking-IDs erstellen
@@ -12435,6 +12437,7 @@ const App = {
                 .or('archived.is.null,archived.eq.false')
                 .order('belegdatum', { ascending: false });
 
+            console.log('DATEV-Bookings geladen:', datevBookings?.length, 'Fehler:', datevError);
             if (datevError) throw datevError;
 
             // Daten vorbereiten - hasPdf basierend auf invoices ermitteln
