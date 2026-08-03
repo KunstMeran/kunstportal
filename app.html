@@ -1410,7 +1410,25 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Bilanz & Gewinn- und Verlustrechnung</h3>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <label style="font-size: 0.85rem; color: #666;">Zeitraum:</label>
+                                <select id="bilanz-zeitraum" class="form-control" style="width: auto; font-size: 0.85rem;" onchange="App.loadBilanzReport()">
+                                    <option value="ytd">YTD (bis Vormonat)</option>
+                                    <option value="year">Ganzes Jahr</option>
+                                    <option value="1">Januar</option>
+                                    <option value="2">Februar</option>
+                                    <option value="3">März</option>
+                                    <option value="4">April</option>
+                                    <option value="5">Mai</option>
+                                    <option value="6">Juni</option>
+                                    <option value="7">Juli</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">Oktober</option>
+                                    <option value="11">November</option>
+                                    <option value="12">Dezember</option>
+                                </select>
+                                <span id="bilanz-zeitraum-info" style="font-size: 0.8rem; color: #666;"></span>
                                 <select id="bilanz-vergleichsjahr" class="form-control" style="width: auto;" onchange="App.loadBilanzReport()">
                                     <option value="2024">Vergleich: 2024</option>
                                     <option value="2023">Vergleich: 2023</option>

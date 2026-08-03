@@ -9111,6 +9111,47 @@ const App = {
 
         const jahr = parseInt(document.getElementById('reporting-jahr')?.value || new Date().getFullYear());
 
+        // Zeitraum-Filter auslesen
+        const zeitraumSelect = document.getElementById('bilanz-zeitraum');
+        const zeitraum = zeitraumSelect?.value || 'ytd';
+        const zeitraumInfo = document.getElementById('bilanz-zeitraum-info');
+
+        // Datum-Bereich berechnen
+        let startDate, endDate, monate;
+        const heute = new Date();
+        const aktuellerMonat = heute.getMonth() + 1; // 1-12
+        const vorMonat = aktuellerMonat - 1 || 12; // Vormonat (Dezember wenn Januar)
+        const monatNamen = ['', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+
+        if (zeitraum === 'ytd') {
+            // Year-to-Date: 1. Januar bis Ende Vormonat
+            startDate = `${jahr}-01-01`;
+            if (vorMonat === 12) {
+                // Wenn aktueller Monat Januar ist, nehmen wir Dezember des Vorjahres
+                endDate = `${jahr - 1}-12-31`;
+                monate = 12;
+            } else {
+                const letzterTagVormonat = new Date(jahr, vorMonat, 0).getDate();
+                endDate = `${jahr}-${String(vorMonat).padStart(2, '0')}-${letzterTagVormonat}`;
+                monate = vorMonat;
+            }
+            if (zeitraumInfo) zeitraumInfo.textContent = `(01.01. - ${monatNamen[vorMonat]} ${jahr}, ${monate} Monate)`;
+        } else if (zeitraum === 'year') {
+            // Ganzes Jahr
+            startDate = `${jahr}-01-01`;
+            endDate = `${jahr}-12-31`;
+            monate = 12;
+            if (zeitraumInfo) zeitraumInfo.textContent = '(Ganzes Jahr, 12 Monate)';
+        } else {
+            // Einzelner Monat
+            const monat = parseInt(zeitraum);
+            startDate = `${jahr}-${String(monat).padStart(2, '0')}-01`;
+            const letzterTag = new Date(jahr, monat, 0).getDate();
+            endDate = `${jahr}-${String(monat).padStart(2, '0')}-${letzterTag}`;
+            monate = 1;
+            if (zeitraumInfo) zeitraumInfo.textContent = `(${monatNamen[monat]} ${jahr})`;
+        }
+
         // Vergleichsjahr-Dropdown automatisch aktualisieren basierend auf ausgewähltem Jahr
         const vergleichsjahrSelect = document.getElementById('bilanz-vergleichsjahr');
         if (vergleichsjahrSelect) {
@@ -9128,6 +9169,9 @@ const App = {
         }
 
         const vorjahr = parseInt(vergleichsjahrSelect?.value || jahr - 1);
+        // Vorjahr: gleicher Zeitraum
+        const vorjahrStart = startDate.replace(String(jahr), String(vorjahr));
+        const vorjahrEnd = endDate.replace(String(jahr), String(vorjahr));
 
         // Spaltenüberschriften aktualisieren
         const colAktuell = document.getElementById('bilanz-col-aktuell');
@@ -9145,19 +9189,33 @@ const App = {
                 .eq('fiscal_year', jahr)
                 .eq('entry_type', 'budget');
 
-            // Budget-Map erstellen (Konto -> Jahres-Summe)
+            // Budget-Map erstellen (Konto -> anteilige Summe je nach Zeitraum)
             const budgetMap = new Map();
+            const monatsNamen = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
             (budgetEntries || []).forEach(entry => {
-                const jahresSumme = (entry.jan || 0) + (entry.feb || 0) + (entry.mar || 0) +
-                                   (entry.apr || 0) + (entry.mai || 0) + (entry.jun || 0) +
-                                   (entry.jul || 0) + (entry.aug || 0) + (entry.sep || 0) +
-                                   (entry.okt || 0) + (entry.nov || 0) + (entry.dez || 0);
-                budgetMap.set(entry.konto_nr, jahresSumme);
+                let anteiligeSumme = 0;
+
+                if (zeitraum === 'ytd') {
+                    // YTD: Summe der Monate Januar bis Vormonat
+                    for (let i = 0; i < monate; i++) {
+                        anteiligeSumme += entry[monatsNamen[i]] || 0;
+                    }
+                } else if (zeitraum === 'year') {
+                    // Ganzes Jahr: alle 12 Monate
+                    for (let i = 0; i < 12; i++) {
+                        anteiligeSumme += entry[monatsNamen[i]] || 0;
+                    }
+                } else {
+                    // Einzelner Monat: nur dieser Monat
+                    const monatIndex = parseInt(zeitraum) - 1;
+                    anteiligeSumme = entry[monatsNamen[monatIndex]] || 0;
+                }
+
+                budgetMap.set(entry.konto_nr, anteiligeSumme);
             });
 
-            // Einnahmen aus funding_sources laden (für Umsatz-Plan)
-            const fundingSources = await SupabaseDataAdapter.getFundingSources(jahr);
-            const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
+            console.log('📊 Bilanz Budget geladen:', budgetMap.size, 'Einträge, Zeitraum:', zeitraum, ', Monate:', monate);
 
             // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
             // WICHTIG: ist_gutschrift und dokument_typ laden für korrekte Gutschrift-Berechnung
@@ -9193,11 +9251,12 @@ const App = {
                 return allData;
             };
 
-            const buchungenAktuell = await loadAllBuchungen(`${jahr}-01-01`, `${jahr}-12-31`);
-            const buchungenVorjahr = await loadAllBuchungen(`${vorjahr}-01-01`, `${vorjahr}-12-31`);
+            // Buchungen für den ausgewählten Zeitraum laden
+            const buchungenAktuell = await loadAllBuchungen(startDate, endDate);
+            const buchungenVorjahr = await loadAllBuchungen(vorjahrStart, vorjahrEnd);
 
-            console.log(`📊 Bilanz ${jahr}: ${buchungenAktuell?.length || 0} Buchungen geladen`);
-            console.log(`📊 Bilanz ${vorjahr}: ${buchungenVorjahr?.length || 0} Buchungen geladen`);
+            console.log(`📊 Bilanz ${jahr} (${startDate} - ${endDate}): ${buchungenAktuell?.length || 0} Buchungen geladen`);
+            console.log(`📊 Bilanz ${vorjahr} (${vorjahrStart} - ${vorjahrEnd}): ${buchungenVorjahr?.length || 0} Buchungen geladen`);
 
             // Nach Konto-Prefix gruppieren (erste 3 Zeichen)
             // Gutschriften werden als negative Beträge behandelt
@@ -9424,8 +9483,7 @@ const App = {
                 budgetWerte[result.id] = budget;
             });
 
-            // Spezial: Umsatz-Budget aus funding_sources
-            budgetWerte['A_SUM'] = einnahmenPlan;
+            // A_SUM Budget wird bereits korrekt als Summe von A1 + A5 berechnet
 
             // Cache speichern
             this.bilanzReportCache = { jahr, vorjahr, werte, struktur, kontenDetails, budgetWerte, budgetMap };
