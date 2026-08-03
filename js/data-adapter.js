@@ -3147,7 +3147,9 @@ const SupabaseDataAdapter = {
                 }
 
                 if (matchedPattern && grouped[matchedPattern]) {
-                    grouped[matchedPattern].betrag += Math.abs(betrag);
+                    // Netto-Summe: Addiere echten Betrag mit Vorzeichen
+                    // (Stornos/Gutschriften werden so automatisch abgezogen)
+                    grouped[matchedPattern].betrag += betrag;
                     grouped[matchedPattern].count++;
                     details[matchedPattern].push({
                         id: b.id,
@@ -3159,6 +3161,12 @@ const SupabaseDataAdapter = {
                         lieferant: b.lieferant_name || ''
                     });
                 }
+            }
+
+            // Beträge in Absolutwerte umwandeln für die Anzeige
+            // (Erträge sind negativ in DB, Kosten positiv - beide sollen positiv angezeigt werden)
+            for (const pattern of Object.keys(grouped)) {
+                grouped[pattern].betrag = Math.abs(grouped[pattern].betrag);
             }
 
             return { grouped, details, chartOfAccounts };
