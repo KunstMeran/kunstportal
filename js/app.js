@@ -3697,21 +3697,14 @@ const App = {
             });
         }
 
-        // Abgabestelle-Filter mit aktiven Abgabestellen aus Einnahmeplanung
+        // Abgabestelle-Filter mit aktiven Abgabestellen aus Einnahmenplanung
         const abgabestelleSelect = document.getElementById('rechnung-filter-abgabestelle');
         if (abgabestelleSelect) {
-            let html = `
-                <option value="">Alle</option>
-                <option value="gemeinde">Gemeinde</option>
-                <option value="region">Region</option>
-                <option value="provinz">Provinz</option>
-            `;
+            let html = `<option value="">Alle</option>`;
             if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
-                html += `<optgroup label="Einnahmen">`;
                 this.activeAbgabestellen.forEach(ab => {
                     html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
                 });
-                html += `</optgroup>`;
             }
             abgabestelleSelect.innerHTML = html;
         }
@@ -3720,24 +3713,21 @@ const App = {
         this.populateMassAbgabestelleButtons();
     },
 
-    // Erstellt die Massenaktions-Buttons für Abgabestellen (inkl. Einnahmen)
+    // Erstellt die Massenaktions-Buttons für Abgabestellen (nur aus Einnahmenplanung)
     populateMassAbgabestelleButtons: function() {
         const container = document.getElementById('mass-abgabestelle-buttons');
         if (!container) return;
 
-        // Standard-Buttons
-        let html = `
-            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('gemeinde')">Gemeinde</button>
-            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('region')">Region</button>
-            <button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('provinz')">Provinz</button>
-        `;
+        let html = '';
 
-        // Aktive Einnahmen als Buttons hinzufügen
+        // Nur aktive Einnahmen aus der Einnahmenplanung als Buttons
         if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
             this.activeAbgabestellen.forEach(ab => {
                 const shortName = ab.code || ab.name.substring(0, 15);
                 html += `<button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('funding:${ab.id}')" title="${ab.name}" style="background: #e8f5e9;">${shortName}</button>`;
             });
+        } else {
+            html = '<span style="color: #666; font-size: 0.8rem;">Keine Abgabestellen in Einnahmenplanung definiert</span>';
         }
 
         container.innerHTML = html;
@@ -5319,18 +5309,29 @@ const App = {
         if (!projektId) return;
 
         try {
-            // rechnungId Format: partitaIva_dokumentNr oder nur ID
-            const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-            const dokumentNr = dokumentNrParts.join('_');
-
-            // Update in Supabase mit Audit-Trail
+            let query;
             const updates = await addAuditMetadata({ projekt_id: projektId });
-            const { error } = await SupabaseService.client
-                .from('datev_bookings')
-                .update(updates)
-                .eq('partita_iva', partitaIva)
-                .eq('dokument_nr', dokumentNr);
 
+            // Format 1: "id:123" - Datenbank-ID direkt
+            if (rechnungId.startsWith('id:')) {
+                const dbId = rechnungId.substring(3);
+                query = SupabaseService.client
+                    .from('datev_bookings')
+                    .update(updates)
+                    .eq('id', dbId);
+            } else {
+                // Format 2: partitaIva_dokumentNr
+                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                const dokumentNr = dokumentNrParts.join('_');
+
+                query = SupabaseService.client
+                    .from('datev_bookings')
+                    .update(updates)
+                    .eq('partita_iva', partitaIva)
+                    .eq('dokument_nr', dokumentNr);
+            }
+
+            const { error } = await query;
             if (error) throw error;
 
             this.showToast('success', 'Projekt gesetzt', `Projekt wurde zugewiesen`);
@@ -5562,13 +5563,33 @@ const App = {
                 if (!error) deletedCount++;
             }
 
-            // 2. DATEV-Buchungen löschen
+            // 2. DATEV-Buchungen löschen (inkl. verknüpfte PDFs)
             for (const booking of datevBookings) {
-                // Erst verknüpfte Invoices trennen (linked_booking_id auf null setzen)
-                await SupabaseService.client
+                // Erst alle verknüpften Invoices holen
+                const { data: linkedInvoices } = await SupabaseService.client
                     .from('invoices')
-                    .update({ linked_booking_id: null })
+                    .select('id, file_path')
                     .eq('linked_booking_id', booking.dbId);
+
+                // Verknüpfte PDFs aus Storage löschen
+                if (linkedInvoices && linkedInvoices.length > 0) {
+                    for (const inv of linkedInvoices) {
+                        if (inv.file_path) {
+                            await SupabaseService.client.storage
+                                .from('invoices')
+                                .remove([inv.file_path]);
+                            console.log('PDF aus Storage gelöscht:', inv.file_path);
+                        }
+                    }
+
+                    // Invoice-Einträge löschen
+                    const invoiceIds = linkedInvoices.map(inv => inv.id);
+                    await SupabaseService.client
+                        .from('invoices')
+                        .delete()
+                        .in('id', invoiceIds);
+                    console.log('Invoice-Einträge gelöscht:', invoiceIds.length);
+                }
 
                 // Dann DATEV-Buchung löschen
                 const { error } = await SupabaseService.client
@@ -5843,27 +5864,18 @@ const App = {
         this.loadRechnungen();
     },
 
-    // Befüllt ein Abgabestelle-Dropdown mit Standard-Optionen + aktiven Abgabestellen aus Einnahmeplanung
+    // Befüllt ein Abgabestelle-Dropdown mit aktiven Abgabestellen aus Einnahmenplanung
     populateAbgabestelleDropdown: function(selectId) {
         const select = document.getElementById(selectId);
         if (!select) return;
 
-        // Standard-Optionen
-        let html = `
-            <option value="">-- Nicht zugeordnet --</option>
-            <option value="gemeinde">Gemeinde</option>
-            <option value="region">Region</option>
-            <option value="provinz">Provinz</option>
-        `;
+        let html = `<option value="">-- Nicht zugeordnet --</option>`;
 
-        // Aktive Abgabestellen aus Einnahmeplanung hinzufügen
+        // Aktive Abgabestellen aus Einnahmenplanung
         if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
-            html += `<optgroup label="Einnahmen">`;
             this.activeAbgabestellen.forEach(ab => {
-                // Verwende die ID als Wert mit Präfix, um sie von Standard-Optionen zu unterscheiden
                 html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
             });
-            html += `</optgroup>`;
         }
 
         select.innerHTML = html;
@@ -12390,6 +12402,282 @@ const App = {
             alert('Fehler: ' + error.message);
         }
     },
+
+    // ========== DATEV-Verknüpfung Modal ==========
+
+    // Daten für das Modal
+    datevBewegungModalData: [],
+    filteredDatevBewegungen: [],
+    pdfModalData: [],
+    filteredPdfs: [],
+    selectedBewegungForVerknuepfung: null,
+    selectedPdfForVerknuepfung: null,
+
+    openDatevVerknuepfungModal: async function() {
+        try {
+            // DATEV-Bewegungen laden (alle, auch mit PDF)
+            const { data: datevBookings, error: datevError } = await SupabaseService.client
+                .from('datev_bookings')
+                .select('id, partita_iva, dokument_nr, fornitore_name, buchungstext, betrag, belegdatum, linked_invoice_id')
+                .eq('archived', false)
+                .order('belegdatum', { ascending: false });
+
+            if (datevError) throw datevError;
+
+            // PDFs (Invoices) laden
+            const { data: invoices, error: invoiceError } = await SupabaseService.client
+                .from('invoices')
+                .select('id, file_name, file_path, uploaded_at, linked_booking_id')
+                .order('uploaded_at', { ascending: false });
+
+            if (invoiceError) throw invoiceError;
+
+            // Daten vorbereiten
+            this.datevBewegungModalData = datevBookings.map(b => ({
+                ...b,
+                hasPdf: !!b.linked_invoice_id || invoices.some(inv => inv.linked_booking_id === b.id)
+            }));
+
+            this.pdfModalData = invoices.map(inv => ({
+                ...inv,
+                isLinked: !!inv.linked_booking_id
+            }));
+
+            // Reset Auswahl
+            this.selectedBewegungForVerknuepfung = null;
+            this.selectedPdfForVerknuepfung = null;
+            document.getElementById('verknuepfung-preview').style.display = 'none';
+            document.getElementById('pdf-vorschau-container').innerHTML = '<p style="color: #999; text-align: center;">Wählen Sie ein PDF aus der Liste<br>um die Vorschau zu sehen</p>';
+
+            // Filter anwenden und rendern
+            this.filterDatevBewegungen();
+            this.filterPdfsForVerknuepfung();
+
+            this.showModal('datev-verknuepfung-modal');
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Daten:', error);
+            this.showToast('error', 'Fehler', 'Daten konnten nicht geladen werden');
+        }
+    },
+
+    filterDatevBewegungen: function() {
+        const search = (document.getElementById('datev-bewegung-search')?.value || '').toLowerCase();
+        const statusFilter = document.getElementById('datev-bewegung-filter-status')?.value || 'ohne-pdf';
+
+        this.filteredDatevBewegungen = this.datevBewegungModalData.filter(b => {
+            // Status-Filter
+            if (statusFilter === 'ohne-pdf' && b.hasPdf) return false;
+            if (statusFilter === 'mit-pdf' && !b.hasPdf) return false;
+
+            // Suche
+            if (search) {
+                const searchStr = `${b.fornitore_name || ''} ${b.buchungstext || ''} ${b.dokument_nr || ''} ${b.betrag || ''}`.toLowerCase();
+                if (!searchStr.includes(search)) return false;
+            }
+
+            return true;
+        });
+
+        this.renderDatevBewegungListe();
+    },
+
+    renderDatevBewegungListe: function() {
+        const container = document.getElementById('datev-bewegungen-liste');
+        if (!container) return;
+
+        if (this.filteredDatevBewegungen.length === 0) {
+            container.innerHTML = '<p style="padding: 1rem; color: #666; text-align: center;">Keine Bewegungen gefunden</p>';
+            document.getElementById('datev-bewegungen-count').textContent = '0 Bewegungen';
+            return;
+        }
+
+        let html = '';
+        this.filteredDatevBewegungen.forEach(b => {
+            const isSelected = this.selectedBewegungForVerknuepfung?.id === b.id;
+            const pdfClass = b.hasPdf ? 'background: #e8f5e9;' : '';
+            const selectedClass = isSelected ? 'background: #e3f2fd; border-left: 3px solid #3182ce;' : '';
+            const pdfBadge = b.hasPdf ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">PDF</span>' : '';
+
+            html += `
+                <div onclick="App.selectBewegungForVerknuepfung('${b.id}')"
+                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${pdfClass} ${selectedClass}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.fornitore_name || 'Unbekannt'}</strong>${pdfBadge}
+                            <div style="font-size: 0.75rem; color: #666; margin-top: 2px;">
+                                ${this.formatDate(b.belegdatum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}
+                            </div>
+                            <div style="font-size: 0.7rem; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${b.dokument_nr || ''} ${b.buchungstext ? '- ' + b.buchungstext : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('datev-bewegungen-count').textContent = `${this.filteredDatevBewegungen.length} Bewegungen`;
+    },
+
+    filterPdfsForVerknuepfung: function() {
+        const search = (document.getElementById('pdf-search')?.value || '').toLowerCase();
+        const statusFilter = document.getElementById('pdf-filter-status')?.value || 'unverknuepft';
+
+        this.filteredPdfs = this.pdfModalData.filter(p => {
+            // Status-Filter
+            if (statusFilter === 'unverknuepft' && p.isLinked) return false;
+            if (statusFilter === 'verknuepft' && !p.isLinked) return false;
+
+            // Suche
+            if (search) {
+                const searchStr = `${p.file_name || ''}`.toLowerCase();
+                if (!searchStr.includes(search)) return false;
+            }
+
+            return true;
+        });
+
+        this.renderPdfListe();
+    },
+
+    renderPdfListe: function() {
+        const container = document.getElementById('pdfs-liste');
+        if (!container) return;
+
+        if (this.filteredPdfs.length === 0) {
+            container.innerHTML = '<p style="padding: 1rem; color: #666; text-align: center;">Keine PDFs gefunden</p>';
+            document.getElementById('pdfs-count').textContent = '0 PDFs';
+            return;
+        }
+
+        let html = '';
+        this.filteredPdfs.forEach(p => {
+            const isSelected = this.selectedPdfForVerknuepfung?.id === p.id;
+            const linkedClass = p.isLinked ? 'background: #f0f0f0; color: #888;' : '';
+            const selectedClass = isSelected ? 'background: #e8f5e9; border-left: 3px solid #27ae60;' : '';
+            const linkedBadge = p.isLinked
+                ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">verknüpft</span>'
+                : '';
+
+            html += `
+                <div onclick="App.selectPdfForVerknuepfung('${p.id}')"
+                     style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${linkedClass} ${selectedClass}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.file_name || 'Unbekannt'}</strong>${linkedBadge}
+                            <div style="font-size: 0.75rem; color: #666;">
+                                ${this.formatDate(p.uploaded_at)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('pdfs-count').textContent = `${this.filteredPdfs.length} PDFs`;
+    },
+
+    selectBewegungForVerknuepfung: function(bewegungId) {
+        this.selectedBewegungForVerknuepfung = this.datevBewegungModalData.find(b => b.id === bewegungId);
+        this.renderDatevBewegungListe();
+        this.updateVerknuepfungPreview();
+    },
+
+    selectPdfForVerknuepfung: async function(pdfId) {
+        this.selectedPdfForVerknuepfung = this.pdfModalData.find(p => p.id === pdfId);
+        this.renderPdfListe();
+        this.updateVerknuepfungPreview();
+
+        // PDF-Vorschau laden
+        if (this.selectedPdfForVerknuepfung?.file_path) {
+            try {
+                const { data, error } = await SupabaseService.client.storage
+                    .from('invoices')
+                    .createSignedUrl(this.selectedPdfForVerknuepfung.file_path, 300);
+
+                if (error) throw error;
+
+                const container = document.getElementById('pdf-vorschau-container');
+                container.innerHTML = `<iframe src="${data.signedUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            } catch (error) {
+                console.error('Fehler beim Laden der PDF-Vorschau:', error);
+                document.getElementById('pdf-vorschau-container').innerHTML = '<p style="color: #e74c3c; text-align: center;">PDF konnte nicht geladen werden</p>';
+            }
+        }
+    },
+
+    updateVerknuepfungPreview: function() {
+        const preview = document.getElementById('verknuepfung-preview');
+
+        if (this.selectedBewegungForVerknuepfung && this.selectedPdfForVerknuepfung) {
+            const b = this.selectedBewegungForVerknuepfung;
+            const p = this.selectedPdfForVerknuepfung;
+
+            document.getElementById('selected-bewegung-text').textContent =
+                `${b.fornitore_name || 'Unbekannt'} - ${this.formatCurrency(Math.abs(b.betrag || 0))} (${this.formatDate(b.belegdatum)})`;
+            document.getElementById('selected-pdf-text').textContent = p.file_name || 'Unbekannt';
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+    },
+
+    confirmDatevVerknuepfung: async function() {
+        if (!this.selectedBewegungForVerknuepfung || !this.selectedPdfForVerknuepfung) {
+            alert('Bitte wählen Sie eine Bewegung und ein PDF aus.');
+            return;
+        }
+
+        const bewegung = this.selectedBewegungForVerknuepfung;
+        const pdf = this.selectedPdfForVerknuepfung;
+
+        try {
+            // Invoice mit DATEV-Buchung verknüpfen
+            const { error } = await SupabaseService.client
+                .from('invoices')
+                .update({ linked_booking_id: bewegung.id })
+                .eq('id', pdf.id);
+
+            if (error) throw error;
+
+            // Optional: linked_invoice_id in datev_bookings setzen (für Rückwärtskompatibilität)
+            await SupabaseService.client
+                .from('datev_bookings')
+                .update({ linked_invoice_id: pdf.id })
+                .eq('id', bewegung.id);
+
+            this.showToast('success', 'Verknüpft', 'PDF wurde mit DATEV-Bewegung verknüpft');
+
+            // Daten aktualisieren
+            bewegung.hasPdf = true;
+            pdf.isLinked = true;
+            pdf.linked_booking_id = bewegung.id;
+
+            // Reset Auswahl
+            this.selectedBewegungForVerknuepfung = null;
+            this.selectedPdfForVerknuepfung = null;
+            document.getElementById('verknuepfung-preview').style.display = 'none';
+            document.getElementById('pdf-vorschau-container').innerHTML = '<p style="color: #999; text-align: center;">Wählen Sie ein PDF aus der Liste<br>um die Vorschau zu sehen</p>';
+
+            // Listen neu rendern
+            this.filterDatevBewegungen();
+            this.filterPdfsForVerknuepfung();
+
+            // Cache invalidieren
+            if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
+                SupabaseDataAdapter.invalidateCache();
+            }
+
+        } catch (error) {
+            console.error('Fehler bei der Verknüpfung:', error);
+            this.showToast('error', 'Fehler', 'Verknüpfung fehlgeschlagen: ' + error.message);
+        }
+    },
+
+    // ========== Ende DATEV-Verknüpfung Modal ==========
 
     showMemberImportModal: function() {
         document.getElementById('member-import-file').value = '';
