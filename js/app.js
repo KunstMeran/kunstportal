@@ -9613,6 +9613,14 @@ const App = {
                         const kDiffColor = kDiff > 0 ? '#28a745' : (kDiff < 0 ? '#dc3545' : '#888');
                         const kontoId = konto.konto.replace(/[^a-zA-Z0-9]/g, '_');
 
+                        // Budget für dieses Konto aus budgetMap holen
+                        const kontoBudget = this.bilanzReportCache?.budgetMap?.get(konto.konto) || 0;
+                        // Bei Aufwendungen (negate) ist Budget negativ in der Anzeige
+                        const kontoBudgetDisplay = item.negate ? -kontoBudget : kontoBudget;
+                        const kAbwPlan = konto.aktuell - kontoBudgetDisplay;
+                        const kAbwPlanPct = kontoBudgetDisplay !== 0 ? ((kAbwPlan / Math.abs(kontoBudgetDisplay)) * 100) : 0;
+                        const kAbwPlanColor = kAbwPlan < 0 ? (item.negate ? '#28a745' : '#dc3545') : (item.negate ? '#dc3545' : '#28a745');
+
                         // + Button für Einzelbuchungen
                         const buchungenExpandIcon = `<span class="bilanz-buchungen-expand" data-konto="${konto.konto}"
                             style="cursor: pointer; display: inline-block; width: 18px; height: 18px; text-align: center; line-height: 18px; background: #ffc107; color: #333; border-radius: 3px; font-size: 12px; font-weight: bold; margin-right: 6px;"
@@ -9627,9 +9635,9 @@ const App = {
                                 ${konto.kategorie || ''}
                             </td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #666;">${this.formatNumber(konto.aktuell)}</td>
-                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
-                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
-                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #666;">${kontoBudget ? this.formatNumber(kontoBudgetDisplay) : '-'}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kAbwPlanColor};">${kontoBudget ? (kAbwPlan >= 0 ? '+' : '') + this.formatNumber(kAbwPlan) : '-'}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kAbwPlanColor};">${kontoBudget ? (kAbwPlanPct >= 0 ? '+' : '') + kAbwPlanPct.toFixed(1) + '%' : '-'}</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #888;">${this.formatNumber(konto.vorjahr)}</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kDiffColor};">${kPct >= 0 ? '+' : ''}${kPct.toFixed(1)}%</td>
                         </tr>`;
@@ -10449,13 +10457,22 @@ const App = {
             let startDate, endDate, monate;
             const heute = new Date();
             const aktuellerMonat = heute.getMonth() + 1; // 1-12
+            const vorMonat = aktuellerMonat - 1 || 12; // Vormonat (Dezember wenn Januar)
+            const monatNamen = ['', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
             if (zeitraum === 'ytd') {
-                // Year-to-Date: 1. Januar bis heute
+                // Year-to-Date: 1. Januar bis Ende Vormonat
                 startDate = `${jahr}-01-01`;
-                endDate = `${jahr}-${String(aktuellerMonat).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
-                monate = aktuellerMonat; // Anteilige Monate
-                if (zeitraumInfo) zeitraumInfo.textContent = `(01.01. - ${heute.toLocaleDateString('de-DE')}, ${monate} Monate)`;
+                if (vorMonat === 12) {
+                    // Wenn aktueller Monat Januar ist, nehmen wir Dezember des Vorjahres
+                    endDate = `${jahr - 1}-12-31`;
+                    monate = 12;
+                } else {
+                    const letzterTagVormonat = new Date(jahr, vorMonat, 0).getDate();
+                    endDate = `${jahr}-${String(vorMonat).padStart(2, '0')}-${letzterTagVormonat}`;
+                    monate = vorMonat;
+                }
+                if (zeitraumInfo) zeitraumInfo.textContent = `(01.01. - ${monatNamen[vorMonat]} ${jahr}, ${monate} Monate)`;
             } else if (zeitraum === 'year') {
                 // Ganzes Jahr
                 startDate = `${jahr}-01-01`;
@@ -10510,8 +10527,8 @@ const App = {
                 let anteiligeSumme = 0;
 
                 if (zeitraum === 'ytd') {
-                    // YTD: Summe der Monate Januar bis aktueller Monat
-                    for (let i = 0; i < aktuellerMonat; i++) {
+                    // YTD: Summe der Monate Januar bis Vormonat
+                    for (let i = 0; i < monate; i++) {
                         anteiligeSumme += entry[monatsNamen[i]] || 0;
                     }
                 } else if (zeitraum === 'year') {
