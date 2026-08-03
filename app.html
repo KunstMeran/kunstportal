@@ -1316,11 +1316,11 @@
                                     <tr>
                                         <th style="width: 30%;">Position</th>
                                         <th style="width: 80px;">Konto</th>
-                                        <th style="text-align: right; width: 100px;">IST</th>
-                                        <th style="text-align: right; width: 100px;">Plan</th>
+                                        <th style="text-align: right; width: 100px; cursor: pointer;" onclick="App.sortDbTable('ist')" title="Nach IST sortieren">IST <span id="db-sort-ist"></span></th>
+                                        <th style="text-align: right; width: 100px; cursor: pointer;" onclick="App.sortDbTable('plan')" title="Nach Plan sortieren">Plan <span id="db-sort-plan"></span></th>
                                         <th style="text-align: right; width: 90px;">Abw. €</th>
                                         <th style="text-align: right; width: 70px;">Abw. %</th>
-                                        <th style="text-align: right; width: 100px;">Vorjahr</th>
+                                        <th style="text-align: right; width: 100px; cursor: pointer;" onclick="App.sortDbTable('vorjahr')" title="Nach Vorjahr sortieren">Vorjahr <span id="db-sort-vorjahr"></span></th>
                                         <th style="text-align: right; width: 70px;">VJ %</th>
                                     </tr>
                                 </thead>
@@ -4009,11 +4009,12 @@
 
                     <!-- Rechte Seite: Mitglieder -->
                     <div>
-                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem;">Mitglied auswählen</h4>
+                        <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem;">Mitglied(er) auswählen <span style="font-weight: normal; font-size: 0.8rem;">(max. 2 bei Paaren)</span></h4>
                         <input type="text" id="mitglied-search" class="form-control" placeholder="Mitglied suchen..." oninput="App.filterMitgliederZuweisung()" style="margin-bottom: 0.5rem;">
                         <div id="mitglieder-liste" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
                             <!-- Wird dynamisch geladen -->
                         </div>
+                        <p id="mitglieder-selection-hint" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem;">Klicken um auszuwählen (max. 2 bei gemeinsamer Zahlung)</p>
                     </div>
                 </div>
 
@@ -4023,7 +4024,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <strong>Buchung:</strong> <span id="selected-buchung-text"></span><br>
-                            <strong>Mitglied:</strong> <span id="selected-mitglied-text"></span>
+                            <strong>Mitglied(er):</strong> <span id="selected-mitglied-text"></span>
                         </div>
                         <button class="btn btn-success" onclick="App.confirmBuchungZuweisung()">Jetzt zuweisen</button>
                     </div>

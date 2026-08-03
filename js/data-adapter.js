@@ -3097,14 +3097,24 @@ const SupabaseDataAdapter = {
                 details[coa.konto_pattern] = [];
             }
 
+            // Kontenplan nach Spezifität sortieren (längere/exakte Pattern zuerst)
+            const sortedChartOfAccounts = [...chartOfAccounts].sort((a, b) => {
+                const aExact = !a.konto_pattern.includes('%');
+                const bExact = !b.konto_pattern.includes('%');
+                if (aExact && !bExact) return -1;
+                if (!aExact && bExact) return 1;
+                // Bei Pattern: längere zuerst (spezifischer: 690125% vor 6901%)
+                return b.konto_pattern.length - a.konto_pattern.length;
+            });
+
             // Buchungen zuordnen
             for (const b of buchungen || []) {
                 const kontoNr = b.konto_nr || '';
                 const betrag = parseFloat(b.betrag_gesamt || b.betrag) || 0;
 
-                // Passendes Pattern finden
+                // Passendes Pattern finden (spezifischstes zuerst!)
                 let matchedPattern = null;
-                for (const coa of chartOfAccounts) {
+                for (const coa of sortedChartOfAccounts) {
                     const pattern = coa.konto_pattern;
                     if (pattern.includes('%')) {
                         const prefix = pattern.replace('%', '');

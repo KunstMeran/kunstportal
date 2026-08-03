@@ -10616,6 +10616,17 @@ const App = {
             const db2KostenGesamt = getSum(null, 'DB2_KOSTEN');
             const db3KostenGesamt = getSum(null, 'DB3_KOSTEN');
 
+            // DEBUG: Zeige Vorjahr-Daten
+            console.log('=== DEBUG VORJAHR ===');
+            console.log('Zeitraum Vorjahr:', vorjahrStart, '-', vorjahrEnd);
+            console.log('groupedVorjahr UMSATZ-Konten:');
+            for (const [pattern, d] of Object.entries(groupedVorjahr)) {
+                if (d.db_zuordnung === 'UMSATZ') {
+                    console.log(`  ${pattern}: ${d.betrag} (${d.count} Buchungen)`);
+                }
+            }
+            console.log('=====================');
+
             const umsatzVorjahr = getSum(null, 'UMSATZ', groupedVorjahr);
             const db1KostenVorjahr = getSum(null, 'DB1_KOSTEN', groupedVorjahr);
             const db2KostenVorjahr = getSum(null, 'DB2_KOSTEN', groupedVorjahr);
@@ -10635,16 +10646,29 @@ const App = {
 
             const kostenBudgetGesamt = db1BudgetGesamt + db2BudgetGesamt + db3BudgetGesamt;
 
+            // Hilfsfunktion: Detail-Zeilen sortieren
+            const sortDetails = (details) => {
+                if (!this.dbTableSort.column) return details;
+                const col = this.dbTableSort.column;
+                const dir = this.dbTableSort.direction === 'asc' ? 1 : -1;
+                return details.sort((a, b) => {
+                    const valA = a[col] || 0;
+                    const valB = b[col] || 0;
+                    return (valA - valB) * dir;
+                });
+            };
+
             // Struktur der Deckungsbeitragsrechnung mit echten Daten
             const rows = [
                 { type: 'header', label: '1. UMSÄTZE', konto: '' }
             ];
 
             // Umsatz-Konten dynamisch aus gruppierten Daten
+            let umsatzDetails = [];
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'UMSATZ' && data.betrag > 0) {
                     const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
-                    rows.push({
+                    umsatzDetails.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
@@ -10657,16 +10681,18 @@ const App = {
                     });
                 }
             }
+            sortDetails(umsatzDetails).forEach(r => rows.push(r));
             rows.push({ type: 'sum', label: 'SUMME UMSÄTZE', ist: umsatzGesamt, plan: einnahmenPlan, vorjahr: umsatzVorjahr });
 
             rows.push({ type: 'spacer' });
             rows.push({ type: 'header', label: '2. DIREKTE KOSTEN (DB1)', konto: '' });
 
             // DB1-Kosten dynamisch
+            let db1Details = [];
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB1_KOSTEN' && data.betrag > 0) {
                     const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
-                    rows.push({
+                    db1Details.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
@@ -10679,6 +10705,7 @@ const App = {
                     });
                 }
             }
+            sortDetails(db1Details).forEach(r => rows.push(r));
             rows.push({ type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db1KostenGesamt, plan: db1BudgetGesamt, vorjahr: db1KostenVorjahr });
 
             rows.push({ type: 'spacer' });
@@ -10688,10 +10715,11 @@ const App = {
             rows.push({ type: 'header', label: '3. STRUKTURKOSTEN (DB2)', konto: '' });
 
             // DB2-Kosten dynamisch
+            let db2Details = [];
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB2_KOSTEN' && data.betrag > 0) {
                     const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
-                    rows.push({
+                    db2Details.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
@@ -10704,6 +10732,7 @@ const App = {
                     });
                 }
             }
+            sortDetails(db2Details).forEach(r => rows.push(r));
             rows.push({ type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db2KostenGesamt, plan: db2BudgetGesamt, vorjahr: db2KostenVorjahr });
 
             rows.push({ type: 'spacer' });
@@ -10713,10 +10742,11 @@ const App = {
             rows.push({ type: 'header', label: '4. FIXKOSTEN (DB3)', konto: '' });
 
             // DB3-Kosten dynamisch
+            let db3Details = [];
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB3_KOSTEN' && data.betrag > 0) {
                     const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
-                    rows.push({
+                    db3Details.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
@@ -10729,6 +10759,7 @@ const App = {
                     });
                 }
             }
+            sortDetails(db3Details).forEach(r => rows.push(r));
             rows.push({ type: 'sum', label: 'SUMME FIXKOSTEN', ist: db3KostenGesamt, plan: db3BudgetGesamt, vorjahr: db3KostenVorjahr });
 
             rows.push({ type: 'spacer' });
@@ -10803,6 +10834,38 @@ const App = {
                 <small>Bitte prüfen Sie, ob die chart_of_accounts Tabelle existiert.</small>
             </td></tr>`;
         }
+    },
+
+    // Sortierung für DB-Tabelle (Haupttabelle)
+    dbTableSort: { column: null, direction: 'desc' },
+    dbTableRowsCache: [], // Cache für sortierbare Zeilen
+
+    /**
+     * DB-Tabelle nach Spalte sortieren (nur detail-Zeilen)
+     */
+    sortDbTable: function(column) {
+        // Toggle direction wenn gleiche Spalte
+        if (this.dbTableSort.column === column) {
+            this.dbTableSort.direction = this.dbTableSort.direction === 'desc' ? 'asc' : 'desc';
+        } else {
+            this.dbTableSort.column = column;
+            this.dbTableSort.direction = 'desc';
+        }
+
+        // Sort-Icons aktualisieren
+        ['ist', 'plan', 'vorjahr'].forEach(col => {
+            const icon = document.getElementById(`db-sort-${col}`);
+            if (icon) {
+                if (col === column) {
+                    icon.textContent = this.dbTableSort.direction === 'asc' ? '▲' : '▼';
+                } else {
+                    icon.textContent = '';
+                }
+            }
+        });
+
+        // Tabelle neu laden mit Sortierung
+        this.loadDeckungsbeitragMitFilter();
     },
 
     // Sortierung für DB-Details
@@ -12178,11 +12241,11 @@ const App = {
     buchungenZuweisungData: [],
     filteredBuchungenZuweisung: [],
     selectedBuchungId: null,
-    selectedMitgliedId: null,
+    selectedMitgliedIds: [],  // Array für mehrere Mitglieder (max. 2)
 
     showBuchungenZuweisungModal: async function() {
         this.selectedBuchungId = null;
-        this.selectedMitgliedId = null;
+        this.selectedMitgliedIds = [];
         document.getElementById('zuweisung-preview').style.display = 'none';
         document.getElementById('buchung-search').value = '';
         document.getElementById('mitglied-search').value = '';
@@ -12294,19 +12357,23 @@ const App = {
 
         let html = '';
         members.forEach(m => {
-            const isSelected = this.selectedMitgliedId === m.id;
+            const isSelected = this.selectedMitgliedIds.includes(m.id);
+            const selectionIndex = this.selectedMitgliedIds.indexOf(m.id);
             const paidClass = m.isPaid ? 'background: #f0f0f0; color: #888;' : '';
             const selectedClass = isSelected ? 'background: #e8f5e9; border-left: 3px solid #27ae60;' : '';
             const paidBadge = m.isPaid
                 ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">bezahlt</span>'
                 : '<span style="background: #e74c3c; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">offen</span>';
+            const selectionBadge = isSelected
+                ? `<span style="background: #3182ce; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; margin-left: 4px;">${selectionIndex + 1}</span>`
+                : '';
 
             html += `
                 <div onclick="App.selectMitgliedForZuweisung('${m.id}')"
                      style="padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; ${paidClass} ${selectedClass}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <strong>${m.last_name}, ${m.first_name || ''}</strong>${paidBadge}
+                            <strong>${m.last_name}, ${m.first_name || ''}</strong>${selectionBadge}${paidBadge}
                             <div style="font-size: 0.8rem; color: #666;">${m.city || ''} | ${this.formatCurrency(m.membership_fee || 0)}</div>
                         </div>
                     </div>
@@ -12315,6 +12382,14 @@ const App = {
         });
 
         container.innerHTML = html;
+
+        // Hinweis aktualisieren
+        const hint = document.getElementById('mitglieder-selection-hint');
+        if (hint) {
+            hint.textContent = this.selectedMitgliedIds.length === 0
+                ? 'Klicken um auszuwählen (max. 2 bei gemeinsamer Zahlung)'
+                : `${this.selectedMitgliedIds.length} Mitglied(er) ausgewählt`;
+        }
     },
 
     filterMitgliederZuweisung: function() {
@@ -12328,7 +12403,21 @@ const App = {
     },
 
     selectMitgliedForZuweisung: function(mitgliedId) {
-        this.selectedMitgliedId = mitgliedId;
+        // Toggle-Logik: Wenn bereits ausgewählt, entfernen; sonst hinzufügen (max 2)
+        const index = this.selectedMitgliedIds.indexOf(mitgliedId);
+        if (index > -1) {
+            // Mitglied entfernen
+            this.selectedMitgliedIds.splice(index, 1);
+        } else {
+            // Mitglied hinzufügen (max 2)
+            if (this.selectedMitgliedIds.length < 2) {
+                this.selectedMitgliedIds.push(mitgliedId);
+            } else {
+                // Wenn bereits 2, das erste durch das neue ersetzen
+                this.selectedMitgliedIds.shift();
+                this.selectedMitgliedIds.push(mitgliedId);
+            }
+        }
         this.renderMitgliederZuweisungListe();
         this.updateZuweisungPreview();
     },
@@ -12336,15 +12425,26 @@ const App = {
     updateZuweisungPreview: function() {
         const preview = document.getElementById('zuweisung-preview');
 
-        if (this.selectedBuchungId && this.selectedMitgliedId) {
+        if (this.selectedBuchungId && this.selectedMitgliedIds.length > 0) {
             const buchung = this.buchungenZuweisungData.find(b => (b.rechnungId || b.id) === this.selectedBuchungId);
-            const mitglied = this.membersData.find(m => m.id === this.selectedMitgliedId);
+            const mitglieder = this.selectedMitgliedIds.map(id => this.membersData.find(m => m.id === id)).filter(Boolean);
 
-            if (buchung && mitglied) {
+            if (buchung && mitglieder.length > 0) {
+                const totalBetrag = Math.abs(buchung.betrag || 0);
+                const betragProMitglied = totalBetrag / mitglieder.length;
+
                 document.getElementById('selected-buchung-text').textContent =
-                    `${buchung.buchungstext || buchung.beschreibung || 'Ohne Text'} (${this.formatCurrency(Math.abs(buchung.betrag || 0))})`;
-                document.getElementById('selected-mitglied-text').textContent =
-                    `${mitglied.last_name}, ${mitglied.first_name || ''} (Beitrag: ${this.formatCurrency(mitglied.membership_fee || 0)})`;
+                    `${buchung.buchungstext || buchung.beschreibung || 'Ohne Text'} (${this.formatCurrency(totalBetrag)})`;
+
+                const mitgliederText = mitglieder.map(m =>
+                    `${m.last_name}, ${m.first_name || ''}`
+                ).join(' + ');
+
+                const betragInfo = mitglieder.length > 1
+                    ? ` (je ${this.formatCurrency(betragProMitglied)})`
+                    : '';
+
+                document.getElementById('selected-mitglied-text').textContent = mitgliederText + betragInfo;
                 preview.style.display = 'block';
             }
         } else {
@@ -12353,36 +12453,42 @@ const App = {
     },
 
     confirmBuchungZuweisung: async function() {
-        if (!this.selectedBuchungId || !this.selectedMitgliedId) {
-            alert('Bitte wählen Sie eine Buchung und ein Mitglied aus.');
+        if (!this.selectedBuchungId || this.selectedMitgliedIds.length === 0) {
+            alert('Bitte wählen Sie eine Buchung und mindestens ein Mitglied aus.');
             return;
         }
 
         const buchung = this.buchungenZuweisungData.find(b => (b.rechnungId || b.id) === this.selectedBuchungId);
-        const mitglied = this.membersData.find(m => m.id === this.selectedMitgliedId);
+        const mitglieder = this.selectedMitgliedIds.map(id => this.membersData.find(m => m.id === id)).filter(Boolean);
 
-        if (!buchung || !mitglied) {
+        if (!buchung || mitglieder.length === 0) {
             alert('Fehler: Buchung oder Mitglied nicht gefunden.');
             return;
         }
 
         const year = parseInt(document.getElementById('members-filter-year')?.value || new Date().getFullYear());
+        const totalBetrag = Math.abs(buchung.betrag || 0);
+        const betragProMitglied = totalBetrag / mitglieder.length;
 
         try {
-            await DataManager.addMemberPayment({
-                member_id: mitglied.id,
-                year: year,
-                amount: Math.abs(buchung.betrag || 0),
-                payment_date: buchung.buchungsdatum || buchung.belegdatum || null,
-                datev_buchung_id: buchung.rechnungId || buchung.id,
-                datev_buchungstext: buchung.buchungstext || buchung.beschreibung || null
-            });
+            // Für jedes Mitglied eine Zahlung erstellen
+            for (const mitglied of mitglieder) {
+                await DataManager.addMemberPayment({
+                    member_id: mitglied.id,
+                    year: year,
+                    amount: betragProMitglied,
+                    payment_date: buchung.buchungsdatum || buchung.belegdatum || null,
+                    datev_buchung_id: buchung.rechnungId || buchung.id,
+                    datev_buchungstext: buchung.buchungstext || buchung.beschreibung || null
+                });
+            }
 
-            this.showToast('success', 'Zugewiesen', `Buchung wurde ${mitglied.last_name} zugewiesen`);
+            const namen = mitglieder.map(m => m.last_name).join(' & ');
+            this.showToast('success', 'Zugewiesen', `Buchung wurde ${namen} zugewiesen`);
 
             // Zurücksetzen
             this.selectedBuchungId = null;
-            this.selectedMitgliedId = null;
+            this.selectedMitgliedIds = [];
             document.getElementById('zuweisung-preview').style.display = 'none';
 
             // Daten neu laden
