@@ -403,31 +403,50 @@ h4 { font-size: 15px; }
     min-height: 100vh;
 }
 
-/* Sidebar */
+/* Sidebar - Kollabierbar */
 .sidebar {
-    width: var(--sidebar-w);
-    background-color: var(--c-paper);
-    border-right: 1px solid var(--c-line);
-    padding: var(--s-6);
+    width: 64px; /* Kollabiert: nur Icons */
+    background-color: var(--c-ink);
+    border-right: none;
+    padding: var(--s-4);
     display: flex;
     flex-direction: column;
     position: sticky;
     top: 0;
     height: 100vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    transition: width var(--t-base);
+    z-index: 100;
+}
+
+/* Sidebar expandiert bei Hover */
+.sidebar:hover {
+    width: var(--sidebar-w);
 }
 
 .sidebar-logo {
     font-size: 16px;
     font-weight: 500;
-    margin-bottom: var(--s-8);
+    margin-bottom: var(--s-6);
     padding-bottom: var(--s-4);
-    border-bottom: 1px solid var(--c-line);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    justify-content: center;
+}
+
+.sidebar:hover .sidebar-logo {
+    justify-content: flex-start;
 }
 
 .sidebar-logo-img {
-    max-width: 140px;
+    max-width: 32px;
     height: auto;
+    transition: max-width var(--t-base);
+}
+
+.sidebar:hover .sidebar-logo-img {
+    max-width: 140px;
 }
 
 .sidebar-nav {
@@ -438,41 +457,68 @@ h4 { font-size: 15px; }
     display: flex;
     align-items: center;
     gap: var(--s-3);
-    padding: 11px 22px;
-    color: var(--c-graphit);
+    padding: 11px 12px;
+    color: rgba(255, 255, 255, 0.7);
     text-decoration: none;
-    border-radius: 0;
-    margin-bottom: 0;
+    border-radius: var(--r-card);
+    margin-bottom: var(--s-1);
     cursor: pointer;
     transition: all var(--t-fast);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 400;
-    border-left: 2px solid transparent;
-    margin-left: -22px;
-    padding-left: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.nav-item span {
+    opacity: 0;
+    transition: opacity var(--t-fast);
+}
+
+.sidebar:hover .nav-item span {
+    opacity: 1;
 }
 
 .nav-item:hover {
-    background-color: var(--c-surface);
-    color: var(--c-ink);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--c-paper);
 }
 
 .nav-item.active {
-    background-color: var(--c-surface);
-    color: var(--c-ink);
+    background-color: rgba(255, 255, 255, 0.15);
+    color: var(--c-paper);
     font-weight: 500;
-    border-left: 2px solid var(--c-ink);
 }
 
 .nav-item .icon {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+    filter: brightness(0) invert(1); /* Icons weiß machen */
 }
 
 .sidebar-footer {
     padding-top: var(--s-4);
-    border-top: 1px solid var(--c-line);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sidebar-footer .user-info {
+    justify-content: center;
+}
+
+.sidebar:hover .sidebar-footer .user-info {
+    justify-content: flex-start;
+}
+
+.sidebar-footer .user-name,
+.sidebar-footer .user-role {
+    opacity: 0;
+    transition: opacity var(--t-fast);
+}
+
+.sidebar:hover .sidebar-footer .user-name,
+.sidebar:hover .sidebar-footer .user-role {
+    opacity: 1;
 }
 
 .user-info {
