@@ -884,9 +884,13 @@ const SupabaseDataAdapter = {
                     }
                 }
 
-                // 3. Falls keine direkte Verknüpfung UND dokumentNr vorhanden: Über Partita IVA + Dokumentnr. suchen
-                if (matchingInvoices.length === 0 && buchung.dokumentNr && buchung.dokumentNr.trim() !== '') {
+                // 3. IMMER auch über Partita IVA + Dokumentnr. suchen (für Rechnungen mit mehreren DATEV-Zeilen)
+                // So wird das PDF bei ALLEN Zeilen mit gleicher Rechnungsnummer angezeigt
+                if (buchung.dokumentNr && buchung.dokumentNr.trim() !== '') {
                     const matchedByPartita = supabaseInvoices.filter(inv => {
+                        // Bereits gefunden? Überspringen
+                        if (matchingInvoices.some(m => m.id === inv.id)) return false;
+
                         // Partita IVA muss übereinstimmen
                         if (inv.partita_iva !== buchung.partitaIva) return false;
 
