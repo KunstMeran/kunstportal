@@ -10369,6 +10369,12 @@ const App = {
     // Cache für Detail-Buchungen
     dbDetailCache: {},
 
+    // Wrapper für Zeitraum-Filter
+    loadDeckungsbeitragMitFilter: function() {
+        const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
+        this.loadDeckungsbeitrag(jahr);
+    },
+
     loadDeckungsbeitrag: async function(jahr) {
         const tbody = document.getElementById('db-table-body');
         if (!tbody) return;
@@ -10376,11 +10382,43 @@ const App = {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Berechne Deckungsbeitragsrechnung...</td></tr>';
 
         try {
-            const startDate = `${jahr}-01-01`;
-            const endDate = `${jahr}-12-31`;
+            // Zeitraum-Filter auslesen
+            const zeitraumSelect = document.getElementById('db-zeitraum');
+            const zeitraum = zeitraumSelect?.value || 'ytd';
+            const zeitraumInfo = document.getElementById('db-zeitraum-info');
+
+            // Datum-Bereich berechnen
+            let startDate, endDate, monate;
+            const heute = new Date();
+            const aktuellerMonat = heute.getMonth() + 1; // 1-12
+
+            if (zeitraum === 'ytd') {
+                // Year-to-Date: 1. Januar bis heute
+                startDate = `${jahr}-01-01`;
+                endDate = `${jahr}-${String(aktuellerMonat).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
+                monate = aktuellerMonat; // Anteilige Monate
+                if (zeitraumInfo) zeitraumInfo.textContent = `(01.01. - ${heute.toLocaleDateString('de-DE')}, ${monate} Monate)`;
+            } else if (zeitraum === 'year') {
+                // Ganzes Jahr
+                startDate = `${jahr}-01-01`;
+                endDate = `${jahr}-12-31`;
+                monate = 12;
+                if (zeitraumInfo) zeitraumInfo.textContent = '(Ganzes Jahr, 12 Monate)';
+            } else {
+                // Einzelner Monat
+                const monat = parseInt(zeitraum);
+                startDate = `${jahr}-${String(monat).padStart(2, '0')}-01`;
+                const letzterTag = new Date(jahr, monat, 0).getDate();
+                endDate = `${jahr}-${String(monat).padStart(2, '0')}-${letzterTag}`;
+                monate = 1;
+                const monatName = ['', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][monat];
+                if (zeitraumInfo) zeitraumInfo.textContent = `(${monatName} ${jahr})`;
+            }
+
             const vorjahr = parseInt(jahr) - 1;
-            const vorjahrStart = `${vorjahr}-01-01`;
-            const vorjahrEnd = `${vorjahr}-12-31`;
+            // Vorjahr: gleicher Zeitraum
+            const vorjahrStart = startDate.replace(jahr, vorjahr);
+            const vorjahrEnd = endDate.replace(jahr, vorjahr);
 
             // Buchungen nach Konten gruppiert laden (für Details) - aktuelles Jahr
             const { grouped, details } = await SupabaseDataAdapter.getBookingsGroupedByAccount(startDate, endDate);
@@ -10406,20 +10444,38 @@ const App = {
                 .eq('fiscal_year', parseInt(jahr))
                 .eq('entry_type', 'budget');
 
-            // Budget-Map erstellen (volle Kontonummer -> Jahres-Summe)
+            // Budget-Map erstellen (volle Kontonummer -> anteilige Summe je nach Zeitraum)
             const budgetByKonto = new Map();
+            const monatsNamen = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+
             (budgetEntries || []).forEach(entry => {
-                const jahresSumme = (entry.jan || 0) + (entry.feb || 0) + (entry.mar || 0) +
-                                   (entry.apr || 0) + (entry.mai || 0) + (entry.jun || 0) +
-                                   (entry.jul || 0) + (entry.aug || 0) + (entry.sep || 0) +
-                                   (entry.okt || 0) + (entry.nov || 0) + (entry.dez || 0);
-                budgetByKonto.set(entry.konto_nr, jahresSumme);
+                let anteiligeSumme = 0;
+
+                if (zeitraum === 'ytd') {
+                    // YTD: Summe der Monate Januar bis aktueller Monat
+                    for (let i = 0; i < aktuellerMonat; i++) {
+                        anteiligeSumme += entry[monatsNamen[i]] || 0;
+                    }
+                } else if (zeitraum === 'year') {
+                    // Ganzes Jahr: alle 12 Monate
+                    for (let i = 0; i < 12; i++) {
+                        anteiligeSumme += entry[monatsNamen[i]] || 0;
+                    }
+                } else {
+                    // Einzelner Monat: nur dieser Monat
+                    const monatIndex = parseInt(zeitraum) - 1;
+                    anteiligeSumme = entry[monatsNamen[monatIndex]] || 0;
+                }
+
+                budgetByKonto.set(entry.konto_nr, anteiligeSumme);
             });
 
-            console.log('📊 Budget geladen:', budgetByKonto.size, 'Einträge');
+            console.log('📊 Budget geladen:', budgetByKonto.size, 'Einträge, Zeitraum:', zeitraum, ', Monate:', monate);
 
-            // Budget-Cache für Detail-Ansicht speichern (Konto -> Jahres-Summe)
+            // Budget-Cache für Detail-Ansicht speichern (Konto -> anteilige Summe)
             this.dbBudgetCache = Object.fromEntries(budgetByKonto);
+            // Auch die Zeitraum-Info für Detail-Ansicht speichern
+            this.dbZeitraumMonate = monate;
 
             // Hilfsfunktion: Budget für ein Konto-Pattern summieren
             // Pattern kann "680%" sein -> alle Konten die mit "680" beginnen
@@ -10436,9 +10492,17 @@ const App = {
                 return sum;
             };
 
-            // Einnahmen aus funding_sources laden (für Umsatz-Plan)
-            const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
-            const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
+            // Umsatz-Budget aus budget_entries (Konten die mit 4 oder 8 beginnen = Erträge)
+            // Diese werden in chart_of_accounts mit db_zuordnung = 'UMSATZ' markiert
+            const umsatzBudgetGesamt = getBudgetForPattern('4') + getBudgetForPattern('8');
+            // Falls kein Budget in budget_entries: Fallback auf funding_sources
+            let einnahmenPlan = umsatzBudgetGesamt;
+            if (einnahmenPlan === 0) {
+                const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
+                const fundingTotal = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
+                // Funding sources anteilig berechnen
+                einnahmenPlan = fundingTotal * monate / 12;
+            }
 
             // Echte Beträge aus gruppierten Buchungen berechnen
             const getSum = (patterns, zuordnung, data = grouped) => {

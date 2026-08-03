@@ -1293,6 +1293,26 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Gesamt-Deckungsbeitragsrechnung</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.85rem; color: #666;">Zeitraum:</label>
+                                <select id="db-zeitraum" class="form-control" style="width: auto; font-size: 0.85rem;" onchange="App.loadDeckungsbeitragMitFilter()">
+                                    <option value="ytd">YTD (bis heute)</option>
+                                    <option value="year">Ganzes Jahr</option>
+                                    <option value="1">Januar</option>
+                                    <option value="2">Februar</option>
+                                    <option value="3">März</option>
+                                    <option value="4">April</option>
+                                    <option value="5">Mai</option>
+                                    <option value="6">Juni</option>
+                                    <option value="7">Juli</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">Oktober</option>
+                                    <option value="11">November</option>
+                                    <option value="12">Dezember</option>
+                                </select>
+                                <span id="db-zeitraum-info" style="font-size: 0.8rem; color: #666;"></span>
+                            </div>
                         </div>
                         <div class="table-container" style="overflow-x: auto;">
                             <table class="db-table" style="min-width: 900px;">
