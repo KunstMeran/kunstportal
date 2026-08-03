@@ -12415,36 +12415,36 @@ const App = {
 
     openDatevVerknuepfungModal: async function() {
         console.log('openDatevVerknuepfungModal gestartet');
+
+        // Ladeindikator anzeigen
+        this.showModal('datev-verknuepfung-modal');
+        document.getElementById('datev-bewegungen-liste').innerHTML = '<p style="padding: 1rem; text-align: center;">Laden...</p>';
+        document.getElementById('pdfs-liste').innerHTML = '<p style="padding: 1rem; text-align: center;">Laden...</p>';
+
         try {
-            // PDFs (Invoices) laden - nur existierende Spalten verwenden
+            // PDFs (Invoices) laden - nur benötigte Spalten für Performance
             const { data: invoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
-                .select('*')
+                .select('id, file_name, file_path, uploaded_at, linked_booking_id')
                 .order('uploaded_at', { ascending: false });
 
-            console.log('Invoices geladen:', invoices?.length, 'Fehler:', invoiceError);
             if (invoiceError) throw invoiceError;
-
-            // Prüfen welche Spalte für Verknüpfung existiert (linked_booking_id oder linked_datev_id)
-            const linkField = invoices.length > 0 && 'linked_booking_id' in invoices[0]
-                ? 'linked_booking_id'
-                : 'linked_datev_id';
-            console.log('Verwende Verknüpfungs-Feld:', linkField);
+            console.log('Invoices geladen:', invoices?.length);
 
             // Set mit allen verknüpften Booking-IDs erstellen
             const linkedBookingIds = new Set(
-                invoices.filter(inv => inv[linkField]).map(inv => inv[linkField])
+                invoices.filter(inv => inv.linked_booking_id).map(inv => inv.linked_booking_id)
             );
 
-            // DATEV-Bewegungen laden (nicht archivierte)
+            // DATEV-Bewegungen laden - nur benötigte Spalten für Performance
             const { data: datevBookings, error: datevError } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('*')
+                .select('id, partita_iva, dokument_nr, fornitore_name, beschreibung, betrag, datum')
                 .or('archived.is.null,archived.eq.false')
                 .order('datum', { ascending: false });
 
-            console.log('DATEV-Bookings geladen:', datevBookings?.length, 'Fehler:', datevError);
             if (datevError) throw datevError;
+            console.log('DATEV-Bookings geladen:', datevBookings?.length);
 
             // Daten vorbereiten - hasPdf basierend auf invoices ermitteln
             this.datevBewegungModalData = datevBookings.map(b => ({
@@ -12467,11 +12467,10 @@ const App = {
             this.filterDatevBewegungen();
             this.filterPdfsForVerknuepfung();
 
-            this.showModal('datev-verknuepfung-modal');
-
         } catch (error) {
             console.error('Fehler beim Laden der Daten:', error);
             this.showToast('error', 'Fehler', 'Daten konnten nicht geladen werden');
+            this.hideModal('datev-verknuepfung-modal');
         }
     },
 
