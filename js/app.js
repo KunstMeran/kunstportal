@@ -9135,9 +9135,30 @@ const App = {
         if (colAktuell) colAktuell.textContent = jahr;
         if (colVorjahr) colVorjahr.textContent = vorjahr;
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Lade Bilanz-Daten...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Lade Bilanz-Daten...</td></tr>';
 
         try {
+            // Budget-Einträge für das Jahr laden
+            const { data: budgetEntries } = await SupabaseService.client
+                .from('budget_entries')
+                .select('konto_nr, jan, feb, mar, apr, mai, jun, jul, aug, sep, okt, nov, dez')
+                .eq('fiscal_year', jahr)
+                .eq('entry_type', 'budget');
+
+            // Budget-Map erstellen (Konto -> Jahres-Summe)
+            const budgetMap = new Map();
+            (budgetEntries || []).forEach(entry => {
+                const jahresSumme = (entry.jan || 0) + (entry.feb || 0) + (entry.mar || 0) +
+                                   (entry.apr || 0) + (entry.mai || 0) + (entry.jun || 0) +
+                                   (entry.jul || 0) + (entry.aug || 0) + (entry.sep || 0) +
+                                   (entry.okt || 0) + (entry.nov || 0) + (entry.dez || 0);
+                budgetMap.set(entry.konto_nr, jahresSumme);
+            });
+
+            // Einnahmen aus funding_sources laden (für Umsatz-Plan)
+            const fundingSources = await SupabaseDataAdapter.getFundingSources(jahr);
+            const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
+
             // DATEV-Buchungen für beide Jahre laden (nach Buchungsdatum, nicht import_year)
             // WICHTIG: ist_gutschrift und dokument_typ laden für korrekte Gutschrift-Berechnung
             // WICHTIG: Supabase hat ein serverseitiges Limit von 1000 Zeilen - wir müssen paginieren!
@@ -9356,10 +9377,61 @@ const App = {
                 werte[result.id] = { aktuell, vorjahr };
             });
 
+            // Budget-Werte für Gruppen berechnen
+            const budgetWerte = {};
+            struktur.guv.filter(s => s.type === 'group').forEach(gruppe => {
+                let budgetSum = 0;
+                (gruppe.kontoPattern || []).forEach(pattern => {
+                    // Alle Konten mit diesem Prefix aus budgetMap summieren
+                    for (const [konto, betrag] of budgetMap.entries()) {
+                        if (konto.startsWith(pattern)) {
+                            budgetSum += betrag;
+                        }
+                    }
+                });
+                // Bei Aufwandskonten (negate): Vorzeichen behalten (Budget ist positiv für Kosten)
+                budgetWerte[gruppe.id] = gruppe.negate ? -budgetSum : budgetSum;
+            });
+
+            // Budget-Summen berechnen
+            struktur.guv.filter(s => s.type === 'sum').forEach(summe => {
+                let budgetSum = 0;
+                (summe.sumOf || []).forEach(id => {
+                    budgetSum += budgetWerte[id] || 0;
+                });
+                budgetWerte[summe.id] = budgetSum;
+            });
+
+            // Budget für Ergebnisse berechnen
+            struktur.guv.filter(s => s.type === 'result').forEach(result => {
+                let budget = 0;
+                if (result.formula) {
+                    const parts = result.formula.split(/\s*([+-])\s*/);
+                    let operator = '+';
+                    parts.forEach(part => {
+                        part = part.trim();
+                        if (part === '+' || part === '-') {
+                            operator = part;
+                        } else if (budgetWerte[part] !== undefined) {
+                            if (operator === '+') {
+                                budget += budgetWerte[part];
+                            } else {
+                                budget -= budgetWerte[part];
+                            }
+                        }
+                    });
+                }
+                budgetWerte[result.id] = budget;
+            });
+
+            // Spezial: Umsatz-Budget aus funding_sources
+            budgetWerte['A_SUM'] = einnahmenPlan;
+
             // Cache speichern
-            this.bilanzReportCache = { jahr, vorjahr, werte, struktur, kontenDetails };
+            this.bilanzReportCache = { jahr, vorjahr, werte, struktur, kontenDetails, budgetWerte, budgetMap };
 
             console.log('📊 Berechnete Werte:', werte);
+            console.log('📊 Budget-Werte:', budgetWerte);
             console.log('📊 Konten-Details:', kontenDetails);
 
             // KPIs aktualisieren
@@ -9381,11 +9453,11 @@ const App = {
             document.getElementById('bilanz-jahresergebnis-pct').textContent = gesamtleistung ? ((jahresergebnis / gesamtleistung) * 100).toFixed(1) + '% der Gesamtleistung' : '0%';
 
             // Tabelle rendern
-            this.renderBilanzTable(struktur, werte, kontenDetails);
+            this.renderBilanzTable(struktur, werte, kontenDetails, budgetWerte);
 
         } catch (error) {
             console.error('Fehler beim Laden der Bilanz:', error);
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #dc3545;">
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #dc3545;">
                 Fehler beim Laden: ${error.message}
             </td></tr>`;
         }
@@ -9394,7 +9466,7 @@ const App = {
     /**
      * Bilanz-Tabelle rendern mit aufklappbaren Gruppen und Konten-Details
      */
-    renderBilanzTable: function(struktur, werte, kontenDetails) {
+    renderBilanzTable: function(struktur, werte, kontenDetails, budgetWerte = {}) {
         const tbody = document.getElementById('bilanz-guv-body');
         if (!tbody) return;
 
@@ -9405,6 +9477,9 @@ const App = {
 
         struktur.guv.forEach(item => {
             const w = werte[item.id] || { aktuell: 0, vorjahr: 0 };
+            const budget = budgetWerte[item.id] || 0;
+            const abwPlan = w.aktuell - budget;
+            const abwPlanPct = budget !== 0 ? ((abwPlan / Math.abs(budget)) * 100) : 0;
             const diff = w.aktuell - w.vorjahr;
             const pct = w.vorjahr !== 0 ? ((diff / Math.abs(w.vorjahr)) * 100) : (w.aktuell !== 0 ? 100 : 0);
 
@@ -9440,10 +9515,14 @@ const App = {
                     <td style="text-align: right; font-weight: 600; padding: 14px 12px;"></td>
                     <td style="text-align: right; padding: 14px 12px;"></td>
                     <td style="text-align: right; padding: 14px 12px;"></td>
+                    <td style="text-align: right; padding: 14px 12px;"></td>
+                    <td style="text-align: right; padding: 14px 12px;"></td>
                 </tr>`;
             } else {
+                // Farben: Bei Kosten ist negativ gut, bei Erträgen ist positiv gut
+                const isKosten = item.negate === true;
+                const abwPlanColor = abwPlan < 0 ? (isKosten ? '#28a745' : '#dc3545') : (isKosten ? '#dc3545' : '#28a745');
                 const diffColor = diff > 0 ? '#28a745' : (diff < 0 ? '#dc3545' : '#666');
-                const diffBg = diff > 0 ? 'rgba(40,167,69,0.1)' : (diff < 0 ? 'rgba(220,53,69,0.1)' : 'transparent');
 
                 // Bei Gruppen: Plus-Button für Konten-Details hinzufügen
                 let kontoExpandIcon = '';
@@ -9457,8 +9536,10 @@ const App = {
                     <td style="padding: 10px 8px;">${kontoExpandIcon}</td>
                     <td style="padding: 10px ${paddingLeft}px; font-weight: ${fontWeight}; font-size: ${isResult || isSum ? '0.95rem' : '0.875rem'};">${item.label}</td>
                     <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; font-size: ${isResult ? '1rem' : '0.875rem'};">${this.formatNumber(w.aktuell)}</td>
-                    <td style="text-align: right; font-weight: ${fontWeight}; padding: 10px 12px; color: #666; font-size: 0.875rem;">${this.formatNumber(w.vorjahr)}</td>
-                    <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; background: ${diffBg}; font-weight: 600;">${diff >= 0 ? '+' : ''}${this.formatNumber(diff)}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: #666; font-size: 0.85rem;">${budget ? this.formatNumber(budget) : '-'}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: ${abwPlanColor}; font-size: 0.85rem;">${budget ? (abwPlan >= 0 ? '+' : '') + this.formatNumber(abwPlan) : '-'}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: ${abwPlanColor}; font-size: 0.8rem;">${budget ? (abwPlanPct >= 0 ? '+' : '') + abwPlanPct.toFixed(1) + '%' : '-'}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: #666; font-size: 0.85rem;">${this.formatNumber(w.vorjahr)}</td>
                     <td style="text-align: right; padding: 10px 12px; color: ${diffColor}; font-size: 0.8rem;">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</td>
                 </tr>`;
 
@@ -9488,14 +9569,16 @@ const App = {
                                 ${konto.kategorie || ''}
                             </td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #666;">${this.formatNumber(konto.aktuell)}</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
+                            <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: #999;">-</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: #888;">${this.formatNumber(konto.vorjahr)}</td>
-                            <td style="text-align: right; padding: 6px 12px; font-size: 0.8rem; color: ${kDiffColor};">${kDiff >= 0 ? '+' : ''}${this.formatNumber(kDiff)}</td>
                             <td style="text-align: right; padding: 6px 12px; font-size: 0.75rem; color: ${kDiffColor};">${kPct >= 0 ? '+' : ''}${kPct.toFixed(1)}%</td>
                         </tr>`;
 
                         // Platzhalter-Zeile für Buchungen (wird dynamisch befüllt)
                         html += `<tr class="bilanz-buchungen-container" id="buchungen-container-${kontoId}" style="display: none;">
-                            <td colspan="6" style="padding: 0; background: #fff;">
+                            <td colspan="8" style="padding: 0; background: #fff;">
                                 <div id="buchungen-content-${kontoId}" style="padding: 0.5rem 1rem 1rem 60px;">
                                     <div style="text-align: center; padding: 1rem; color: #666;">Lade Buchungen...</div>
                                 </div>
@@ -10290,26 +10373,60 @@ const App = {
         const tbody = document.getElementById('db-table-body');
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Berechne Deckungsbeitragsrechnung...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Berechne Deckungsbeitragsrechnung...</td></tr>';
 
         try {
             const startDate = `${jahr}-01-01`;
             const endDate = `${jahr}-12-31`;
+            const vorjahr = parseInt(jahr) - 1;
+            const vorjahrStart = `${vorjahr}-01-01`;
+            const vorjahrEnd = `${vorjahr}-12-31`;
 
-            // Buchungen nach Konten gruppiert laden (für Details)
+            // Buchungen nach Konten gruppiert laden (für Details) - aktuelles Jahr
             const { grouped, details } = await SupabaseDataAdapter.getBookingsGroupedByAccount(startDate, endDate);
             this.dbDetailCache = details;
 
-            // Einnahmen aus funding_sources laden
+            // Vorjahr-Buchungen laden
+            const { grouped: groupedVorjahr } = await SupabaseDataAdapter.getBookingsGroupedByAccount(vorjahrStart, vorjahrEnd);
+
+            // Budget-Einträge für das Jahr laden
+            const { data: budgetEntries } = await SupabaseService.client
+                .from('budget_entries')
+                .select('konto_nr, jan, feb, mar, apr, mai, jun, jul, aug, sep, okt, nov, dez')
+                .eq('fiscal_year', parseInt(jahr))
+                .eq('entry_type', 'budget');
+
+            // Budget-Map erstellen (Konto -> Jahres-Summe)
+            const budgetMap = new Map();
+            (budgetEntries || []).forEach(entry => {
+                const jahresSumme = (entry.jan || 0) + (entry.feb || 0) + (entry.mar || 0) +
+                                   (entry.apr || 0) + (entry.mai || 0) + (entry.jun || 0) +
+                                   (entry.jul || 0) + (entry.aug || 0) + (entry.sep || 0) +
+                                   (entry.okt || 0) + (entry.nov || 0) + (entry.dez || 0);
+                budgetMap.set(entry.konto_nr, jahresSumme);
+            });
+
+            // Einnahmen aus funding_sources laden (für Umsatz-Plan)
             const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
             const einnahmenPlan = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
 
             // Echte Beträge aus gruppierten Buchungen berechnen
-            const getSum = (patterns, zuordnung) => {
+            const getSum = (patterns, zuordnung, data = grouped) => {
+                let sum = 0;
+                for (const [pattern, d] of Object.entries(data)) {
+                    if (d.db_zuordnung === zuordnung) {
+                        sum += d.betrag;
+                    }
+                }
+                return sum;
+            };
+
+            // Budget-Summe für eine Zuordnung
+            const getBudgetSum = (zuordnung) => {
                 let sum = 0;
                 for (const [pattern, data] of Object.entries(grouped)) {
                     if (data.db_zuordnung === zuordnung) {
-                        sum += data.betrag;
+                        sum += budgetMap.get(pattern) || 0;
                     }
                 }
                 return sum;
@@ -10320,9 +10437,24 @@ const App = {
             const db2KostenGesamt = getSum(null, 'DB2_KOSTEN');
             const db3KostenGesamt = getSum(null, 'DB3_KOSTEN');
 
+            const umsatzVorjahr = getSum(null, 'UMSATZ', groupedVorjahr);
+            const db1KostenVorjahr = getSum(null, 'DB1_KOSTEN', groupedVorjahr);
+            const db2KostenVorjahr = getSum(null, 'DB2_KOSTEN', groupedVorjahr);
+            const db3KostenVorjahr = getSum(null, 'DB3_KOSTEN', groupedVorjahr);
+
+            const db1BudgetGesamt = getBudgetSum('DB1_KOSTEN');
+            const db2BudgetGesamt = getBudgetSum('DB2_KOSTEN');
+            const db3BudgetGesamt = getBudgetSum('DB3_KOSTEN');
+
             const db1 = umsatzGesamt - db1KostenGesamt;
             const db2 = db1 - db2KostenGesamt;
             const db3 = db2 - db3KostenGesamt;
+
+            const db1Vorjahr = umsatzVorjahr - db1KostenVorjahr;
+            const db2Vorjahr = db1Vorjahr - db2KostenVorjahr;
+            const db3Vorjahr = db2Vorjahr - db3KostenVorjahr;
+
+            const kostenBudgetGesamt = db1BudgetGesamt + db2BudgetGesamt + db3BudgetGesamt;
 
             // Struktur der Deckungsbeitragsrechnung mit echten Daten
             const rows = [
@@ -10332,19 +10464,21 @@ const App = {
             // Umsatz-Konten dynamisch aus gruppierten Daten
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'UMSATZ' && data.betrag > 0) {
+                    const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
                     rows.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: 0,
+                        plan: budgetMap.get(pattern) || 0,
+                        vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
                         count: data.count
                     });
                 }
             }
-            rows.push({ type: 'sum', label: 'SUMME UMSÄTZE', ist: umsatzGesamt, plan: einnahmenPlan });
+            rows.push({ type: 'sum', label: 'SUMME UMSÄTZE', ist: umsatzGesamt, plan: einnahmenPlan, vorjahr: umsatzVorjahr });
 
             rows.push({ type: 'spacer' });
             rows.push({ type: 'header', label: '2. DIREKTE KOSTEN (DB1)', konto: '' });
@@ -10352,22 +10486,24 @@ const App = {
             // DB1-Kosten dynamisch
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB1_KOSTEN' && data.betrag > 0) {
+                    const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
                     rows.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: 0,
+                        plan: budgetMap.get(pattern) || 0,
+                        vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
                         count: data.count
                     });
                 }
             }
-            rows.push({ type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db1KostenGesamt, plan: 0 });
+            rows.push({ type: 'sum', label: 'SUMME DIREKTE KOSTEN', ist: db1KostenGesamt, plan: db1BudgetGesamt, vorjahr: db1KostenVorjahr });
 
             rows.push({ type: 'spacer' });
-            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 1 (DB1)', ist: db1, plan: einnahmenPlan, highlight: true });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 1 (DB1)', ist: db1, plan: einnahmenPlan - db1BudgetGesamt, vorjahr: db1Vorjahr, highlight: true });
 
             rows.push({ type: 'spacer' });
             rows.push({ type: 'header', label: '3. STRUKTURKOSTEN (DB2)', konto: '' });
@@ -10375,22 +10511,24 @@ const App = {
             // DB2-Kosten dynamisch
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB2_KOSTEN' && data.betrag > 0) {
+                    const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
                     rows.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: 0,
+                        plan: budgetMap.get(pattern) || 0,
+                        vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
                         count: data.count
                     });
                 }
             }
-            rows.push({ type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db2KostenGesamt, plan: 0 });
+            rows.push({ type: 'sum', label: 'SUMME STRUKTURKOSTEN', ist: db2KostenGesamt, plan: db2BudgetGesamt, vorjahr: db2KostenVorjahr });
 
             rows.push({ type: 'spacer' });
-            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 2 (DB2)', ist: db2, plan: einnahmenPlan, highlight: true });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 2 (DB2)', ist: db2, plan: einnahmenPlan - db1BudgetGesamt - db2BudgetGesamt, vorjahr: db2Vorjahr, highlight: true });
 
             rows.push({ type: 'spacer' });
             rows.push({ type: 'header', label: '4. FIXKOSTEN (DB3)', konto: '' });
@@ -10398,22 +10536,24 @@ const App = {
             // DB3-Kosten dynamisch
             for (const [pattern, data] of Object.entries(grouped)) {
                 if (data.db_zuordnung === 'DB3_KOSTEN' && data.betrag > 0) {
+                    const vorjahrBetrag = groupedVorjahr[pattern]?.betrag || 0;
                     rows.push({
                         type: 'detail',
                         label: data.konto_name || pattern,
                         konto: pattern,
                         ist: data.betrag,
-                        plan: 0,
+                        plan: budgetMap.get(pattern) || 0,
+                        vorjahr: vorjahrBetrag,
                         expandable: data.count > 0,
                         pattern: pattern,
                         count: data.count
                     });
                 }
             }
-            rows.push({ type: 'sum', label: 'SUMME FIXKOSTEN', ist: db3KostenGesamt, plan: 0 });
+            rows.push({ type: 'sum', label: 'SUMME FIXKOSTEN', ist: db3KostenGesamt, plan: db3BudgetGesamt, vorjahr: db3KostenVorjahr });
 
             rows.push({ type: 'spacer' });
-            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 3 (DB3) / ERGEBNIS', ist: db3, plan: einnahmenPlan, highlight: true, final: true });
+            rows.push({ type: 'result', label: '= DECKUNGSBEITRAG 3 (DB3) / ERGEBNIS', ist: db3, plan: einnahmenPlan - kostenBudgetGesamt, vorjahr: db3Vorjahr, highlight: true, final: true });
 
             tbody.innerHTML = '';
             let rowIndex = 0;
@@ -10423,11 +10563,14 @@ const App = {
                 tr.setAttribute('data-row-index', rowIndex);
 
                 if (r.type === 'spacer') {
-                    tr.innerHTML = '<td colspan="5" style="height: 10px;"></td>';
+                    tr.innerHTML = '<td colspan="8" style="height: 10px;"></td>';
                 } else if (r.type === 'header') {
-                    tr.innerHTML = `<td colspan="5" style="font-weight: bold; background: #f0f0f0; padding: 8px;">${r.label}</td>`;
+                    tr.innerHTML = `<td colspan="8" style="font-weight: bold; background: #f0f0f0; padding: 8px;">${r.label}</td>`;
                 } else {
-                    const abw = (r.ist || 0) - (r.plan || 0);
+                    const abwEur = (r.ist || 0) - (r.plan || 0);
+                    const abwPct = r.plan ? ((r.ist - r.plan) / Math.abs(r.plan) * 100) : 0;
+                    const vjAbwPct = r.vorjahr ? ((r.ist - r.vorjahr) / Math.abs(r.vorjahr) * 100) : 0;
+
                     const style = r.highlight ? 'font-weight: bold; background: #e8f4fd;' : '';
                     const finalStyle = r.final ? 'font-weight: bold; background: #d4edda; font-size: 1.1em;' : '';
 
@@ -10442,16 +10585,28 @@ const App = {
                                                margin-right: 8px; font-size: 14px; line-height: 1;">+</button>`;
                     }
 
+                    // Farben für Abweichungen (bei Kosten: negativ = gut, bei Erträgen: positiv = gut)
+                    const isKosten = r.type === 'detail' && !r.label.includes('UMSATZ');
+                    const abwColor = abwEur < 0 ? (isKosten ? '#27ae60' : '#e74c3c') : (isKosten ? '#e74c3c' : '#27ae60');
+                    const vjColor = vjAbwPct > 0 ? '#27ae60' : '#e74c3c';
+
                     tr.innerHTML = `
                         <td style="${r.type === 'detail' ? 'padding-left: 1rem;' : ''}">
                             ${expandBtn}${r.label}
                             ${r.count ? `<span style="color: #999; font-size: 0.85em; margin-left: 4px;">(${r.count})</span>` : ''}
                         </td>
-                        <td style="color: #666;">${r.konto || ''}</td>
+                        <td style="color: #666; font-size: 0.85em;">${r.konto || ''}</td>
                         <td style="text-align: right;">${r.ist !== undefined ? this.formatCurrency(r.ist) : ''}</td>
-                        <td style="text-align: right;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
-                        <td style="text-align: right; color: ${abw < 0 ? '#e74c3c' : '#27ae60'};">
-                            ${r.plan ? this.formatCurrency(abw) : '-'}
+                        <td style="text-align: right; color: #666;">${r.plan ? this.formatCurrency(r.plan) : '-'}</td>
+                        <td style="text-align: right; color: ${abwColor};">
+                            ${r.plan ? this.formatCurrency(abwEur) : '-'}
+                        </td>
+                        <td style="text-align: right; color: ${abwColor}; font-size: 0.9em;">
+                            ${r.plan ? (abwPct >= 0 ? '+' : '') + abwPct.toFixed(1) + '%' : '-'}
+                        </td>
+                        <td style="text-align: right; color: #666;">${r.vorjahr ? this.formatCurrency(r.vorjahr) : '-'}</td>
+                        <td style="text-align: right; color: ${vjColor}; font-size: 0.9em;">
+                            ${r.vorjahr ? (vjAbwPct >= 0 ? '+' : '') + vjAbwPct.toFixed(1) + '%' : '-'}
                         </td>
                     `;
 
@@ -10464,7 +10619,7 @@ const App = {
             });
         } catch (error) {
             console.error('Fehler beim Laden der Deckungsbeitragsrechnung:', error);
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #e74c3c;">
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #e74c3c;">
                 Fehler: ${error.message}<br>
                 <small>Bitte prüfen Sie, ob die chart_of_accounts Tabelle existiert.</small>
             </td></tr>`;

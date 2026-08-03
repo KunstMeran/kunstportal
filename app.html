@@ -1294,15 +1294,18 @@
                         <div class="card-header">
                             <h3 class="card-title">Gesamt-Deckungsbeitragsrechnung</h3>
                         </div>
-                        <div class="table-container">
-                            <table class="db-table">
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="db-table" style="min-width: 900px;">
                                 <thead>
                                     <tr>
-                                        <th style="width: 50%;">Position</th>
-                                        <th>Konto</th>
-                                        <th style="text-align: right;">IST</th>
-                                        <th style="text-align: right;">Plan</th>
-                                        <th style="text-align: right;">Abweichung</th>
+                                        <th style="width: 30%;">Position</th>
+                                        <th style="width: 80px;">Konto</th>
+                                        <th style="text-align: right; width: 100px;">IST</th>
+                                        <th style="text-align: right; width: 100px;">Plan</th>
+                                        <th style="text-align: right; width: 90px;">Abw. €</th>
+                                        <th style="text-align: right; width: 70px;">Abw. %</th>
+                                        <th style="text-align: right; width: 100px;">Vorjahr</th>
+                                        <th style="text-align: right; width: 70px;">VJ %</th>
                                     </tr>
                                 </thead>
                                 <tbody id="db-table-body">
@@ -1428,20 +1431,22 @@
                         </div>
 
                         <!-- GuV Tabelle -->
-                        <div class="table-container" style="max-height: 600px; overflow-y: auto;">
-                            <table id="bilanz-guv-table">
+                        <div class="table-container" style="max-height: 600px; overflow-y: auto; overflow-x: auto;">
+                            <table id="bilanz-guv-table" style="min-width: 1000px;">
                                 <thead style="position: sticky; top: 0; background: linear-gradient(135deg, #f8f9fa, #e9ecef); z-index: 1;">
                                     <tr>
                                         <th style="width: 40px;"></th>
-                                        <th style="min-width: 300px;">Position</th>
-                                        <th style="text-align: right; min-width: 120px;" id="bilanz-col-aktuell">2025</th>
-                                        <th style="text-align: right; min-width: 120px;" id="bilanz-col-vorjahr">2024</th>
-                                        <th style="text-align: right; min-width: 100px;">Differenz</th>
-                                        <th style="text-align: right; min-width: 80px;">%</th>
+                                        <th style="min-width: 250px;">Position</th>
+                                        <th style="text-align: right; min-width: 100px;" id="bilanz-col-aktuell">2025</th>
+                                        <th style="text-align: right; min-width: 100px;">Plan</th>
+                                        <th style="text-align: right; min-width: 80px;">Abw. €</th>
+                                        <th style="text-align: right; min-width: 60px;">Abw. %</th>
+                                        <th style="text-align: right; min-width: 100px;" id="bilanz-col-vorjahr">2024</th>
+                                        <th style="text-align: right; min-width: 60px;">VJ %</th>
                                     </tr>
                                 </thead>
                                 <tbody id="bilanz-guv-body">
-                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">
+                                    <tr><td colspan="8" style="text-align: center; padding: 2rem; color: #666;">
                                         Lade Bilanz-Daten...
                                     </td></tr>
                                 </tbody>
