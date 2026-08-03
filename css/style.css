@@ -439,18 +439,29 @@ h4 { font-size: 15px; }
     justify-content: flex-start;
 }
 
-.sidebar-logo-img {
+/* Logo ohne Text (kollabiert) */
+.sidebar-logo-icon {
     width: 32px;
     height: 32px;
-    object-fit: cover;
-    object-position: left center;
-    transition: all var(--t-base);
+    display: block;
+    transition: opacity var(--t-fast);
 }
 
-.sidebar:hover .sidebar-logo-img {
-    width: 140px;
+/* Logo mit Text (expandiert) */
+.sidebar-logo-full {
+    display: none;
+    max-width: 140px;
     height: auto;
-    object-fit: contain;
+    transition: opacity var(--t-fast);
+}
+
+/* Bei Hover: Icon verstecken, volles Logo zeigen */
+.sidebar:hover .sidebar-logo-icon {
+    display: none;
+}
+
+.sidebar:hover .sidebar-logo-full {
+    display: block;
 }
 
 .sidebar-nav {
