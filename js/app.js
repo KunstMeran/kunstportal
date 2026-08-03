@@ -12416,26 +12416,32 @@ const App = {
     openDatevVerknuepfungModal: async function() {
         console.log('openDatevVerknuepfungModal gestartet');
         try {
-            // PDFs (Invoices) zuerst laden um verknüpfte Buchungen zu ermitteln
+            // PDFs (Invoices) laden - nur existierende Spalten verwenden
             const { data: invoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
-                .select('id, file_name, file_path, uploaded_at, linked_booking_id')
+                .select('*')
                 .order('uploaded_at', { ascending: false });
 
             console.log('Invoices geladen:', invoices?.length, 'Fehler:', invoiceError);
             if (invoiceError) throw invoiceError;
 
+            // Prüfen welche Spalte für Verknüpfung existiert (linked_booking_id oder linked_datev_id)
+            const linkField = invoices.length > 0 && 'linked_booking_id' in invoices[0]
+                ? 'linked_booking_id'
+                : 'linked_datev_id';
+            console.log('Verwende Verknüpfungs-Feld:', linkField);
+
             // Set mit allen verknüpften Booking-IDs erstellen
             const linkedBookingIds = new Set(
-                invoices.filter(inv => inv.linked_booking_id).map(inv => inv.linked_booking_id)
+                invoices.filter(inv => inv[linkField]).map(inv => inv[linkField])
             );
 
             // DATEV-Bewegungen laden (nicht archivierte)
             const { data: datevBookings, error: datevError } = await SupabaseService.client
                 .from('datev_bookings')
-                .select('id, partita_iva, dokument_nr, fornitore_name, buchungstext, betrag, belegdatum')
+                .select('*')
                 .or('archived.is.null,archived.eq.false')
-                .order('belegdatum', { ascending: false });
+                .order('datum', { ascending: false });
 
             console.log('DATEV-Bookings geladen:', datevBookings?.length, 'Fehler:', datevError);
             if (datevError) throw datevError;
@@ -12514,10 +12520,10 @@ const App = {
                         <div style="flex: 1; min-width: 0;">
                             <strong style="font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.fornitore_name || 'Unbekannt'}</strong>${pdfBadge}
                             <div style="font-size: 0.75rem; color: #666; margin-top: 2px;">
-                                ${this.formatDate(b.belegdatum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}
+                                ${this.formatDate(b.datum)} | ${this.formatCurrency(Math.abs(b.betrag || 0))}
                             </div>
                             <div style="font-size: 0.7rem; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                ${b.dokument_nr || ''} ${b.buchungstext ? '- ' + b.buchungstext : ''}
+                                ${b.dokument_nr || ''} ${b.beschreibung ? '- ' + b.beschreibung : ''}
                             </div>
                         </div>
                     </div>
@@ -12625,7 +12631,7 @@ const App = {
             const p = this.selectedPdfForVerknuepfung;
 
             document.getElementById('selected-bewegung-text').textContent =
-                `${b.fornitore_name || 'Unbekannt'} - ${this.formatCurrency(Math.abs(b.betrag || 0))} (${this.formatDate(b.belegdatum)})`;
+                `${b.fornitore_name || 'Unbekannt'} - ${this.formatCurrency(Math.abs(b.betrag || 0))} (${this.formatDate(b.datum)})`;
             document.getElementById('selected-pdf-text').textContent = p.file_name || 'Unbekannt';
             preview.style.display = 'block';
         } else {
