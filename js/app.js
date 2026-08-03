@@ -4114,7 +4114,7 @@ const App = {
                 <td style="text-align: right; ${betragStyle}">
                     <div style="display: flex; align-items: center; gap: 0.25rem; justify-content: flex-end;">
                         <select class="form-control mwst-select"
-                                style="font-size: 0.7rem; padding: 0.15rem; width: 55px; text-align: right;"
+                                style="font-size: 0.7rem; padding: 0.15rem 1.2rem 0.15rem 0.25rem; width: auto; min-width: 50px; text-align: right;"
                                 onchange="App.updateMwstRate('${r.id}', this.value)"
                                 ${r.isSupabaseOnly ? 'disabled title="Nur für DATEV-Buchungen"' : ''}>
                             ${this.getMwstOptions(mwstRate)}
