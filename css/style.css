@@ -337,6 +337,37 @@ h4 { font-size: 15px; }
     color: var(--c-ink);
 }
 
+/* Tabellen-Aktions-Buttons - ausgefüllt für bessere Sichtbarkeit */
+table .btn-outline.btn-sm {
+    background-color: var(--c-ink);
+    border-color: var(--c-ink);
+    color: var(--c-paper);
+}
+
+table .btn-outline.btn-sm .icon,
+table .btn-outline.btn-sm .icon-sm {
+    filter: brightness(0) invert(1);
+}
+
+table .btn-outline.btn-sm:hover {
+    background-color: var(--c-graphit);
+    border-color: var(--c-graphit);
+}
+
+/* Delete-Button in Tabellen */
+table .btn-outline.btn-sm[style*="color: #e74c3c"],
+table .btn-outline.btn-sm[style*="color:#e74c3c"] {
+    background-color: var(--c-error);
+    border-color: var(--c-error);
+    color: var(--c-paper) !important;
+}
+
+table .btn-outline.btn-sm[style*="color: #e74c3c"]:hover,
+table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
+    background-color: #8B2722;
+    border-color: #8B2722;
+}
+
 /* Destructive Button */
 .btn-danger, .btn-destructive {
     background-color: transparent;
