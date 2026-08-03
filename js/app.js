@@ -12425,17 +12425,11 @@ const App = {
             // PDFs (Invoices) laden - nur benötigte Spalten für Performance
             const { data: invoices, error: invoiceError } = await SupabaseService.client
                 .from('invoices')
-                .select('id, file_name, file_path, uploaded_at, linked_booking_id')
+                .select('id, file_name, file_path, uploaded_at, linked_booking_id, partita_iva, invoice_number')
                 .order('uploaded_at', { ascending: false });
 
             if (invoiceError) throw invoiceError;
             console.log('Invoices geladen:', invoices?.length);
-
-            // Set mit allen verknüpften Booking-IDs erstellen (als Strings für korrekten Vergleich)
-            const linkedBookingIds = new Set(
-                invoices.filter(inv => inv.linked_booking_id).map(inv => String(inv.linked_booking_id))
-            );
-            console.log('Verknüpfte Booking-IDs:', linkedBookingIds.size);
 
             // DATEV-Bewegungen laden - nur benötigte Spalten für Performance
             const { data: datevBookings, error: datevError } = await SupabaseService.client
@@ -12447,16 +12441,44 @@ const App = {
             if (datevError) throw datevError;
             console.log('DATEV-Bookings geladen:', datevBookings?.length);
 
-            // Daten vorbereiten - hasPdf basierend auf invoices ermitteln (String-Vergleich)
-            this.datevBewegungModalData = datevBookings.map(b => ({
-                ...b,
-                hasPdf: linkedBookingIds.has(String(b.id))
-            }));
+            // Set mit allen verknüpften Booking-IDs erstellen (als Strings für korrekten Vergleich)
+            const linkedBookingIds = new Set(
+                invoices.filter(inv => inv.linked_booking_id).map(inv => String(inv.linked_booking_id))
+            );
 
-            this.pdfModalData = invoices.map(inv => ({
-                ...inv,
-                isLinked: !!inv.linked_booking_id
-            }));
+            // Set mit allen verknüpften partita_iva + invoice_number Kombinationen
+            const linkedByDocNr = new Set(
+                invoices
+                    .filter(inv => inv.partita_iva && inv.invoice_number)
+                    .map(inv => `${inv.partita_iva}_${inv.invoice_number}`)
+            );
+
+            // Set mit allen PDFs die eine DATEV-Bewegung haben (via partita_iva + dokument_nr)
+            const datevDocKeys = new Set(
+                datevBookings
+                    .filter(b => b.partita_iva && b.dokument_nr)
+                    .map(b => `${b.partita_iva}_${b.dokument_nr}`)
+            );
+
+            console.log('Verknüpfte Booking-IDs:', linkedBookingIds.size, 'Verknüpfte Dok-Nummern:', linkedByDocNr.size);
+
+            // Daten vorbereiten - hasPdf basierend auf BEIDEN Methoden ermitteln
+            this.datevBewegungModalData = datevBookings.map(b => {
+                const docKey = `${b.partita_iva}_${b.dokument_nr}`;
+                return {
+                    ...b,
+                    hasPdf: linkedBookingIds.has(String(b.id)) || linkedByDocNr.has(docKey)
+                };
+            });
+
+            // PDFs: isLinked wenn linked_booking_id ODER passende DATEV-Bewegung existiert
+            this.pdfModalData = invoices.map(inv => {
+                const docKey = `${inv.partita_iva}_${inv.invoice_number}`;
+                return {
+                    ...inv,
+                    isLinked: !!inv.linked_booking_id || datevDocKeys.has(docKey)
+                };
+            });
 
             // Reset Auswahl
             this.selectedBewegungForVerknuepfung = null;
