@@ -3226,14 +3226,14 @@
 
     <!-- ==================== MODAL: Neuer Inventar-Gegenstand ==================== -->
     <div id="inventar-form-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 600px;">
+        <div class="modal" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2 class="modal-title" id="inventar-modal-title">Neuer Gegenstand</h2>
                 <button class="modal-close" onclick="App.hideModal('inventar-form-modal')">&times;</button>
             </div>
-            <form id="inventar-form" onsubmit="App.saveInventar(event)">
+            <form id="inventar-form" onsubmit="App.saveInventar(event)" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
                 <input type="hidden" id="inventar-form-id">
-                <div class="modal-body">
+                <div class="modal-body" style="flex: 1; overflow-y: auto;">
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Inventar-Nr.</label>
