@@ -12428,11 +12428,11 @@ const App = {
                 invoices.filter(inv => inv.linked_booking_id).map(inv => inv.linked_booking_id)
             );
 
-            // DATEV-Bewegungen laden
+            // DATEV-Bewegungen laden (nicht archivierte)
             const { data: datevBookings, error: datevError } = await SupabaseService.client
                 .from('datev_bookings')
                 .select('id, partita_iva, dokument_nr, fornitore_name, buchungstext, betrag, belegdatum')
-                .eq('archived', false)
+                .or('archived.is.null,archived.eq.false')
                 .order('belegdatum', { ascending: false });
 
             if (datevError) throw datevError;
