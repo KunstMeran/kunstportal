@@ -3943,8 +3943,8 @@ const App = {
     reloadRechnungenKeepState: async function() {
         this._keepCurrentPage = true;
         // Cache invalidieren damit frische Daten geladen werden
-        if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
-            SupabaseDataAdapter.invalidateCache();
+        if (typeof DataManager !== 'undefined' && DataManager.invalidateRechnungenCache) {
+            DataManager.invalidateRechnungenCache();
         }
         await this.filterRechnungen();
     },

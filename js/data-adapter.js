@@ -178,7 +178,43 @@ const SupabaseDataAdapter = {
         // Cache für DATEV-Buchungen
         this.datevBuchungenCache = [];
 
+        // NEU: Cache für getRechnungenMitStatus (vermeidet wiederholte DB-Abfragen)
+        this.rechnungenCache = null;
+        this.rechnungenCacheTime = null;
+        this.CACHE_DURATION_MS = 30000; // 30 Sekunden Cache-Dauer
+
+        // NEU: Suppliers-Cache
+        this.suppliersCache = null;
+        this.suppliersCacheTime = null;
+
+        // NEU: Invoices-Cache
+        this.invoicesCache = null;
+        this.invoicesCacheTime = null;
+
+        // Cache-Invalidierung Funktion global verfügbar machen
+        DataManager.invalidateRechnungenCache = this.invalidateRechnungenCache.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
+    },
+
+    /**
+     * Cache für Rechnungen invalidieren
+     * Aufrufen nach jeder Änderung (Update, Delete, etc.)
+     */
+    invalidateRechnungenCache: function() {
+        console.log('🗑️ Rechnungen-Cache invalidiert');
+        this.rechnungenCache = null;
+        this.rechnungenCacheTime = null;
+        this.invoicesCache = null;
+        this.invoicesCacheTime = null;
+    },
+
+    /**
+     * Prüft ob Cache noch gültig ist
+     */
+    isCacheValid: function(cacheTime) {
+        if (!cacheTime) return false;
+        return (Date.now() - cacheTime) < this.CACHE_DURATION_MS;
     },
 
     /**
@@ -800,6 +836,16 @@ const SupabaseDataAdapter = {
      */
     async getRechnungenMitStatus() {
         try {
+            // CACHE-CHECK: Wenn Cache gültig, direkt zurückgeben (MASSIVE Performance-Verbesserung)
+            if (this.rechnungenCache && this.isCacheValid(this.rechnungenCacheTime)) {
+                console.log('⚡ Rechnungen aus Cache geladen (noch ' +
+                    Math.round((this.CACHE_DURATION_MS - (Date.now() - this.rechnungenCacheTime)) / 1000) + 's gültig)');
+                return this.rechnungenCache;
+            }
+
+            console.log('🔄 Lade Rechnungen von Supabase...');
+            const startTime = Date.now();
+
             // 1. DATEV-Buchungen aus Supabase holen (NICHT aus JSON!)
             // Erst aus Cache oder neu laden
             if (!this.datevBuchungenCache || this.datevBuchungenCache.length === 0) {
@@ -807,24 +853,37 @@ const SupabaseDataAdapter = {
             }
             const datevBuchungen = this.datevBuchungenCache || [];
 
-            // 2. Supabase Invoices holen
-            const supabaseInvoices = await this.getInvoices();
+            // 2. Supabase Invoices holen (mit Cache)
+            let supabaseInvoices;
+            if (this.invoicesCache && this.isCacheValid(this.invoicesCacheTime)) {
+                supabaseInvoices = this.invoicesCache;
+            } else {
+                supabaseInvoices = await this.getInvoices();
+                this.invoicesCache = supabaseInvoices;
+                this.invoicesCacheTime = Date.now();
+            }
 
-            // 3. Suppliers laden für Namen-Anreicherung
-            const { data: suppliers, error: supplierError } = await SupabaseService.client
-                .from('suppliers')
-                .select('partita_iva, fornitore_name');
+            // 3. Suppliers laden für Namen-Anreicherung (mit Cache)
+            let suppliers;
+            if (this.suppliersCache && this.isCacheValid(this.suppliersCacheTime)) {
+                suppliers = this.suppliersCache;
+            } else {
+                const { data: suppliersData, error: supplierError } = await SupabaseService.client
+                    .from('suppliers')
+                    .select('partita_iva, fornitore_name');
 
-            if (supplierError) {
-                console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+                if (supplierError) {
+                    console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+                }
+                suppliers = suppliersData || [];
+                this.suppliersCache = suppliers;
+                this.suppliersCacheTime = Date.now();
             }
 
             const supplierMap = new Map();
-            if (suppliers) {
-                suppliers.forEach(s => {
-                    supplierMap.set(s.partita_iva, s.fornitore_name);
-                });
-            }
+            suppliers.forEach(s => {
+                supplierMap.set(s.partita_iva, s.fornitore_name);
+            });
             console.log(`📇 ${supplierMap.size} Lieferanten für Namen-Anreicherung geladen`);
 
             // 4. Zusammenführen: Supabase Invoices zu DATEV-Buchungen matchen
@@ -1036,7 +1095,13 @@ const SupabaseDataAdapter = {
                 return dateB.localeCompare(dateA);
             });
 
-            console.log(`📊 Rechnungen kombiniert: ${datevBuchungen.length} DATEV + ${unmatchedInvoices.length} nur Supabase = ${combined.length} gesamt`);
+            const loadTime = Date.now() - startTime;
+            console.log(`📊 Rechnungen kombiniert: ${datevBuchungen.length} DATEV + ${unmatchedInvoices.length} nur Supabase = ${combined.length} gesamt (${loadTime}ms)`);
+
+            // Cache speichern für nächste Aufrufe
+            this.rechnungenCache = combined;
+            this.rechnungenCacheTime = Date.now();
+            console.log('💾 Rechnungen gecached für ' + (this.CACHE_DURATION_MS / 1000) + ' Sekunden');
 
             return combined;
 
