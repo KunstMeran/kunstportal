@@ -12431,10 +12431,11 @@ const App = {
             if (invoiceError) throw invoiceError;
             console.log('Invoices geladen:', invoices?.length);
 
-            // Set mit allen verknüpften Booking-IDs erstellen
+            // Set mit allen verknüpften Booking-IDs erstellen (als Strings für korrekten Vergleich)
             const linkedBookingIds = new Set(
-                invoices.filter(inv => inv.linked_booking_id).map(inv => inv.linked_booking_id)
+                invoices.filter(inv => inv.linked_booking_id).map(inv => String(inv.linked_booking_id))
             );
+            console.log('Verknüpfte Booking-IDs:', linkedBookingIds.size);
 
             // DATEV-Bewegungen laden - nur benötigte Spalten für Performance
             const { data: datevBookings, error: datevError } = await SupabaseService.client
@@ -12446,10 +12447,10 @@ const App = {
             if (datevError) throw datevError;
             console.log('DATEV-Bookings geladen:', datevBookings?.length);
 
-            // Daten vorbereiten - hasPdf basierend auf invoices ermitteln
+            // Daten vorbereiten - hasPdf basierend auf invoices ermitteln (String-Vergleich)
             this.datevBewegungModalData = datevBookings.map(b => ({
                 ...b,
-                hasPdf: linkedBookingIds.has(b.id)
+                hasPdf: linkedBookingIds.has(String(b.id))
             }));
 
             this.pdfModalData = invoices.map(inv => ({
