@@ -6,13 +6,10 @@
     <title>Projektsoftware Kunst Meran</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* Poppins Font Override */
-        body, button, input, select, textarea {
-            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
+        /* Design System Font Override - wird jetzt via tokens.css gehandhabt */
 
         /* Zusätzliche Styles für App-spezifische Elemente */
         .project-row {
@@ -345,55 +342,56 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-logo">
-                <img src="logo_weiss.png" alt="Kunst Meran" class="sidebar-logo-img">
+                <img src="logo.png" alt="Kunst Meran" class="sidebar-logo-img">
             </div>
 
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-view="dashboard">
+                    <img src="icons/17-dashboard.svg" alt="" class="icon">
                     <span>Dashboard</span>
                 </a>
                 <a href="#" class="nav-item" data-view="projekte">
+                    <img src="icons/18-project.svg" alt="" class="icon">
                     <span>Projekte</span>
                 </a>
                 <a href="#" class="nav-item" data-view="rechnungen">
+                    <img src="icons/01-document.svg" alt="" class="icon">
                     <span>Rechnungen</span>
                 </a>
                 <a href="#" class="nav-item" data-view="lieferanten">
+                    <img src="icons/05-company.svg" alt="" class="icon">
                     <span>Lieferanten</span>
                 </a>
                 <a href="#" class="nav-item" data-view="zeiterfassung">
+                    <img src="icons/22-calendar.svg" alt="" class="icon">
                     <span>Zeiterfassung</span>
                 </a>
-                <!-- Ausgeblendet: Sitzungen, Künstler, Adressen
-                <a href="#" class="nav-item" data-view="sitzungen">
-                    <span>Sitzungen</span>
-                </a>
-                <a href="#" class="nav-item" data-view="kuenstler">
-                    <span>Künstler</span>
-                </a>
-                <a href="#" class="nav-item" data-view="adressen">
-                    <span>Adressen</span>
-                </a>
-                -->
                 <a href="#" class="nav-item" data-view="inventar">
+                    <img src="icons/30-inventory.svg" alt="" class="icon">
                     <span>Inventar</span>
                 </a>
                 <a href="#" class="nav-item" data-view="reporting">
+                    <img src="icons/06-trend.svg" alt="" class="icon">
                     <span>Reporting</span>
                 </a>
                 <a href="#" class="nav-item" data-view="einnahmen">
+                    <img src="icons/29-income.svg" alt="" class="icon">
                     <span>Einnahmenplanung</span>
                 </a>
                 <a href="#" class="nav-item" data-view="budgetplanung">
+                    <img src="icons/31-budget.svg" alt="" class="icon">
                     <span>Budgetplanung</span>
                 </a>
                 <a href="#" class="nav-item" data-view="mitglieder">
+                    <img src="icons/23-user.svg" alt="" class="icon">
                     <span>Mitglieder</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="import">
+                    <img src="icons/04-upload.svg" alt="" class="icon">
                     <span>Import</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="konfiguration">
+                    <img src="icons/20-settings.svg" alt="" class="icon">
                     <span>Konfiguration</span>
                 </a>
             </nav>
