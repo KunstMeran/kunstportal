@@ -12604,8 +12604,9 @@ const App = {
             const linkedBadge = p.isLinked
                 ? '<span style="background: #27ae60; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;">verknüpft</span>'
                 : '';
+            const notizText = (p.notes || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const notizBadge = p.notes && p.notes.trim()
-                ? `<span style="background: #ff9800; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;" title="${this.escapeHtml(p.notes)}">Notiz</span>`
+                ? `<span style="background: #ff9800; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px;" title="${notizText}">Notiz</span>`
                 : '';
 
             html += `
