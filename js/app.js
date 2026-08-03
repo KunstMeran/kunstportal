@@ -10492,11 +10492,20 @@ const App = {
                 return sum;
             };
 
-            // Umsatz-Budget aus budget_entries (Konten die mit 4 oder 8 beginnen = Erträge)
-            // Diese werden in chart_of_accounts mit db_zuordnung = 'UMSATZ' markiert
-            const umsatzBudgetGesamt = getBudgetForPattern('4') + getBudgetForPattern('8');
-            // Falls kein Budget in budget_entries: Fallback auf funding_sources
-            let einnahmenPlan = umsatzBudgetGesamt;
+            // Budget-Summe für eine Zuordnung berechnen
+            const getBudgetSumForZuordnung = (zuordnung) => {
+                let sum = 0;
+                for (const [pattern, data] of Object.entries(grouped)) {
+                    if (data.db_zuordnung === zuordnung) {
+                        sum += getBudgetForPattern(pattern);
+                    }
+                }
+                return sum;
+            };
+
+            // Umsatz-Budget aus budget_entries basierend auf db_zuordnung
+            let einnahmenPlan = getBudgetSumForZuordnung('UMSATZ');
+            // Falls kein Budget: Fallback auf funding_sources
             if (einnahmenPlan === 0) {
                 const fundingSources = await SupabaseDataAdapter.getFundingSources(parseInt(jahr));
                 const fundingTotal = fundingSources.reduce((sum, fs) => sum + (fs.amount || 0), 0);
@@ -10515,17 +10524,6 @@ const App = {
                 return sum;
             };
 
-            // Budget-Summe für eine Zuordnung
-            const getBudgetSum = (zuordnung) => {
-                let sum = 0;
-                for (const [pattern, data] of Object.entries(grouped)) {
-                    if (data.db_zuordnung === zuordnung) {
-                        sum += getBudgetForPattern(pattern);
-                    }
-                }
-                return sum;
-            };
-
             const umsatzGesamt = getSum(null, 'UMSATZ');
             const db1KostenGesamt = getSum(null, 'DB1_KOSTEN');
             const db2KostenGesamt = getSum(null, 'DB2_KOSTEN');
@@ -10536,9 +10534,9 @@ const App = {
             const db2KostenVorjahr = getSum(null, 'DB2_KOSTEN', groupedVorjahr);
             const db3KostenVorjahr = getSum(null, 'DB3_KOSTEN', groupedVorjahr);
 
-            const db1BudgetGesamt = getBudgetSum('DB1_KOSTEN');
-            const db2BudgetGesamt = getBudgetSum('DB2_KOSTEN');
-            const db3BudgetGesamt = getBudgetSum('DB3_KOSTEN');
+            const db1BudgetGesamt = getBudgetSumForZuordnung('DB1_KOSTEN');
+            const db2BudgetGesamt = getBudgetSumForZuordnung('DB2_KOSTEN');
+            const db3BudgetGesamt = getBudgetSumForZuordnung('DB3_KOSTEN');
 
             const db1 = umsatzGesamt - db1KostenGesamt;
             const db2 = db1 - db2KostenGesamt;
