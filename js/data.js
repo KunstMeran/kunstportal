@@ -1589,11 +1589,32 @@ const DataManager = {
         // Gültige Projekt-IDs (2601-2607)
         const gueltigeProjektIds = Object.keys(KUNST_MERAN_PROJEKTE).map(id => String(id));
 
+        // Ertragskonten ausschließen (Verkaufsrechnungen, nicht Eingangsrechnungen)
+        // Erlöskonten beginnen typischerweise mit 60-67, 84 (Finanzerträge)
+        const isErtragskonto = (kontoNr) => {
+            if (!kontoNr) return false;
+            const konto = String(kontoNr);
+            // Erlöskonten: 60xxxx - 67xxxx
+            if (konto.startsWith('60') || konto.startsWith('61') || konto.startsWith('62') ||
+                konto.startsWith('63') || konto.startsWith('64') || konto.startsWith('65') ||
+                konto.startsWith('66') || konto.startsWith('67')) {
+                return true;
+            }
+            // Finanzerträge: 84xxxx
+            if (konto.startsWith('84')) {
+                return true;
+            }
+            return false;
+        };
+
         const result = buchungen
-            // Zeige Buchungen die entweder:
-            // 1. Eine Dokument-Nr haben (= Rechnung)
-            // 2. Oder eine gültige Projekt-ID haben
+            // Zeige nur Eingangsrechnungen (Kosten), keine Verkaufsrechnungen (Erlöse)
             .filter(buchung => {
+                // Ertragskonten ausschließen
+                if (isErtragskonto(buchung.konto)) {
+                    return false;
+                }
+
                 const hatDokumentNr = buchung.dokumentNr && String(buchung.dokumentNr).trim() !== '';
                 const projektId = String(buchung.projektId || '').trim();
                 const hatGueltigeProjektId = projektId !== '' && gueltigeProjektIds.includes(projektId);
