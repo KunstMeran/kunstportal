@@ -3069,15 +3069,33 @@ const SupabaseDataAdapter = {
             // Kontenplan laden
             const chartOfAccounts = await this.getChartOfAccounts();
 
-            // DATEV-Buchungen laden
-            const { data: buchungen, error } = await supabaseClient
-                .from('datev_bookings')
-                .select('*')
-                .gte('datum', startDate)
-                .lte('datum', endDate)
-                .order('datum', { ascending: false });
+            // DATEV-Buchungen laden (mit Pagination für große Datensätze)
+            const PAGE_SIZE = 1000;
+            let buchungen = [];
+            let offset = 0;
+            let hasMore = true;
 
-            if (error) throw error;
+            while (hasMore) {
+                const { data, error } = await supabaseClient
+                    .from('datev_bookings')
+                    .select('*')
+                    .gte('datum', startDate)
+                    .lte('datum', endDate)
+                    .order('datum', { ascending: false })
+                    .range(offset, offset + PAGE_SIZE - 1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    buchungen = buchungen.concat(data);
+                    offset += data.length;
+                    hasMore = data.length === PAGE_SIZE;
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            console.log(`📊 getBookingsGroupedByAccount: ${buchungen.length} Buchungen für ${startDate} - ${endDate}`);
 
             // Nach Kontenplan-Pattern gruppieren
             const grouped = {};
