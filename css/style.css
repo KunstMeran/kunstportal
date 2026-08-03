@@ -440,13 +440,17 @@ h4 { font-size: 15px; }
 }
 
 .sidebar-logo-img {
-    max-width: 32px;
-    height: auto;
-    transition: max-width var(--t-base);
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    object-position: left center;
+    transition: all var(--t-base);
 }
 
 .sidebar:hover .sidebar-logo-img {
-    max-width: 140px;
+    width: 140px;
+    height: auto;
+    object-fit: contain;
 }
 
 .sidebar-nav {
@@ -553,14 +557,26 @@ h4 { font-size: 15px; }
     opacity: 0.55;
 }
 
+/* Sidebar User-Info weiß */
+.sidebar .user-name {
+    color: var(--c-paper);
+}
+
+.sidebar .user-role {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.sidebar .user-avatar {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--c-paper);
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
-    padding: var(--s-12);
-    padding-left: var(--s-12);
-    padding-right: var(--s-12);
+    padding: var(--s-8);
     overflow-y: auto;
-    max-width: var(--content-max);
+    width: 100%;
 }
 
 .page-header {
