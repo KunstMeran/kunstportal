@@ -159,6 +159,15 @@ const App = {
         // Berechtigungen laden
         await this.loadUserPermissions();
 
+        // Alle User laden (für Audit-Info Anzeige)
+        try {
+            this.allUsers = await DataManager.getUsers();
+            console.log(`👥 ${this.allUsers?.length || 0} Users für Audit-Anzeige geladen`);
+        } catch (e) {
+            console.warn('⚠️ Konnte Users nicht laden:', e);
+            this.allUsers = [];
+        }
+
         // Gespeicherte Einstellungen laden
         this.loadUserSettings();
 
