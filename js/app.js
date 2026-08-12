@@ -7838,8 +7838,7 @@ const App = {
     },
 
     /**
-     * Generiert Status-Dropdown für Workflow-Status
-     * Erlaubt Änderung zwischen neu, kontrolliert und bezahlt
+     * Generiert Status-Badge für Workflow-Status (runde Pill-Badges wie in der Toolbar)
      */
     getStatusDropdown: function(r) {
         // Status normalisieren - nur gültige Werte erlauben
@@ -7849,49 +7848,72 @@ const App = {
         }
 
         const bookingId = r.id;
+        const invoiceId = r.invoiceId;
+        const isAdmin = DataManager.isAdmin();
 
-        // Farben für Status-Optionen
-        const statusColors = {
-            'neu': '#6c757d',
-            'kontrolliert': '#ffc107',
-            'bezahlt': '#28a745'
+        // Status-Konfiguration (Farben wie in der Toolbar oben)
+        const statusConfig = {
+            'neu': {
+                bg: 'transparent',
+                border: '#6c757d',
+                color: '#6c757d',
+                label: 'neu',
+                nextStatus: 'kontrolliert'
+            },
+            'kontrolliert': {
+                bg: 'transparent',
+                border: '#ffc107',
+                color: '#b38600',
+                label: 'kontrolliert',
+                nextStatus: 'bezahlt'
+            },
+            'bezahlt': {
+                bg: 'transparent',
+                border: '#28a745',
+                color: '#28a745',
+                label: 'bezahlt',
+                nextStatus: null
+            }
         };
 
-        const bgColor = statusColors[status] || '#6c757d';
-        const textColor = status === 'kontrolliert' ? '#333' : 'white';
+        const config = statusConfig[status];
 
-        // Für Supabase-only Zeilen: Invoice-Status verwenden
-        if (r.isSupabaseOnly && r.invoiceId) {
-            return `<select class="form-control status-select"
-                            style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
-                                   background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
-                                   cursor: pointer; font-weight: 500;"
-                            onchange="App.updateInvoiceWorkflowStatus('${r.invoiceId}', this.value)">
-                        <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d; color: white;">neu</option>
-                        <option value="kontrolliert" ${status === 'kontrolliert' ? 'selected' : ''} style="background: #ffc107; color: #333;">kontrolliert</option>
-                        <option value="bezahlt" ${status === 'bezahlt' ? 'selected' : ''} style="background: #28a745;">bezahlt</option>
-                    </select>`;
+        // Bestimme die ID für onClick
+        let onClickHandler = '';
+        let cursorStyle = 'default';
+        let title = '';
+
+        if (status === 'neu' && (bookingId || invoiceId)) {
+            // Neu -> Kontrolliert (jeder kann)
+            if (r.isSupabaseOnly && invoiceId) {
+                onClickHandler = `onclick="App.updateInvoiceWorkflowStatus('${invoiceId}', 'kontrolliert')"`;
+            } else if (bookingId) {
+                onClickHandler = `onclick="App.updateWorkflowStatus('${bookingId}', 'kontrolliert')"`;
+            }
+            cursorStyle = 'pointer';
+            title = 'Klicken um als kontrolliert zu markieren';
+        } else if (status === 'kontrolliert' && isAdmin && (bookingId || invoiceId)) {
+            // Kontrolliert -> Bezahlt (nur Admin)
+            if (r.isSupabaseOnly && invoiceId) {
+                onClickHandler = `onclick="App.updateInvoiceWorkflowStatus('${invoiceId}', 'bezahlt')"`;
+            } else if (bookingId) {
+                onClickHandler = `onclick="App.updateWorkflowStatus('${bookingId}', 'bezahlt')"`;
+            }
+            cursorStyle = 'pointer';
+            title = 'Klicken um als bezahlt zu markieren (nur Admin)';
+        } else if (status === 'kontrolliert' && !isAdmin) {
+            title = 'Nur Admins können als bezahlt markieren';
         }
 
-        // Ohne bookingId und ohne invoiceId: disabled
-        if (!bookingId) {
-            return `<select class="form-control status-select" disabled
-                            style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
-                                   background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
-                                   font-weight: 500; opacity: 0.7;">
-                        <option selected>${status}</option>
-                    </select>`;
-        }
-
-        return `<select class="form-control status-select"
-                        style="font-size: 0.7rem; padding: 0.15rem 0.25rem; min-width: 90px;
-                               background: ${bgColor}; color: ${textColor}; border: none; border-radius: 4px;
-                               cursor: pointer; font-weight: 500;"
-                        onchange="App.updateWorkflowStatus('${bookingId}', this.value)">
-                    <option value="neu" ${status === 'neu' ? 'selected' : ''} style="background: #6c757d; color: white;">neu</option>
-                    <option value="kontrolliert" ${status === 'kontrolliert' ? 'selected' : ''} style="background: #ffc107; color: #333;">kontrolliert</option>
-                    <option value="bezahlt" ${status === 'bezahlt' ? 'selected' : ''} style="background: #28a745;">bezahlt</option>
-                </select>`;
+        return `<span class="status-badge"
+                      style="display: inline-block; padding: 0.25rem 0.75rem;
+                             border: 2px solid ${config.border}; border-radius: 20px;
+                             background: ${config.bg}; color: ${config.color};
+                             font-size: 0.75rem; font-weight: 500;
+                             cursor: ${cursorStyle}; user-select: none;
+                             transition: all 0.2s ease;"
+                      ${onClickHandler}
+                      title="${title}">${config.label}</span>`;
     },
 
     /**
