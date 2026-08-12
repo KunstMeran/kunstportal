@@ -1004,6 +1004,10 @@ const App = {
             if (auditInfo) {
                 row.title = auditInfo;
             }
+            // Geändert-Info
+            const updatedByName = resolveUserName(project.updated_by || project.created_by);
+            const updatedAtFormatted = project.updated_at ? this.formatDateTime(project.updated_at) : (project.created_at ? this.formatDateTime(project.created_at) : '-');
+
             row.innerHTML = `
                 <td><strong>${project.name}</strong></td>
                 <td>${project.location || '-'}</td>
@@ -1011,6 +1015,9 @@ const App = {
                 <td>${budget > 0 ? this.formatCurrency(budget) : '-'}</td>
                 <td>${istKosten > 0 ? this.formatCurrency(istKosten) : '-'}</td>
                 <td style="${verfuegbarStyle}">${budget > 0 ? this.formatCurrency(verfuegbar) : '-'}</td>
+                <td style="font-size: 0.75rem; color: #666;" title="${auditInfo}">
+                    ${updatedAtFormatted !== '-' ? `<div>${updatedAtFormatted}</div><div style="font-size: 0.65rem; color: #999;">${updatedByName || ''}</div>` : '-'}
+                </td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage('${project.id}')">Details</button>
                     ${Auth.isAdmin() ? `
@@ -3061,12 +3068,20 @@ const App = {
         }
 
         costTypes.forEach(ct => {
+            // Audit-Info für Geändert-Anzeige
+            const auditInfo = formatAuditInfo(ct.created_by, ct.created_at, ct.updated_by, ct.updated_at);
+            const updatedByName = resolveUserName(ct.updated_by || ct.created_by);
+            const updatedAtFormatted = ct.updated_at ? this.formatDateTime(ct.updated_at) : (ct.created_at ? this.formatDateTime(ct.created_at) : '-');
+
             container.innerHTML += `
-                <div class="config-item">
+                <div class="config-item" title="${auditInfo}">
                     <div class="config-item-info">
                         <span class="badge" style="background: #e3f2fd; color: #1565c0; margin-right: 0.5rem;">${ct.code || ct.id}</span>
                         <span>${ct.name}</span>
                         ${!ct.active ? '<span class="badge badge-warning" style="margin-left: 0.5rem;">Inaktiv</span>' : ''}
+                        <span style="margin-left: auto; font-size: 11px; color: #666;">
+                            ${updatedAtFormatted}${updatedByName ? ` (${updatedByName})` : ''}
+                        </span>
                     </div>
                     <div class="config-item-actions">
                         <button class="btn btn-sm btn-outline" onclick="App.editCostType('${ct.id}')">Bearbeiten</button>
@@ -3270,7 +3285,7 @@ const App = {
         if (!container) return;
 
         if (!accounts || accounts.length === 0) {
-            container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Keine Konten definiert</td></tr>';
+            container.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">Keine Konten definiert</td></tr>';
             return;
         }
 
@@ -3282,19 +3297,29 @@ const App = {
             'NEUTRAL': '<span class="badge" style="background: #95a5a6; color: white;">Neutral</span>'
         };
 
-        container.innerHTML = accounts.map(acc => `
+        container.innerHTML = accounts.map(acc => {
+            // Audit-Info für Geändert-Spalte
+            const auditInfo = formatAuditInfo(acc.created_by, acc.created_at, acc.updated_by, acc.updated_at);
+            const updatedByName = resolveUserName(acc.updated_by || acc.created_by);
+            const updatedAtFormatted = acc.updated_at ? this.formatDateTime(acc.updated_at) : (acc.created_at ? this.formatDateTime(acc.created_at) : '-');
+
+            return `
             <tr>
                 <td><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${acc.konto_pattern}</code></td>
                 <td>${acc.konto_name || '-'}</td>
                 <td>${acc.kategorie || '-'}</td>
                 <td>${dbLabels[acc.db_zuordnung] || acc.db_zuordnung}</td>
                 <td>${acc.ist_projektbezogen ? Icons.check : '-'}</td>
+                <td title="${auditInfo}" style="font-size: 12px;">
+                    <div>${updatedAtFormatted}</div>
+                    ${updatedByName ? `<small style="color: #666;">${updatedByName}</small>` : ''}
+                </td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="App.editAccount('${acc.id}')" title="Bearbeiten">${Icons.edit}</button>
                     <button class="btn btn-sm btn-danger" onclick="App.deleteAccount('${acc.id}')" title="Löschen">×</button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     },
 
     filterKontenplan: function() {
@@ -3529,12 +3554,20 @@ const App = {
         }
 
         users.forEach(u => {
+            // Audit-Info für Geändert-Anzeige
+            const auditInfo = formatAuditInfo(u.created_by, u.created_at, u.updated_by, u.updated_at);
+            const updatedByName = resolveUserName(u.updated_by || u.created_by);
+            const updatedAtFormatted = u.updated_at ? this.formatDateTime(u.updated_at) : (u.created_at ? this.formatDateTime(u.created_at) : '-');
+
             container.innerHTML += `
-                <div class="config-item">
+                <div class="config-item" title="${auditInfo}">
                     <div class="config-item-info">
                         <span style="font-weight: 500;">${u.name}</span>
                         <span class="badge badge-${u.role === 'admin' ? 'primary' : 'success'}" style="margin-left: 0.5rem;">
                             ${u.role === 'admin' ? 'Admin' : 'Mitarbeiter'}
+                        </span>
+                        <span style="margin-left: auto; font-size: 11px; color: #666;">
+                            ${updatedAtFormatted}${updatedByName ? ` (${updatedByName})` : ''}
                         </span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 1rem;">
@@ -8257,7 +8290,7 @@ const App = {
         tbody.innerHTML = '';
 
         if (inventar.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666; padding: 2rem;">Kein Inventar vorhanden</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #666; padding: 2rem;">Kein Inventar vorhanden</td></tr>';
             return;
         }
 
@@ -8267,6 +8300,11 @@ const App = {
 
         inventar.forEach(i => {
             const row = document.createElement('tr');
+            // Audit-Info
+            const auditInfo = formatAuditInfo(i.created_by, i.created_at, i.updated_by, i.updated_at);
+            const updatedByName = resolveUserName(i.updated_by || i.created_by);
+            const updatedAtFormatted = i.updated_at ? this.formatDateTime(i.updated_at) : (i.created_at ? this.formatDateTime(i.created_at) : '-');
+
             row.innerHTML = `
                 <td><strong>${i.inventarNr}</strong></td>
                 <td>${i.bezeichnung}</td>
@@ -8275,6 +8313,9 @@ const App = {
                 <td><span class="badge">${zustandLabels[i.zustand] || i.zustand}</span></td>
                 <td>${i.anschaffung ? this.formatDate(i.anschaffung) : '-'}</td>
                 <td style="text-align: right;">${i.wert ? this.formatCurrency(i.wert) : '-'}</td>
+                <td style="font-size: 0.75rem; color: #666;" title="${auditInfo}">
+                    ${updatedAtFormatted !== '-' ? `<div>${updatedAtFormatted}</div><div style="font-size: 0.65rem; color: #999;">${updatedByName || ''}</div>` : '-'}
+                </td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="App.editInventar(${i.id})">Bearbeiten</button>
                     <button class="btn btn-sm btn-outline" onclick="App.deleteInventar(${i.id})" style="color: #e74c3c;">Löschen</button>
@@ -11507,6 +11548,11 @@ const App = {
                 }
             }
 
+            // Audit-Info für Geändert-Spalte
+            const auditInfo = formatAuditInfo(e.created_by, e.created_at, e.updated_by, e.updated_at);
+            const updatedByName = resolveUserName(e.updated_by || e.created_by);
+            const updatedAtFormatted = e.updated_at ? this.formatDateTime(e.updated_at) : (e.created_at ? this.formatDateTime(e.created_at) : '-');
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${e.code}</strong></td>
@@ -11541,6 +11587,10 @@ const App = {
                     ${e.documentPath ?
                         `<button class="btn btn-outline btn-sm" onclick="App.showFundingDocument('${e.id}')" title="Dokument anzeigen">${Icons.document}</button>` :
                         '<span style="color: #ccc;">-</span>'}
+                </td>
+                <td title="${auditInfo}" style="font-size: 12px;">
+                    <div>${updatedAtFormatted}</div>
+                    ${updatedByName ? `<small style="color: #666;">${updatedByName}</small>` : ''}
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
@@ -12006,17 +12056,16 @@ const App = {
         tbody.innerHTML = '';
 
         if (this.filteredMembers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666; padding: 2rem;">Keine Mitglieder gefunden</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #666; padding: 2rem;">Keine Mitglieder gefunden</td></tr>';
             return;
         }
 
         this.filteredMembers.forEach((m, index) => {
             const tr = document.createElement('tr');
-            // Audit-Info als Tooltip auf der Zeile
+            // Audit-Info für Geändert-Spalte
             const auditInfo = formatAuditInfo(m.created_by, m.created_at, m.updated_by, m.updated_at);
-            if (auditInfo) {
-                tr.title = auditInfo;
-            }
+            const updatedByName = resolveUserName(m.updated_by || m.created_by);
+            const updatedAtFormatted = m.updated_at ? this.formatDateTime(m.updated_at) : (m.created_at ? this.formatDateTime(m.created_at) : '-');
 
             const paidBadge = m.isPaid
                 ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Bezahlt</span>'
@@ -12042,6 +12091,10 @@ const App = {
                 <td>${paymentDate}</td>
                 <td>${datevBuchung}</td>
                 <td>${notesDisplay}</td>
+                <td title="${auditInfo}" style="font-size: 12px;">
+                    <div>${updatedAtFormatted}</div>
+                    ${updatedByName ? `<small style="color: #666;">${updatedByName}</small>` : ''}
+                </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         ${!m.isPaid ? `<button class="btn btn-sm btn-success" onclick="App.showPaymentModal('${m.id}')" title="Zahlung zuweisen">€</button>` : ''}
@@ -15007,8 +15060,13 @@ const App = {
 
             const accessText = accessList.length > 0 ? accessList.join(', ') : 'Kein Zugriff';
 
+            // Audit-Info für Geändert-Anzeige
+            const auditInfo = formatAuditInfo(ws.created_by, ws.created_at, ws.updated_by, ws.updated_at);
+            const updatedByName = resolveUserName(ws.updated_by || ws.created_by);
+            const updatedAtFormatted = ws.updated_at ? this.formatDateTime(ws.updated_at) : (ws.created_at ? this.formatDateTime(ws.created_at) : '-');
+
             return `
-                <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee;">
+                <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee;" title="${auditInfo}">
                     <div style="flex: 1;">
                         <div style="font-weight: 600; margin-bottom: 0.25rem;">
                             ${ws.name}
@@ -15018,6 +15076,9 @@ const App = {
                         <div style="font-size: 0.75rem; color: #888;">
                             Zugriff: ${accessText}
                             ${ws.rechnungen_nur_zugewiesene ? ' | Nur zugewiesene Rechnungen' : ''}
+                        </div>
+                        <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.25rem;">
+                            Geändert: ${updatedAtFormatted}${updatedByName ? ` (${updatedByName})` : ''}
                         </div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
