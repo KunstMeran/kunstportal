@@ -16323,22 +16323,22 @@ const App = {
 
         } else if (typ === 'eintritt') {
             const kategorien = await DataManager.getEintrittKategorien();
-            const select = document.getElementById('shop-verkauf-eintritt-kategorie');
-            select.innerHTML = kategorien.filter(k => k.is_active !== false)
+            const select = document.getElementById('shop-verkauf-eintritt-kat');
+            select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+                kategorien.filter(k => k.is_active !== false)
                 .map(k => `<option value="${k.code}" data-preis="${k.preis}" data-mwst="${k.mwst_satz}">${k.name} (${this.formatCurrency(k.preis)})</option>`)
                 .join('');
             document.getElementById('shop-verkauf-eintritt-menge').value = 1;
-            this.updateEintrittGesamtpreis();
             this.openModal('shop-verkauf-eintritt-modal');
 
         } else if (typ === 'mitglied') {
             const kategorien = await DataManager.getMitgliedKategorien();
-            const select = document.getElementById('shop-verkauf-mitglied-kategorie');
-            select.innerHTML = kategorien.filter(k => k.is_active !== false)
+            const select = document.getElementById('shop-verkauf-mitglied-kat');
+            select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+                kategorien.filter(k => k.is_active !== false)
                 .map(k => `<option value="${k.code}" data-betrag="${k.betrag}">${k.name} (${this.formatCurrency(k.betrag)})</option>`)
                 .join('');
             document.getElementById('shop-verkauf-mitglied-name').value = '';
-            this.updateMitgliedBetrag();
             this.openModal('shop-verkauf-mitglied-modal');
         }
     },
@@ -16350,28 +16350,27 @@ const App = {
             document.getElementById('shop-verkauf-artikel-preis').value = option.dataset.preis || '';
             document.getElementById('shop-verkauf-artikel-mwst').value = this.getMwstLabel(option.dataset.mwst);
         }
-        this.updateArtikelGesamtpreis();
     },
 
-    updateArtikelGesamtpreis: function() {
-        const menge = parseInt(document.getElementById('shop-verkauf-artikel-menge').value) || 1;
-        const preis = parseFloat(document.getElementById('shop-verkauf-artikel-preis').value) || 0;
-        document.getElementById('shop-verkauf-artikel-gesamt').value = this.formatCurrency(menge * preis);
-    },
-
-    updateEintrittGesamtpreis: function() {
-        const select = document.getElementById('shop-verkauf-eintritt-kategorie');
+    onEintrittKatSelect: function() {
+        const select = document.getElementById('shop-verkauf-eintritt-kat');
         const option = select.options[select.selectedIndex];
-        const preis = option ? parseFloat(option.dataset.preis) || 0 : 0;
-        const menge = parseInt(document.getElementById('shop-verkauf-eintritt-menge').value) || 1;
-        document.getElementById('shop-verkauf-eintritt-gesamt').value = this.formatCurrency(menge * preis);
+        if (option && option.value) {
+            document.getElementById('shop-verkauf-eintritt-preis').value = option.dataset.preis || '';
+        }
+    },
+
+    onMitgliedKatSelect: function() {
+        const select = document.getElementById('shop-verkauf-mitglied-kat');
+        const option = select.options[select.selectedIndex];
+        if (option && option.value) {
+            document.getElementById('shop-verkauf-mitglied-betrag').value = option.dataset.betrag || '';
+        }
     },
 
     updateMitgliedBetrag: function() {
-        const select = document.getElementById('shop-verkauf-mitglied-kategorie');
-        const option = select.options[select.selectedIndex];
-        const betrag = option ? parseFloat(option.dataset.betrag) || 0 : 0;
-        document.getElementById('shop-verkauf-mitglied-betrag').value = this.formatCurrency(betrag);
+        // Legacy - wird durch onMitgliedKatSelect ersetzt
+        this.onMitgliedKatSelect();
     },
 
     saveShopVerkaufArtikel: async function() {

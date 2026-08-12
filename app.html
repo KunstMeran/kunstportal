@@ -4564,7 +4564,7 @@
         <div class="modal" style="max-width: 600px;">
             <div class="modal-header">
                 <h2 class="modal-title" id="shop-artikel-modal-title">Neuer Artikel</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-artikel-form-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-artikel-form-modal')">&times;</button>
             </div>
             <form id="shop-artikel-form" onsubmit="App.saveShopArtikel(event)">
                 <input type="hidden" id="shop-artikel-form-id">
@@ -4644,7 +4644,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-artikel-form-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-artikel-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
@@ -4656,7 +4656,7 @@
         <div class="modal" style="max-width: 500px;">
             <div class="modal-header">
                 <h2 class="modal-title">Artikel verkaufen</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-verkauf-artikel-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-verkauf-artikel-modal')">&times;</button>
             </div>
             <form id="shop-verkauf-artikel-form" onsubmit="App.saveShopVerkaufArtikel(event)">
                 <div class="modal-body">
@@ -4695,7 +4695,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-artikel-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-verkauf-artikel-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Verkauf speichern</button>
                 </div>
             </form>
@@ -4707,7 +4707,7 @@
         <div class="modal" style="max-width: 450px;">
             <div class="modal-header">
                 <h2 class="modal-title">Eintritt verkaufen</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-verkauf-eintritt-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-verkauf-eintritt-modal')">&times;</button>
             </div>
             <form id="shop-verkauf-eintritt-form" onsubmit="App.saveShopVerkaufEintritt(event)">
                 <div class="modal-body">
@@ -4740,7 +4740,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-eintritt-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-verkauf-eintritt-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Eintritt speichern</button>
                 </div>
             </form>
@@ -4752,7 +4752,7 @@
         <div class="modal" style="max-width: 450px;">
             <div class="modal-header">
                 <h2 class="modal-title">Mitgliedsbeitrag erfassen</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-verkauf-mitglied-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-verkauf-mitglied-modal')">&times;</button>
             </div>
             <form id="shop-verkauf-mitglied-form" onsubmit="App.saveShopVerkaufMitglied(event)">
                 <div class="modal-body">
@@ -4785,7 +4785,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-mitglied-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-verkauf-mitglied-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Beitrag speichern</button>
                 </div>
             </form>
@@ -4797,7 +4797,7 @@
         <div class="modal" style="max-width: 500px;">
             <div class="modal-header">
                 <h2 class="modal-title">Einkauf erfassen</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-einkauf-form-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-einkauf-form-modal')">&times;</button>
             </div>
             <form id="shop-einkauf-form" onsubmit="App.saveShopEinkauf(event)">
                 <div class="modal-body">
@@ -4835,7 +4835,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-einkauf-form-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-einkauf-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Einkauf speichern</button>
                 </div>
             </form>
@@ -4847,7 +4847,7 @@
         <div class="modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2 class="modal-title">Barentnahme</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-kassen-entnahme-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-kassen-entnahme-modal')">&times;</button>
             </div>
             <form id="shop-kassen-entnahme-form" onsubmit="App.saveKassenEntnahme(event)">
                 <div class="modal-body">
@@ -4861,7 +4861,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-kassen-entnahme-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-kassen-entnahme-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Entnahme speichern</button>
                 </div>
             </form>
@@ -4873,7 +4873,7 @@
         <div class="modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2 class="modal-title">Bareinlage</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-kassen-einlage-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-kassen-einlage-modal')">&times;</button>
             </div>
             <form id="shop-kassen-einlage-form" onsubmit="App.saveKassenEinlage(event)">
                 <div class="modal-body">
@@ -4887,7 +4887,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-kassen-einlage-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-kassen-einlage-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Einlage speichern</button>
                 </div>
             </form>
