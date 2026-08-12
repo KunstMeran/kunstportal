@@ -8330,6 +8330,23 @@ const App = {
         document.getElementById(modalId).classList.remove('show');
     },
 
+    // Für Modals mit "hidden" Klasse (Shop-Modals)
+    openModal: function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('show');
+        }
+    },
+
+    closeModal: function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('show');
+        }
+    },
+
     logout: function() {
         Auth.logout();
     },
@@ -15975,11 +15992,14 @@ const App = {
         try {
             const heute = new Date().toISOString().split('T')[0];
             const saldo = await DataManager.berechneKassensaldo(heute);
+            const artikel = await DataManager.getShopArtikel();
 
-            document.getElementById('shop-stat-einnahmen-bar').textContent = this.formatCurrency(saldo.einnahmenBar);
-            document.getElementById('shop-stat-einnahmen-pos').textContent = this.formatCurrency(saldo.einnahmenPos);
-            document.getElementById('shop-stat-ausgaben').textContent = this.formatCurrency(saldo.ausgaengeBar);
-            document.getElementById('shop-stat-kassen-saldo').textContent = this.formatCurrency(saldo.saldoBar);
+            const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+            setEl('shop-stat-einnahmen-bar', this.formatCurrency(saldo.einnahmenBar || 0));
+            setEl('shop-stat-einnahmen-pos', this.formatCurrency(saldo.einnahmenPos || 0));
+            setEl('shop-stat-kassen-saldo', this.formatCurrency(saldo.saldoBar || 0));
+            setEl('shop-stat-artikel', artikel.length);
         } catch (error) {
             console.error('Fehler beim Laden der Shop-Statistiken:', error);
         }
@@ -16555,22 +16575,35 @@ const App = {
 
     loadShopKasse: async function() {
         try {
-            const heute = new Date().toISOString().split('T')[0];
+            // Datum aus Datepicker oder heute
+            const datumInput = document.getElementById('shop-kasse-datum');
+            const heute = datumInput?.value || new Date().toISOString().split('T')[0];
+            if (datumInput && !datumInput.value) datumInput.value = heute;
+
             const saldo = await DataManager.berechneKassensaldo(heute);
             const mwst = await DataManager.getMwstAufschluesselung(heute);
             const bewegungen = await DataManager.getKassenBewegungen(heute);
 
-            // Kassen-Übersicht
-            document.getElementById('shop-kasse-anfang').textContent = this.formatCurrency(saldo.anfangsbestand);
-            document.getElementById('shop-kasse-einnahmen-bar').textContent = this.formatCurrency(saldo.einnahmenBar);
-            document.getElementById('shop-kasse-ausgaben').textContent = this.formatCurrency(saldo.ausgaengeBar);
-            document.getElementById('shop-kasse-saldo').textContent = this.formatCurrency(saldo.saldoBar);
-            document.getElementById('shop-kasse-pos').textContent = this.formatCurrency(saldo.einnahmenPos);
+            // Kassen-Übersicht (IDs ohne shop- Präfix)
+            const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = this.formatCurrency(val || 0); };
+
+            setEl('kasse-anfang', saldo.anfangsbestand);
+            setEl('kasse-einnahmen-bar', saldo.einnahmenBar);
+            setEl('kasse-einlagen', saldo.einlagenBar || 0);
+            setEl('kasse-ausgaenge', saldo.ausgaengeBar);
+            setEl('kasse-saldo-soll', saldo.saldoBar);
+            setEl('kasse-einnahmen-pos', saldo.einnahmenPos);
+            setEl('kasse-gesamt', (saldo.einnahmenBar || 0) + (saldo.einnahmenPos || 0));
 
             // MwSt-Aufschlüsselung
-            document.getElementById('shop-mwst-4').textContent = this.formatCurrency(mwst['4'] || 0);
-            document.getElementById('shop-mwst-22').textContent = this.formatCurrency(mwst['22'] || 0);
-            document.getElementById('shop-mwst-art74').textContent = this.formatCurrency(mwst['art74'] || 0);
+            const mwstTable = document.getElementById('kasse-mwst-table');
+            if (mwstTable) {
+                mwstTable.innerHTML = `
+                    <tr><td>4% (Bücher)</td><td class="text-right">${this.formatCurrency(mwst['4'] || 0)}</td></tr>
+                    <tr><td>22% (Standard)</td><td class="text-right">${this.formatCurrency(mwst['22'] || 0)}</td></tr>
+                    <tr><td>Art. 74 (Marge)</td><td class="text-right">${this.formatCurrency(mwst['art74'] || 0)}</td></tr>
+                `;
+            }
 
             // Bewegungen
             this.renderKassenBewegungen(bewegungen);
@@ -16581,7 +16614,7 @@ const App = {
     },
 
     renderKassenBewegungen: function(bewegungen) {
-        const tbody = document.getElementById('shop-kassen-bewegungen-tbody');
+        const tbody = document.getElementById('kasse-bewegungen-table');
         if (!tbody) return;
 
         if (bewegungen.length === 0) {
@@ -16612,7 +16645,9 @@ const App = {
         this.openModal('shop-kassen-entnahme-modal');
     },
 
-    saveKassenEntnahme: async function() {
+    saveKassenEntnahme: async function(event) {
+        if (event) event.preventDefault();
+
         const betrag = parseFloat(document.getElementById('shop-kassen-entnahme-betrag').value) || 0;
         const grund = document.getElementById('shop-kassen-entnahme-grund').value.trim();
 
@@ -16638,7 +16673,9 @@ const App = {
         this.openModal('shop-kassen-einlage-modal');
     },
 
-    saveKassenEinlage: async function() {
+    saveKassenEinlage: async function(event) {
+        if (event) event.preventDefault();
+
         const betrag = parseFloat(document.getElementById('shop-kassen-einlage-betrag').value) || 0;
         const grund = document.getElementById('shop-kassen-einlage-grund').value.trim();
 
@@ -16656,6 +16693,44 @@ const App = {
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Einlage fehlgeschlagen', 'error');
+        }
+    },
+
+    // Alias für HTML ohne "Shop" Präfix
+    loadKasse: function() {
+        return this.loadShopKasse();
+    },
+
+    erstelleKassenabschluss: async function() {
+        try {
+            const istBestand = parseFloat(document.getElementById('kasse-ist-bestand')?.value);
+
+            if (isNaN(istBestand)) {
+                this.showToast('Fehler', 'Bitte geben Sie den Ist-Bestand ein', 'error');
+                return;
+            }
+
+            const datum = document.getElementById('shop-kasse-datum')?.value || new Date().toISOString().split('T')[0];
+            const result = await DataManager.erstelleKassenabschluss(datum, istBestand);
+
+            // Differenz anzeigen
+            const differenzEl = document.getElementById('kasse-differenz');
+            if (differenzEl && result.differenz !== undefined) {
+                const diff = result.differenz;
+                differenzEl.style.display = 'block';
+                differenzEl.innerHTML = `
+                    <span style="color: ${diff === 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                        Differenz: ${this.formatCurrency(diff)} ${diff === 0 ? '✓' : '⚠'}
+                    </span>
+                `;
+            }
+
+            this.showToast('Erfolg', 'Kassenabschluss erstellt', 'success');
+            await this.loadShopKasse();
+
+        } catch (error) {
+            console.error('Fehler beim Kassenabschluss:', error);
+            this.showToast('Fehler', 'Kassenabschluss fehlgeschlagen', 'error');
         }
     },
 
