@@ -4896,31 +4896,43 @@
 
     <!-- Shop: Excel-Import Modal -->
     <div id="shop-import-modal" class="modal-backdrop hidden">
-        <div class="modal" style="max-width: 500px;">
+        <div class="modal" style="max-width: 600px;">
             <div class="modal-header">
                 <h2 class="modal-title">Shop-Artikel importieren</h2>
-                <button class="modal-close" onclick="App.hideModal('shop-import-modal')">&times;</button>
+                <button class="modal-close" onclick="App.closeModal('shop-import-modal')">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 1rem;">Importiere Artikel aus einer Excel-Datei (Shopinventar).</p>
-                <div class="form-group">
-                    <label class="form-label">Artikeltyp für Import</label>
-                    <select id="shop-import-typ" class="form-control">
-                        <option value="buch">Bücher (4% MwSt)</option>
-                        <option value="objekt">Objekte/Gadgets (22% MwSt)</option>
-                    </select>
+                <p style="margin-bottom: 1rem;">Importiere Artikel aus der Shopinventar-Excel-Datei.</p>
+
+                <!-- Schnell-Import aus vorhandener Datei -->
+                <div class="card" style="margin-bottom: 1rem; background: var(--background-light);">
+                    <div class="card-header" style="padding: 0.75rem;">
+                        <h4 style="margin: 0; font-size: 0.9rem;">Shopinventar_2025.xlsx laden</h4>
+                    </div>
+                    <div style="padding: 0.75rem;">
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
+                            Lädt automatisch beide Sheets (Bücher + Objekte) aus der vorhandenen Datei.
+                        </p>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="App.loadShopinventarFromFile()">
+                            Shopinventar laden
+                        </button>
+                    </div>
                 </div>
+
+                <hr style="margin: 1rem 0; border-color: var(--border-color);">
+
+                <!-- Manueller Upload -->
                 <div class="form-group">
-                    <label class="form-label">Excel-Datei auswählen</label>
-                    <input type="file" id="shop-import-file" class="form-control" accept=".xlsx,.xls">
+                    <label class="form-label">Oder: Andere Excel-Datei hochladen</label>
+                    <input type="file" id="shop-import-file" class="form-control" accept=".xlsx,.xls" onchange="App.previewShopImport()">
                 </div>
-                <div id="shop-import-preview" style="margin-top: 1rem; max-height: 200px; overflow-y: auto; display: none;">
+                <div id="shop-import-preview" style="margin-top: 1rem; max-height: 200px; overflow-y: auto;">
                     <!-- Preview wird hier eingefügt -->
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-import-modal')">Abbrechen</button>
-                <button type="button" class="btn btn-primary" onclick="App.executeShopImport()">Importieren</button>
+                <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-import-modal')">Schließen</button>
+                <button type="button" class="btn btn-primary" id="shop-import-btn" onclick="App.executeShopImport()" disabled>Importieren</button>
             </div>
         </div>
     </div>

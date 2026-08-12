@@ -16739,7 +16739,140 @@ const App = {
     showShopImportModal: function() {
         document.getElementById('shop-import-file').value = '';
         document.getElementById('shop-import-preview').innerHTML = '';
+        document.getElementById('shop-import-btn').disabled = true;
+        this.shopImportData = null;
         this.openModal('shop-import-modal');
+    },
+
+    // Lädt die vorhandene Shopinventar_2025.xlsx Datei vom Server
+    loadShopinventarFromFile: async function() {
+        const preview = document.getElementById('shop-import-preview');
+        preview.innerHTML = '<p style="color: #666;">Lade Shopinventar_2025.xlsx...</p>';
+
+        try {
+            const response = await fetch('DATEV Exporte/Shop/Shopinventar_2025.xlsx');
+            if (!response.ok) {
+                throw new Error('Datei nicht gefunden');
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+            const allData = [];
+
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                if (rows.length < 2) return;
+
+                const headers = rows[0].map(h => String(h || '').toLowerCase().trim());
+                const isBuchSheet = sheetName.toLowerCase().includes('büch') || headers.includes('verlag');
+
+                console.log(`Verarbeite Sheet: ${sheetName}, isBuch: ${isBuchSheet}, Headers:`, headers);
+
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+
+                    // Leere Zeilen überspringen
+                    const hasContent = row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
+                    if (!hasContent) continue;
+
+                    let artikel = {};
+
+                    if (isBuchSheet) {
+                        // Bücher-Sheet: Verlag | Hrsg. / Autor | Einkaufs Jahr | Titel | Menge | EK Preis | VK Preis | Standort
+                        const verlagIdx = headers.indexOf('verlag');
+                        const autorIdx = headers.indexOf('hrsg. / autor');
+                        const jahrIdx = headers.indexOf('einkaufs jahr');
+                        const titelIdx = headers.indexOf('titel');
+                        const mengeIdx = headers.indexOf('menge');
+                        const ekIdx = headers.indexOf('ek preis');
+                        const vkIdx = headers.indexOf('vk preis');
+                        const standortIdx = headers.indexOf('standort');
+
+                        artikel = {
+                            name: row[titelIdx >= 0 ? titelIdx : 3] || '',
+                            hersteller: row[verlagIdx >= 0 ? verlagIdx : 0] || '',
+                            autor: row[autorIdx >= 0 ? autorIdx : 1] || '',
+                            einkaufsjahr: String(row[jahrIdx >= 0 ? jahrIdx : 2] || ''),
+                            bestand_aktuell: parseInt(row[mengeIdx >= 0 ? mengeIdx : 4]) || 0,
+                            einkaufspreis: parseFloat(row[ekIdx >= 0 ? ekIdx : 5]) || null,
+                            verkaufspreis: parseFloat(row[vkIdx >= 0 ? vkIdx : 6]) || 0,
+                            standort: row[standortIdx >= 0 ? standortIdx : 7] || 'Shop',
+                            artikeltyp: 'buch',
+                            mwst_satz: '4'
+                        };
+                    } else {
+                        // Objekte-Sheet: Menge | Hersteller | Artikel | Jahr Eingang | EK Preis | Tot.
+                        const mengeIdx = headers.indexOf('menge');
+                        const herstellerIdx = headers.indexOf('hersteller');
+                        const artikelIdx = headers.indexOf('artikel');
+                        const jahrIdx = headers.indexOf('jahr eingang');
+                        const ekIdx = headers.indexOf('ek preis');
+
+                        artikel = {
+                            name: row[artikelIdx >= 0 ? artikelIdx : 2] || '',
+                            hersteller: row[herstellerIdx >= 0 ? herstellerIdx : 1] || '',
+                            einkaufsjahr: String(row[jahrIdx >= 0 ? jahrIdx : 3] || ''),
+                            bestand_aktuell: parseInt(row[mengeIdx >= 0 ? mengeIdx : 0]) || 0,
+                            einkaufspreis: parseFloat(row[ekIdx >= 0 ? ekIdx : 4]) || null,
+                            verkaufspreis: 0,
+                            standort: 'Shop',
+                            artikeltyp: 'objekt',
+                            mwst_satz: '22'
+                        };
+                    }
+
+                    // Nur Artikel mit Namen hinzufügen
+                    if (artikel.name && artikel.name.trim()) {
+                        allData.push(artikel);
+                    }
+                }
+            });
+
+            this.shopImportData = allData;
+
+            // Preview anzeigen
+            const buecherCount = allData.filter(a => a.artikeltyp === 'buch').length;
+            const objekteCount = allData.filter(a => a.artikeltyp === 'objekt').length;
+
+            preview.innerHTML = `
+                <div class="alert" style="background: #e8f5e9; color: #2e7d32; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+                    <strong>${allData.length} Artikel</strong> gefunden (${buecherCount} Bücher, ${objekteCount} Objekte)
+                </div>
+                <div style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr><th>Name</th><th>Typ</th><th>Hersteller</th><th>VK</th><th>Bestand</th></tr>
+                        </thead>
+                        <tbody>
+                            ${allData.slice(0, 15).map(d => `
+                                <tr>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${d.name}</td>
+                                    <td>${d.artikeltyp === 'buch' ? 'Buch' : 'Objekt'}</td>
+                                    <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis;">${d.hersteller || '-'}</td>
+                                    <td>${d.verkaufspreis ? this.formatCurrency(d.verkaufspreis) : '-'}</td>
+                                    <td>${d.bestand_aktuell}</td>
+                                </tr>
+                            `).join('')}
+                            ${allData.length > 15 ? `<tr><td colspan="5" class="text-center text-muted">... und ${allData.length - 15} weitere</td></tr>` : ''}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('shop-import-btn').disabled = false;
+            this.showToast('Erfolg', `${allData.length} Artikel gefunden`, 'success');
+
+        } catch (error) {
+            console.error('Fehler beim Laden:', error);
+            preview.innerHTML = `<div class="alert" style="background: #ffebee; color: #c62828; padding: 0.75rem; border-radius: 4px;">
+                Fehler: ${error.message}. Bitte laden Sie die Datei manuell hoch.
+            </div>`;
+            this.showToast('Fehler', 'Datei konnte nicht geladen werden', 'error');
+        }
     },
 
     previewShopImport: async function() {
@@ -16747,41 +16880,48 @@ const App = {
         const file = fileInput.files[0];
 
         if (!file) {
-            this.showToast('Fehler', 'Bitte wählen Sie eine Excel-Datei', 'error');
             return;
         }
+
+        const preview = document.getElementById('shop-import-preview');
+        preview.innerHTML = '<p style="color: #666;">Verarbeite Datei...</p>';
 
         try {
             const data = await this.readExcelFile(file);
             this.shopImportData = data;
 
-            const preview = document.getElementById('shop-import-preview');
             preview.innerHTML = `
-                <div class="alert alert-info">
-                    <strong>${data.length} Artikel</strong> gefunden. Klicken Sie auf "Importieren" um die Daten zu übernehmen.
+                <div class="alert" style="background: #e8f5e9; color: #2e7d32; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+                    <strong>${data.length} Artikel</strong> gefunden
                 </div>
-                <div style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-sm">
+                <div style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm" style="font-size: 0.85rem;">
                         <thead>
-                            <tr><th>Name</th><th>Typ</th><th>EK</th><th>VK</th><th>Bestand</th></tr>
+                            <tr><th>Name</th><th>Typ</th><th>VK</th><th>Bestand</th></tr>
                         </thead>
                         <tbody>
-                            ${data.slice(0, 20).map(d => `
+                            ${data.slice(0, 15).map(d => `
                                 <tr>
-                                    <td>${d.name}</td>
-                                    <td>${d.artikeltyp}</td>
-                                    <td>${d.einkaufspreis || '-'}</td>
-                                    <td>${d.verkaufspreis || '-'}</td>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${d.name}</td>
+                                    <td>${d.artikeltyp === 'buch' ? 'Buch' : 'Objekt'}</td>
+                                    <td>${d.verkaufspreis ? this.formatCurrency(d.verkaufspreis) : '-'}</td>
                                     <td>${d.bestand_aktuell}</td>
                                 </tr>
                             `).join('')}
-                            ${data.length > 20 ? `<tr><td colspan="5" class="text-center">... und ${data.length - 20} weitere</td></tr>` : ''}
+                            ${data.length > 15 ? `<tr><td colspan="4" class="text-center text-muted">... und ${data.length - 15} weitere</td></tr>` : ''}
                         </tbody>
                     </table>
                 </div>
             `;
+
+            document.getElementById('shop-import-btn').disabled = false;
+            this.showToast('Erfolg', `${data.length} Artikel gefunden`, 'success');
+
         } catch (error) {
             console.error('Fehler beim Lesen:', error);
+            preview.innerHTML = `<div class="alert" style="background: #ffebee; color: #c62828; padding: 0.75rem; border-radius: 4px;">
+                Fehler beim Lesen der Datei
+            </div>`;
             this.showToast('Fehler', 'Excel-Datei konnte nicht gelesen werden', 'error');
         }
     },
