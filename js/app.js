@@ -7563,19 +7563,26 @@ const App = {
                 return;
             }
 
-            console.log('Aktualisiere Workflow-Status:', { bookingId, newStatus });
+            // User-ID für Audit-Trail holen
+            const authResult = await SupabaseService.client.auth.getUser();
+            const currentUserId = authResult.data.user?.id || null;
+
+            console.log('Aktualisiere Workflow-Status:', { bookingId, newStatus, userId: currentUserId });
 
             const updateData = {
                 workflow_status: newStatus,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                updated_by: currentUserId
             };
 
             // Je nach Status: Datum setzen oder löschen
             if (newStatus === 'kontrolliert') {
                 updateData.kontrolled_at = new Date().toISOString();
+                updateData.kontrolled_by = currentUserId;
                 updateData.paid_at = null; // Bezahlt-Datum löschen
             } else if (newStatus === 'bezahlt') {
                 updateData.paid_at = new Date().toISOString();
+                updateData.paid_by = currentUserId;
                 // Kontrolliert-Datum beibehalten falls vorhanden
             } else if (newStatus === 'neu') {
                 updateData.kontrolled_at = null;
@@ -7602,8 +7609,13 @@ const App = {
                     .from('invoices')
                     .update({
                         workflow_status: newStatus,
+                        status: newStatus,
                         kontrolled_at: updateData.kontrolled_at,
-                        paid_at: updateData.paid_at
+                        kontrolled_by: updateData.kontrolled_by,
+                        paid_at: updateData.paid_at,
+                        paid_by: updateData.paid_by,
+                        updated_at: updateData.updated_at,
+                        updated_by: currentUserId
                     })
                     .eq('partita_iva', partita_iva)
                     .eq('invoice_number', dokument_nr);
