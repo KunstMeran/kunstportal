@@ -2524,6 +2524,17 @@
                             </div>
                         </div>
 
+                        <!-- Artikeltypen -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Artikeltypen (Shop)</h3>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewArtikelTypForm()">+ Neu</button>
+                            </div>
+                            <div id="shop-artikeltypen-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                        </div>
+
                         <!-- MwSt-Sätze Info -->
                         <div class="card">
                             <div class="card-header">
@@ -4675,8 +4686,9 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Aktueller Bestand</label>
+                            <label class="form-label">Anfangsbestand</label>
                             <input type="number" id="shop-artikel-bestand" class="form-control" min="0" value="0">
+                            <small class="text-muted">Nur bei neuem Artikel. Danach über Einkäufe/Verkäufe.</small>
                         </div>
                     </div>
                     <div class="form-group">

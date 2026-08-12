@@ -16138,6 +16138,11 @@ const App = {
         }, 0);
         document.getElementById('shop-artikel-nr').value = `SHOP-${String(maxNr + 1).padStart(4, '0')}`;
 
+        // Bestand editierbar bei neuem Artikel
+        const bestandInput = document.getElementById('shop-artikel-bestand');
+        bestandInput.readOnly = false;
+        bestandInput.style.backgroundColor = '';
+
         this.openModal('shop-artikel-form-modal');
     },
 
@@ -16157,8 +16162,13 @@ const App = {
         document.getElementById('shop-artikel-ek').value = artikel.einkaufspreis || '';
         document.getElementById('shop-artikel-vk').value = artikel.verkaufspreis || '';
         document.getElementById('shop-artikel-mwst').value = artikel.mwstSatz || artikel.mwst_satz || '22';
-        document.getElementById('shop-artikel-bestand').value = artikel.bestandAktuell || artikel.bestand_aktuell || 0;
         document.getElementById('shop-artikel-typ').value = artikel.artikeltyp || 'sonstiges';
+
+        // Bestand read-only bei bestehendem Artikel (wird über Einkäufe/Verkäufe gesteuert)
+        const bestandInput = document.getElementById('shop-artikel-bestand');
+        bestandInput.value = artikel.bestandAktuell || artikel.bestand_aktuell || 0;
+        bestandInput.readOnly = true;
+        bestandInput.style.backgroundColor = '#f5f5f5';
 
         this.openModal('shop-artikel-form-modal');
     },
