@@ -4280,7 +4280,21 @@ const App = {
                 <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
                 <td style="font-size: 0.75rem; color: #666;" title="${formatAuditInfo(r.created_by, r.created_at, r.updated_by, r.updated_at)}">
-                    ${r.updatedAt ? `<div>${this.formatDateTime(r.updatedAt)}</div><div style="font-size: 0.65rem; color: #999;">${resolveUserName(r.updated_by || r.created_by) || ''}</div>` : '-'}
+                    ${(() => {
+                        // Debug: Zeige Audit-Felder in Console für erste 3 Rechnungen
+                        if (index < 3) {
+                            console.log(`🔍 Rechnung ${r.dokumentNr || r.rechnungId}:`, {
+                                updated_by: r.updated_by,
+                                updated_at: r.updated_at,
+                                created_by: r.created_by,
+                                created_at: r.created_at,
+                                updatedAt: r.updatedAt,
+                                invoiceId: r.invoiceId,
+                                resolvedName: resolveUserName(r.updated_by || r.created_by)
+                            });
+                        }
+                        return r.updatedAt ? `<div>${this.formatDateTime(r.updatedAt)}</div><div style="font-size: 0.65rem; color: #999;">${resolveUserName(r.updated_by || r.created_by) || ''}</div>` : '-';
+                    })()}
                 </td>
                 <td>${this.getAbgabestelleDropdown(r.rechnungId, r.funding_source_id, r.isSupabaseOnly, r.invoiceId)}</td>
                 <td>
@@ -4294,9 +4308,9 @@ const App = {
                 <td>
                     <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
                         ${r.workflowStatus === 'uploaded' ?
-                            `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'kontrolliert')" title="Als kontrolliert markieren">${Icons.check}</button>` :
+                            `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.invoiceId}', 'kontrolliert')" title="Als kontrolliert markieren">${Icons.check}</button>` :
                         r.workflowStatus === 'kontrolliert' && DataManager.isAdmin() ?
-                            `<button class="btn btn-sm btn-success" onclick="App.changeInvoiceStatus('${r.rechnungId}', 'bezahlt')" title="Als bezahlt markieren">€</button>` :
+                            `<button class="btn btn-sm btn-success" onclick="App.changeInvoiceStatus('${r.invoiceId}', 'bezahlt')" title="Als bezahlt markieren">€</button>` :
                         ''}
                     </div>
                 </td>

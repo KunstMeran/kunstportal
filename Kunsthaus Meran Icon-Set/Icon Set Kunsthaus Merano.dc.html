@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; }
+  a { color: inherit; }
+  a:hover { opacity: .7; }
+</style>
+</helmet>
+<div style="min-height:100vh;padding:56px 48px 80px;font-family:Archivo,Helvetica,sans-serif;background:{{ bg }};color:{{ fg }};stroke:{{ fg }};stroke-width:{{ sw }};transition:background .25s,color .25s">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:40px;flex-wrap:wrap;max-width:1180px;margin:0 auto 12px">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <img src="uploads/logo.png" alt="Kunsthaus Merano" style="height:44px;width:auto;object-fit:contain;object-position:left;display:{{ logoLightDisplay }}" />
+      <img src="uploads/logo_weiss_grauer_ring.png" alt="Kunsthaus Merano" style="height:44px;width:auto;object-fit:contain;object-position:left;display:{{ logoDarkDisplay }}" />
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h1 style="margin:0;font-size:30px;font-weight:500;letter-spacing:-0.02em">Icon-Set Projektverwaltung</h1>
+        <p style="margin:0;font-size:15px;opacity:.6;max-width:52ch;text-wrap:pretty">16 Icons, 24 × 24 px, monochrom. Einheitliche Strichstärke, runde Enden und Ecken — abgestimmt auf die klaren Linien und den Kreis der Wortmarke.</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding-top:6px">
+      <button onClick="{{ toggleTheme }}" style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:10px 16px;border-radius:999px;border:1px solid {{ hairline }};background:transparent;color:inherit;cursor:pointer;stroke-width:0" style-hover="opacity:.6">{{ themeLabel }}</button>
+    </div>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.06em;opacity:.55;padding:22px 0 30px;stroke-width:0">
+    <span>viewBox 0 0 24 24</span><span>·</span><span>stroke {{ swLabel }}</span><span>·</span><span>linecap round</span><span>·</span><span>fill none</span><span>·</span><span>currentColor</span>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:{{ hairline }};border:1px solid {{ hairline }}">
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Dokument</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">01 · document</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7"></path><path d="M20 4.2v4.5h-4.5"></path><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.3"></path><path d="M4 19.8v-4.5h4.5"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Synchronisieren</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">02 · sync</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6c0 1.66-3.58 3-8 3S4 7.66 4 6s3.58-3 8-3 8 1.34 8 3z"></path><path d="M20 6v6c0 1.66-3.58 3-8 3s-8-1.34-8-3V6"></path><path d="M20 12v6c0 1.66-3.58 3-8 3s-8-1.34-8-3v-6"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Buchungen</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">03 · data</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V3.5"></path><path d="M7.5 8 12 3.5 16.5 8"></path><path d="M4 15.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Upload / Import</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">04 · upload</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"></path><path d="M14 10h4a2 2 0 0 1 2 2v9"></path><path d="M3 21h18"></path><path d="M7.5 8h3"></path><path d="M7.5 13h3"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Lieferant</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">05 · company</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5V19a1.5 1.5 0 0 0 1.5 1.5H21"></path><path d="M8 15.5l3.5-4 3 2.5L20 7.5"></path><path d="M16.2 7.5H20V11.3"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Statistik</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">06 · trend</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11"></path><path d="M17.5 6.5l-11 11"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Schließen</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">07 · close</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l4.8 4.8L19.5 7.1"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Bestätigt</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">08 · check</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.2v-3.4L15.8 5a2.4 2.4 0 0 1 3.4 3.4L7.4 20.2H4z"></path><path d="M14.3 6.5l3.4 3.4"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Bearbeiten</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">09 · edit</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.4 2.7 17.9A2 2 0 0 0 4.4 21h15.2a2 2 0 0 0 1.7-3.1L13.7 4.4a2 2 0 0 0-3.4 0z"></path><path d="M12 10v4.2"></path><path d="M12 17.6h.01"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Warnung</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">10 · warning</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6.6 5.5 12 5.5 21.5 12 21.5 12 17.4 18.5 12 18.5 2.5 12 2.5 12z"></path><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Vorschau</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">11 · preview</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16"></path><path d="M9.5 6.5v-2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"></path><path d="M6.6 6.5l.8 12.6a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.8-12.6"></path><path d="M10.4 10.5v6.5"></path><path d="M13.6 10.5v6.5"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Löschen</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">12 · delete</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path d="M10.5 9.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path><path d="M4.4 17.6 9.5 12.5l3.4 3.4 3-3 3.7 3.7"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Bild</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">13 · image</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.1 11.5 11.6 20a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.7-7.7"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Anhang</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">14 · attachment</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z"></path><path d="M8.2 12.3l2.6 2.6 5-5.2"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Erfolg</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">15 · success</span></div>
+    </div>
+
+    <div onClick="{{ copyIcon }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;aspect-ratio:1/.92;background:{{ cardBg }};cursor:pointer;position:relative" style-hover="background:{{ cardHover }}">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z"></path><path d="M9.2 9.2l5.6 5.6"></path><path d="M14.8 9.2l-5.6 5.6"></path></svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;stroke-width:0"><span style="font-size:13px;font-weight:500">Fehler</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;letter-spacing:.06em">16 · error</span></div>
+    </div>
+
+  </div>
+
+  <div style="max-width:1180px;margin:44px auto 0;display:flex;flex-direction:column;gap:26px;stroke-width:0">
+    <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
+      <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Anwendung im Interface</span>
+      <span style="font-size:13px;opacity:.5">Klick auf ein Icon kopiert den SVG-Code.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:{{ hairline }};border:1px solid {{ hairline }}">
+      <div style="background:{{ cardBg }};padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.45">16 px · Tabelle</span>
+        <div style="display:flex;gap:18px;align-items:center;stroke:{{ fg }};stroke-width:{{ sw }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"></path><path d="M14 3v5h5"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6.6 5.5 12 5.5 21.5 12 21.5 12 17.4 18.5 12 18.5 2.5 12 2.5 12z"></path><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.2v-3.4L15.8 5a2.4 2.4 0 0 1 3.4 3.4L7.4 20.2H4z"></path><path d="M14.3 6.5l3.4 3.4"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16"></path><path d="M6.6 6.5l.8 12.6a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.8-12.6"></path><path d="M9.5 6.5v-2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"></path></svg>
+        </div>
+      </div>
+      <div style="background:{{ cardBg }};padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.45">24 px · Toolbar</span>
+        <div style="display:flex;gap:18px;align-items:center;stroke:{{ fg }};stroke-width:{{ sw }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7"></path><path d="M20 4.2v4.5h-4.5"></path><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.3"></path><path d="M4 19.8v-4.5h4.5"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V3.5"></path><path d="M7.5 8 12 3.5 16.5 8"></path><path d="M4 15.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5V19a1.5 1.5 0 0 0 1.5 1.5H21"></path><path d="M8 15.5l3.5-4 3 2.5L20 7.5"></path><path d="M16.2 7.5H20V11.3"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.1 11.5 11.6 20a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.7-7.7"></path></svg>
+        </div>
+      </div>
+      <div style="background:{{ cardBg }};padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.45">32 px · Status</span>
+        <div style="display:flex;gap:18px;align-items:center;stroke:{{ fg }};stroke-width:{{ sw }}">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z"></path><path d="M8.2 12.3l2.6 2.6 5-5.2"></path></svg>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z"></path><path d="M9.2 9.2l5.6 5.6"></path><path d="M14.8 9.2l-5.6 5.6"></path></svg>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.4 2.7 17.9A2 2 0 0 0 4.4 21h15.2a2 2 0 0 0 1.7-3.1L13.7 4.4a2 2 0 0 0-3.4 0z"></path><path d="M12 10v4.2"></path><path d="M12 17.6h.01"></path></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:fixed;left:50%;bottom:32px;transform:translateX(-50%);padding:11px 20px;border-radius:999px;background:{{ toastBg }};color:{{ toastFg }};font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.06em;opacity:{{ toastOpacity }};pointer-events:none;transition:opacity .2s;stroke-width:0">{{ toastText }}</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;strokeWidth&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:2,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:1,&quot;max&quot;:3,&quot;step&quot;:0.25,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Stil&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:null,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;Stil&quot;}}">
+class Component extends DCLogic {
+  state = { dark: false, toast: "" };
+
+  copyIcon = (e) => {
+    const svg = e.currentTarget.querySelector("svg");
+    const name = e.currentTarget.querySelector("span:last-child").textContent.split("·")[1].trim();
+    const clone = svg.cloneNode(true);
+    clone.setAttribute("width", "24");
+    clone.setAttribute("height", "24");
+    clone.setAttribute("stroke", "currentColor");
+    clone.setAttribute("stroke-width", String(this.props.strokeWidth ?? 2));
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const code = clone.outerHTML.replace(/></g, ">\n  <").replace(/\n  <\/svg>/, "\n</svg>");
+    navigator.clipboard?.writeText(code);
+    this.setState({ toast: "SVG kopiert — " + name });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: "" }), 1800);
+  };
+
+  renderVals() {
+    const dark = this.props.theme ? this.props.theme === "dark" : this.state.dark;
+    const sw = this.props.strokeWidth ?? 2;
+    return {
+      sw,
+      swLabel: sw + " px",
+      bg: dark ? "#0d0d0d" : "#fbfbfa",
+      fg: dark ? "#f2f2f0" : "#0a0a0a",
+      cardBg: dark ? "#141414" : "#ffffff",
+      cardHover: dark ? "#1e1e1e" : "#f2f1ef",
+      hairline: dark ? "#2a2a2a" : "#e6e5e2",
+      logoLightDisplay: dark ? "none" : "block",
+      logoDarkDisplay: dark ? "block" : "none",
+      toastBg: dark ? "#f2f2f0" : "#0a0a0a",
+      toastFg: dark ? "#0a0a0a" : "#fbfbfa",
+      toastOpacity: this.state.toast ? 1 : 0,
+      toastText: this.state.toast || "—",
+      themeLabel: dark ? "Light Mode" : "Dark Mode",
+      toggleTheme: () => this.setState((s) => ({ dark: !s.dark })),
+      copyIcon: this.copyIcon,
+    };
+  }
+}
+</script>
+</body>
+</html>

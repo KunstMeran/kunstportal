@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #FBFBFA; }
+  a { color: #0A0A0A; text-decoration: none; }
+  a:hover { opacity: .55; }
+</style>
+</helmet>
+<div style="font-family:Archivo,Helvetica,sans-serif;color:#0A0A0A;background:#FBFBFA;padding:0 0 120px">
+
+  <div style="max-width:1180px;margin:0 auto;padding:64px 48px 0;display:flex;flex-direction:column;gap:44px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:48px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:22px">
+        <img src="uploads/logo.png" alt="Kunsthaus Merano" style="height:40px;width:auto;object-fit:contain;object-position:left" />
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h1 style="margin:0;font-size:38px;font-weight:500;letter-spacing:-0.025em;line-height:1.1">Design System<br />Projekt- &amp; Verwaltungsportal</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;opacity:.6;max-width:56ch;text-wrap:pretty">Abgeleitet aus der Bildmarke: schwarze Grotesk, geometrische Linienführung, ein einziger grauer Ring als Akzent. Das Portal übernimmt diese Zurückhaltung — die Ausstellung ist bunt, die Verwaltung ist es nicht.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.06em;opacity:.5;text-align:right">
+        <span>V 1.0</span><span>AUG 2026</span><span>INTERN</span>
+      </div>
+    </div>
+    <div style="height:1px;background:#0A0A0A"></div>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;padding:0 48px;display:flex;flex-direction:column;gap:88px">
+
+    <section style="display:flex;flex-direction:column;gap:28px;padding-top:56px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">00</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Herleitung</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+        <div style="border:1px solid #E6E5E2;background:#FFFFFF;padding:28px 26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.45">Übernommen von kunstmeranoarte.org</span>
+          <div style="display:flex;flex-direction:column;gap:11px;font-size:14px;line-height:1.55">
+            <span><strong style="font-weight:500">Schwarz-weiß als Grundhaltung.</strong> Die Website führt keine Markenfarbe; Farbe kommt ausschließlich aus den Ausstellungsfotos. Das Portal hat keine Fotos — also bleibt es unbunt.</span>
+            <span><strong style="font-weight:500">Wortmarke plus grauer Ring.</strong> Das „o“ in Merano ist das einzige Akzentelement des Hauses. Es kehrt als Statuspunkt wieder.</span>
+            <span><strong style="font-weight:500">Drei Sprachen gleichrangig.</strong> DE / IT / EN im Kopf der Website — der Sprachumschalter gehört auch ins Portal.</span>
+            <span><strong style="font-weight:500">Leichte Sprache als Haltung.</strong> Die Website bietet sie prominent an; im Portal heißt das: knappe Labels, keine Fachabkürzungen ohne Klartext.</span>
+            <span><strong style="font-weight:500">Neutrale Grotesk, keine Zierschrift.</strong> Website wie Wortmarke setzen auf eine schmucklose Grotesk in wenigen Schnitten.</span>
+          </div>
+        </div>
+        <div style="border:1px solid #E6E5E2;background:#FFFFFF;padding:28px 26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.45">Bewusst abweichend</span>
+          <div style="display:flex;flex-direction:column;gap:11px;font-size:14px;line-height:1.55">
+            <span><strong style="font-weight:500">Archivo statt Hausschrift.</strong> Platzhalter-Grotesk mit gleicher Anmutung, frei lizenziert. Sobald die Lizenz der Website-Schrift für interne Anwendungen geklärt ist, wird 1:1 getauscht — die Skala bleibt.</span>
+            <span><strong style="font-weight:500">Vier Statusfarben.</strong> Die Website kennt keine. Buchhaltung braucht sie; deshalb gedeckt, klein und immer mit Wortlabel.</span>
+            <span><strong style="font-weight:500">Monospace für Zahlen.</strong> Auf der Website unnötig, im Rechnungswesen unverzichtbar (Tabellenziffern, Belegnummern, Konten).</span>
+            <span><strong style="font-weight:500">Dichtere Rhythmik.</strong> Die Website atmet großzügig; ein Arbeitswerkzeug wird auf 4-px-Raster gestellt und zeigt mehr Zeilen pro Bildschirm.</span>
+          </div>
+        </div>
+      </div>
+      <p style="margin:0;font-size:13px;line-height:1.6;opacity:.5;max-width:70ch;text-wrap:pretty">Offen bis zur Freigabe durch die Kommunikation: verbindlicher Name und Lizenzumfang der Hausschrift sowie die Frage, ob das Portal die Wortmarke selbst oder nur die Bildmarke im Kopf führt.</p>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">01</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Prinzipien</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px 26px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:500">Ruhe vor Reiz</span>
+          <span style="font-size:14px;line-height:1.6;opacity:.6;text-wrap:pretty">Keine Farbflächen, keine Verläufe. Farbe erscheint nur als Statussignal und nie größer als nötig.</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px 26px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:500">Kante statt Schatten</span>
+          <span style="font-size:14px;line-height:1.6;opacity:.6;text-wrap:pretty">Struktur entsteht durch 1-px-Linien und Weißraum. Schatten nur bei schwebenden Ebenen (Menü, Dialog).</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px 26px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:500">Zahlen sind Inhalt</span>
+          <span style="font-size:14px;line-height:1.6;opacity:.6;text-wrap:pretty">Beträge, Belegnummern und Konten stehen im Monospace, rechtsbündig, tabellarisch ausgerichtet.</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px 26px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:500">Dreisprachig gedacht</span>
+          <span style="font-size:14px;line-height:1.6;opacity:.6;text-wrap:pretty">DE / IT / EN gleichrangig wie auf kunstmeranoarte.org. Labels mit 40 % Reserve gesetzt — italienische Begriffe laufen länger.</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">02</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Farbe</h2>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:34px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.45">Basis</span>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#0A0A0A"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Ink</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#0A0A0A</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#454545"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Graphit</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#454545</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#808080"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Ring-Grau</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#808080</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#E6E5E2"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Haarlinie</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#E6E5E2</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#F2F1EF"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Fläche</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#F2F1EF</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#FBFBFA;border-bottom:1px solid #E6E5E2"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Papier</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#FBFBFA</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.45">Status — gedeckt, nur punktuell</span>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#2F6B4F"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Erfolg</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#2F6B4F</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#B0741A"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Warnung</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#B0741A</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#A33028"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Fehler</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#A33028</span></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;display:flex;flex-direction:column">
+              <div style="height:88px;background:#2A4E7A"></div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:500">Info / Sync</span><span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">#2A4E7A</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">03</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Typografie</h2>
+      </div>
+      <div style="border:1px solid #E6E5E2;background:#FFFFFF">
+        <div style="display:flex;gap:28px;align-items:baseline;padding:26px 28px;border-bottom:1px solid #E6E5E2">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45;width:100px;flex:none">DISPLAY 38/500</span>
+          <span style="font-size:38px;font-weight:500;letter-spacing:-0.025em;line-height:1.1">Projektübersicht 2026</span>
+        </div>
+        <div style="display:flex;gap:28px;align-items:baseline;padding:26px 28px;border-bottom:1px solid #E6E5E2">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45;width:100px;flex:none">TITEL 24/500</span>
+          <span style="font-size:24px;font-weight:500;letter-spacing:-0.015em">Ausstellung „Linien“ — Budget</span>
+        </div>
+        <div style="display:flex;gap:28px;align-items:baseline;padding:26px 28px;border-bottom:1px solid #E6E5E2">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45;width:100px;flex:none">FLIESS 15/400</span>
+          <span style="font-size:15px;line-height:1.6;max-width:52ch;text-wrap:pretty">Alle Rechnungen dieses Projekts wurden an DATEV übergeben. Die Kontrolle durch die Verwaltung steht noch aus.</span>
+        </div>
+        <div style="display:flex;gap:28px;align-items:baseline;padding:26px 28px;border-bottom:1px solid #E6E5E2">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45;width:100px;flex:none">LABEL 11/500</span>
+          <span style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase">Lieferant · Belegdatum · Status</span>
+        </div>
+        <div style="display:flex;gap:28px;align-items:baseline;padding:26px 28px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45;width:100px;flex:none">ZAHL 15/500</span>
+          <span style="font-family:JetBrains Mono,monospace;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">12.480,00 € · RE-2026-0417 · 4980</span>
+        </div>
+      </div>
+      <p style="margin:0;font-size:13px;line-height:1.6;opacity:.5;max-width:64ch;text-wrap:pretty">Archivo als frei lizenzierter Platzhalter für die Grotesk der Wortmarke, JetBrains Mono für alles Zählbare. Zwei Schnitte reichen: 400 und 500. Kein Bold — Hierarchie entsteht über Größe und Weißraum.</p>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">04</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Raster &amp; Abstand</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px">
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">BASIS 4 PX</span>
+          <div style="display:flex;align-items:flex-end;gap:6px;height:52px">
+            <div style="width:20px;height:4px;background:#0A0A0A"></div>
+            <div style="width:20px;height:8px;background:#0A0A0A"></div>
+            <div style="width:20px;height:12px;background:#0A0A0A"></div>
+            <div style="width:20px;height:16px;background:#0A0A0A"></div>
+            <div style="width:20px;height:24px;background:#0A0A0A"></div>
+            <div style="width:20px;height:32px;background:#0A0A0A"></div>
+            <div style="width:20px;height:48px;background:#0A0A0A"></div>
+          </div>
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">4 · 8 · 12 · 16 · 24 · 32 · 48</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">RADIUS</span>
+          <div style="display:flex;align-items:center;gap:12px;height:52px">
+            <div style="width:44px;height:44px;border:1px solid #0A0A0A;border-radius:2px"></div>
+            <div style="width:44px;height:44px;border:1px solid #0A0A0A;border-radius:6px"></div>
+            <div style="width:44px;height:44px;border:1px solid #0A0A0A;border-radius:999px"></div>
+          </div>
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">2 Fläche · 6 Karte · voll Pille</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">SPALTEN</span>
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;height:52px">
+            <div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div><div style="background:#F2F1EF"></div>
+          </div>
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">12 · Gutter 24 · max 1440</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:26px;display:flex;flex-direction:column;gap:14px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">ZEILENHÖHE TABELLE</span>
+          <div style="display:flex;flex-direction:column;height:52px;justify-content:center;gap:0">
+            <div style="height:26px;border-top:1px solid #E6E5E2;border-bottom:1px solid #E6E5E2;display:flex;align-items:center;font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">kompakt 36</div>
+            <div style="height:26px;border-bottom:1px solid #E6E5E2;display:flex;align-items:center;font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">standard 48</div>
+          </div>
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.5">umschaltbar pro Nutzer</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">05</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Komponenten</h2>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px;display:flex;flex-direction:column;gap:18px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">BUTTONS</span>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+            <button style="font-family:Archivo,sans-serif;font-size:14px;font-weight:500;padding:10px 20px;border-radius:999px;background:#0A0A0A;color:#FBFBFA;border:1px solid #0A0A0A;cursor:pointer" style-hover="background:#454545;border-color:#454545">Freigeben</button>
+            <button style="font-family:Archivo,sans-serif;font-size:14px;font-weight:500;padding:10px 20px;border-radius:999px;background:transparent;color:#0A0A0A;border:1px solid #0A0A0A;cursor:pointer" style-hover="background:#F2F1EF">Prüfen</button>
+            <button style="font-family:Archivo,sans-serif;font-size:14px;font-weight:400;padding:10px 14px;border-radius:999px;background:transparent;color:#454545;border:1px solid transparent;cursor:pointer" style-hover="background:#F2F1EF;color:#0A0A0A">Abbrechen</button>
+            <button style="font-family:Archivo,sans-serif;font-size:14px;font-weight:500;padding:10px 20px;border-radius:999px;background:transparent;color:#A33028;border:1px solid #A33028;cursor:pointer" style-hover="background:#A33028;color:#FFFFFF">Löschen</button>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:transparent;border:1px solid #E6E5E2;cursor:pointer;color:#0A0A0A" style-hover="border-color:#0A0A0A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.2v-3.4L15.8 5a2.4 2.4 0 0 1 3.4 3.4L7.4 20.2H4z"></path><path d="M14.3 6.5l3.4 3.4"></path></svg></button>
+            <button style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:transparent;border:1px solid #E6E5E2;cursor:pointer;color:#0A0A0A" style-hover="border-color:#0A0A0A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6.6 5.5 12 5.5 21.5 12 21.5 12 17.4 18.5 12 18.5 2.5 12 2.5 12z"></path><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path></svg></button>
+            <button style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:transparent;border:1px solid #E6E5E2;cursor:pointer;color:#0A0A0A" style-hover="border-color:#0A0A0A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.1 11.5 11.6 20a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.7-7.7"></path></svg></button>
+            <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:.45;margin-left:6px">Icon 36 · Touch 44</span>
+          </div>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px;display:flex;flex-direction:column;gap:18px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">STATUS-PILLEN</span>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px;border:1px solid #E6E5E2;color:#454545"><span style="width:6px;height:6px;border-radius:999px;background:#808080"></span>Entwurf</span>
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px;border:1px solid #2A4E7A;color:#2A4E7A"><span style="width:6px;height:6px;border-radius:999px;background:#2A4E7A"></span>In Prüfung</span>
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px;border:1px solid #B0741A;color:#B0741A"><span style="width:6px;height:6px;border-radius:999px;background:#B0741A"></span>Überfällig</span>
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px;border:1px solid #2F6B4F;color:#2F6B4F"><span style="width:6px;height:6px;border-radius:999px;background:#2F6B4F"></span>Gebucht</span>
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px;border:1px solid #A33028;color:#A33028"><span style="width:6px;height:6px;border-radius:999px;background:#A33028"></span>Abgelehnt</span>
+          </div>
+          <span style="font-size:13px;line-height:1.6;opacity:.55;text-wrap:pretty">Punkt + Wort — nie Farbe allein. Der Punkt greift den Ring der Wortmarke auf.</span>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px;display:flex;flex-direction:column;gap:18px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">EINGABEFELDER</span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Lieferant</label>
+            <input value="Tipografia Alto Adige" style="font-family:Archivo,sans-serif;font-size:15px;padding:11px 14px;border:1px solid #E6E5E2;border-radius:6px;background:#FFFFFF;color:#0A0A0A;outline:none;width:100%;box-sizing:border-box" style-focus="border-color:#0A0A0A" />
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Betrag</label>
+            <input value="12.480,00" style="font-family:JetBrains Mono,monospace;font-size:15px;padding:11px 14px;border:1px solid #A33028;border-radius:6px;background:#FFFFFF;color:#0A0A0A;outline:none;width:100%;box-sizing:border-box;text-align:right" />
+            <span style="font-size:12px;color:#A33028">Betrag weicht vom Beleg ab</span>
+          </div>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:28px;display:flex;flex-direction:column;gap:18px">
+          <span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;opacity:.45">HINWEISE</span>
+          <div style="display:flex;gap:12px;padding:14px 16px;border:1px solid #E6E5E2;border-radius:6px;background:#F2F1EF">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2F6B4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z"></path><path d="M8.2 12.3l2.6 2.6 5-5.2"></path></svg>
+            <span style="font-size:14px;line-height:1.5">37 Buchungen erfolgreich an DATEV übergeben.</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;border:1px solid #E6E5E2;border-radius:6px;background:#F2F1EF">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B0741A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M10.3 4.4 2.7 17.9A2 2 0 0 0 4.4 21h15.2a2 2 0 0 0 1.7-3.1L13.7 4.4a2 2 0 0 0-3.4 0z"></path><path d="M12 10v4.2"></path><path d="M12 17.6h.01"></path></svg>
+            <span style="font-size:14px;line-height:1.5">4 Rechnungen ohne Projektzuordnung.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #E6E5E2;background:#FFFFFF">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid #E6E5E2">
+          <span style="font-size:16px;font-weight:500">Rechnungen — Ausstellung „Linien“</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-family:JetBrains Mono,monospace;font-size:11px;opacity:.45">4 von 128</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr .9fr 1fr auto;gap:16px;padding:12px 24px;border-bottom:1px solid #E6E5E2;background:#FBFBFA;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">
+          <span>Lieferant</span><span>Beleg</span><span>Datum</span><span style="text-align:right">Betrag</span><span>Status</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr .9fr 1fr auto;gap:16px;padding:14px 24px;border-bottom:1px solid #E6E5E2;align-items:center;font-size:14px" style-hover="background:#FBFBFA">
+          <span>Tipografia Alto Adige</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">RE-2026-0417</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">14.05.26</span><span style="font-family:JetBrains Mono,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums">12.480,00</span><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:5px 12px;border-radius:999px;border:1px solid #2F6B4F;color:#2F6B4F"><span style="width:6px;height:6px;border-radius:999px;background:#2F6B4F"></span>Gebucht</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr .9fr 1fr auto;gap:16px;padding:14px 24px;border-bottom:1px solid #E6E5E2;align-items:center;font-size:14px" style-hover="background:#FBFBFA">
+          <span>Studio Lichtbau GmbH</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">RE-2026-0418</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">18.05.26</span><span style="font-family:JetBrains Mono,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums">3.940,50</span><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:5px 12px;border-radius:999px;border:1px solid #2A4E7A;color:#2A4E7A"><span style="width:6px;height:6px;border-radius:999px;background:#2A4E7A"></span>In Prüfung</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr .9fr 1fr auto;gap:16px;padding:14px 24px;border-bottom:1px solid #E6E5E2;align-items:center;font-size:14px" style-hover="background:#FBFBFA">
+          <span>Transporti Fenner</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">RE-2026-0421</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">02.06.26</span><span style="font-family:JetBrains Mono,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums">870,00</span><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:5px 12px;border-radius:999px;border:1px solid #B0741A;color:#B0741A"><span style="width:6px;height:6px;border-radius:999px;background:#B0741A"></span>Überfällig</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr .9fr 1fr auto;gap:16px;padding:14px 24px;align-items:center;font-size:14px" style-hover="background:#FBFBFA">
+          <span>Atelier Prantl</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">RE-2026-0422</span><span style="font-family:JetBrains Mono,monospace;font-size:13px">05.06.26</span><span style="font-family:JetBrains Mono,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums">1.250,00</span><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:5px 12px;border-radius:999px;border:1px solid #E6E5E2;color:#454545"><span style="width:6px;height:6px;border-radius:999px;background:#808080"></span>Entwurf</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <span style="font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;opacity:.4">06</span>
+        <h2 style="margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase">Anwendung — Portalrahmen</h2>
+      </div>
+      <div style="border:1px solid #E6E5E2;background:#FFFFFF;display:grid;grid-template-columns:236px 1fr;min-height:400px">
+        <div style="border-right:1px solid #E6E5E2;padding:24px 0;display:flex;flex-direction:column;gap:26px;background:#FBFBFA">
+          <div style="padding:0 22px"><img src="uploads/logo.png" alt="" style="height:26px;width:auto;object-fit:contain;object-position:left" /></div>
+          <div style="display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;font-size:14px;background:#F2F1EF;border-left:2px solid #0A0A0A;font-weight:500">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5V19a1.5 1.5 0 0 0 1.5 1.5H21"></path><path d="M8 15.5l3.5-4 3 2.5L20 7.5"></path><path d="M16.2 7.5H20V11.3"></path></svg>Übersicht
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;font-size:14px;color:#454545;border-left:2px solid transparent" style-hover="background:#F2F1EF;color:#0A0A0A">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"></path><path d="M14 3v5h5"></path></svg>Rechnungen
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;font-size:14px;color:#454545;border-left:2px solid transparent" style-hover="background:#F2F1EF;color:#0A0A0A">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6c0 1.66-3.58 3-8 3S4 7.66 4 6s3.58-3 8-3 8 1.34 8 3z"></path><path d="M20 6v6c0 1.66-3.58 3-8 3s-8-1.34-8-3V6"></path><path d="M20 12v6c0 1.66-3.58 3-8 3s-8-1.34-8-3v-6"></path></svg>Buchungen
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;font-size:14px;color:#454545;border-left:2px solid transparent" style-hover="background:#F2F1EF;color:#0A0A0A">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"></path><path d="M14 10h4a2 2 0 0 1 2 2v9"></path><path d="M3 21h18"></path></svg>Lieferanten
+            </div>
+          </div>
+        </div>
+        <div style="padding:26px 28px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+            <h3 style="margin:0;font-size:24px;font-weight:500;letter-spacing:-0.015em">Übersicht</h3>
+            <button style="display:inline-flex;align-items:center;gap:9px;font-family:Archivo,sans-serif;font-size:14px;font-weight:500;padding:10px 18px;border-radius:999px;background:#0A0A0A;color:#FBFBFA;border:none;cursor:pointer" style-hover="background:#454545"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V3.5"></path><path d="M7.5 8 12 3.5 16.5 8"></path><path d="M4 15.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"></path></svg>Beleg importieren</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:20px;display:flex;flex-direction:column;gap:8px"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Offen</span><span style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:500;font-variant-numeric:tabular-nums">18</span></div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:20px;display:flex;flex-direction:column;gap:8px"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">In Prüfung</span><span style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:500;font-variant-numeric:tabular-nums">7</span></div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:20px;display:flex;flex-direction:column;gap:8px"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Gebucht</span><span style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:500;font-variant-numeric:tabular-nums">103</span></div>
+            <div style="background:#FFFFFF;border:1px solid #E6E5E2;padding:20px;display:flex;flex-direction:column;gap:8px"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.5">Volumen</span><span style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:500;font-variant-numeric:tabular-nums">284k</span></div>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;border:1px solid #E6E5E2;border-radius:6px;background:#F2F1EF;align-items:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2A4E7A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7"></path><path d="M20 4.2v4.5h-4.5"></path><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.3"></path><path d="M4 19.8v-4.5h4.5"></path></svg>
+            <span style="font-size:14px">Letzter DATEV-Abgleich: heute, 08:14 Uhr.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
