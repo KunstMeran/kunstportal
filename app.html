@@ -2372,6 +2372,50 @@
                         </div>
                     </div>
 
+                    <!-- Rechnungen mit Status-Übersicht für dieses Projekt -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Rechnungen (mit PDF)</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <span class="badge" style="background: #fff3e0; color: #e65100;" id="fp-rechnungen-neu-badge">0 Neu</span>
+                                <span class="badge" style="background: #e3f2fd; color: #1565c0;" id="fp-rechnungen-kontrolliert-badge">0 Kontrolliert</span>
+                                <span class="badge" style="background: #e8f5e9; color: #2e7d32;" id="fp-rechnungen-bezahlt-badge">0 Bezahlt</span>
+                            </div>
+                        </div>
+                        <div class="filter-row" style="flex-wrap: wrap; padding: 0.75rem;">
+                            <div class="form-group" style="flex: 1; min-width: 150px;">
+                                <label class="form-label">Status filtern</label>
+                                <select id="fp-rechnungen-status-filter" class="form-control" onchange="App.filterProjectRechnungen()">
+                                    <option value="">Alle Status</option>
+                                    <option value="neu">Neu (zu kontrollieren)</option>
+                                    <option value="kontrolliert">Kontrolliert</option>
+                                    <option value="bezahlt">Bezahlt</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Lieferant</th>
+                                        <th>Rechnungs-Nr.</th>
+                                        <th style="text-align: right;">Betrag</th>
+                                        <th>Status</th>
+                                        <th>Notiz</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fp-rechnungen-table">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
+                            Hier werden nur DATEV-Buchungen mit verknüpften PDFs angezeigt. Status-Änderungen und Notizen sind mit der Rechnungen-Seite synchronisiert.
+                        </div>
+                    </div>
+
                     <!-- Stunden-Übersicht für dieses Projekt -->
                     <div class="card">
                         <div class="card-header">

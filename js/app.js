@@ -1289,10 +1289,254 @@ const App = {
             // Kosten-Tabelle befüllen (DATEV + manuelle geplante Kosten)
             this.displayProjectCosts(projektRechnungen, geplanteKosten);
 
+            // Rechnungen mit PDF laden und anzeigen (nur die mit verknüpften PDFs)
+            const rechnungenMitPdf = projektRechnungen.filter(r => r.pdfExists || r.invoiceId);
+            this.currentProjectRechnungenMitPdf = rechnungenMitPdf;
+            this.renderProjectRechnungen(rechnungenMitPdf);
+
             // Stunden-Übersicht für dieses Projekt laden
             this.loadProjectHoursOverview(projectId);
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Details:', error);
+        }
+    },
+
+    // Speicher für Projekt-Rechnungen mit PDF
+    currentProjectRechnungenMitPdf: [],
+
+    /**
+     * Rendert die Rechnungen-Tabelle im Projekt-Fullpage mit Status und Notizen
+     */
+    renderProjectRechnungen(rechnungen) {
+        const tbody = document.getElementById('fp-rechnungen-table');
+        if (!tbody) return;
+
+        // Status-Badges aktualisieren
+        const neuCount = rechnungen.filter(r => !r.workflowStatus || r.workflowStatus === 'neu' || r.workflowStatus === 'uploaded').length;
+        const kontrolliertCount = rechnungen.filter(r => r.workflowStatus === 'kontrolliert').length;
+        const bezahltCount = rechnungen.filter(r => r.workflowStatus === 'bezahlt').length;
+
+        const neuBadge = document.getElementById('fp-rechnungen-neu-badge');
+        const kontrolliertBadge = document.getElementById('fp-rechnungen-kontrolliert-badge');
+        const bezahltBadge = document.getElementById('fp-rechnungen-bezahlt-badge');
+
+        if (neuBadge) neuBadge.textContent = `${neuCount} Neu`;
+        if (kontrolliertBadge) kontrolliertBadge.textContent = `${kontrolliertCount} Kontrolliert`;
+        if (bezahltBadge) bezahltBadge.textContent = `${bezahltCount} Bezahlt`;
+
+        if (rechnungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666; padding: 2rem;">Keine Rechnungen mit PDF für dieses Projekt</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+
+        rechnungen.forEach(r => {
+            const row = document.createElement('tr');
+
+            // Status-Badge
+            let statusBadge = '';
+            let statusDropdown = '';
+            const currentStatus = r.workflowStatus || 'neu';
+
+            if (currentStatus === 'bezahlt') {
+                statusBadge = `<span class="badge" style="background: #e8f5e9; color: #2e7d32;">Bezahlt</span>`;
+            } else if (currentStatus === 'kontrolliert') {
+                statusBadge = `<span class="badge" style="background: #e3f2fd; color: #1565c0;">Kontrolliert</span>`;
+            } else {
+                statusBadge = `<span class="badge" style="background: #fff3e0; color: #e65100;">Neu</span>`;
+            }
+
+            // Status-Dropdown für Änderung
+            statusDropdown = `
+                <select class="form-control" style="font-size: 0.75rem; padding: 0.25rem; width: auto; min-width: 100px;"
+                        onchange="App.changeProjectRechnungStatus('${r.invoiceId || r.id}', this.value, ${r.invoiceId ? 'true' : 'false'})">
+                    <option value="neu" ${currentStatus === 'neu' || currentStatus === 'uploaded' ? 'selected' : ''}>Neu</option>
+                    <option value="kontrolliert" ${currentStatus === 'kontrolliert' ? 'selected' : ''}>Kontrolliert</option>
+                    <option value="bezahlt" ${currentStatus === 'bezahlt' ? 'selected' : ''}>Bezahlt</option>
+                </select>
+            `;
+
+            // Notiz-Feld
+            const notiz = r.notes || r.notizen || '';
+            const notizField = `
+                <input type="text" class="form-control" style="font-size: 0.75rem; padding: 0.25rem; width: 150px;"
+                       value="${notiz.replace(/"/g, '&quot;')}"
+                       placeholder="Notiz..."
+                       onchange="App.saveProjectRechnungNote('${r.invoiceId || r.id}', this.value, ${r.invoiceId ? 'true' : 'false'})">
+            `;
+
+            // PDF-Button
+            let pdfButton = '';
+            if (r.filePath) {
+                pdfButton = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${r.filePath}')" title="PDF anzeigen">PDF</button>`;
+            } else if (r.linkedInvoices && r.linkedInvoices.length > 0) {
+                pdfButton = r.linkedInvoices.map((inv, idx) =>
+                    `<button class="btn btn-sm btn-outline" style="margin-right: 0.15rem;" onclick="App.openPdf('${inv.filePath}')">PDF${r.linkedInvoices.length > 1 ? (idx + 1) : ''}</button>`
+                ).join('');
+            }
+
+            row.innerHTML = `
+                <td>${this.formatDate(r.datum || r.belegdatum)}</td>
+                <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.fornitoreName || ''}">${r.fornitoreName || '-'}</td>
+                <td>${r.dokumentNr || '-'}</td>
+                <td style="text-align: right; ${(r.betrag || 0) < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(r.betrag || 0)}</td>
+                <td>${statusDropdown}</td>
+                <td>${notizField}</td>
+                <td>${pdfButton}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    },
+
+    /**
+     * Filtert die Projekt-Rechnungen nach Status
+     */
+    filterProjectRechnungen() {
+        const statusFilter = document.getElementById('fp-rechnungen-status-filter')?.value || '';
+
+        let filtered = this.currentProjectRechnungenMitPdf || [];
+
+        if (statusFilter) {
+            if (statusFilter === 'neu') {
+                filtered = filtered.filter(r => !r.workflowStatus || r.workflowStatus === 'neu' || r.workflowStatus === 'uploaded');
+            } else {
+                filtered = filtered.filter(r => r.workflowStatus === statusFilter);
+            }
+        }
+
+        this.renderProjectRechnungen(filtered);
+    },
+
+    /**
+     * Ändert den Status einer Rechnung aus der Projekt-Ansicht
+     * Synchronisiert mit der Rechnungen-Seite
+     */
+    async changeProjectRechnungStatus(id, newStatus, isInvoice) {
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+
+            if (isInvoice) {
+                // Supabase Invoice aktualisieren
+                const updateData = {
+                    workflow_status: newStatus,
+                    updated_at: new Date().toISOString()
+                };
+
+                if (newStatus === 'kontrolliert') {
+                    updateData.kontrolled_at = heute;
+                    updateData.kontrolled_by = Auth.getCurrentUserId();
+                } else if (newStatus === 'bezahlt') {
+                    updateData.paid_at = heute;
+                    updateData.paid_by = Auth.getCurrentUserId();
+                }
+
+                await SupabaseService.client
+                    .from('invoices')
+                    .update(updateData)
+                    .eq('id', id);
+            } else {
+                // DATEV-Buchung aktualisieren
+                const updateData = {
+                    workflow_status: newStatus,
+                    updated_at: new Date().toISOString()
+                };
+
+                if (newStatus === 'kontrolliert') {
+                    updateData.kontrolled_at = heute;
+                    updateData.kontrolled_by = Auth.getCurrentUserId();
+                } else if (newStatus === 'bezahlt') {
+                    updateData.paid_at = heute;
+                    updateData.paid_by = Auth.getCurrentUserId();
+                }
+
+                await SupabaseService.client
+                    .from('datev_bookings')
+                    .update(updateData)
+                    .eq('id', id);
+            }
+
+            // Lokale Daten aktualisieren
+            const rechnung = this.currentProjectRechnungenMitPdf.find(r =>
+                (r.invoiceId && r.invoiceId === id) || r.id === id
+            );
+            if (rechnung) {
+                rechnung.workflowStatus = newStatus;
+                if (newStatus === 'kontrolliert') {
+                    rechnung.kontrolliertAm = heute;
+                } else if (newStatus === 'bezahlt') {
+                    rechnung.bezahltAm = heute;
+                }
+            }
+
+            // Status-Badges aktualisieren (ohne komplettes Re-Render)
+            const neuCount = this.currentProjectRechnungenMitPdf.filter(r => !r.workflowStatus || r.workflowStatus === 'neu' || r.workflowStatus === 'uploaded').length;
+            const kontrolliertCount = this.currentProjectRechnungenMitPdf.filter(r => r.workflowStatus === 'kontrolliert').length;
+            const bezahltCount = this.currentProjectRechnungenMitPdf.filter(r => r.workflowStatus === 'bezahlt').length;
+
+            const neuBadge = document.getElementById('fp-rechnungen-neu-badge');
+            const kontrolliertBadge = document.getElementById('fp-rechnungen-kontrolliert-badge');
+            const bezahltBadge = document.getElementById('fp-rechnungen-bezahlt-badge');
+
+            if (neuBadge) neuBadge.textContent = `${neuCount} Neu`;
+            if (kontrolliertBadge) kontrolliertBadge.textContent = `${kontrolliertCount} Kontrolliert`;
+            if (bezahltBadge) bezahltBadge.textContent = `${bezahltCount} Bezahlt`;
+
+            this.showToast('success', 'Status geändert', `Rechnung ist jetzt "${newStatus}"`);
+        } catch (error) {
+            console.error('Fehler beim Ändern des Status:', error);
+            this.showToast('error', 'Fehler', 'Status konnte nicht geändert werden');
+        }
+    },
+
+    /**
+     * Speichert eine Notiz für eine Rechnung aus der Projekt-Ansicht
+     * Synchronisiert mit der Rechnungen-Seite
+     */
+    async saveProjectRechnungNote(id, notizText, isInvoice) {
+        try {
+            if (isInvoice) {
+                // Supabase Invoice aktualisieren
+                await SupabaseService.client
+                    .from('invoices')
+                    .update({
+                        notes: notizText,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', id);
+            } else {
+                // Für DATEV-Buchungen die verknüpfte Invoice aktualisieren
+                // Zuerst die Invoice-ID finden
+                const { data: invoices } = await SupabaseService.client
+                    .from('invoices')
+                    .select('id')
+                    .eq('linked_booking_id', id)
+                    .limit(1);
+
+                if (invoices && invoices.length > 0) {
+                    await SupabaseService.client
+                        .from('invoices')
+                        .update({
+                            notes: notizText,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', invoices[0].id);
+                }
+            }
+
+            // Lokale Daten aktualisieren
+            const rechnung = this.currentProjectRechnungenMitPdf.find(r =>
+                (r.invoiceId && r.invoiceId === id) || r.id === id
+            );
+            if (rechnung) {
+                rechnung.notes = notizText;
+                rechnung.notizen = notizText;
+            }
+
+            this.showToast('success', 'Gespeichert', 'Notiz wurde gespeichert');
+        } catch (error) {
+            console.error('Fehler beim Speichern der Notiz:', error);
+            this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
         }
     },
 
