@@ -28,11 +28,13 @@ async function addAuditMetadata(updates) {
 /**
  * Löst User-ID zu lesbarem Namen auf
  * Verwendet allUsers-Cache aus App oder lädt über DataManager
+ * Sucht über users.id UND users.auth_id (für Supabase Auth User)
  */
 function resolveUserName(userId) {
     if (!userId) return null;
     const users = App.allUsers || (typeof DataManager !== 'undefined' ? DataManager.getUsers() : []) || [];
-    const user = users.find(u => String(u.id) === String(userId));
+    // Suche über id ODER auth_id (für Supabase Auth User)
+    const user = users.find(u => String(u.id) === String(userId) || String(u.auth_id) === String(userId));
     return user ? (user.name || user.username || user.email) : null;
 }
 

@@ -1622,13 +1622,14 @@ const SupabaseDataAdapter = {
         try {
             const { data, error } = await SupabaseService.client
                 .from('users')
-                .select('id, username, email, role, hourly_rate')
+                .select('id, username, email, role, hourly_rate, auth_id')
                 .order('username', { ascending: true });
 
             if (error) throw error;
 
             this.usersCache = (data || []).map(u => ({
                 id: u.id,
+                auth_id: u.auth_id,  // Supabase Auth User ID
                 name: u.username || u.email,
                 email: u.email,
                 role: u.role || 'user',
