@@ -16310,36 +16310,47 @@ const App = {
         return kat ? kat.name : code;
     },
 
-    showShopVerkaufForm: async function(typ) {
-        if (typ === 'artikel') {
-            // Artikel-Dropdown befüllen
-            const artikel = await DataManager.getShopArtikel();
-            const select = document.getElementById('shop-verkauf-artikel-select');
-            select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
-                artikel.filter(a => a.is_active !== false && a.bestand_aktuell > 0)
-                    .map(a => `<option value="${a.id}" data-preis="${a.verkaufspreis}" data-mwst="${a.mwst_satz}">${a.artikelnr} - ${a.name} (${a.bestand_aktuell} Stk.)</option>`)
-                    .join('');
-            this.openModal('shop-verkauf-artikel-modal');
+    showShopVerkaufForm: function(typ) {
+        try {
+            if (typ === 'artikel') {
+                // Artikel-Dropdown befüllen
+                const artikel = DataManager.getShopArtikel() || [];
+                const select = document.getElementById('shop-verkauf-artikel-select');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
+                        artikel.filter(a => (a.bestandAktuell || a.bestand_aktuell || 0) > 0)
+                            .map(a => `<option value="${a.id}" data-preis="${a.verkaufspreis || 0}" data-mwst="${a.mwstSatz || a.mwst_satz || '22'}">${a.artikelnr || 'Art.'} - ${a.name} (${a.bestandAktuell || a.bestand_aktuell || 0} Stk.)</option>`)
+                            .join('');
+                }
+                this.openModal('shop-verkauf-artikel-modal');
 
-        } else if (typ === 'eintritt') {
-            const kategorien = await DataManager.getEintrittKategorien();
-            const select = document.getElementById('shop-verkauf-eintritt-kat');
-            select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
-                kategorien.filter(k => k.is_active !== false)
-                .map(k => `<option value="${k.code}" data-preis="${k.preis}" data-mwst="${k.mwst_satz}">${k.name} (${this.formatCurrency(k.preis)})</option>`)
-                .join('');
-            document.getElementById('shop-verkauf-eintritt-menge').value = 1;
-            this.openModal('shop-verkauf-eintritt-modal');
+            } else if (typ === 'eintritt') {
+                const kategorien = DataManager.getEintrittKategorien() || [];
+                const select = document.getElementById('shop-verkauf-eintritt-kat');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+                        kategorien.map(k => `<option value="${k.code}" data-preis="${k.preis}" data-mwst="${k.mwstSatz || k.mwst_satz || 22}">${k.name} (${this.formatCurrency(k.preis)})</option>`)
+                        .join('');
+                }
+                const mengeEl = document.getElementById('shop-verkauf-eintritt-menge');
+                if (mengeEl) mengeEl.value = 1;
+                this.openModal('shop-verkauf-eintritt-modal');
 
-        } else if (typ === 'mitglied') {
-            const kategorien = await DataManager.getMitgliedKategorien();
-            const select = document.getElementById('shop-verkauf-mitglied-kat');
-            select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
-                kategorien.filter(k => k.is_active !== false)
-                .map(k => `<option value="${k.code}" data-betrag="${k.betrag}">${k.name} (${this.formatCurrency(k.betrag)})</option>`)
-                .join('');
-            document.getElementById('shop-verkauf-mitglied-name').value = '';
-            this.openModal('shop-verkauf-mitglied-modal');
+            } else if (typ === 'mitglied') {
+                const kategorien = DataManager.getMitgliedKategorien() || [];
+                const select = document.getElementById('shop-verkauf-mitglied-kat');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+                        kategorien.map(k => `<option value="${k.code}" data-betrag="${k.betrag}">${k.name} (${this.formatCurrency(k.betrag)})</option>`)
+                        .join('');
+                }
+                const nameEl = document.getElementById('shop-verkauf-mitglied-name');
+                if (nameEl) nameEl.value = '';
+                this.openModal('shop-verkauf-mitglied-modal');
+            }
+        } catch (error) {
+            console.error('Fehler in showShopVerkaufForm:', error);
+            this.showToast('Fehler', 'Formular konnte nicht geöffnet werden: ' + error.message, 'error');
         }
     },
 
