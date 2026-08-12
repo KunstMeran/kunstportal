@@ -25,6 +25,43 @@ async function addAuditMetadata(updates) {
     }
 }
 
+/**
+ * Löst User-ID zu lesbarem Namen auf
+ * Verwendet allUsers-Cache aus App oder lädt über DataManager
+ */
+function resolveUserName(userId) {
+    if (!userId) return null;
+    const users = App.allUsers || (typeof DataManager !== 'undefined' ? DataManager.getUsers() : []) || [];
+    const user = users.find(u => String(u.id) === String(userId));
+    return user ? (user.name || user.username || user.email) : null;
+}
+
+/**
+ * Formatiert Audit-Info für Anzeige (kompakt)
+ * Gibt Text für Tooltip zurück
+ */
+function formatAuditInfo(createdBy, createdAt, updatedBy, updatedAt) {
+    const parts = [];
+    const creatorName = resolveUserName(createdBy);
+    const updaterName = resolveUserName(updatedBy);
+
+    if (creatorName && createdAt) {
+        const dateStr = new Date(createdAt).toLocaleString('de-DE', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        parts.push(`Erstellt: ${creatorName} (${dateStr})`);
+    }
+    if (updaterName && updatedAt && updatedBy !== createdBy) {
+        const dateStr = new Date(updatedAt).toLocaleString('de-DE', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        parts.push(`Geändert: ${updaterName} (${dateStr})`);
+    }
+    return parts.join(' | ') || '';
+}
+
 // Icon Helper - liefert SVG-Icon als HTML
 const Icons = {
     document: '<img src="icons/01-document.svg" alt="" class="icon">',
@@ -951,6 +988,11 @@ const App = {
             const verfuegbarStyle = verfuegbar < 0 ? 'color: #e74c3c;' : 'color: #27ae60;';
 
             const row = document.createElement('tr');
+            // Audit-Info als Tooltip
+            const auditInfo = formatAuditInfo(project.created_by, project.created_at, project.updated_by, project.updated_at);
+            if (auditInfo) {
+                row.title = auditInfo;
+            }
             row.innerHTML = `
                 <td><strong>${project.name}</strong></td>
                 <td>${project.location || '-'}</td>
@@ -1119,6 +1161,14 @@ const App = {
         document.getElementById('fp-period').textContent = `${this.formatDate(project.startDate)} - ${this.formatDate(project.endDate)}`;
         document.getElementById('fp-status').innerHTML = this.getStatusBadge(project.status);
         document.getElementById('fp-description').textContent = project.description || '-';
+
+        // Audit-Info anzeigen (wer hat erstellt/geändert)
+        const auditInfoEl = document.getElementById('fp-audit-info');
+        if (auditInfoEl) {
+            const auditText = formatAuditInfo(project.created_by, project.created_at, project.updated_by, project.updated_at);
+            auditInfoEl.textContent = auditText || '';
+        }
+
         document.getElementById('fp-hours').textContent = '- Std.'; // TODO: Später berechnen
 
         // Projektleiter anzeigen (falls vorhanden)
@@ -1391,7 +1441,11 @@ const App = {
                 workflowStatus: r.workflowStatus || 'neu',
                 bezahltAm: r.bezahltAm || null,
                 kontrolliertAm: r.kontrolliertAm || null,
-                invoiceId: r.invoiceId || null
+                invoiceId: r.invoiceId || null,
+                created_by: r.created_by,
+                created_at: r.created_at,
+                updated_by: r.updated_by,
+                updated_at: r.updated_at
             })),
             ...geplanteKosten.map(k => ({
                 id: k.id,
@@ -1405,7 +1459,11 @@ const App = {
                 pdfExists: false,
                 filePath: null,
                 isDatev: false,
-                costId: k.id
+                costId: k.id,
+                created_by: k.created_by,
+                created_at: k.created_at,
+                updated_by: k.updated_by,
+                updated_at: k.updated_at
             }))
         ];
 
@@ -1493,6 +1551,11 @@ const App = {
         pageItems.forEach((k, idx) => {
             const globalIndex = startIndex + idx + 1; // 1-basierte Zeilennummer
             const row = document.createElement('tr');
+            // Audit-Info als Tooltip
+            const auditInfo = formatAuditInfo(k.created_by, k.created_at, k.updated_by, k.updated_at);
+            if (auditInfo) {
+                row.title = auditInfo;
+            }
             const betragStyle = k.betrag < 0 ? 'color: #e74c3c;' : '';
             const isSelected = this.selectedCostIds.has(k.id);
 
@@ -2706,9 +2769,11 @@ const App = {
             const project = projects.find(p => String(p.id) === String(entry.projectId));
             const entryUser = users.find(u => String(u.id) === String(entry.userId));
             const showUserName = isAdmin && !document.getElementById('time-filter-user')?.value;
+            // Audit-Info für Tooltip
+            const auditInfo = formatAuditInfo(entry.created_by, entry.created_at, entry.updated_by, entry.updated_at);
 
             container.innerHTML += `
-                <div class="time-entry">
+                <div class="time-entry" ${auditInfo ? `title="${auditInfo}"` : ''}>
                     <div class="time-entry-hours">${entry.hours}h</div>
                     <div class="time-entry-info">
                         <div><strong>${project ? project.name : 'Unbekanntes Projekt'}</strong></div>
@@ -4214,7 +4279,9 @@ const App = {
                 }</td>
                 <td>${r.kontrolliertAm ? this.formatDate(r.kontrolliertAm) : '-'}</td>
                 <td>${r.bezahltAm ? this.formatDate(r.bezahltAm) : '-'}</td>
-                <td style="font-size: 0.75rem; color: #666;">${r.updatedAt ? this.formatDateTime(r.updatedAt) : '-'}</td>
+                <td style="font-size: 0.75rem; color: #666;" title="${formatAuditInfo(r.created_by, r.created_at, r.updated_by, r.updated_at)}">
+                    ${r.updatedAt ? `<div>${this.formatDateTime(r.updatedAt)}</div><div style="font-size: 0.65rem; color: #999;">${resolveUserName(r.updated_by || r.created_by) || ''}</div>` : '-'}
+                </td>
                 <td>${this.getAbgabestelleDropdown(r.rechnungId, r.funding_source_id, r.isSupabaseOnly, r.invoiceId)}</td>
                 <td>
                     <input type="text"
@@ -6823,6 +6890,11 @@ const App = {
             const row = document.createElement('tr');
             row.className = 'lieferant-row';
             row.style.cursor = 'pointer';
+            // Audit-Info als Tooltip
+            const auditInfo = formatAuditInfo(l.created_by, l.created_at, l.updated_by, l.updated_at);
+            if (auditInfo) {
+                row.title = auditInfo;
+            }
             row.onclick = () => this.toggleLieferantDetailsById(safeId);
             row.innerHTML = `
                 <td style="text-align: center;">
@@ -11903,6 +11975,11 @@ const App = {
 
         this.filteredMembers.forEach((m, index) => {
             const tr = document.createElement('tr');
+            // Audit-Info als Tooltip auf der Zeile
+            const auditInfo = formatAuditInfo(m.created_by, m.created_at, m.updated_by, m.updated_at);
+            if (auditInfo) {
+                tr.title = auditInfo;
+            }
 
             const paidBadge = m.isPaid
                 ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Bezahlt</span>'
