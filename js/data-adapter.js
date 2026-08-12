@@ -824,8 +824,18 @@ const SupabaseDataAdapter = {
 
     async updateInvoiceStatus(invoiceId, newStatus) {
         try {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const authResult = await SupabaseService.client.auth.getUser();
+            const currentUser = authResult.data.user;
             const now = new Date().toISOString();
+
+            // Debug: Zeige User-Info
+            console.log('🔐 updateInvoiceStatus - Auth Result:', {
+                invoiceId,
+                newStatus,
+                userId: currentUser?.id,
+                userEmail: currentUser?.email,
+                authError: authResult.error
+            });
 
             let updates = {
                 status: newStatus,
