@@ -770,6 +770,9 @@ const App = {
             case 'konfiguration':
                 await this.loadConfiguration();
                 break;
+            case 'shop':
+                await this.loadShop();
+                break;
         }
     },
 
@@ -3246,6 +3249,7 @@ const App = {
         this.renderMwstSaetze();
         this.loadSuppliers();
         await this.loadUsers();
+        await this.loadShopKategorien();
         this.loadExportTab();
     },
 
@@ -15811,6 +15815,1101 @@ const App = {
             toast.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => toast.remove(), 300);
         }, 4000);
+    },
+
+    // ==========================================
+    // SHOP & KASSE
+    // ==========================================
+
+    loadShop: async function() {
+        try {
+            // Tabs initialisieren
+            this.initShopTabs();
+
+            // Statistiken laden
+            await this.loadShopStatistiken();
+
+            // Standard-Tab laden (Inventar)
+            await this.loadShopInventar();
+
+        } catch (error) {
+            console.error('Fehler beim Laden des Shops:', error);
+            this.showToast('Fehler', 'Shop konnte nicht geladen werden', 'error');
+        }
+    },
+
+    initShopTabs: function() {
+        const tabs = document.querySelectorAll('#view-shop .tabs .tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', async (e) => {
+                const tabName = e.target.dataset.tab;
+
+                // Aktiven Tab wechseln
+                tabs.forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+
+                // Tab-Content wechseln
+                document.querySelectorAll('#view-shop .tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+
+                // Daten laden
+                switch(tabName) {
+                    case 'shop-inventar':
+                        await this.loadShopInventar();
+                        break;
+                    case 'shop-verkaeufe':
+                        await this.loadShopVerkaeufe();
+                        break;
+                    case 'shop-einkaeufe':
+                        await this.loadShopEinkaeufe();
+                        break;
+                    case 'shop-kasse':
+                        await this.loadShopKasse();
+                        break;
+                }
+            });
+        });
+    },
+
+    loadShopStatistiken: async function() {
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+            const saldo = await DataManager.berechneKassensaldo(heute);
+
+            document.getElementById('shop-stat-einnahmen-bar').textContent = this.formatCurrency(saldo.einnahmenBar);
+            document.getElementById('shop-stat-einnahmen-pos').textContent = this.formatCurrency(saldo.einnahmenPos);
+            document.getElementById('shop-stat-ausgaben').textContent = this.formatCurrency(saldo.ausgaengeBar);
+            document.getElementById('shop-stat-kassen-saldo').textContent = this.formatCurrency(saldo.saldoBar);
+        } catch (error) {
+            console.error('Fehler beim Laden der Shop-Statistiken:', error);
+        }
+    },
+
+    // ---- INVENTAR ----
+
+    loadShopInventar: async function() {
+        try {
+            const artikel = await DataManager.getShopArtikel();
+            const artikeltypen = await DataManager.getShopArtikeltypen();
+
+            // Filter-Dropdowns befüllen
+            this.populateShopArtikelFilter(artikeltypen);
+
+            // Tabelle rendern
+            this.renderShopArtikelTabelle(artikel);
+
+        } catch (error) {
+            console.error('Fehler beim Laden des Inventars:', error);
+        }
+    },
+
+    populateShopArtikelFilter: function(artikeltypen) {
+        const typFilter = document.getElementById('shop-filter-artikeltyp');
+        if (typFilter) {
+            typFilter.innerHTML = '<option value="">Alle Typen</option>';
+            artikeltypen.forEach(typ => {
+                typFilter.innerHTML += `<option value="${typ.code}">${typ.name}</option>`;
+            });
+        }
+    },
+
+    renderShopArtikelTabelle: function(artikel) {
+        const tbody = document.getElementById('shop-artikel-tbody');
+        if (!tbody) return;
+
+        if (artikel.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center text-muted" style="padding: 3rem;">
+                        Keine Artikel vorhanden. Klicken Sie auf "Neuer Artikel" oder importieren Sie Daten aus Excel.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = artikel.map(art => `
+            <tr>
+                <td><code>${art.artikelnr || '-'}</code></td>
+                <td>
+                    <strong>${art.name}</strong>
+                    ${art.autor ? `<br><small class="text-muted">${art.autor}</small>` : ''}
+                </td>
+                <td>${art.hersteller || '-'}</td>
+                <td><span class="badge badge-outline">${this.getArtikelTypLabel(art.artikeltyp)}</span></td>
+                <td>${art.standort || 'Shop'}</td>
+                <td class="text-right">${art.einkaufspreis ? this.formatCurrency(art.einkaufspreis) : '-'}</td>
+                <td class="text-right">${this.formatCurrency(art.verkaufspreis)}</td>
+                <td><span class="badge badge-outline">${this.getMwstLabel(art.mwst_satz)}</span></td>
+                <td class="text-center">
+                    <span class="${art.bestand_aktuell <= (art.bestand_min || 0) ? 'text-danger' : ''}">${art.bestand_aktuell}</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-icon btn-sm" onclick="App.editShopArtikel(${art.id})" title="Bearbeiten">
+                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                        </button>
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteShopArtikel(${art.id})" title="Löschen">
+                            <img src="icons/03-trash.svg" alt="Löschen" class="icon-sm">
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    getArtikelTypLabel: function(typ) {
+        const typen = {
+            'buch': 'Buch',
+            'katalog': 'Katalog',
+            'poster': 'Poster',
+            'objekt': 'Objekt/Gadget',
+            'schmuck': 'Schmuck',
+            'sonstiges': 'Sonstiges'
+        };
+        return typen[typ] || typ || 'Sonstiges';
+    },
+
+    getMwstLabel: function(satz) {
+        if (satz === '4' || satz === 4) return '4%';
+        if (satz === '22' || satz === 22) return '22%';
+        if (satz === 'art74') return 'Art. 74';
+        return satz || '22%';
+    },
+
+    filterShopArtikel: async function() {
+        const typFilter = document.getElementById('shop-filter-artikeltyp')?.value;
+        const standortFilter = document.getElementById('shop-filter-standort')?.value;
+        const suchtext = document.getElementById('shop-artikel-suche')?.value?.toLowerCase();
+
+        let artikel = await DataManager.getShopArtikel();
+
+        if (typFilter) {
+            artikel = artikel.filter(a => a.artikeltyp === typFilter);
+        }
+        if (standortFilter) {
+            artikel = artikel.filter(a => a.standort === standortFilter);
+        }
+        if (suchtext) {
+            artikel = artikel.filter(a =>
+                (a.name || '').toLowerCase().includes(suchtext) ||
+                (a.artikelnr || '').toLowerCase().includes(suchtext) ||
+                (a.hersteller || '').toLowerCase().includes(suchtext) ||
+                (a.autor || '').toLowerCase().includes(suchtext)
+            );
+        }
+
+        this.renderShopArtikelTabelle(artikel);
+    },
+
+    showNewShopArtikelForm: async function() {
+        document.getElementById('shop-artikel-form-title').textContent = 'Neuer Artikel';
+        document.getElementById('shop-artikel-form').reset();
+        document.getElementById('shop-artikel-id').value = '';
+
+        // Artikeltypen laden
+        const artikeltypen = await DataManager.getShopArtikeltypen();
+        const select = document.getElementById('shop-artikel-typ');
+        select.innerHTML = artikeltypen.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
+
+        // Nächste Artikelnummer generieren
+        const artikel = await DataManager.getShopArtikel();
+        const maxNr = artikel.reduce((max, a) => {
+            const match = (a.artikelnr || '').match(/SHOP-(\d+)/);
+            return match ? Math.max(max, parseInt(match[1])) : max;
+        }, 0);
+        document.getElementById('shop-artikel-nr').value = `SHOP-${String(maxNr + 1).padStart(4, '0')}`;
+
+        this.openModal('shop-artikel-form-modal');
+    },
+
+    editShopArtikel: async function(id) {
+        const artikel = await DataManager.getShopArtikelById(id);
+        if (!artikel) return;
+
+        document.getElementById('shop-artikel-form-title').textContent = 'Artikel bearbeiten';
+        document.getElementById('shop-artikel-id').value = artikel.id;
+        document.getElementById('shop-artikel-nr').value = artikel.artikelnr || '';
+        document.getElementById('shop-artikel-name').value = artikel.name || '';
+        document.getElementById('shop-artikel-beschreibung').value = artikel.beschreibung || '';
+        document.getElementById('shop-artikel-hersteller').value = artikel.hersteller || '';
+        document.getElementById('shop-artikel-autor').value = artikel.autor || '';
+        document.getElementById('shop-artikel-einkaufsjahr').value = artikel.einkaufsjahr || '';
+        document.getElementById('shop-artikel-standort').value = artikel.standort || 'Shop';
+        document.getElementById('shop-artikel-einkaufspreis').value = artikel.einkaufspreis || '';
+        document.getElementById('shop-artikel-verkaufspreis').value = artikel.verkaufspreis || '';
+        document.getElementById('shop-artikel-mwst').value = artikel.mwst_satz || '22';
+        document.getElementById('shop-artikel-bestand').value = artikel.bestand_aktuell || 0;
+        document.getElementById('shop-artikel-bestand-min').value = artikel.bestand_min || 0;
+
+        // Artikeltypen laden und setzen
+        const artikeltypen = await DataManager.getShopArtikeltypen();
+        const select = document.getElementById('shop-artikel-typ');
+        select.innerHTML = artikeltypen.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
+        select.value = artikel.artikeltyp || 'sonstiges';
+
+        this.openModal('shop-artikel-form-modal');
+    },
+
+    saveShopArtikel: async function() {
+        const id = document.getElementById('shop-artikel-id').value;
+
+        const artikelData = {
+            artikelnr: document.getElementById('shop-artikel-nr').value.trim(),
+            name: document.getElementById('shop-artikel-name').value.trim(),
+            beschreibung: document.getElementById('shop-artikel-beschreibung').value.trim(),
+            artikeltyp: document.getElementById('shop-artikel-typ').value,
+            hersteller: document.getElementById('shop-artikel-hersteller').value.trim(),
+            autor: document.getElementById('shop-artikel-autor').value.trim(),
+            einkaufsjahr: document.getElementById('shop-artikel-einkaufsjahr').value.trim(),
+            standort: document.getElementById('shop-artikel-standort').value,
+            einkaufspreis: parseFloat(document.getElementById('shop-artikel-einkaufspreis').value) || null,
+            verkaufspreis: parseFloat(document.getElementById('shop-artikel-verkaufspreis').value) || 0,
+            mwst_satz: document.getElementById('shop-artikel-mwst').value,
+            bestand_aktuell: parseInt(document.getElementById('shop-artikel-bestand').value) || 0,
+            bestand_min: parseInt(document.getElementById('shop-artikel-bestand-min').value) || 0
+        };
+
+        if (!artikelData.name || !artikelData.verkaufspreis) {
+            this.showToast('Fehler', 'Name und Verkaufspreis sind Pflichtfelder', 'error');
+            return;
+        }
+
+        if (id) {
+            artikelData.id = parseInt(id);
+        }
+
+        try {
+            await DataManager.saveShopArtikel(artikelData);
+            this.closeModal('shop-artikel-form-modal');
+            this.showToast('Erfolg', id ? 'Artikel aktualisiert' : 'Artikel erstellt', 'success');
+            await this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Artikel konnte nicht gespeichert werden', 'error');
+        }
+    },
+
+    deleteShopArtikel: async function(id) {
+        if (!confirm('Möchten Sie diesen Artikel wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteShopArtikel(id);
+            this.showToast('Erfolg', 'Artikel gelöscht', 'success');
+            await this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('Fehler', 'Artikel konnte nicht gelöscht werden', 'error');
+        }
+    },
+
+    // ---- VERKÄUFE ----
+
+    loadShopVerkaeufe: async function() {
+        try {
+            const datumFilter = document.getElementById('shop-verkaeufe-datum')?.value || new Date().toISOString().split('T')[0];
+            const verkaeufe = await DataManager.getShopVerkaeufe(datumFilter);
+
+            // Eintritt- und Mitglied-Kategorien für Dropdowns laden
+            const eintrittKat = await DataManager.getEintrittKategorien();
+            const mitgliedKat = await DataManager.getMitgliedKategorien();
+
+            this.shopEintrittKategorien = eintrittKat;
+            this.shopMitgliedKategorien = mitgliedKat;
+
+            this.renderShopVerkaeufeTabelle(verkaeufe);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Verkäufe:', error);
+        }
+    },
+
+    renderShopVerkaeufeTabelle: function(verkaeufe) {
+        const tbody = document.getElementById('shop-verkaeufe-tbody');
+        if (!tbody) return;
+
+        if (verkaeufe.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted" style="padding: 3rem;">
+                        Keine Verkäufe für diesen Tag.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = verkaeufe.map(v => {
+            let typBadge = '';
+            let beschreibung = '';
+
+            if (v.typ === 'artikel') {
+                typBadge = '<span class="badge badge-primary">Artikel</span>';
+                beschreibung = v.artikel_name || `Artikel #${v.artikel_id}`;
+            } else if (v.typ === 'eintritt') {
+                typBadge = '<span class="badge badge-success">Eintritt</span>';
+                beschreibung = this.getEintrittKategorieLabel(v.eintritt_kategorie);
+            } else if (v.typ === 'mitglied') {
+                typBadge = '<span class="badge badge-warning">Mitglied</span>';
+                beschreibung = `${this.getMitgliedKategorieLabel(v.mitglied_kategorie)}${v.mitglied_name ? ': ' + v.mitglied_name : ''}`;
+            }
+
+            const zahlungsartBadge = v.zahlungsart === 'bar'
+                ? '<span class="badge badge-outline">Bar</span>'
+                : '<span class="badge badge-info">POS</span>';
+
+            return `
+                <tr class="${v.storniert ? 'storniert' : ''}">
+                    <td>${v.uhrzeit ? v.uhrzeit.substring(0, 5) : '-'}</td>
+                    <td>${typBadge}</td>
+                    <td>${beschreibung}</td>
+                    <td class="text-center">${v.menge}</td>
+                    <td class="text-right">${this.formatCurrency(v.einzelpreis)}</td>
+                    <td class="text-right"><strong>${this.formatCurrency(v.gesamtpreis)}</strong></td>
+                    <td>${zahlungsartBadge}</td>
+                    <td>
+                        ${v.storniert
+                            ? '<span class="badge badge-danger">Storniert</span>'
+                            : `<button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${v.id})" title="Stornieren">
+                                <img src="icons/03-trash.svg" alt="Storno" class="icon-sm">
+                               </button>`
+                        }
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    getEintrittKategorieLabel: function(code) {
+        const kat = (this.shopEintrittKategorien || []).find(k => k.code === code);
+        return kat ? kat.name : code;
+    },
+
+    getMitgliedKategorieLabel: function(code) {
+        const kat = (this.shopMitgliedKategorien || []).find(k => k.code === code);
+        return kat ? kat.name : code;
+    },
+
+    showShopVerkaufForm: async function(typ) {
+        if (typ === 'artikel') {
+            // Artikel-Dropdown befüllen
+            const artikel = await DataManager.getShopArtikel();
+            const select = document.getElementById('shop-verkauf-artikel-select');
+            select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
+                artikel.filter(a => a.is_active !== false && a.bestand_aktuell > 0)
+                    .map(a => `<option value="${a.id}" data-preis="${a.verkaufspreis}" data-mwst="${a.mwst_satz}">${a.artikelnr} - ${a.name} (${a.bestand_aktuell} Stk.)</option>`)
+                    .join('');
+            this.openModal('shop-verkauf-artikel-modal');
+
+        } else if (typ === 'eintritt') {
+            const kategorien = await DataManager.getEintrittKategorien();
+            const select = document.getElementById('shop-verkauf-eintritt-kategorie');
+            select.innerHTML = kategorien.filter(k => k.is_active !== false)
+                .map(k => `<option value="${k.code}" data-preis="${k.preis}" data-mwst="${k.mwst_satz}">${k.name} (${this.formatCurrency(k.preis)})</option>`)
+                .join('');
+            document.getElementById('shop-verkauf-eintritt-menge').value = 1;
+            this.updateEintrittGesamtpreis();
+            this.openModal('shop-verkauf-eintritt-modal');
+
+        } else if (typ === 'mitglied') {
+            const kategorien = await DataManager.getMitgliedKategorien();
+            const select = document.getElementById('shop-verkauf-mitglied-kategorie');
+            select.innerHTML = kategorien.filter(k => k.is_active !== false)
+                .map(k => `<option value="${k.code}" data-betrag="${k.betrag}">${k.name} (${this.formatCurrency(k.betrag)})</option>`)
+                .join('');
+            document.getElementById('shop-verkauf-mitglied-name').value = '';
+            this.updateMitgliedBetrag();
+            this.openModal('shop-verkauf-mitglied-modal');
+        }
+    },
+
+    onShopArtikelSelect: function() {
+        const select = document.getElementById('shop-verkauf-artikel-select');
+        const option = select.options[select.selectedIndex];
+        if (option && option.value) {
+            document.getElementById('shop-verkauf-artikel-preis').value = option.dataset.preis || '';
+            document.getElementById('shop-verkauf-artikel-mwst').value = this.getMwstLabel(option.dataset.mwst);
+        }
+        this.updateArtikelGesamtpreis();
+    },
+
+    updateArtikelGesamtpreis: function() {
+        const menge = parseInt(document.getElementById('shop-verkauf-artikel-menge').value) || 1;
+        const preis = parseFloat(document.getElementById('shop-verkauf-artikel-preis').value) || 0;
+        document.getElementById('shop-verkauf-artikel-gesamt').value = this.formatCurrency(menge * preis);
+    },
+
+    updateEintrittGesamtpreis: function() {
+        const select = document.getElementById('shop-verkauf-eintritt-kategorie');
+        const option = select.options[select.selectedIndex];
+        const preis = option ? parseFloat(option.dataset.preis) || 0 : 0;
+        const menge = parseInt(document.getElementById('shop-verkauf-eintritt-menge').value) || 1;
+        document.getElementById('shop-verkauf-eintritt-gesamt').value = this.formatCurrency(menge * preis);
+    },
+
+    updateMitgliedBetrag: function() {
+        const select = document.getElementById('shop-verkauf-mitglied-kategorie');
+        const option = select.options[select.selectedIndex];
+        const betrag = option ? parseFloat(option.dataset.betrag) || 0 : 0;
+        document.getElementById('shop-verkauf-mitglied-betrag').value = this.formatCurrency(betrag);
+    },
+
+    saveShopVerkaufArtikel: async function() {
+        const artikelId = document.getElementById('shop-verkauf-artikel-select').value;
+        const menge = parseInt(document.getElementById('shop-verkauf-artikel-menge').value) || 1;
+        const einzelpreis = parseFloat(document.getElementById('shop-verkauf-artikel-preis').value) || 0;
+        const zahlungsart = document.getElementById('shop-verkauf-artikel-zahlungsart').value;
+
+        const select = document.getElementById('shop-verkauf-artikel-select');
+        const option = select.options[select.selectedIndex];
+        const mwstSatz = option?.dataset.mwst || '22';
+
+        if (!artikelId) {
+            this.showToast('Fehler', 'Bitte wählen Sie einen Artikel', 'error');
+            return;
+        }
+
+        try {
+            await DataManager.addShopVerkauf({
+                typ: 'artikel',
+                artikel_id: parseInt(artikelId),
+                menge: menge,
+                einzelpreis: einzelpreis,
+                mwst_satz: mwstSatz,
+                gesamtpreis: menge * einzelpreis,
+                zahlungsart: zahlungsart
+            });
+
+            this.closeModal('shop-verkauf-artikel-modal');
+            this.showToast('Erfolg', 'Verkauf erfasst', 'success');
+            await this.loadShopVerkaeufe();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Verkauf konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    saveShopVerkaufEintritt: async function() {
+        const select = document.getElementById('shop-verkauf-eintritt-kategorie');
+        const option = select.options[select.selectedIndex];
+        const kategorie = select.value;
+        const preis = parseFloat(option?.dataset.preis) || 0;
+        const mwstSatz = option?.dataset.mwst || '22';
+        const menge = parseInt(document.getElementById('shop-verkauf-eintritt-menge').value) || 1;
+        const zahlungsart = document.getElementById('shop-verkauf-eintritt-zahlungsart').value;
+
+        try {
+            await DataManager.addShopVerkauf({
+                typ: 'eintritt',
+                eintritt_kategorie: kategorie,
+                menge: menge,
+                einzelpreis: preis,
+                mwst_satz: mwstSatz,
+                gesamtpreis: menge * preis,
+                zahlungsart: zahlungsart
+            });
+
+            this.closeModal('shop-verkauf-eintritt-modal');
+            this.showToast('Erfolg', 'Eintritt erfasst', 'success');
+            await this.loadShopVerkaeufe();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Eintritt konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    saveShopVerkaufMitglied: async function() {
+        const select = document.getElementById('shop-verkauf-mitglied-kategorie');
+        const option = select.options[select.selectedIndex];
+        const kategorie = select.value;
+        const betrag = parseFloat(option?.dataset.betrag) || 0;
+        const name = document.getElementById('shop-verkauf-mitglied-name').value.trim();
+        const zahlungsart = document.getElementById('shop-verkauf-mitglied-zahlungsart').value;
+
+        try {
+            await DataManager.addShopVerkauf({
+                typ: 'mitglied',
+                mitglied_kategorie: kategorie,
+                mitglied_name: name,
+                menge: 1,
+                einzelpreis: betrag,
+                mwst_satz: null,
+                gesamtpreis: betrag,
+                zahlungsart: zahlungsart
+            });
+
+            this.closeModal('shop-verkauf-mitglied-modal');
+            this.showToast('Erfolg', 'Mitgliedsbeitrag erfasst', 'success');
+            await this.loadShopVerkaeufe();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Mitgliedsbeitrag konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    stornoShopVerkauf: async function(id) {
+        if (!confirm('Möchten Sie diesen Verkauf wirklich stornieren?')) return;
+
+        try {
+            await DataManager.stornoShopVerkauf(id);
+            this.showToast('Erfolg', 'Verkauf storniert', 'success');
+            await this.loadShopVerkaeufe();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler beim Stornieren:', error);
+            this.showToast('Fehler', 'Storno fehlgeschlagen', 'error');
+        }
+    },
+
+    // ---- EINKÄUFE ----
+
+    loadShopEinkaeufe: async function() {
+        try {
+            const einkaeufe = await DataManager.getShopEinkaeufe();
+            this.renderShopEinkaeufeTabelle(einkaeufe);
+        } catch (error) {
+            console.error('Fehler beim Laden der Einkäufe:', error);
+        }
+    },
+
+    renderShopEinkaeufeTabelle: function(einkaeufe) {
+        const tbody = document.getElementById('shop-einkaeufe-tbody');
+        if (!tbody) return;
+
+        if (einkaeufe.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted" style="padding: 3rem;">
+                        Keine Einkäufe vorhanden.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = einkaeufe.map(e => `
+            <tr>
+                <td>${this.formatDate(e.datum)}</td>
+                <td>${e.artikel_name || `Artikel #${e.artikel_id}`}</td>
+                <td class="text-center">${e.menge}</td>
+                <td class="text-right">${e.einzelpreis ? this.formatCurrency(e.einzelpreis) : '-'}</td>
+                <td class="text-right"><strong>${e.gesamtpreis ? this.formatCurrency(e.gesamtpreis) : '-'}</strong></td>
+                <td>${e.lieferant_name || '-'}</td>
+                <td>${e.rechnung_nr || '-'}</td>
+            </tr>
+        `).join('');
+    },
+
+    showShopEinkaufForm: async function() {
+        const artikel = await DataManager.getShopArtikel();
+        const select = document.getElementById('shop-einkauf-artikel');
+        select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
+            artikel.map(a => `<option value="${a.id}">${a.artikelnr} - ${a.name}</option>`).join('');
+
+        document.getElementById('shop-einkauf-form').reset();
+        document.getElementById('shop-einkauf-datum').value = new Date().toISOString().split('T')[0];
+
+        this.openModal('shop-einkauf-form-modal');
+    },
+
+    saveShopEinkauf: async function() {
+        const artikelId = document.getElementById('shop-einkauf-artikel').value;
+        const datum = document.getElementById('shop-einkauf-datum').value;
+        const menge = parseInt(document.getElementById('shop-einkauf-menge').value) || 0;
+        const einzelpreis = parseFloat(document.getElementById('shop-einkauf-einzelpreis').value) || null;
+        const lieferant = document.getElementById('shop-einkauf-lieferant').value.trim();
+        const rechnungNr = document.getElementById('shop-einkauf-rechnung-nr').value.trim();
+        const notizen = document.getElementById('shop-einkauf-notizen').value.trim();
+
+        if (!artikelId || !menge) {
+            this.showToast('Fehler', 'Artikel und Menge sind Pflichtfelder', 'error');
+            return;
+        }
+
+        try {
+            await DataManager.addShopEinkauf({
+                artikel_id: parseInt(artikelId),
+                datum: datum,
+                menge: menge,
+                einzelpreis: einzelpreis,
+                gesamtpreis: einzelpreis ? menge * einzelpreis : null,
+                lieferant_name: lieferant,
+                rechnung_nr: rechnungNr,
+                notizen: notizen
+            });
+
+            this.closeModal('shop-einkauf-form-modal');
+            this.showToast('Erfolg', 'Einkauf erfasst', 'success');
+            await this.loadShopEinkaeufe();
+            await this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Einkauf konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    // ---- KASSE ----
+
+    loadShopKasse: async function() {
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+            const saldo = await DataManager.berechneKassensaldo(heute);
+            const mwst = await DataManager.getMwstAufschluesselung(heute);
+            const bewegungen = await DataManager.getKassenBewegungen(heute);
+
+            // Kassen-Übersicht
+            document.getElementById('shop-kasse-anfang').textContent = this.formatCurrency(saldo.anfangsbestand);
+            document.getElementById('shop-kasse-einnahmen-bar').textContent = this.formatCurrency(saldo.einnahmenBar);
+            document.getElementById('shop-kasse-ausgaben').textContent = this.formatCurrency(saldo.ausgaengeBar);
+            document.getElementById('shop-kasse-saldo').textContent = this.formatCurrency(saldo.saldoBar);
+            document.getElementById('shop-kasse-pos').textContent = this.formatCurrency(saldo.einnahmenPos);
+
+            // MwSt-Aufschlüsselung
+            document.getElementById('shop-mwst-4').textContent = this.formatCurrency(mwst['4'] || 0);
+            document.getElementById('shop-mwst-22').textContent = this.formatCurrency(mwst['22'] || 0);
+            document.getElementById('shop-mwst-art74').textContent = this.formatCurrency(mwst['art74'] || 0);
+
+            // Bewegungen
+            this.renderKassenBewegungen(bewegungen);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Kasse:', error);
+        }
+    },
+
+    renderKassenBewegungen: function(bewegungen) {
+        const tbody = document.getElementById('shop-kassen-bewegungen-tbody');
+        if (!tbody) return;
+
+        if (bewegungen.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted">Keine Bewegungen heute</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = bewegungen.map(b => {
+            const typLabel = b.typ === 'entnahme' ? 'Entnahme' : (b.typ === 'einlage' ? 'Einlage' : 'Korrektur');
+            const typClass = b.typ === 'entnahme' ? 'badge-danger' : 'badge-success';
+            return `
+                <tr>
+                    <td>${b.uhrzeit ? b.uhrzeit.substring(0, 5) : '-'}</td>
+                    <td><span class="badge ${typClass}">${typLabel}</span></td>
+                    <td class="text-right ${b.betrag < 0 ? 'text-danger' : 'text-success'}">${this.formatCurrency(Math.abs(b.betrag))}</td>
+                    <td>${b.grund || '-'}</td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    showKassenEntnahmeForm: function() {
+        document.getElementById('shop-kassen-entnahme-form').reset();
+        this.openModal('shop-kassen-entnahme-modal');
+    },
+
+    saveKassenEntnahme: async function() {
+        const betrag = parseFloat(document.getElementById('shop-kassen-entnahme-betrag').value) || 0;
+        const grund = document.getElementById('shop-kassen-entnahme-grund').value.trim();
+
+        if (betrag <= 0) {
+            this.showToast('Fehler', 'Bitte geben Sie einen Betrag ein', 'error');
+            return;
+        }
+
+        try {
+            await DataManager.addKassenEntnahme(betrag, grund);
+            this.closeModal('shop-kassen-entnahme-modal');
+            this.showToast('Erfolg', 'Entnahme erfasst', 'success');
+            await this.loadShopKasse();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Entnahme fehlgeschlagen', 'error');
+        }
+    },
+
+    showKassenEinlageForm: function() {
+        document.getElementById('shop-kassen-einlage-form').reset();
+        this.openModal('shop-kassen-einlage-modal');
+    },
+
+    saveKassenEinlage: async function() {
+        const betrag = parseFloat(document.getElementById('shop-kassen-einlage-betrag').value) || 0;
+        const grund = document.getElementById('shop-kassen-einlage-grund').value.trim();
+
+        if (betrag <= 0) {
+            this.showToast('Fehler', 'Bitte geben Sie einen Betrag ein', 'error');
+            return;
+        }
+
+        try {
+            await DataManager.addKassenEinlage(betrag, grund);
+            this.closeModal('shop-kassen-einlage-modal');
+            this.showToast('Erfolg', 'Einlage erfasst', 'success');
+            await this.loadShopKasse();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Einlage fehlgeschlagen', 'error');
+        }
+    },
+
+    // ---- EXCEL IMPORT ----
+
+    showShopImportModal: function() {
+        document.getElementById('shop-import-file').value = '';
+        document.getElementById('shop-import-preview').innerHTML = '';
+        this.openModal('shop-import-modal');
+    },
+
+    previewShopImport: async function() {
+        const fileInput = document.getElementById('shop-import-file');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            this.showToast('Fehler', 'Bitte wählen Sie eine Excel-Datei', 'error');
+            return;
+        }
+
+        try {
+            const data = await this.readExcelFile(file);
+            this.shopImportData = data;
+
+            const preview = document.getElementById('shop-import-preview');
+            preview.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>${data.length} Artikel</strong> gefunden. Klicken Sie auf "Importieren" um die Daten zu übernehmen.
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr><th>Name</th><th>Typ</th><th>EK</th><th>VK</th><th>Bestand</th></tr>
+                        </thead>
+                        <tbody>
+                            ${data.slice(0, 20).map(d => `
+                                <tr>
+                                    <td>${d.name}</td>
+                                    <td>${d.artikeltyp}</td>
+                                    <td>${d.einkaufspreis || '-'}</td>
+                                    <td>${d.verkaufspreis || '-'}</td>
+                                    <td>${d.bestand_aktuell}</td>
+                                </tr>
+                            `).join('')}
+                            ${data.length > 20 ? `<tr><td colspan="5" class="text-center">... und ${data.length - 20} weitere</td></tr>` : ''}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Fehler beim Lesen:', error);
+            this.showToast('Fehler', 'Excel-Datei konnte nicht gelesen werden', 'error');
+        }
+    },
+
+    readExcelFile: function(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const allData = [];
+
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                        if (rows.length < 2) return;
+
+                        const headers = rows[0].map(h => String(h || '').toLowerCase().trim());
+                        const isBuchSheet = sheetName.toLowerCase().includes('büch') || headers.includes('verlag');
+
+                        for (let i = 1; i < rows.length; i++) {
+                            const row = rows[i];
+                            if (!row || row.length === 0) continue;
+
+                            let artikel = {};
+
+                            if (isBuchSheet) {
+                                // Bücher-Sheet
+                                artikel = {
+                                    name: row[headers.indexOf('titel')] || row[3] || '',
+                                    hersteller: row[headers.indexOf('verlag')] || row[0] || '',
+                                    autor: row[headers.indexOf('hrsg. / autor')] || row[1] || '',
+                                    einkaufsjahr: row[headers.indexOf('einkaufs jahr')] || row[2] || '',
+                                    bestand_aktuell: parseInt(row[headers.indexOf('menge')] || row[4]) || 0,
+                                    einkaufspreis: parseFloat(row[headers.indexOf('ek preis')] || row[5]) || null,
+                                    verkaufspreis: parseFloat(row[headers.indexOf('vk preis')] || row[6]) || 0,
+                                    standort: row[headers.indexOf('standort')] || row[7] || 'Shop',
+                                    artikeltyp: 'buch',
+                                    mwst_satz: '4'
+                                };
+                            } else {
+                                // Objekte-Sheet
+                                artikel = {
+                                    name: row[headers.indexOf('artikel')] || row[2] || '',
+                                    hersteller: row[headers.indexOf('hersteller')] || row[1] || '',
+                                    einkaufsjahr: row[headers.indexOf('jahr eingang')] || row[3] || '',
+                                    bestand_aktuell: parseInt(row[headers.indexOf('menge')] || row[0]) || 0,
+                                    einkaufspreis: parseFloat(row[headers.indexOf('ek preis')] || row[4]) || null,
+                                    verkaufspreis: 0,
+                                    standort: 'Shop',
+                                    artikeltyp: 'objekt',
+                                    mwst_satz: '22'
+                                };
+                            }
+
+                            if (artikel.name && artikel.name.trim()) {
+                                allData.push(artikel);
+                            }
+                        }
+                    });
+
+                    resolve(allData);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsBinaryString(file);
+        });
+    },
+
+    executeShopImport: async function() {
+        if (!this.shopImportData || this.shopImportData.length === 0) {
+            this.showToast('Fehler', 'Keine Daten zum Importieren', 'error');
+            return;
+        }
+
+        try {
+            const result = await DataManager.importShopArtikelFromExcel(this.shopImportData);
+            this.closeModal('shop-import-modal');
+            this.showToast('Erfolg', `${result.imported} Artikel importiert`, 'success');
+            await this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Import:', error);
+            this.showToast('Fehler', 'Import fehlgeschlagen', 'error');
+        }
+    },
+
+    // ---- SHOP KATEGORIEN (Konfiguration) ----
+
+    loadShopKategorien: async function() {
+        await Promise.all([
+            this.loadShopArtikeltypen(),
+            this.loadShopEintrittKategorien(),
+            this.loadShopMitgliedKategorien()
+        ]);
+    },
+
+    loadShopArtikeltypen: async function() {
+        const container = document.getElementById('shop-artikeltypen-list');
+        if (!container) return;
+
+        try {
+            const typen = await DataManager.getShopArtikeltypen();
+            container.innerHTML = typen.map(t => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                    <div>
+                        <strong>${t.name}</strong>
+                        <span class="text-muted" style="margin-left: 0.5rem;">(${t.code})</span>
+                    </div>
+                    ${!t.is_system ? `
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteArtikelTyp(${t.id})" title="Löschen">
+                            <img src="icons/03-trash.svg" alt="Löschen" class="icon-sm">
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Fehler:', error);
+        }
+    },
+
+    loadShopEintrittKategorien: async function() {
+        const container = document.getElementById('shop-eintritt-kategorien-list');
+        if (!container) return;
+
+        try {
+            const kategorien = await DataManager.getEintrittKategorien();
+            container.innerHTML = kategorien.map(k => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                    <div>
+                        <strong>${k.name}</strong>
+                        <span class="text-muted" style="margin-left: 0.5rem;">${this.formatCurrency(k.preis)}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                        <button class="btn btn-icon btn-sm" onclick="App.editEintrittKat(${k.id})" title="Bearbeiten">
+                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Fehler:', error);
+        }
+    },
+
+    loadShopMitgliedKategorien: async function() {
+        const container = document.getElementById('shop-mitglied-kategorien-list');
+        if (!container) return;
+
+        try {
+            const kategorien = await DataManager.getMitgliedKategorien();
+            container.innerHTML = kategorien.map(k => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                    <div>
+                        <strong>${k.name}</strong>
+                        <span class="text-muted" style="margin-left: 0.5rem;">${this.formatCurrency(k.betrag)}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                        <button class="btn btn-icon btn-sm" onclick="App.editMitgliedKat(${k.id})" title="Bearbeiten">
+                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Fehler:', error);
+        }
+    },
+
+    showNewArtikelTypForm: function() {
+        const name = prompt('Name des neuen Artikeltyps:');
+        if (!name || !name.trim()) return;
+
+        const code = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        this.saveArtikelTyp({ code, name: name.trim() });
+    },
+
+    saveArtikelTyp: async function(data) {
+        try {
+            await DataManager.saveShopArtikeltyp(data);
+            this.showToast('Erfolg', 'Artikeltyp gespeichert', 'success');
+            await this.loadShopArtikeltypen();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    deleteArtikelTyp: async function(id) {
+        if (!confirm('Diesen Artikeltyp wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteShopArtikeltyp(id);
+            this.showToast('Erfolg', 'Artikeltyp gelöscht', 'success');
+            await this.loadShopArtikeltypen();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
+        }
+    },
+
+    showNewEintrittKatForm: function() {
+        const name = prompt('Name der Eintritts-Kategorie:');
+        if (!name || !name.trim()) return;
+
+        const preis = prompt('Preis in EUR:', '0.00');
+        if (preis === null) return;
+
+        const code = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        this.saveEintrittKat({
+            code,
+            name: name.trim(),
+            preis: parseFloat(preis) || 0,
+            mwst_satz: 22,
+            is_active: true
+        });
+    },
+
+    editEintrittKat: async function(id) {
+        const kategorien = await DataManager.getEintrittKategorien();
+        const kat = kategorien.find(k => k.id === id);
+        if (!kat) return;
+
+        const name = prompt('Name:', kat.name);
+        if (!name) return;
+
+        const preis = prompt('Preis in EUR:', kat.preis);
+        if (preis === null) return;
+
+        const aktiv = confirm('Kategorie aktiv?');
+
+        await this.saveEintrittKat({
+            id,
+            code: kat.code,
+            name: name.trim(),
+            preis: parseFloat(preis) || 0,
+            mwst_satz: kat.mwst_satz || 22,
+            is_active: aktiv
+        });
+    },
+
+    saveEintrittKat: async function(data) {
+        try {
+            await DataManager.saveEintrittKategorie(data);
+            this.showToast('Erfolg', 'Kategorie gespeichert', 'success');
+            await this.loadShopEintrittKategorien();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    showNewMitgliedKatForm: function() {
+        const name = prompt('Name der Mitgliedskategorie:');
+        if (!name || !name.trim()) return;
+
+        const betrag = prompt('Jahresbeitrag in EUR:', '0.00');
+        if (betrag === null) return;
+
+        const code = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        this.saveMitgliedKat({
+            code,
+            name: name.trim(),
+            betrag: parseFloat(betrag) || 0,
+            is_active: true
+        });
+    },
+
+    editMitgliedKat: async function(id) {
+        const kategorien = await DataManager.getMitgliedKategorien();
+        const kat = kategorien.find(k => k.id === id);
+        if (!kat) return;
+
+        const name = prompt('Name:', kat.name);
+        if (!name) return;
+
+        const betrag = prompt('Jahresbeitrag in EUR:', kat.betrag);
+        if (betrag === null) return;
+
+        const aktiv = confirm('Kategorie aktiv?');
+
+        await this.saveMitgliedKat({
+            id,
+            code: kat.code,
+            name: name.trim(),
+            betrag: parseFloat(betrag) || 0,
+            is_active: aktiv
+        });
+    },
+
+    saveMitgliedKat: async function(data) {
+        try {
+            await DataManager.saveMitgliedKategorie(data);
+            this.showToast('Erfolg', 'Kategorie gespeichert', 'success');
+            await this.loadShopMitgliedKategorien();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
     }
 };
 

@@ -14,7 +14,8 @@ const KUNST_MERAN_PROJEKTE = {
     2604: { id: 2604, name: "Wanderausstellung", status: "aktiv", beschreibung: "Wanderausstellung" },
     2605: { id: 2605, name: "Konzertreihe", status: "aktiv", beschreibung: "Konzertreihe Kunsthaus" },
     2606: { id: 2606, name: "Menschenbilder", status: "aktiv", beschreibung: "Ausstellung Menschenbilder" },
-    2607: { id: 2607, name: "Rahmenprogramm", status: "aktiv", beschreibung: "Rahmenprogramm & Events" }
+    2607: { id: 2607, name: "Rahmenprogramm", status: "aktiv", beschreibung: "Rahmenprogramm & Events" },
+    2699: { id: 2699, name: "Shop", status: "aktiv", beschreibung: "Kunsthaus Shop & Kasse", istShop: true }
 };
 
 // ==========================================
@@ -61,6 +62,49 @@ const ABGABESTELLEN = {
     PROVINZ: 'provinz'
 };
 
+// ==========================================
+// SHOP-KONSTANTEN
+// ==========================================
+const SHOP_MWST_SAETZE = {
+    '4': { code: '4', label: '4%', satz: 4 },
+    '22': { code: '22', label: '22%', satz: 22 },
+    'art74': { code: 'art74', label: 'Art. 74 (Marge)', satz: 0 }
+};
+
+const SHOP_ZAHLUNGSARTEN = {
+    'bar': { code: 'bar', label: 'Bar' },
+    'pos': { code: 'pos', label: 'POS (Karte)' }
+};
+
+const SHOP_STANDORTE = {
+    'Shop': { code: 'Shop', label: 'Shop' },
+    'Bücherkeller': { code: 'Bücherkeller', label: 'Bücherkeller' }
+};
+
+const SHOP_ARTIKELTYPEN_DEFAULT = [
+    { code: 'buch', name: 'Buch', isSystem: true, sortierung: 1 },
+    { code: 'katalog', name: 'Katalog', isSystem: true, sortierung: 2 },
+    { code: 'poster', name: 'Poster', isSystem: true, sortierung: 3 },
+    { code: 'objekt', name: 'Objekt/Gadget', isSystem: true, sortierung: 4 },
+    { code: 'schmuck', name: 'Schmuck', isSystem: true, sortierung: 5 },
+    { code: 'sonstiges', name: 'Sonstiges', isSystem: true, sortierung: 99 }
+];
+
+const SHOP_EINTRITT_KATEGORIEN_DEFAULT = [
+    { code: 'erwachsen', name: 'Erwachsene', preis: 8.00, mwstSatz: 22, isActive: true, sortierung: 1 },
+    { code: 'ermaessigt', name: 'Ermäßigt', preis: 5.00, mwstSatz: 22, isActive: true, sortierung: 2 },
+    { code: 'gruppe', name: 'Gruppen (ab 10)', preis: 6.00, mwstSatz: 22, isActive: true, sortierung: 3 },
+    { code: 'fuehrung', name: 'Führung', preis: 12.00, mwstSatz: 22, isActive: true, sortierung: 4 },
+    { code: 'frei', name: 'Freier Eintritt', preis: 0.00, mwstSatz: 22, isActive: true, sortierung: 5 }
+];
+
+const SHOP_MITGLIED_KATEGORIEN_DEFAULT = [
+    { code: 'einzel', name: 'Einzelmitglied', betrag: 35.00, isActive: true, sortierung: 1 },
+    { code: 'familie', name: 'Familienmitglied', betrag: 50.00, isActive: true, sortierung: 2 },
+    { code: 'foerderer', name: 'Fördermitglied', betrag: 100.00, isActive: true, sortierung: 3 },
+    { code: 'student', name: 'Student/Schüler', betrag: 15.00, isActive: true, sortierung: 4 }
+];
+
 const DataManager = {
     // Storage Keys
     KEYS: {
@@ -84,7 +128,16 @@ const DataManager = {
         TASKS: 'km_tasks',  // Aufgaben aus Sitzungen
         // Einnahmenplanung
         EINNAHMEN: 'km_einnahmen',
-        EINNAHMEN_DOKUMENTE: 'km_einnahmen_dokumente'  // Base64-encoded Dokumente
+        EINNAHMEN_DOKUMENTE: 'km_einnahmen_dokumente',  // Base64-encoded Dokumente
+        // Shop & Kasse
+        SHOP_ARTIKEL: 'km_shop_artikel',
+        SHOP_ARTIKELTYPEN: 'km_shop_artikeltypen',
+        SHOP_EINTRITT_KAT: 'km_shop_eintritt_kategorien',
+        SHOP_MITGLIED_KAT: 'km_shop_mitglied_kategorien',
+        SHOP_VERKAEUFE: 'km_shop_verkaeufe',
+        SHOP_EINKAEUFE: 'km_shop_einkaeufe',
+        SHOP_KASSEN_BEWEGUNGEN: 'km_shop_kassen_bewegungen',
+        SHOP_KASSENABSCHLUSS: 'km_shop_kassenabschluss'
     },
 
     // Pfade
@@ -2448,6 +2501,523 @@ const DataManager = {
                 kostenNachKonto
             }
         };
+    },
+
+    // ==========================================
+    // SHOP & KASSE - FUNKTIONEN
+    // ==========================================
+
+    // --- Artikeltypen ---
+    getShopArtikeltypen: function() {
+        const stored = this.load(this.KEYS.SHOP_ARTIKELTYPEN);
+        if (stored && stored.length > 0) return stored;
+        // Default-Werte zurückgeben und speichern
+        this.save(this.KEYS.SHOP_ARTIKELTYPEN, SHOP_ARTIKELTYPEN_DEFAULT);
+        return SHOP_ARTIKELTYPEN_DEFAULT;
+    },
+
+    saveShopArtikeltyp: function(typ) {
+        const liste = this.getShopArtikeltypen();
+        if (typ.id) {
+            const idx = liste.findIndex(t => t.id === typ.id);
+            if (idx !== -1) {
+                liste[idx] = { ...liste[idx], ...typ };
+            }
+        } else {
+            typ.id = Date.now();
+            liste.push(typ);
+        }
+        this.save(this.KEYS.SHOP_ARTIKELTYPEN, liste);
+        return typ;
+    },
+
+    deleteShopArtikeltyp: function(id) {
+        let liste = this.getShopArtikeltypen();
+        liste = liste.filter(t => t.id !== id || t.isSystem);
+        this.save(this.KEYS.SHOP_ARTIKELTYPEN, liste);
+    },
+
+    // --- Eintritts-Kategorien ---
+    getEintrittKategorien: function() {
+        const stored = this.load(this.KEYS.SHOP_EINTRITT_KAT);
+        if (stored && stored.length > 0) return stored.filter(k => k.isActive !== false);
+        this.save(this.KEYS.SHOP_EINTRITT_KAT, SHOP_EINTRITT_KATEGORIEN_DEFAULT);
+        return SHOP_EINTRITT_KATEGORIEN_DEFAULT;
+    },
+
+    getAllEintrittKategorien: function() {
+        const stored = this.load(this.KEYS.SHOP_EINTRITT_KAT);
+        if (stored && stored.length > 0) return stored;
+        this.save(this.KEYS.SHOP_EINTRITT_KAT, SHOP_EINTRITT_KATEGORIEN_DEFAULT);
+        return SHOP_EINTRITT_KATEGORIEN_DEFAULT;
+    },
+
+    saveEintrittKategorie: function(kat) {
+        const liste = this.getAllEintrittKategorien();
+        if (kat.id) {
+            const idx = liste.findIndex(k => k.id === kat.id);
+            if (idx !== -1) {
+                liste[idx] = { ...liste[idx], ...kat };
+            }
+        } else {
+            kat.id = Date.now();
+            liste.push(kat);
+        }
+        this.save(this.KEYS.SHOP_EINTRITT_KAT, liste);
+        return kat;
+    },
+
+    deleteEintrittKategorie: function(id) {
+        let liste = this.getAllEintrittKategorien();
+        liste = liste.filter(k => k.id !== id);
+        this.save(this.KEYS.SHOP_EINTRITT_KAT, liste);
+    },
+
+    // --- Mitgliedsbeitrags-Kategorien ---
+    getMitgliedKategorien: function() {
+        const stored = this.load(this.KEYS.SHOP_MITGLIED_KAT);
+        if (stored && stored.length > 0) return stored.filter(k => k.isActive !== false);
+        this.save(this.KEYS.SHOP_MITGLIED_KAT, SHOP_MITGLIED_KATEGORIEN_DEFAULT);
+        return SHOP_MITGLIED_KATEGORIEN_DEFAULT;
+    },
+
+    getAllMitgliedKategorien: function() {
+        const stored = this.load(this.KEYS.SHOP_MITGLIED_KAT);
+        if (stored && stored.length > 0) return stored;
+        this.save(this.KEYS.SHOP_MITGLIED_KAT, SHOP_MITGLIED_KATEGORIEN_DEFAULT);
+        return SHOP_MITGLIED_KATEGORIEN_DEFAULT;
+    },
+
+    saveMitgliedKategorie: function(kat) {
+        const liste = this.getAllMitgliedKategorien();
+        if (kat.id) {
+            const idx = liste.findIndex(k => k.id === kat.id);
+            if (idx !== -1) {
+                liste[idx] = { ...liste[idx], ...kat };
+            }
+        } else {
+            kat.id = Date.now();
+            liste.push(kat);
+        }
+        this.save(this.KEYS.SHOP_MITGLIED_KAT, liste);
+        return kat;
+    },
+
+    deleteMitgliedKategorie: function(id) {
+        let liste = this.getAllMitgliedKategorien();
+        liste = liste.filter(k => k.id !== id);
+        this.save(this.KEYS.SHOP_MITGLIED_KAT, liste);
+    },
+
+    // --- Shop-Artikel ---
+    getShopArtikel: function() {
+        return (this.load(this.KEYS.SHOP_ARTIKEL) || []).filter(a => !a.deletedAt && a.isActive !== false);
+    },
+
+    getAllShopArtikel: function() {
+        return this.load(this.KEYS.SHOP_ARTIKEL) || [];
+    },
+
+    getShopArtikelById: function(id) {
+        return this.getAllShopArtikel().find(a => a.id === id);
+    },
+
+    saveShopArtikel: function(artikel) {
+        const liste = this.getAllShopArtikel();
+        const session = this.getSession();
+
+        if (artikel.id) {
+            const idx = liste.findIndex(a => a.id === artikel.id);
+            if (idx !== -1) {
+                liste[idx] = {
+                    ...liste[idx],
+                    ...artikel,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: session?.userId
+                };
+            }
+        } else {
+            artikel.id = Date.now();
+            // Artikelnummer generieren falls nicht vorhanden
+            if (!artikel.artikelnr) {
+                const maxNr = liste.reduce((max, a) => {
+                    const nr = parseInt(a.artikelnr?.replace(/\D/g, '') || '0');
+                    return nr > max ? nr : max;
+                }, 0);
+                artikel.artikelnr = 'SHOP-' + String(maxNr + 1).padStart(4, '0');
+            }
+            artikel.bestandAktuell = artikel.bestandAktuell || 0;
+            artikel.isActive = true;
+            artikel.createdAt = new Date().toISOString();
+            artikel.createdBy = session?.userId;
+            liste.push(artikel);
+        }
+        this.save(this.KEYS.SHOP_ARTIKEL, liste);
+        return artikel;
+    },
+
+    deleteShopArtikel: function(id) {
+        const liste = this.getAllShopArtikel();
+        const idx = liste.findIndex(a => a.id === id);
+        if (idx !== -1) {
+            liste[idx].deletedAt = new Date().toISOString();
+            liste[idx].deletedBy = this.getSession()?.userId;
+            liste[idx].isActive = false;
+            this.save(this.KEYS.SHOP_ARTIKEL, liste);
+        }
+    },
+
+    // --- Shop-Verkäufe ---
+    getShopVerkaeufe: function(datum = null) {
+        let verkaeufe = (this.load(this.KEYS.SHOP_VERKAEUFE) || []).filter(v => !v.storniert);
+        if (datum) {
+            verkaeufe = verkaeufe.filter(v => v.datum === datum);
+        }
+        return verkaeufe.sort((a, b) => {
+            const dateCompare = b.datum.localeCompare(a.datum);
+            if (dateCompare !== 0) return dateCompare;
+            return (b.uhrzeit || '').localeCompare(a.uhrzeit || '');
+        });
+    },
+
+    getAllShopVerkaeufe: function() {
+        return this.load(this.KEYS.SHOP_VERKAEUFE) || [];
+    },
+
+    addShopVerkauf: function(verkauf) {
+        const liste = this.getAllShopVerkaeufe();
+        const session = this.getSession();
+
+        verkauf.id = Date.now();
+        verkauf.datum = verkauf.datum || new Date().toISOString().split('T')[0];
+        verkauf.uhrzeit = verkauf.uhrzeit || new Date().toTimeString().split(' ')[0].substring(0, 5);
+        verkauf.gesamtpreis = (verkauf.menge || 1) * (verkauf.einzelpreis || 0);
+        verkauf.storniert = false;
+        verkauf.createdAt = new Date().toISOString();
+        verkauf.createdBy = session?.userId;
+
+        liste.push(verkauf);
+        this.save(this.KEYS.SHOP_VERKAEUFE, liste);
+
+        // Bei Artikelverkauf: Bestand reduzieren
+        if (verkauf.typ === 'artikel' && verkauf.artikelId) {
+            const artikel = this.getShopArtikelById(verkauf.artikelId);
+            if (artikel) {
+                this.saveShopArtikel({
+                    ...artikel,
+                    bestandAktuell: (artikel.bestandAktuell || 0) - (verkauf.menge || 1)
+                });
+            }
+        }
+
+        return verkauf;
+    },
+
+    stornoShopVerkauf: function(id) {
+        const liste = this.getAllShopVerkaeufe();
+        const idx = liste.findIndex(v => v.id === id);
+        if (idx !== -1) {
+            const verkauf = liste[idx];
+            verkauf.storniert = true;
+            verkauf.storniertAt = new Date().toISOString();
+            verkauf.storniertBy = this.getSession()?.userId;
+            this.save(this.KEYS.SHOP_VERKAEUFE, liste);
+
+            // Bei Artikelverkauf: Bestand zurückgeben
+            if (verkauf.typ === 'artikel' && verkauf.artikelId) {
+                const artikel = this.getShopArtikelById(verkauf.artikelId);
+                if (artikel) {
+                    this.saveShopArtikel({
+                        ...artikel,
+                        bestandAktuell: (artikel.bestandAktuell || 0) + (verkauf.menge || 1)
+                    });
+                }
+            }
+        }
+    },
+
+    // --- Shop-Einkäufe ---
+    getShopEinkaeufe: function() {
+        return (this.load(this.KEYS.SHOP_EINKAEUFE) || []).sort((a, b) => b.datum.localeCompare(a.datum));
+    },
+
+    addShopEinkauf: function(einkauf) {
+        const liste = this.getShopEinkaeufe();
+        const session = this.getSession();
+
+        einkauf.id = Date.now();
+        einkauf.datum = einkauf.datum || new Date().toISOString().split('T')[0];
+        einkauf.gesamtpreis = (einkauf.menge || 0) * (einkauf.einzelpreis || 0);
+        einkauf.createdAt = new Date().toISOString();
+        einkauf.createdBy = session?.userId;
+
+        liste.push(einkauf);
+        this.save(this.KEYS.SHOP_EINKAEUFE, liste);
+
+        // Bestand erhöhen
+        if (einkauf.artikelId) {
+            const artikel = this.getShopArtikelById(einkauf.artikelId);
+            if (artikel) {
+                this.saveShopArtikel({
+                    ...artikel,
+                    bestandAktuell: (artikel.bestandAktuell || 0) + (einkauf.menge || 0)
+                });
+            }
+        }
+
+        return einkauf;
+    },
+
+    // --- Kassen-Bewegungen ---
+    getKassenBewegungen: function(datum = null) {
+        let bewegungen = (this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || []).filter(b => !b.storniert);
+        if (datum) {
+            bewegungen = bewegungen.filter(b => b.datum === datum);
+        }
+        return bewegungen.sort((a, b) => {
+            const dateCompare = b.datum.localeCompare(a.datum);
+            if (dateCompare !== 0) return dateCompare;
+            return (b.uhrzeit || '').localeCompare(a.uhrzeit || '');
+        });
+    },
+
+    addKassenBewegung: function(bewegung) {
+        const liste = this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
+        const session = this.getSession();
+
+        bewegung.id = Date.now();
+        bewegung.datum = bewegung.datum || new Date().toISOString().split('T')[0];
+        bewegung.uhrzeit = bewegung.uhrzeit || new Date().toTimeString().split(' ')[0].substring(0, 5);
+        bewegung.storniert = false;
+        bewegung.createdAt = new Date().toISOString();
+        bewegung.createdBy = session?.userId;
+
+        liste.push(bewegung);
+        this.save(this.KEYS.SHOP_KASSEN_BEWEGUNGEN, liste);
+        return bewegung;
+    },
+
+    addKassenEntnahme: function(betrag, grund) {
+        return this.addKassenBewegung({
+            typ: 'entnahme',
+            betrag: -Math.abs(betrag),
+            grund: grund
+        });
+    },
+
+    addKassenEinlage: function(betrag, grund) {
+        return this.addKassenBewegung({
+            typ: 'einlage',
+            betrag: Math.abs(betrag),
+            grund: grund
+        });
+    },
+
+    stornoKassenBewegung: function(id) {
+        const liste = this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
+        const idx = liste.findIndex(b => b.id === id);
+        if (idx !== -1) {
+            liste[idx].storniert = true;
+            liste[idx].storniertAt = new Date().toISOString();
+            liste[idx].storniertBy = this.getSession()?.userId;
+            this.save(this.KEYS.SHOP_KASSEN_BEWEGUNGEN, liste);
+        }
+    },
+
+    // --- Kassenabschluss ---
+    getKassenabschluss: function(datum) {
+        const liste = this.load(this.KEYS.SHOP_KASSENABSCHLUSS) || [];
+        return liste.find(k => k.datum === datum);
+    },
+
+    getLetzterKassenabschluss: function() {
+        const liste = this.load(this.KEYS.SHOP_KASSENABSCHLUSS) || [];
+        if (liste.length === 0) return null;
+        return liste.sort((a, b) => b.datum.localeCompare(a.datum))[0];
+    },
+
+    berechneKassensaldo: function(datum) {
+        const heute = datum || new Date().toISOString().split('T')[0];
+
+        // Letzten Kassenabschluss finden
+        const letzterAbschluss = this.getLetzterKassenabschluss();
+        let anfangsbestand = 0;
+
+        if (letzterAbschluss && letzterAbschluss.datum < heute) {
+            anfangsbestand = letzterAbschluss.endbestandBarIst || letzterAbschluss.endbestandBarSoll || 0;
+        }
+
+        // Verkäufe für heute
+        const verkaeufe = this.getShopVerkaeufe(heute);
+        const einnahmenBar = verkaeufe.filter(v => v.zahlungsart === 'bar')
+                                      .reduce((sum, v) => sum + (v.gesamtpreis || 0), 0);
+        const einnahmenPos = verkaeufe.filter(v => v.zahlungsart === 'pos')
+                                      .reduce((sum, v) => sum + (v.gesamtpreis || 0), 0);
+
+        // Kassen-Bewegungen für heute
+        const bewegungen = this.getKassenBewegungen(heute);
+        const ausgaengeBar = bewegungen.filter(b => b.betrag < 0)
+                                       .reduce((sum, b) => sum + Math.abs(b.betrag), 0);
+        const einlagenBar = bewegungen.filter(b => b.betrag > 0)
+                                      .reduce((sum, b) => sum + b.betrag, 0);
+
+        const endbestandBarSoll = anfangsbestand + einnahmenBar + einlagenBar - ausgaengeBar;
+
+        return {
+            datum: heute,
+            anfangsbestandBar: anfangsbestand,
+            einnahmenBar,
+            einnahmenPos,
+            einnahmenGesamt: einnahmenBar + einnahmenPos,
+            ausgaengeBar,
+            einlagenBar,
+            endbestandBarSoll,
+            anzahlVerkaeufe: verkaeufe.length
+        };
+    },
+
+    erstelleKassenabschluss: function(datum, istBestand, notizen = '') {
+        const saldo = this.berechneKassensaldo(datum);
+        const session = this.getSession();
+
+        const abschluss = {
+            id: Date.now(),
+            datum: datum,
+            anfangsbestandBar: saldo.anfangsbestandBar,
+            einnahmenBar: saldo.einnahmenBar,
+            einnahmenPos: saldo.einnahmenPos,
+            einnahmenGesamt: saldo.einnahmenGesamt,
+            ausgaengeBar: saldo.ausgaengeBar,
+            endbestandBarSoll: saldo.endbestandBarSoll,
+            endbestandBarIst: istBestand,
+            differenz: istBestand - saldo.endbestandBarSoll,
+            anzahlVerkaeufe: saldo.anzahlVerkaeufe,
+            kassiertVon: session?.userId,
+            notizen: notizen,
+            abgeschlossen: true,
+            abgeschlossenAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+        };
+
+        const liste = this.load(this.KEYS.SHOP_KASSENABSCHLUSS) || [];
+        // Existierenden Abschluss für diesen Tag ersetzen
+        const idx = liste.findIndex(k => k.datum === datum);
+        if (idx !== -1) {
+            liste[idx] = abschluss;
+        } else {
+            liste.push(abschluss);
+        }
+        this.save(this.KEYS.SHOP_KASSENABSCHLUSS, liste);
+
+        return abschluss;
+    },
+
+    // --- Shop-Statistiken ---
+    getShopStatistiken: function(jahr = null) {
+        const aktuellesJahr = jahr || new Date().getFullYear();
+        const heute = new Date().toISOString().split('T')[0];
+
+        const artikel = this.getShopArtikel();
+        const verkaeufe = this.getAllShopVerkaeufe().filter(v => !v.storniert && v.datum?.startsWith(String(aktuellesJahr)));
+        const einkaeufe = this.getShopEinkaeufe().filter(e => e.datum?.startsWith(String(aktuellesJahr)));
+        const verkaufeHeute = verkaeufe.filter(v => v.datum === heute);
+
+        return {
+            artikelGesamt: artikel.length,
+            artikelMitBestand: artikel.filter(a => (a.bestandAktuell || 0) > 0).length,
+            artikelNiedrigBestand: artikel.filter(a => (a.bestandAktuell || 0) <= (a.bestandMin || 0)).length,
+            bestandWert: artikel.reduce((sum, a) => sum + ((a.bestandAktuell || 0) * (a.verkaufspreis || 0)), 0),
+
+            einnahmenBarHeute: verkaufeHeute.filter(v => v.zahlungsart === 'bar').reduce((sum, v) => sum + (v.gesamtpreis || 0), 0),
+            einnahmenPosHeute: verkaufeHeute.filter(v => v.zahlungsart === 'pos').reduce((sum, v) => sum + (v.gesamtpreis || 0), 0),
+            verkaufeHeute: verkaufeHeute.length,
+
+            einnahmenBarJahr: verkaeufe.filter(v => v.zahlungsart === 'bar').reduce((sum, v) => sum + (v.gesamtpreis || 0), 0),
+            einnahmenPosJahr: verkaeufe.filter(v => v.zahlungsart === 'pos').reduce((sum, v) => sum + (v.gesamtpreis || 0), 0),
+            einnahmenGesamt: verkaeufe.reduce((sum, v) => sum + (v.gesamtpreis || 0), 0),
+
+            ausgabenJahr: einkaeufe.reduce((sum, e) => sum + (e.gesamtpreis || 0), 0),
+
+            verkaufeNachTyp: {
+                artikel: verkaeufe.filter(v => v.typ === 'artikel').length,
+                eintritt: verkaeufe.filter(v => v.typ === 'eintritt').length,
+                mitglied: verkaeufe.filter(v => v.typ === 'mitglied').length
+            }
+        };
+    },
+
+    // --- MwSt-Aufschlüsselung ---
+    getMwstAufschluesselung: function(datum) {
+        const verkaeufe = this.getShopVerkaeufe(datum);
+
+        const aufschluesselung = {
+            '4': { brutto: 0, netto: 0, mwst: 0 },
+            '22': { brutto: 0, netto: 0, mwst: 0 },
+            'art74': { brutto: 0, netto: 0, mwst: 0 },
+            'keine': { brutto: 0, netto: 0, mwst: 0 }  // Für Mitgliedsbeiträge
+        };
+
+        verkaeufe.forEach(v => {
+            const brutto = v.gesamtpreis || 0;
+            const satz = v.mwstSatz || 'keine';
+
+            if (satz === 'art74' || satz === 'keine') {
+                aufschluesselung[satz].brutto += brutto;
+                aufschluesselung[satz].netto += brutto;
+            } else {
+                const mwstProzent = parseFloat(satz) / 100;
+                const netto = brutto / (1 + mwstProzent);
+                const mwst = brutto - netto;
+
+                aufschluesselung[satz].brutto += brutto;
+                aufschluesselung[satz].netto += netto;
+                aufschluesselung[satz].mwst += mwst;
+            }
+        });
+
+        return aufschluesselung;
+    },
+
+    // --- Excel-Import für Artikel ---
+    importShopArtikelFromExcel: function(excelData, artikeltyp = 'buch') {
+        const session = this.getSession();
+        const liste = this.getAllShopArtikel();
+        let importiert = 0;
+        let aktualisiert = 0;
+
+        excelData.forEach(row => {
+            // Artikelname ermitteln (verschiedene mögliche Spaltennamen)
+            const name = row['Titel'] || row['Artikel'] || row['Name'] || row['Bezeichnung'];
+            if (!name) return;
+
+            // Bestehenden Artikel suchen (nach Name)
+            const existierend = liste.find(a => a.name === name && !a.deletedAt);
+
+            const artikelDaten = {
+                name: name,
+                artikeltyp: artikeltyp,
+                hersteller: row['Verlag'] || row['Hersteller'] || '',
+                autor: row['Hrsg. / Autor'] || row['Hrsg. / Autor*innen'] || row['Autor'] || '',
+                einkaufsjahr: String(row['Einkaufs Jahr'] || row['Jahr Eingang'] || row['Jahr'] || ''),
+                standort: row['Standort'] || 'Shop',
+                einkaufspreis: parseFloat(row['EK Preis'] || row['Einkaufspreis'] || 0) || 0,
+                verkaufspreis: parseFloat(row['VK Preis'] || row['Verkaufspreis'] || row['EK Preis'] || 0) || 0,
+                bestandAktuell: parseInt(row['Menge'] || row['Bestand'] || 0) || 0,
+                mwstSatz: artikeltyp === 'buch' ? '4' : '22'
+            };
+
+            if (existierend) {
+                // Aktualisieren
+                this.saveShopArtikel({ ...existierend, ...artikelDaten });
+                aktualisiert++;
+            } else {
+                // Neu anlegen
+                this.saveShopArtikel(artikelDaten);
+                importiert++;
+            }
+        });
+
+        return { importiert, aktualisiert };
     }
 };
 

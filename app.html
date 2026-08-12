@@ -371,6 +371,10 @@
                     <img src="icons/30-inventory.svg" alt="" class="icon">
                     <span>Inventar</span>
                 </a>
+                <a href="#" class="nav-item" data-view="shop">
+                    <img src="icons/31-shop.svg" alt="" class="icon">
+                    <span>Shop</span>
+                </a>
                 <a href="#" class="nav-item" data-view="reporting">
                     <img src="icons/06-trend.svg" alt="" class="icon">
                     <span>Reporting</span>
@@ -1165,6 +1169,264 @@
                                 <!-- Wird dynamisch geladen -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== SHOP & KASSE ==================== -->
+            <div id="view-shop" class="view-content hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Shop & Kasse</h1>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('artikel')">+ Artikel verkaufen</button>
+                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('eintritt')">+ Eintritt</button>
+                        <button class="btn btn-primary" onclick="App.showShopVerkaufForm('mitglied')">+ Mitgliedsbeitrag</button>
+                    </div>
+                </div>
+
+                <!-- Statistik-Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card success">
+                        <div class="stat-value" id="shop-stat-einnahmen-bar">0 EUR</div>
+                        <div class="stat-label">Einnahmen Bar (heute)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="shop-stat-einnahmen-pos">0 EUR</div>
+                        <div class="stat-label">Einnahmen POS (heute)</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="shop-stat-kassen-saldo">0 EUR</div>
+                        <div class="stat-label">Kassensaldo Bar</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="shop-stat-artikel">0</div>
+                        <div class="stat-label">Artikel im Bestand</div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs" id="shop-tabs">
+                    <div class="tab active" data-tab="shop-inventar">Inventar</div>
+                    <div class="tab" data-tab="shop-verkaeufe">Verkäufe</div>
+                    <div class="tab" data-tab="shop-einkaeufe">Einkäufe</div>
+                    <div class="tab" data-tab="shop-kasse">Kasse</div>
+                </div>
+
+                <!-- Tab: Inventar -->
+                <div id="tab-shop-inventar" class="tab-content active">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Artikelbestand</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <select id="shop-filter-typ" class="form-control" style="width: 150px;" onchange="App.filterShopArtikel()">
+                                    <option value="">Alle Typen</option>
+                                    <option value="buch">Buch</option>
+                                    <option value="katalog">Katalog</option>
+                                    <option value="objekt">Objekt/Gadget</option>
+                                    <option value="poster">Poster</option>
+                                    <option value="schmuck">Schmuck</option>
+                                    <option value="sonstiges">Sonstiges</option>
+                                </select>
+                                <select id="shop-filter-standort" class="form-control" style="width: 150px;" onchange="App.filterShopArtikel()">
+                                    <option value="">Alle Standorte</option>
+                                    <option value="Shop">Shop</option>
+                                    <option value="Bücherkeller">Bücherkeller</option>
+                                </select>
+                                <input type="text" id="shop-suche" class="form-control" placeholder="Suche..." style="width: 200px;" oninput="App.filterShopArtikel()">
+                                <button class="btn btn-outline btn-sm" onclick="App.showShopImportModal()">Excel Import</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewShopArtikelForm()">+ Neuer Artikel</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Art.-Nr.</th>
+                                        <th>Bezeichnung</th>
+                                        <th>Typ</th>
+                                        <th>Standort</th>
+                                        <th style="text-align: right;">VK</th>
+                                        <th style="text-align: right;">MwSt</th>
+                                        <th style="text-align: center;">Bestand</th>
+                                        <th style="text-align: right;">Wert</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shop-artikel-table-body">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Verkäufe -->
+                <div id="tab-shop-verkaeufe" class="tab-content">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Verkäufe & Einnahmen</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="date" id="shop-verkaeufe-datum" class="form-control" style="width: 150px;" onchange="App.loadShopVerkaeufe()">
+                                <select id="shop-verkaeufe-typ" class="form-control" style="width: 130px;" onchange="App.loadShopVerkaeufe()">
+                                    <option value="">Alle Typen</option>
+                                    <option value="artikel">Artikel</option>
+                                    <option value="eintritt">Eintritt</option>
+                                    <option value="mitglied">Mitglied</option>
+                                </select>
+                                <select id="shop-verkaeufe-zahlung" class="form-control" style="width: 100px;" onchange="App.loadShopVerkaeufe()">
+                                    <option value="">Alle</option>
+                                    <option value="bar">Bar</option>
+                                    <option value="pos">POS</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Zeit</th>
+                                        <th>Typ</th>
+                                        <th>Beschreibung</th>
+                                        <th style="text-align: center;">Menge</th>
+                                        <th style="text-align: right;">Einzelpreis</th>
+                                        <th style="text-align: right;">Gesamt</th>
+                                        <th>MwSt</th>
+                                        <th>Zahlung</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shop-verkaeufe-table-body">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Einkäufe -->
+                <div id="tab-shop-einkaeufe" class="tab-content">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Wareneinkäufe</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showShopEinkaufForm()">+ Einkauf erfassen</button>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Artikel</th>
+                                        <th style="text-align: center;">Menge</th>
+                                        <th style="text-align: right;">Einzelpreis</th>
+                                        <th style="text-align: right;">Gesamt</th>
+                                        <th>Lieferant</th>
+                                        <th>Rechnung</th>
+                                        <th>Notizen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shop-einkaeufe-table-body">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Kasse -->
+                <div id="tab-shop-kasse" class="tab-content">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Kassenführung</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="date" id="shop-kasse-datum" class="form-control" style="width: 150px;" onchange="App.loadKasse()">
+                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEntnahmeForm()">- Entnahme</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEinlageForm()">+ Einlage</button>
+                            </div>
+                        </div>
+
+                        <!-- Kassen-Übersicht -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem;">
+                            <div class="kassen-uebersicht" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                                <h4 style="margin: 0 0 1rem 0;">Kassensaldo</h4>
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                                    <span>Anfangsbestand Bar:</span>
+                                    <span id="kasse-anfang">0,00 EUR</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--success-color);">
+                                    <span>+ Einnahmen Bar:</span>
+                                    <span id="kasse-einnahmen-bar">0,00 EUR</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--success-color);">
+                                    <span>+ Einlagen Bar:</span>
+                                    <span id="kasse-einlagen">0,00 EUR</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--warning-color);">
+                                    <span>- Entnahmen Bar:</span>
+                                    <span id="kasse-ausgaenge">0,00 EUR</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; font-weight: bold; font-size: 1.1rem;">
+                                    <span>= Kassensaldo (Soll):</span>
+                                    <span id="kasse-saldo-soll">0,00 EUR</span>
+                                </div>
+                                <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                                    <span>Einnahmen POS (Karte):</span>
+                                    <span id="kasse-einnahmen-pos">0,00 EUR</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; font-weight: bold;">
+                                    <span>Gesamteinnahmen:</span>
+                                    <span id="kasse-gesamt">0,00 EUR</span>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                                <h4 style="margin: 0 0 1rem 0;">MwSt-Aufschlüsselung</h4>
+                                <table style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Satz</th>
+                                            <th style="text-align: right;">Netto</th>
+                                            <th style="text-align: right;">MwSt</th>
+                                            <th style="text-align: right;">Brutto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="kasse-mwst-table">
+                                        <!-- Dynamisch geladen -->
+                                    </tbody>
+                                </table>
+
+                                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                                    <h4 style="margin: 0 0 0.5rem 0;">Kassenabschluss</h4>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <label style="white-space: nowrap;">Gezählter Bestand:</label>
+                                        <input type="number" id="kasse-ist-bestand" class="form-control" step="0.01" style="width: 120px;">
+                                        <span>EUR</span>
+                                        <button class="btn btn-primary btn-sm" onclick="App.erstelleKassenabschluss()">Abschließen</button>
+                                    </div>
+                                    <div id="kasse-differenz" style="margin-top: 0.5rem; display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Kassen-Bewegungen -->
+                        <div style="padding: 1rem;">
+                            <h4>Kassen-Bewegungen (heute)</h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Zeit</th>
+                                        <th>Typ</th>
+                                        <th style="text-align: right;">Betrag</th>
+                                        <th>Grund</th>
+                                        <th>Von</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kasse-bewegungen-table">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2002,6 +2264,7 @@
                     <div class="tab" data-tab="mwst-saetze">MwSt-Sätze</div>
                     <div class="tab" data-tab="workspaces">Workspaces</div>
                     <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
+                    <div class="tab" data-tab="shop-kategorien">Shop</div>
                     <div class="tab" data-tab="export">Datenexport</div>
                 </div>
 
@@ -2180,6 +2443,61 @@
                         </p>
                         <div id="users-list">
                             <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shop-Kategorien Tab -->
+                <div id="tab-shop-kategorien" class="tab-content">
+                    <div class="grid-2">
+                        <!-- Artikeltypen -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Artikeltypen</h3>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewArtikelTypForm()">+ Neu</button>
+                            </div>
+                            <div id="shop-artikeltypen-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                        </div>
+
+                        <!-- Eintritts-Kategorien -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Eintritts-Kategorien</h3>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewEintrittKatForm()">+ Neu</button>
+                            </div>
+                            <div id="shop-eintritt-kategorien-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                        </div>
+
+                        <!-- Mitglieds-Kategorien -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Mitgliedsbeitrags-Kategorien</h3>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewMitgliedKatForm()">+ Neu</button>
+                            </div>
+                            <div id="shop-mitglied-kategorien-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                        </div>
+
+                        <!-- MwSt-Sätze Info -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">MwSt-Sätze (Shop)</h3>
+                            </div>
+                            <div style="padding: 1rem;">
+                                <p style="margin-bottom: 0.5rem; color: #666; font-size: 0.875rem;">
+                                    Verfügbare MwSt-Sätze für Shop-Artikel:
+                                </p>
+                                <ul style="margin: 0; padding-left: 1.5rem; color: #333;">
+                                    <li><strong>4%</strong> - Bücher, Zeitschriften</li>
+                                    <li><strong>22%</strong> - Standardsatz für Waren</li>
+                                    <li><strong>Art. 74</strong> - Gebrauchtartikel (Differenzbesteuerung)</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4235,6 +4553,374 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="App.exportKontoBuchungenCsv()">CSV Export</button>
                 <button class="btn btn-outline" onclick="App.hideModal('konto-buchungen-modal')">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SHOP MODALS ==================== -->
+
+    <!-- Shop: Artikel-Formular Modal -->
+    <div id="shop-artikel-form-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="shop-artikel-modal-title">Neuer Artikel</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-artikel-form-modal')">&times;</button>
+            </div>
+            <form id="shop-artikel-form" onsubmit="App.saveShopArtikel(event)">
+                <input type="hidden" id="shop-artikel-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Artikel-Nr.</label>
+                            <input type="text" id="shop-artikel-nr" class="form-control" placeholder="wird automatisch vergeben">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Artikeltyp *</label>
+                            <select id="shop-artikel-typ" class="form-control" required>
+                                <option value="">-- Auswählen --</option>
+                                <option value="buch">Buch</option>
+                                <option value="katalog">Katalog</option>
+                                <option value="poster">Poster</option>
+                                <option value="objekt">Objekt/Gadget</option>
+                                <option value="schmuck">Schmuck</option>
+                                <option value="sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bezeichnung *</label>
+                        <input type="text" id="shop-artikel-name" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Hersteller / Verlag</label>
+                            <input type="text" id="shop-artikel-hersteller" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Autor / Hrsg.</label>
+                            <input type="text" id="shop-artikel-autor" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Standort</label>
+                            <select id="shop-artikel-standort" class="form-control">
+                                <option value="Shop">Shop</option>
+                                <option value="Bücherkeller">Bücherkeller</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Einkaufsjahr</label>
+                            <input type="text" id="shop-artikel-einkaufsjahr" class="form-control" placeholder="z.B. 2025">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Einkaufspreis (EUR)</label>
+                            <input type="number" id="shop-artikel-ek" class="form-control" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Verkaufspreis (EUR) *</label>
+                            <input type="number" id="shop-artikel-vk" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">MwSt-Satz *</label>
+                            <select id="shop-artikel-mwst" class="form-control" required>
+                                <option value="4">4% (Bücher)</option>
+                                <option value="22">22% (Standard)</option>
+                                <option value="art74">Art. 74 (Marge)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aktueller Bestand</label>
+                            <input type="number" id="shop-artikel-bestand" class="form-control" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="shop-artikel-beschreibung" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-artikel-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Verkauf-Artikel Modal -->
+    <div id="shop-verkauf-artikel-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Artikel verkaufen</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-verkauf-artikel-modal')">&times;</button>
+            </div>
+            <form id="shop-verkauf-artikel-form" onsubmit="App.saveShopVerkaufArtikel(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Artikel *</label>
+                        <select id="shop-verkauf-artikel-select" class="form-control" required onchange="App.onShopArtikelSelect()">
+                            <option value="">-- Artikel auswählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Menge *</label>
+                            <input type="number" id="shop-verkauf-artikel-menge" class="form-control" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Einzelpreis (EUR) *</label>
+                            <input type="number" id="shop-verkauf-artikel-preis" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Zahlungsart *</label>
+                            <select id="shop-verkauf-artikel-zahlung" class="form-control" required>
+                                <option value="bar">Bar</option>
+                                <option value="pos">POS (Karte)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">MwSt</label>
+                            <input type="text" id="shop-verkauf-artikel-mwst" class="form-control" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <input type="text" id="shop-verkauf-artikel-notizen" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-artikel-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Verkauf speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Verkauf-Eintritt Modal -->
+    <div id="shop-verkauf-eintritt-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Eintritt verkaufen</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-verkauf-eintritt-modal')">&times;</button>
+            </div>
+            <form id="shop-verkauf-eintritt-form" onsubmit="App.saveShopVerkaufEintritt(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Kategorie *</label>
+                        <select id="shop-verkauf-eintritt-kat" class="form-control" required onchange="App.onEintrittKatSelect()">
+                            <option value="">-- Kategorie auswählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Anzahl *</label>
+                            <input type="number" id="shop-verkauf-eintritt-menge" class="form-control" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Preis pro Person (EUR) *</label>
+                            <input type="number" id="shop-verkauf-eintritt-preis" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Zahlungsart *</label>
+                        <select id="shop-verkauf-eintritt-zahlung" class="form-control" required>
+                            <option value="bar">Bar</option>
+                            <option value="pos">POS (Karte)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <input type="text" id="shop-verkauf-eintritt-notizen" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-eintritt-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Eintritt speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Verkauf-Mitglied Modal -->
+    <div id="shop-verkauf-mitglied-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Mitgliedsbeitrag erfassen</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-verkauf-mitglied-modal')">&times;</button>
+            </div>
+            <form id="shop-verkauf-mitglied-form" onsubmit="App.saveShopVerkaufMitglied(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Mitgliedskategorie *</label>
+                        <select id="shop-verkauf-mitglied-kat" class="form-control" required onchange="App.onMitgliedKatSelect()">
+                            <option value="">-- Kategorie auswählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Name des Mitglieds</label>
+                        <input type="text" id="shop-verkauf-mitglied-name" class="form-control" placeholder="Optional">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Betrag (EUR) *</label>
+                            <input type="number" id="shop-verkauf-mitglied-betrag" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Zahlungsart *</label>
+                            <select id="shop-verkauf-mitglied-zahlung" class="form-control" required>
+                                <option value="bar">Bar</option>
+                                <option value="pos">POS (Karte)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <input type="text" id="shop-verkauf-mitglied-notizen" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-verkauf-mitglied-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Beitrag speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Einkauf Modal -->
+    <div id="shop-einkauf-form-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Einkauf erfassen</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-einkauf-form-modal')">&times;</button>
+            </div>
+            <form id="shop-einkauf-form" onsubmit="App.saveShopEinkauf(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Artikel *</label>
+                        <select id="shop-einkauf-artikel" class="form-control" required>
+                            <option value="">-- Artikel auswählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Menge *</label>
+                            <input type="number" id="shop-einkauf-menge" class="form-control" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Einkaufspreis (EUR) *</label>
+                            <input type="number" id="shop-einkauf-preis" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Datum *</label>
+                        <input type="date" id="shop-einkauf-datum" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lieferant</label>
+                        <input type="text" id="shop-einkauf-lieferant" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rechnungsnummer</label>
+                        <input type="text" id="shop-einkauf-rechnung" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="shop-einkauf-notizen" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-einkauf-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Einkauf speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Kassen-Entnahme Modal -->
+    <div id="shop-kassen-entnahme-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Barentnahme</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-kassen-entnahme-modal')">&times;</button>
+            </div>
+            <form id="shop-kassen-entnahme-form" onsubmit="App.saveKassenEntnahme(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Betrag (EUR) *</label>
+                        <input type="number" id="shop-entnahme-betrag" class="form-control" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Grund *</label>
+                        <input type="text" id="shop-entnahme-grund" class="form-control" required placeholder="z.B. Wechselgeld, Barentnahme">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-kassen-entnahme-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Entnahme speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Kassen-Einlage Modal -->
+    <div id="shop-kassen-einlage-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Bareinlage</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-kassen-einlage-modal')">&times;</button>
+            </div>
+            <form id="shop-kassen-einlage-form" onsubmit="App.saveKassenEinlage(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Betrag (EUR) *</label>
+                        <input type="number" id="shop-einlage-betrag" class="form-control" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Grund *</label>
+                        <input type="text" id="shop-einlage-grund" class="form-control" required placeholder="z.B. Wechselgeld, Anfangsbestand">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-kassen-einlage-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Einlage speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop: Excel-Import Modal -->
+    <div id="shop-import-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Shop-Artikel importieren</h2>
+                <button class="modal-close" onclick="App.hideModal('shop-import-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem;">Importiere Artikel aus einer Excel-Datei (Shopinventar).</p>
+                <div class="form-group">
+                    <label class="form-label">Artikeltyp für Import</label>
+                    <select id="shop-import-typ" class="form-control">
+                        <option value="buch">Bücher (4% MwSt)</option>
+                        <option value="objekt">Objekte/Gadgets (22% MwSt)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Excel-Datei auswählen</label>
+                    <input type="file" id="shop-import-file" class="form-control" accept=".xlsx,.xls">
+                </div>
+                <div id="shop-import-preview" style="margin-top: 1rem; max-height: 200px; overflow-y: auto; display: none;">
+                    <!-- Preview wird hier eingefügt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('shop-import-modal')">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="App.executeShopImport()">Importieren</button>
             </div>
         </div>
     </div>
