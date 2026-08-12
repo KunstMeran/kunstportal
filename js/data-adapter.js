@@ -1077,7 +1077,12 @@ const SupabaseDataAdapter = {
                             fileName: inv.file_name,
                             uploadedAt: inv.created_at
                         })),
-                        pdfCount: matchingInvoices.length
+                        pdfCount: matchingInvoices.length,
+                        // Audit-Felder: Invoice hat Priorität (da dort Status-Updates erfolgen)
+                        updated_at: firstInvoice.updated_at || buchung.updated_at,
+                        updated_by: firstInvoice.updated_by || buchung.updated_by,
+                        created_at: buchung.created_at || firstInvoice.created_at,
+                        created_by: buchung.created_by || firstInvoice.created_by
                     };
                 }
 
