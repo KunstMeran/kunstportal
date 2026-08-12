@@ -13627,10 +13627,10 @@ const App = {
         const year = document.getElementById('members-filter-year')?.value || new Date().getFullYear();
 
         let csv = '\uFEFF'; // BOM für Excel
-        csv += 'Nachname;Vorname;Geschlecht;Anschrift;PLZ;Ort;E-Mail;Telefon;Geburtsjahr;Steuernummer;Beitrag;Spende;Beitrittsdatum;Zahlungsart;Bezahlt;Zahlungsdatum;Notizen\n';
+        csv += 'Nachname;Vorname;Geschlecht;Anschrift;PLZ;Ort;E-Mail;Telefon;Geburtsdatum;Steuernummer;Beitrag;Spende;Beitrittsdatum;Zahlungsart;Bezahlt;Zahlungsdatum;Notizen\n';
 
         this.filteredMembers.forEach(m => {
-            csv += `"${m.last_name}";"${m.first_name || ''}";"${m.gender || ''}";"${m.address || ''}";"${m.postal_code || ''}";"${m.city || ''}";"${m.email || ''}";"${m.phone || ''}";"${m.birth_year || ''}";"${m.tax_number || ''}";"${m.membership_fee || 0}";"${m.donation || 0}";"${m.join_date || ''}";"${m.payment_method || ''}";"${m.isPaid ? 'Ja' : 'Nein'}";"${m.payment?.payment_date || ''}";"${m.notes || ''}"\n`;
+            csv += `"${m.last_name}";"${m.first_name || ''}";"${m.gender || ''}";"${m.address || ''}";"${m.postal_code || ''}";"${m.city || ''}";"${m.email || ''}";"${m.phone || ''}";"${m.birth_date || ''}";"${m.tax_number || ''}";"${m.membership_fee || 0}";"${m.donation || 0}";"${m.join_date || ''}";"${m.payment_method || ''}";"${m.isPaid ? 'Ja' : 'Nein'}";"${m.payment?.payment_date || ''}";"${m.notes || ''}"\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
