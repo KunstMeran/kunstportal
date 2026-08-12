@@ -2372,13 +2372,13 @@
                         </div>
                     </div>
 
-                    <!-- Rechnungen mit Status-Übersicht für dieses Projekt -->
+                    <!-- Rechnungskontrolle für dieses Projekt -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Rechnungen (mit PDF)</h3>
+                            <h3 class="card-title">Rechnungskontrolle</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <span class="badge" style="background: #fff3e0; color: #e65100;" id="fp-rechnungen-neu-badge">0 Neu</span>
-                                <span class="badge" style="background: #e3f2fd; color: #1565c0;" id="fp-rechnungen-kontrolliert-badge">0 Kontrolliert</span>
+                                <span class="badge" style="background: #e0e0e0; color: #616161;" id="fp-rechnungen-neu-badge">0 Neu (zu kontrollieren)</span>
+                                <span class="badge" style="background: #fff3e0; color: #e65100;" id="fp-rechnungen-kontrolliert-badge">0 Kontrolliert</span>
                                 <span class="badge" style="background: #e8f5e9; color: #2e7d32;" id="fp-rechnungen-bezahlt-badge">0 Bezahlt</span>
                             </div>
                         </div>
@@ -3851,9 +3851,19 @@
                                 <option value="it">Italienisch</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Geburtsjahr</label>
-                            <input type="number" id="member-birth-year" class="form-control" min="1900" max="2020">
+                            <label class="form-label">Steuernummer (Codice Fiscale)</label>
+                            <input type="text" id="member-tax-number" class="form-control"
+                                   oninput="App.extractBirthDateFromCodiceFiscale(this.value)"
+                                   placeholder="z.B. RSSMRA85A01H501Z"
+                                   style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Geburtsdatum <span id="birth-date-auto-hint" style="font-size: 0.75rem; color: #27ae60; display: none;">(automatisch)</span></label>
+                            <input type="date" id="member-birth-date" class="form-control">
                         </div>
                     </div>
 
@@ -3882,11 +3892,6 @@
                             <label class="form-label">Telefon</label>
                             <input type="text" id="member-phone" class="form-control">
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Steuernummer</label>
-                        <input type="text" id="member-tax-number" class="form-control">
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">

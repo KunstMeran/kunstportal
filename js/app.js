@@ -1320,7 +1320,7 @@ const App = {
         const kontrolliertBadge = document.getElementById('fp-rechnungen-kontrolliert-badge');
         const bezahltBadge = document.getElementById('fp-rechnungen-bezahlt-badge');
 
-        if (neuBadge) neuBadge.textContent = `${neuCount} Neu`;
+        if (neuBadge) neuBadge.textContent = `${neuCount} Neu (zu kontrollieren)`;
         if (kontrolliertBadge) kontrolliertBadge.textContent = `${kontrolliertCount} Kontrolliert`;
         if (bezahltBadge) bezahltBadge.textContent = `${bezahltCount} Bezahlt`;
 
@@ -1347,13 +1347,24 @@ const App = {
                 statusBadge = `<span class="badge" style="background: #fff3e0; color: #e65100;">Neu</span>`;
             }
 
-            // Status-Dropdown für Änderung
+            // Status-Dropdown für Änderung (bezahlt nur für Admin)
+            // Farben: Neu=grau, Kontrolliert=gelb/orange, Bezahlt=grün
+            const isAdmin = DataManager.isAdmin();
+            const bezahltDisabled = !isAdmin && currentStatus !== 'bezahlt' ? 'disabled' : '';
+            let dropdownStyle = 'font-size: 0.75rem; padding: 0.25rem; width: auto; min-width: 150px;';
+            if (currentStatus === 'bezahlt') {
+                dropdownStyle += ' background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;';
+            } else if (currentStatus === 'kontrolliert') {
+                dropdownStyle += ' background: #fff3e0; color: #e65100; border-color: #ffcc80;';
+            } else {
+                dropdownStyle += ' background: #f5f5f5; color: #616161; border-color: #e0e0e0;';
+            }
             statusDropdown = `
-                <select class="form-control" style="font-size: 0.75rem; padding: 0.25rem; width: auto; min-width: 100px;"
+                <select class="form-control" style="${dropdownStyle}"
                         onchange="App.changeProjectRechnungStatus('${r.invoiceId || r.id}', this.value, ${r.invoiceId ? 'true' : 'false'})">
-                    <option value="neu" ${currentStatus === 'neu' || currentStatus === 'uploaded' ? 'selected' : ''}>Neu</option>
+                    <option value="neu" ${currentStatus === 'neu' || currentStatus === 'uploaded' ? 'selected' : ''}>Neu (zu kontrollieren)</option>
                     <option value="kontrolliert" ${currentStatus === 'kontrolliert' ? 'selected' : ''}>Kontrolliert</option>
-                    <option value="bezahlt" ${currentStatus === 'bezahlt' ? 'selected' : ''}>Bezahlt</option>
+                    <option value="bezahlt" ${currentStatus === 'bezahlt' ? 'selected' : ''} ${bezahltDisabled}>Bezahlt</option>
                 </select>
             `;
 
@@ -1414,6 +1425,14 @@ const App = {
      */
     async changeProjectRechnungStatus(id, newStatus, isInvoice) {
         try {
+            // Berechtigungen prüfen: Nur Admin darf auf "bezahlt" setzen
+            if (newStatus === 'bezahlt' && !DataManager.isAdmin()) {
+                this.showToast('error', 'Keine Berechtigung', 'Nur Admins können Rechnungen als bezahlt markieren');
+                // Dropdown auf vorherigen Wert zurücksetzen
+                await this.loadProjectData(this.currentProjectId);
+                return;
+            }
+
             const heute = new Date().toISOString().split('T')[0];
 
             if (isInvoice) {
@@ -1478,7 +1497,7 @@ const App = {
             const kontrolliertBadge = document.getElementById('fp-rechnungen-kontrolliert-badge');
             const bezahltBadge = document.getElementById('fp-rechnungen-bezahlt-badge');
 
-            if (neuBadge) neuBadge.textContent = `${neuCount} Neu`;
+            if (neuBadge) neuBadge.textContent = `${neuCount} Neu (zu kontrollieren)`;
             if (kontrolliertBadge) kontrolliertBadge.textContent = `${kontrolliertCount} Kontrolliert`;
             if (bezahltBadge) bezahltBadge.textContent = `${bezahltCount} Bezahlt`;
 
@@ -1850,12 +1869,16 @@ const App = {
                                    onchange="App.updateBezahltDatum('${k.invoiceId}', this.value)">
                         </div>`;
                 } else if (k.workflowStatus === 'kontrolliert') {
-                    // Kontrolliert - Button zum Bezahlt-Markieren
-                    bezahltCell = `
-                        <button class="btn btn-sm" style="background: #fff3e0; color: #e65100; font-size: 0.7rem; padding: 0.15rem 0.4rem;"
-                                onclick="App.markAsBezahltFromProject('${k.invoiceId}')" title="Als bezahlt markieren">
-                            Offen
-                        </button>`;
+                    // Kontrolliert - Button zum Bezahlt-Markieren (nur für Admin)
+                    if (DataManager.isAdmin()) {
+                        bezahltCell = `
+                            <button class="btn btn-sm" style="background: #fff3e0; color: #e65100; font-size: 0.7rem; padding: 0.15rem 0.4rem;"
+                                    onclick="App.markAsBezahltFromProject('${k.invoiceId}')" title="Als bezahlt markieren">
+                                Offen
+                            </button>`;
+                    } else {
+                        bezahltCell = `<span class="badge" style="background: #fff3e0; color: #e65100; font-size: 0.7rem;">Offen</span>`;
+                    }
                 } else {
                     // Neu/Uploaded - noch nicht kontrolliert
                     bezahltCell = '<span style="color: #999; font-size: 0.8rem;">-</span>';
@@ -2171,6 +2194,12 @@ const App = {
      */
     async markAsBezahltFromProject(invoiceId) {
         try {
+            // Berechtigungen prüfen: Nur Admin darf auf "bezahlt" setzen
+            if (!DataManager.isAdmin()) {
+                this.showToast('error', 'Keine Berechtigung', 'Nur Admins können Rechnungen als bezahlt markieren');
+                return;
+            }
+
             const heute = new Date().toISOString().split('T')[0];
 
             const { error } = await SupabaseService.client
@@ -5621,6 +5650,12 @@ const App = {
     },
 
     massMarkBezahlt: async function() {
+        // Berechtigungen prüfen: Nur Admin darf auf "bezahlt" setzen
+        if (!DataManager.isAdmin()) {
+            this.showToast('error', 'Keine Berechtigung', 'Nur Admins können Rechnungen als bezahlt markieren');
+            return;
+        }
+
         if (this.selectedRechnungen.size === 0) return;
 
         const count = this.selectedRechnungen.size;
@@ -6121,6 +6156,22 @@ const App = {
         document.getElementById('rd-bezahlt-datum').value = rechnung.bezahltAm || '';
         document.getElementById('rd-bezahlt-datum').disabled = !istBezahlt;
 
+        // Bezahlt-Checkbox und Datum nur für Admin editierbar (außer es ist bereits bezahlt)
+        const isAdmin = DataManager.isAdmin();
+        const bezahltCheckbox = document.getElementById('rd-bezahlt-check');
+        const bezahltDatum = document.getElementById('rd-bezahlt-datum');
+        if (!isAdmin && !istBezahlt) {
+            bezahltCheckbox.disabled = true;
+            bezahltCheckbox.title = 'Nur Admins können Rechnungen als bezahlt markieren';
+        } else {
+            bezahltCheckbox.disabled = false;
+            bezahltCheckbox.title = '';
+        }
+        // Datum-Feld: Für Admin immer editierbar wenn bezahlt, für Nicht-Admin immer deaktiviert
+        if (!isAdmin) {
+            bezahltDatum.disabled = true;
+        }
+
         // Kostentyp mit Datum
         document.getElementById('rd-kostentyp').value = rechnung.kostentyp || '';
         document.getElementById('rd-kostentyp-datum').value = rechnung.kostentypAm || '';
@@ -6181,6 +6232,13 @@ const App = {
 
     // Checkbox: Bezahlt toggled
     toggleBezahlt: function(checkbox) {
+        // Berechtigungen prüfen: Nur Admin darf auf "bezahlt" setzen
+        if (checkbox.checked && !DataManager.isAdmin()) {
+            checkbox.checked = false;
+            this.showToast('error', 'Keine Berechtigung', 'Nur Admins können Rechnungen als bezahlt markieren');
+            return;
+        }
+
         const rechnungId = document.getElementById('rd-rechnung-id').value;
         const datumInput = document.getElementById('rd-bezahlt-datum');
         const kontrolliertCheck = document.getElementById('rd-kontrolliert-check');
@@ -12358,7 +12416,8 @@ const App = {
         document.getElementById('member-first-name').value = '';
         document.getElementById('member-gender').value = '';
         document.getElementById('member-language').value = '';
-        document.getElementById('member-birth-year').value = '';
+        document.getElementById('member-birth-date').value = '';
+        document.getElementById('birth-date-auto-hint').style.display = 'none';
         document.getElementById('member-address').value = '';
         document.getElementById('member-postal-code').value = '';
         document.getElementById('member-city').value = '';
@@ -12390,7 +12449,16 @@ const App = {
             document.getElementById('member-first-name').value = member.first_name || '';
             document.getElementById('member-gender').value = member.gender || '';
             document.getElementById('member-language').value = member.language || '';
-            document.getElementById('member-birth-year').value = member.birth_year || '';
+            // Geburtsdatum setzen (aus birth_date oder aus Steuernummer berechnen)
+            if (member.birth_date) {
+                document.getElementById('member-birth-date').value = member.birth_date;
+                document.getElementById('birth-date-auto-hint').style.display = 'none';
+            } else if (member.tax_number) {
+                this.extractBirthDateFromCodiceFiscale(member.tax_number);
+            } else {
+                document.getElementById('member-birth-date').value = '';
+                document.getElementById('birth-date-auto-hint').style.display = 'none';
+            }
             document.getElementById('member-address').value = member.address || '';
             document.getElementById('member-postal-code').value = member.postal_code || '';
             document.getElementById('member-city').value = member.city || '';
@@ -12421,7 +12489,7 @@ const App = {
             first_name: document.getElementById('member-first-name').value,
             gender: document.getElementById('member-gender').value || null,
             language: document.getElementById('member-language').value || null,
-            birth_year: document.getElementById('member-birth-year').value ? parseInt(document.getElementById('member-birth-year').value) : null,
+            birth_date: document.getElementById('member-birth-date').value || null,
             address: document.getElementById('member-address').value || null,
             postal_code: document.getElementById('member-postal-code').value || null,
             city: document.getElementById('member-city').value || null,
@@ -12620,6 +12688,107 @@ const App = {
                     alert('Fehler: ' + err.message);
                 });
             }
+        }
+    },
+
+    // ==========================================
+    // CODICE FISCALE PARSER
+    // ==========================================
+
+    /**
+     * Extrahiert das Geburtsdatum aus einer italienischen Steuernummer (Codice Fiscale)
+     * Format: AAABBB00C00D000E
+     * Position 7-8: Jahr (00-99)
+     * Position 9: Monat (A=Jan, B=Feb, C=Mar, D=Apr, E=Mai, H=Jun, L=Jul, M=Aug, P=Sep, R=Okt, S=Nov, T=Dez)
+     * Position 10-11: Tag (01-31 für Männer, 41-71 für Frauen)
+     */
+    extractBirthDateFromCodiceFiscale: function(codiceFiscale) {
+        const hint = document.getElementById('birth-date-auto-hint');
+        const birthDateInput = document.getElementById('member-birth-date');
+
+        if (!codiceFiscale || codiceFiscale.length < 11) {
+            if (hint) hint.style.display = 'none';
+            return null;
+        }
+
+        // Nur Buchstaben und Zahlen, uppercase
+        const cf = codiceFiscale.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+        if (cf.length < 11) {
+            if (hint) hint.style.display = 'none';
+            return null;
+        }
+
+        try {
+            // Jahr extrahieren (Position 7-8, 0-indexed: 6-7)
+            const yearPart = parseInt(cf.substring(6, 8));
+
+            // Monat extrahieren (Position 9, 0-indexed: 8)
+            const monthLetter = cf.charAt(8);
+            const monthMap = {
+                'A': 1,  // Januar
+                'B': 2,  // Februar
+                'C': 3,  // März
+                'D': 4,  // April
+                'E': 5,  // Mai
+                'H': 6,  // Juni
+                'L': 7,  // Juli
+                'M': 8,  // August
+                'P': 9,  // September
+                'R': 10, // Oktober
+                'S': 11, // November
+                'T': 12  // Dezember
+            };
+            const month = monthMap[monthLetter];
+
+            if (!month) {
+                if (hint) hint.style.display = 'none';
+                return null;
+            }
+
+            // Tag extrahieren (Position 10-11, 0-indexed: 9-10)
+            let day = parseInt(cf.substring(9, 11));
+
+            // Bei Frauen ist der Tag +40
+            if (day > 40) {
+                day = day - 40;
+            }
+
+            // Jahr bestimmen (Jahrhundert erraten)
+            const currentYear = new Date().getFullYear();
+            const currentCentury = Math.floor(currentYear / 100) * 100;
+            let year = currentCentury + yearPart;
+
+            // Wenn das berechnete Jahr in der Zukunft liegt, 100 Jahre abziehen
+            if (year > currentYear) {
+                year -= 100;
+            }
+
+            // Validierung
+            if (day < 1 || day > 31 || month < 1 || month > 12) {
+                if (hint) hint.style.display = 'none';
+                return null;
+            }
+
+            // Datum formatieren (YYYY-MM-DD für input type="date")
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            // Input-Feld setzen
+            if (birthDateInput) {
+                birthDateInput.value = dateStr;
+            }
+
+            // Hinweis anzeigen
+            if (hint) {
+                hint.style.display = 'inline';
+            }
+
+            return dateStr;
+
+        } catch (e) {
+            console.error('Fehler beim Parsen des Codice Fiscale:', e);
+            if (hint) hint.style.display = 'none';
+            return null;
         }
     },
 
@@ -13352,7 +13521,8 @@ const App = {
                 'E-Mail': 'email',
                 'Email': 'email',
                 'Telefon': 'phone',
-                'Geburtsjahr': 'birth_year',
+                'Geburtsjahr': 'birth_date',
+                'Geburtsdatum': 'birth_date',
                 'StrNr': 'tax_number',
                 'StrNr.': 'tax_number',
                 'StNr': 'tax_number',
