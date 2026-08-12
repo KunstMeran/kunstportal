@@ -412,6 +412,11 @@ const SupabaseDataAdapter = {
                     abgabestelleAm: b.abgabestelle_am || null,
                     // Änderungsdatum
                     updatedAt: b.updated_at || null,
+                    // Audit-Felder für User-Tracking
+                    created_at: b.created_at || null,
+                    created_by: b.created_by || null,
+                    updated_at: b.updated_at || null,
+                    updated_by: b.updated_by || null,
                     // Supabase-spezifisch
                     // Bei fehlender dokumentNr: id:-Format verwenden für zuverlässige Identifikation
                     rechnungId: b.dokument_nr ? `${b.partita_iva || ''}_${b.dokument_nr}` : `id:${b.id}`,
@@ -722,8 +727,13 @@ const SupabaseDataAdapter = {
             pl1: supabaseProject.pl1 || '',
             pl2: supabaseProject.pl2 || '',
             dropboxLink: supabaseProject.dropbox_link || '',
+            // Audit-Felder für User-Tracking
             createdBy: supabaseProject.created_by,
-            createdAt: supabaseProject.created_at
+            createdAt: supabaseProject.created_at,
+            created_by: supabaseProject.created_by,
+            created_at: supabaseProject.created_at,
+            updated_by: supabaseProject.updated_by,
+            updated_at: supabaseProject.updated_at
         };
     },
 
@@ -739,7 +749,12 @@ const SupabaseDataAdapter = {
             supplier: supabaseCost.supplier,
             invoiceNumber: supabaseCost.invoice_number,
             filePath: supabaseCost.file_path,
-            createdAt: supabaseCost.created_at
+            createdAt: supabaseCost.created_at,
+            // Audit-Felder für User-Tracking
+            created_by: supabaseCost.created_by,
+            created_at: supabaseCost.created_at,
+            updated_by: supabaseCost.updated_by,
+            updated_at: supabaseCost.updated_at
         };
     },
 
@@ -1133,7 +1148,12 @@ const SupabaseDataAdapter = {
                         // UI-Flags
                         isSupabaseOnly: true,
                         // rechnungId für Supabase-only: nur die Invoice-ID (für Archivierung etc.)
-                        rechnungId: String(inv.id)
+                        rechnungId: String(inv.id),
+                        // Audit-Felder für User-Tracking
+                        created_at: inv.created_at || null,
+                        created_by: inv.created_by || null,
+                        updated_at: inv.updated_at || null,
+                        updated_by: inv.updated_by || null
                     };
                 });
 
@@ -1229,7 +1249,12 @@ const SupabaseDataAdapter = {
                 address: s.address,
                 city: s.city,
                 country: s.country,
-                contactUserId: s.contact_user_id || null
+                contactUserId: s.contact_user_id || null,
+                // Audit-Felder für User-Tracking
+                created_at: s.created_at || null,
+                created_by: s.created_by || null,
+                updated_at: s.updated_at || null,
+                updated_by: s.updated_by || null
             }));
 
         } catch (error) {
@@ -1424,7 +1449,12 @@ const SupabaseDataAdapter = {
             hours: parseFloat(supabaseEntry.hours) || 0,
             description: supabaseEntry.description || '',
             activityType: supabaseEntry.activity_type || '',
-            createdAt: supabaseEntry.created_at
+            createdAt: supabaseEntry.created_at,
+            // Audit-Felder für User-Tracking
+            created_by: supabaseEntry.created_by,
+            created_at: supabaseEntry.created_at,
+            updated_by: supabaseEntry.updated_by,
+            updated_at: supabaseEntry.updated_at
         };
     },
 
