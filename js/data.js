@@ -467,7 +467,9 @@ const DataManager = {
     // ==========================================
 
     getProjects: function() {
-        return this.load(this.KEYS.PROJECTS) || [];
+        const projects = this.load(this.KEYS.PROJECTS) || [];
+        // Soft-Delete Filter: nur aktive Projekte zurückgeben
+        return projects.filter(p => !p.deletedAt);
     },
 
     getProjectById: function(id) {
@@ -476,49 +478,82 @@ const DataManager = {
     },
 
     addProject: function(project) {
-        const projects = this.getProjects();
+        const allProjects = this.load(this.KEYS.PROJECTS) || [];
         project.id = this.generateId(this.KEYS.PROJECTS);
-        project.createdAt = new Date().toISOString().split('T')[0];
-        project.createdBy = this.getSession().userId;
-        projects.push(project);
-        this.save(this.KEYS.PROJECTS, projects);
+        project.createdAt = new Date().toISOString();
+        project.createdBy = this.getSession()?.userId || null;
+        project.updatedAt = null;
+        project.updatedBy = null;
+        project.deletedAt = null;
+        project.deletedBy = null;
+        allProjects.push(project);
+        this.save(this.KEYS.PROJECTS, allProjects);
         return project;
     },
 
     updateProject: function(id, updates) {
-        const projects = this.getProjects();
-        const index = projects.findIndex(p => p.id === id);
+        const allProjects = this.load(this.KEYS.PROJECTS) || [];
+        const index = allProjects.findIndex(p => p.id === id);
         if (index !== -1) {
-            projects[index] = { ...projects[index], ...updates };
-            this.save(this.KEYS.PROJECTS, projects);
-            return projects[index];
+            // Audit-Trail: updated_at und updated_by setzen
+            allProjects[index] = {
+                ...allProjects[index],
+                ...updates,
+                updatedAt: new Date().toISOString(),
+                updatedBy: this.getSession()?.userId || null
+            };
+            this.save(this.KEYS.PROJECTS, allProjects);
+            return allProjects[index];
         }
         return null;
     },
 
     deleteProject: function(id) {
-        let projects = this.getProjects();
-        projects = projects.filter(p => p.id !== id);
-        this.save(this.KEYS.PROJECTS, projects);
+        const allProjects = this.load(this.KEYS.PROJECTS) || [];
+        const index = allProjects.findIndex(p => p.id === id);
+        if (index !== -1) {
+            // Soft-Delete: Projekt als gelöscht markieren
+            allProjects[index].deletedAt = new Date().toISOString();
+            allProjects[index].deletedBy = this.getSession()?.userId || null;
+            this.save(this.KEYS.PROJECTS, allProjects);
+        }
 
-        // Auch Budget und Kosten löschen
-        let budgets = this.getBudgets();
-        budgets = budgets.filter(b => b.projectId !== id);
-        this.save(this.KEYS.BUDGETS, budgets);
+        // Auch Budget, Kosten etc. als gelöscht markieren (Soft-Delete kaskadieren)
+        const allBudgets = this.load(this.KEYS.BUDGETS) || [];
+        allBudgets.forEach(b => {
+            if (b.projectId === id && !b.deletedAt) {
+                b.deletedAt = new Date().toISOString();
+                b.deletedBy = this.getSession()?.userId || null;
+            }
+        });
+        this.save(this.KEYS.BUDGETS, allBudgets);
 
-        let costs = this.getCosts();
-        costs = costs.filter(c => c.projectId !== id);
-        this.save(this.KEYS.COSTS, costs);
+        const allCosts = this.load(this.KEYS.COSTS) || [];
+        allCosts.forEach(c => {
+            if (c.projectId === id && !c.deletedAt) {
+                c.deletedAt = new Date().toISOString();
+                c.deletedBy = this.getSession()?.userId || null;
+            }
+        });
+        this.save(this.KEYS.COSTS, allCosts);
 
-        // Geplante Kosten löschen
-        let plannedCosts = this.getPlannedCosts();
-        plannedCosts = plannedCosts.filter(pc => pc.projectId !== id);
-        this.save(this.KEYS.PLANNED_COSTS, plannedCosts);
+        const allPlannedCosts = this.load(this.KEYS.PLANNED_COSTS) || [];
+        allPlannedCosts.forEach(pc => {
+            if (pc.projectId === id && !pc.deletedAt) {
+                pc.deletedAt = new Date().toISOString();
+                pc.deletedBy = this.getSession()?.userId || null;
+            }
+        });
+        this.save(this.KEYS.PLANNED_COSTS, allPlannedCosts);
 
-        // Zeiterfassung löschen
-        let timeEntries = this.getTimeEntries();
-        timeEntries = timeEntries.filter(t => t.projectId !== id);
-        this.save(this.KEYS.TIMETRACKING, timeEntries);
+        const allTimeEntries = this.load(this.KEYS.TIMETRACKING) || [];
+        allTimeEntries.forEach(t => {
+            if (t.projectId === id && !t.deletedAt) {
+                t.deletedAt = new Date().toISOString();
+                t.deletedBy = this.getSession()?.userId || null;
+            }
+        });
+        this.save(this.KEYS.TIMETRACKING, allTimeEntries);
     },
 
     // ==========================================
@@ -618,7 +653,9 @@ const DataManager = {
     // ==========================================
 
     getCosts: function() {
-        return this.load(this.KEYS.COSTS) || [];
+        const costs = this.load(this.KEYS.COSTS) || [];
+        // Soft-Delete Filter: nur aktive Kosten zurückgeben
+        return costs.filter(c => !c.deletedAt);
     },
 
     getCostsByProject: function(projectId) {
@@ -637,28 +674,45 @@ const DataManager = {
     },
 
     addCost: function(cost) {
-        const costs = this.getCosts();
+        const allCosts = this.load(this.KEYS.COSTS) || [];
         cost.id = this.generateId(this.KEYS.COSTS);
-        costs.push(cost);
-        this.save(this.KEYS.COSTS, costs);
+        cost.createdAt = new Date().toISOString();
+        cost.createdBy = this.getSession()?.userId || null;
+        cost.updatedAt = null;
+        cost.updatedBy = null;
+        cost.deletedAt = null;
+        cost.deletedBy = null;
+        allCosts.push(cost);
+        this.save(this.KEYS.COSTS, allCosts);
         return cost;
     },
 
     updateCost: function(id, updates) {
-        const costs = this.getCosts();
-        const index = costs.findIndex(c => c.id === id);
+        const allCosts = this.load(this.KEYS.COSTS) || [];
+        const index = allCosts.findIndex(c => c.id === id);
         if (index !== -1) {
-            costs[index] = { ...costs[index], ...updates };
-            this.save(this.KEYS.COSTS, costs);
-            return costs[index];
+            // Audit-Trail: updated_at und updated_by setzen
+            allCosts[index] = {
+                ...allCosts[index],
+                ...updates,
+                updatedAt: new Date().toISOString(),
+                updatedBy: this.getSession()?.userId || null
+            };
+            this.save(this.KEYS.COSTS, allCosts);
+            return allCosts[index];
         }
         return null;
     },
 
     deleteCost: function(id) {
-        let costs = this.getCosts();
-        costs = costs.filter(c => c.id !== id);
-        this.save(this.KEYS.COSTS, costs);
+        const allCosts = this.load(this.KEYS.COSTS) || [];
+        const index = allCosts.findIndex(c => c.id === id);
+        if (index !== -1) {
+            // Soft-Delete: Kosten als gelöscht markieren
+            allCosts[index].deletedAt = new Date().toISOString();
+            allCosts[index].deletedBy = this.getSession()?.userId || null;
+            this.save(this.KEYS.COSTS, allCosts);
+        }
     },
 
     /**
@@ -778,7 +832,9 @@ const DataManager = {
     // ==========================================
 
     getTimeEntries: function() {
-        return this.load(this.KEYS.TIMETRACKING) || [];
+        const entries = this.load(this.KEYS.TIMETRACKING) || [];
+        // Soft-Delete Filter: nur aktive Einträge zurückgeben
+        return entries.filter(e => !e.deletedAt);
     },
 
     getTimeEntriesByProject: function(projectId) {
@@ -798,30 +854,46 @@ const DataManager = {
     },
 
     addTimeEntry: function(entry) {
-        const entries = this.getTimeEntries();
+        const allEntries = this.load(this.KEYS.TIMETRACKING) || [];
         entry.id = this.generateId(this.KEYS.TIMETRACKING);
-        entry.userId = this.getSession().userId;
+        entry.userId = this.getSession()?.userId || null;
         entry.createdAt = new Date().toISOString();
-        entries.push(entry);
-        this.save(this.KEYS.TIMETRACKING, entries);
+        entry.createdBy = this.getSession()?.userId || null;
+        entry.updatedAt = null;
+        entry.updatedBy = null;
+        entry.deletedAt = null;
+        entry.deletedBy = null;
+        allEntries.push(entry);
+        this.save(this.KEYS.TIMETRACKING, allEntries);
         return entry;
     },
 
     updateTimeEntry: function(id, updates) {
-        const entries = this.getTimeEntries();
-        const index = entries.findIndex(e => e.id === id);
+        const allEntries = this.load(this.KEYS.TIMETRACKING) || [];
+        const index = allEntries.findIndex(e => e.id === id);
         if (index !== -1) {
-            entries[index] = { ...entries[index], ...updates };
-            this.save(this.KEYS.TIMETRACKING, entries);
-            return entries[index];
+            // Audit-Trail: updated_at und updated_by setzen
+            allEntries[index] = {
+                ...allEntries[index],
+                ...updates,
+                updatedAt: new Date().toISOString(),
+                updatedBy: this.getSession()?.userId || null
+            };
+            this.save(this.KEYS.TIMETRACKING, allEntries);
+            return allEntries[index];
         }
         return null;
     },
 
     deleteTimeEntry: function(id) {
-        let entries = this.getTimeEntries();
-        entries = entries.filter(e => e.id !== id);
-        this.save(this.KEYS.TIMETRACKING, entries);
+        const allEntries = this.load(this.KEYS.TIMETRACKING) || [];
+        const index = allEntries.findIndex(e => e.id === id);
+        if (index !== -1) {
+            // Soft-Delete: Eintrag als gelöscht markieren
+            allEntries[index].deletedAt = new Date().toISOString();
+            allEntries[index].deletedBy = this.getSession()?.userId || null;
+            this.save(this.KEYS.TIMETRACKING, allEntries);
+        }
     },
 
     getProjectTotalHours: function(projectId) {

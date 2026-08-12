@@ -1778,19 +1778,27 @@ const App = {
         const kostentypName = selectedType ? selectedType.name : kostentypValue;
 
         try {
+            // Anzahl vor dem Löschen speichern
+            const selectedCount = this.selectedCostIds.size;
+            let updatedCount = 0;
+
             // Für jeden ausgewählten Eintrag den Kostentyp setzen
             for (const id of this.selectedCostIds) {
-                const cost = this.allProjectCosts.find(c => c.id === id);
+                // String/Number Vergleich: IDs können verschiedene Typen haben
+                const cost = this.allProjectCosts.find(c => String(c.id) === String(id));
                 if (cost) {
                     if (cost.isDatev && cost.invoiceId) {
                         // DATEV-Buchung mit Supabase-Invoice: Kostentyp in invoices-Tabelle speichern
                         await DataManager.updateInvoiceKostentyp(cost.invoiceId, kostentypName);
+                        updatedCount++;
                     } else if (cost.isDatev && !cost.invoiceId) {
                         // DATEV-Buchung ohne Invoice: Kostentyp lokal speichern (localStorage fallback)
                         DataManager.setKostentyp(cost.rechnungId || cost.id, kostentypName);
+                        updatedCount++;
                     } else if (!cost.isDatev && cost.costId) {
                         // Manuelle Kosten: costTypeName aktualisieren
                         await DataManager.updateCost(cost.costId, { costTypeName: kostentypName });
+                        updatedCount++;
                     }
                     // Lokales Update
                     cost.kostentyp = kostentypName;
@@ -1801,7 +1809,7 @@ const App = {
             this.clearCostSelection();
             this.renderProjectCostsPage();
 
-            alert(`Kostentyp "${kostentypName}" wurde ${this.selectedCostIds.size} Einträgen zugewiesen.`);
+            alert(`Kostentyp "${kostentypName}" wurde ${updatedCount} Einträgen zugewiesen.`);
         } catch (error) {
             console.error('Fehler beim Zuweisen des Kostentyps:', error);
             alert('Fehler beim Zuweisen: ' + error.message);

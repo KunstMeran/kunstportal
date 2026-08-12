@@ -239,6 +239,54 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Hilfsfunktion: Fügt created_at und created_by zu neuen Datensätzen hinzu
+     * Wird bei allen INSERT-Operationen verwendet für Audit-Trail
+     */
+    async addCreateMetadata(data) {
+        try {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            return {
+                ...data,
+                created_at: new Date().toISOString(),
+                created_by: currentUser?.id || null
+            };
+        } catch (error) {
+            console.warn('⚠️ Konnte Create-Metadaten nicht hinzufügen:', error);
+            return {
+                ...data,
+                created_at: new Date().toISOString()
+            };
+        }
+    },
+
+    /**
+     * Hilfsfunktion: Soft-Delete - markiert Datensatz als gelöscht statt ihn zu entfernen
+     * Setzt deleted_at und deleted_by Felder
+     * @param {string} table - Tabellenname
+     * @param {string} id - Datensatz-ID
+     * @param {string} idColumn - Name der ID-Spalte (default: 'id')
+     * @returns {Promise<boolean>} - Erfolg
+     */
+    async softDelete(table, id, idColumn = 'id') {
+        try {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const { error } = await SupabaseService.client
+                .from(table)
+                .update({
+                    deleted_at: new Date().toISOString(),
+                    deleted_by: currentUser?.id || null
+                })
+                .eq(idColumn, id);
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error(`⚠️ Soft-Delete fehlgeschlagen für ${table}:`, error);
+            throw error;
+        }
+    },
+
+    /**
      * DATEV-Buchungen aus Supabase laden
      * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
      * Reichert Buchungen mit Lieferantennamen aus suppliers-Tabelle an
@@ -423,6 +471,7 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('projects')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -442,6 +491,7 @@ const SupabaseDataAdapter = {
                 .from('projects')
                 .select('*')
                 .eq('id', projectId)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .single();
 
             if (error) throw error;
@@ -455,7 +505,7 @@ const SupabaseDataAdapter = {
 
     async addProject(projectData) {
         try {
-            const supabaseProject = {
+            let supabaseProject = {
                 name: projectData.name,
                 description: projectData.description || '',
                 location: projectData.location || '',
@@ -468,6 +518,9 @@ const SupabaseDataAdapter = {
                 pl2: projectData.pl2 || null,
                 dropbox_link: projectData.dropboxLink || null
             };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            supabaseProject = await this.addCreateMetadata(supabaseProject);
 
             const { data, error } = await SupabaseService.client
                 .from('projects')
@@ -521,13 +574,8 @@ const SupabaseDataAdapter = {
 
     async deleteProject(projectId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('projects')
-                .delete()
-                .eq('id', projectId);
-
-            if (error) throw error;
-
+            // Soft-Delete: Projekt als gelöscht markieren statt entfernen
+            await this.softDelete('projects', projectId);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Projekts:', error);
@@ -544,6 +592,7 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('costs')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -562,6 +611,7 @@ const SupabaseDataAdapter = {
                 .from('costs')
                 .select('*')
                 .eq('project_id', projectId)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -576,7 +626,7 @@ const SupabaseDataAdapter = {
 
     async addCost(costData) {
         try {
-            const supabaseCost = {
+            let supabaseCost = {
                 project_id: costData.projectId,
                 category: this.mapCategoryToSupabase(costData.category),
                 description: costData.description || costData.supplier || 'Kosten',
@@ -587,6 +637,9 @@ const SupabaseDataAdapter = {
                 invoice_number: costData.invoiceNumber || null,
                 file_path: costData.filePath || null
             };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            supabaseCost = await this.addCreateMetadata(supabaseCost);
 
             const { data, error } = await SupabaseService.client
                 .from('costs')
@@ -642,13 +695,8 @@ const SupabaseDataAdapter = {
 
     async deleteCost(costId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('costs')
-                .delete()
-                .eq('id', costId);
-
-            if (error) throw error;
-
+            // Soft-Delete: Kosten als gelöscht markieren statt entfernen
+            await this.softDelete('costs', costId);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen der Kosten:', error);
@@ -729,7 +777,8 @@ const SupabaseDataAdapter = {
 
     async addInvoice(invoiceData) {
         try {
-            const supabaseInvoice = {
+            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            let supabaseInvoice = {
                 file_name: invoiceData.fileName,
                 file_path: invoiceData.filePath,
                 file_size: invoiceData.fileSize,
@@ -737,7 +786,10 @@ const SupabaseDataAdapter = {
                 invoice_number: invoiceData.invoiceNumber,
                 status: invoiceData.status || 'uploaded',
                 datev_buchung_id: invoiceData.datevBuchungId || null,
-                uploaded_by: (await SupabaseService.client.auth.getUser()).data.user?.id
+                uploaded_by: currentUser?.id,
+                // Audit-Trail: created_at und created_by
+                created_at: new Date().toISOString(),
+                created_by: currentUser?.id || null
             };
 
             const { data, error } = await SupabaseService.client
@@ -1238,6 +1290,7 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('time_entries')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -1255,6 +1308,7 @@ const SupabaseDataAdapter = {
                 .from('time_entries')
                 .select('*')
                 .eq('project_id', projectId)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -1276,7 +1330,7 @@ const SupabaseDataAdapter = {
                 userId = user?.id || null;
             }
 
-            const supabaseEntry = {
+            let supabaseEntry = {
                 project_id: entryData.projectId,
                 user_id: userId,
                 date: entryData.date,
@@ -1284,6 +1338,9 @@ const SupabaseDataAdapter = {
                 description: entryData.description || '',
                 activity_type: entryData.activityType || null
             };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            supabaseEntry = await this.addCreateMetadata(supabaseEntry);
 
             const { data, error } = await SupabaseService.client
                 .from('time_entries')
@@ -1339,13 +1396,8 @@ const SupabaseDataAdapter = {
 
     async deleteTimeEntry(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('time_entries')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
+            // Soft-Delete: Zeiteintrag als gelöscht markieren statt entfernen
+            await this.softDelete('time_entries', id);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Zeiteintrags:', error);
@@ -1387,6 +1439,7 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('id', { ascending: true });
 
             if (error) throw error;
@@ -1429,14 +1482,19 @@ const SupabaseDataAdapter = {
             // id ist gleichzeitig der Code
             const newId = costTypeData.code || costTypeData.id || String(Date.now());
 
+            let insertData = {
+                id: newId,
+                name: costTypeData.name,
+                description: costTypeData.description || costTypeData.name,
+                is_active: true
+            };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
+
             const { data, error } = await SupabaseService.client
                 .from('cost_types')
-                .insert([{
-                    id: newId,
-                    name: costTypeData.name,
-                    description: costTypeData.description || costTypeData.name,
-                    is_active: true
-                }])
+                .insert([insertData])
                 .select()
                 .single();
 
@@ -1496,12 +1554,8 @@ const SupabaseDataAdapter = {
 
     async deleteCostType(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('cost_types')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            // Soft-Delete: Kostentyp als gelöscht markieren statt entfernen
+            await this.softDelete('cost_types', id);
 
             // Cache invalidieren
             await this.loadCostTypesFromSupabase();
@@ -1608,6 +1662,7 @@ const SupabaseDataAdapter = {
             let query = SupabaseService.client
                 .from('funding_sources')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('code', { ascending: true });
 
             if (year) {
@@ -1646,6 +1701,7 @@ const SupabaseDataAdapter = {
                 .from('funding_sources')
                 .select('*')
                 .eq('id', id)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .single();
 
             if (error) throw error;
@@ -1679,19 +1735,24 @@ const SupabaseDataAdapter = {
             }
             console.log('addFundingSource - year:', fiscalYear);
 
+            let insertData = {
+                code: fundingSource.code,
+                name: fundingSource.name,
+                source: fundingSource.source || null,
+                amount: fundingSource.amount || 0,
+                year: fiscalYear,
+                is_abgabestelle: fundingSource.isAbgabestelle || false,
+                status: fundingSource.status || 'offen',
+                notes: fundingSource.notes || null,
+                document_path: fundingSource.documentPath || null
+            };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
+
             const { data, error } = await SupabaseService.client
                 .from('funding_sources')
-                .insert({
-                    code: fundingSource.code,
-                    name: fundingSource.name,
-                    source: fundingSource.source || null,
-                    amount: fundingSource.amount || 0,
-                    year: fiscalYear,
-                    is_abgabestelle: fundingSource.isAbgabestelle || false,
-                    status: fundingSource.status || 'offen',
-                    notes: fundingSource.notes || null,
-                    document_path: fundingSource.documentPath || null
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
@@ -1766,12 +1827,8 @@ const SupabaseDataAdapter = {
 
     async deleteFundingSource(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('funding_sources')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            // Soft-Delete: Einnahme als gelöscht markieren statt entfernen
+            await this.softDelete('funding_sources', id);
 
             // Cache invalidieren
             this.fundingSourcesCache = null;
@@ -1931,6 +1988,7 @@ const SupabaseDataAdapter = {
             let query = SupabaseService.client
                 .from('members')
                 .select('*')
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('last_name', { ascending: true });
 
             if (activeOnly) {
@@ -1957,6 +2015,7 @@ const SupabaseDataAdapter = {
                 .from('members')
                 .select('*')
                 .eq('id', id)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .single();
 
             if (error) throw error;
@@ -1973,29 +2032,34 @@ const SupabaseDataAdapter = {
      */
     async addMember(memberData) {
         try {
+            let insertData = {
+                member_number: memberData.member_number,
+                last_name: memberData.last_name,
+                first_name: memberData.first_name,
+                gender: memberData.gender,
+                language: memberData.language,
+                address: memberData.address,
+                postal_code: memberData.postal_code,
+                city: memberData.city,
+                email: memberData.email,
+                phone: memberData.phone,
+                birth_year: memberData.birth_year,
+                tax_number: memberData.tax_number,
+                membership_fee: memberData.membership_fee || 0,
+                donation: memberData.donation || 0,
+                join_date: memberData.join_date,
+                payment_method: memberData.payment_method,
+                hashtag: memberData.hashtag,
+                notes: memberData.notes,
+                is_active: memberData.is_active !== false
+            };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
+
             const { data, error } = await SupabaseService.client
                 .from('members')
-                .insert({
-                    member_number: memberData.member_number,
-                    last_name: memberData.last_name,
-                    first_name: memberData.first_name,
-                    gender: memberData.gender,
-                    language: memberData.language,
-                    address: memberData.address,
-                    postal_code: memberData.postal_code,
-                    city: memberData.city,
-                    email: memberData.email,
-                    phone: memberData.phone,
-                    birth_year: memberData.birth_year,
-                    tax_number: memberData.tax_number,
-                    membership_fee: memberData.membership_fee || 0,
-                    donation: memberData.donation || 0,
-                    join_date: memberData.join_date,
-                    payment_method: memberData.payment_method,
-                    hashtag: memberData.hashtag,
-                    notes: memberData.notes,
-                    is_active: memberData.is_active !== false
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
@@ -2055,17 +2119,12 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Löscht ein Mitglied
+     * Löscht ein Mitglied (Soft-Delete)
      */
     async deleteMember(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('members')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
+            // Soft-Delete: Mitglied als gelöscht markieren statt entfernen
+            await this.softDelete('members', id);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Mitglieds:', error);
@@ -2162,17 +2221,22 @@ const SupabaseDataAdapter = {
      */
     async addMemberPayment(paymentData) {
         try {
+            let insertData = {
+                member_id: paymentData.member_id,
+                year: paymentData.year,
+                amount: paymentData.amount,
+                payment_date: paymentData.payment_date,
+                datev_buchung_id: paymentData.datev_buchung_id,
+                datev_buchungstext: paymentData.datev_buchungstext,
+                notes: paymentData.notes
+            };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
+
             const { data, error } = await SupabaseService.client
                 .from('member_payments')
-                .upsert({
-                    member_id: paymentData.member_id,
-                    year: paymentData.year,
-                    amount: paymentData.amount,
-                    payment_date: paymentData.payment_date,
-                    datev_buchung_id: paymentData.datev_buchung_id,
-                    datev_buchungstext: paymentData.datev_buchungstext,
-                    notes: paymentData.notes
-                }, {
+                .upsert(insertData, {
                     onConflict: 'member_id,year'
                 })
                 .select()
@@ -2188,17 +2252,12 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Löscht eine Zahlung
+     * Löscht eine Zahlung (Soft-Delete)
      */
     async deleteMemberPayment(paymentId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('member_payments')
-                .delete()
-                .eq('id', paymentId);
-
-            if (error) throw error;
-
+            // Soft-Delete: Zahlung als gelöscht markieren statt entfernen
+            await this.softDelete('member_payments', paymentId);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen der Zahlung:', error);
@@ -3192,6 +3251,7 @@ const SupabaseDataAdapter = {
                 .from('budget_entries')
                 .select('*')
                 .in('fiscal_year', years)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .order('konto_nr', { ascending: true });
 
             if (error) throw error;
@@ -3211,6 +3271,7 @@ const SupabaseDataAdapter = {
                 .from('budget_entries')
                 .select('*')
                 .eq('id', entryId)
+                .is('deleted_at', null)  // Soft-Delete Filter
                 .single();
 
             if (error) throw error;
@@ -3226,32 +3287,34 @@ const SupabaseDataAdapter = {
      */
     async addBudgetEntry(entry) {
         try {
-            const { data: { user } } = await SupabaseService.client.auth.getUser();
+            let insertData = {
+                konto_nr: entry.konto_nr,
+                konto_name: entry.konto_name || null,
+                projekt_id: entry.projekt_id || null,
+                description: entry.description,
+                fiscal_year: entry.fiscal_year,
+                jan: entry.jan || 0,
+                feb: entry.feb || 0,
+                mar: entry.mar || 0,
+                apr: entry.apr || 0,
+                mai: entry.mai || 0,
+                jun: entry.jun || 0,
+                jul: entry.jul || 0,
+                aug: entry.aug || 0,
+                sep: entry.sep || 0,
+                okt: entry.okt || 0,
+                nov: entry.nov || 0,
+                dez: entry.dez || 0,
+                entry_type: entry.entry_type || 'budget',
+                notes: entry.notes || null
+            };
+
+            // Audit-Trail: created_at und created_by hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
 
             const { data, error } = await SupabaseService.client
                 .from('budget_entries')
-                .insert({
-                    konto_nr: entry.konto_nr,
-                    konto_name: entry.konto_name || null,
-                    projekt_id: entry.projekt_id || null,
-                    description: entry.description,
-                    fiscal_year: entry.fiscal_year,
-                    jan: entry.jan || 0,
-                    feb: entry.feb || 0,
-                    mar: entry.mar || 0,
-                    apr: entry.apr || 0,
-                    mai: entry.mai || 0,
-                    jun: entry.jun || 0,
-                    jul: entry.jul || 0,
-                    aug: entry.aug || 0,
-                    sep: entry.sep || 0,
-                    okt: entry.okt || 0,
-                    nov: entry.nov || 0,
-                    dez: entry.dez || 0,
-                    entry_type: entry.entry_type || 'budget',
-                    notes: entry.notes || null,
-                    created_by: user?.id
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
@@ -3308,16 +3371,12 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Löscht einen Budget-Eintrag
+     * Löscht einen Budget-Eintrag (Soft-Delete)
      */
     async deleteBudgetEntry(entryId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('budget_entries')
-                .delete()
-                .eq('id', entryId);
-
-            if (error) throw error;
+            // Soft-Delete: Budget-Eintrag als gelöscht markieren statt entfernen
+            await this.softDelete('budget_entries', entryId);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Budget-Eintrags:', error);
