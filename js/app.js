@@ -4093,7 +4093,8 @@ const App = {
             let html = `<option value="">Alle</option>`;
             if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
                 this.activeAbgabestellen.forEach(ab => {
-                    html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
+                    const displayText = ab.name ? `${ab.code} - ${ab.name}` : ab.code;
+                    html += `<option value="funding:${ab.id}">${displayText}</option>`;
                 });
             }
             abgabestelleSelect.innerHTML = html;
@@ -4113,8 +4114,9 @@ const App = {
         // Nur aktive Einnahmen aus der Einnahmenplanung als Buttons
         if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
             this.activeAbgabestellen.forEach(ab => {
-                const shortName = ab.code || ab.name.substring(0, 15);
-                html += `<button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('funding:${ab.id}')" title="${ab.name}" style="background: #e8f5e9;">${shortName}</button>`;
+                const shortName = ab.code || (ab.name ? ab.name.substring(0, 15) : '?');
+                const titleText = ab.name ? `${ab.code} - ${ab.name}` : ab.code;
+                html += `<button class="btn btn-sm btn-outline" onclick="App.massSetAbgabestelle('funding:${ab.id}')" title="${titleText}" style="background: #e8f5e9;">${shortName}</button>`;
             });
         } else {
             html = '<span style="color: #666; font-size: 0.8rem;">Keine Abgabestellen in Einnahmenplanung definiert</span>';
@@ -6309,7 +6311,8 @@ const App = {
         // Aktive Abgabestellen aus Einnahmenplanung
         if (this.activeAbgabestellen && this.activeAbgabestellen.length > 0) {
             this.activeAbgabestellen.forEach(ab => {
-                html += `<option value="funding:${ab.id}">${ab.code} - ${ab.name}</option>`;
+                const displayText = ab.name ? `${ab.code} - ${ab.name}` : ab.code;
+                html += `<option value="funding:${ab.id}">${displayText}</option>`;
             });
         }
 
@@ -6603,7 +6606,9 @@ const App = {
         let options = '<option value="">- Keine -</option>';
         this.activeAbgabestellen.forEach(ab => {
             const selected = currentFundingSourceId === ab.id ? 'selected' : '';
-            options += `<option value="${ab.id}" ${selected}>${ab.code} - ${ab.name}</option>`;
+            // Zeige Code und Name (falls vorhanden), sonst nur Code
+            const displayText = ab.name ? `${ab.code} - ${ab.name}` : ab.code;
+            options += `<option value="${ab.id}" ${selected}>${displayText}</option>`;
         });
 
         // Für unverknüpfte PDFs: invoiceId übergeben, sonst rechnungId
@@ -12747,11 +12752,14 @@ const App = {
             }
 
             // Tag extrahieren (Position 10-11, 0-indexed: 9-10)
-            let day = parseInt(cf.substring(9, 11));
+            let dayRaw = parseInt(cf.substring(9, 11));
+            let day = dayRaw;
+            let gender = 'm'; // Mann
 
             // Bei Frauen ist der Tag +40
-            if (day > 40) {
-                day = day - 40;
+            if (dayRaw > 40) {
+                day = dayRaw - 40;
+                gender = 'f'; // Frau
             }
 
             // Jahr bestimmen (Jahrhundert erraten)
@@ -12773,9 +12781,15 @@ const App = {
             // Datum formatieren (YYYY-MM-DD für input type="date")
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-            // Input-Feld setzen
+            // Input-Felder setzen
             if (birthDateInput) {
                 birthDateInput.value = dateStr;
+            }
+
+            // Geschlecht setzen
+            const genderSelect = document.getElementById('member-gender');
+            if (genderSelect) {
+                genderSelect.value = gender;
             }
 
             // Hinweis anzeigen
@@ -12911,9 +12925,13 @@ const App = {
         if (!container) return;
 
         const search = (document.getElementById('mitglied-search')?.value || '').toLowerCase();
+        const showPaid = document.getElementById('mitglied-show-paid')?.checked || false;
 
-        // Nur Mitglieder ohne Zahlung im aktuellen Jahr anzeigen (bevorzugt)
+        // Mitglieder filtern - bereits bezahlte ausblenden (außer Checkbox aktiv)
         let members = this.membersData.filter(m => {
+            // Bereits bezahlte ausblenden, außer showPaid ist aktiviert
+            if (!showPaid && m.isPaid) return false;
+
             if (search) {
                 const searchStr = `${m.last_name} ${m.first_name || ''} ${m.city || ''}`.toLowerCase();
                 if (!searchStr.includes(search)) return false;
@@ -12921,7 +12939,7 @@ const App = {
             return true;
         });
 
-        // Sortieren: unbezahlte zuerst
+        // Sortieren: unbezahlte zuerst, dann alphabetisch
         members.sort((a, b) => {
             if (a.isPaid === b.isPaid) return a.last_name.localeCompare(b.last_name);
             return a.isPaid ? 1 : -1;
@@ -13054,7 +13072,7 @@ const App = {
                     member_id: mitglied.id,
                     year: year,
                     amount: betragProMitglied,
-                    payment_date: buchung.buchungsdatum || buchung.belegdatum || null,
+                    payment_date: buchung.datum || buchung.buchungsdatum || buchung.belegdatum || null,
                     datev_buchung_id: buchung.rechnungId || buchung.id,
                     datev_buchungstext: buchung.buchungstext || buchung.beschreibung || null
                 });

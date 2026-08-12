@@ -4066,7 +4066,11 @@
                     <div>
                         <h4 style="margin-bottom: 0.5rem; border-bottom: 2px solid #27ae60; padding-bottom: 0.5rem;">Mitglied(er) auswählen <span style="font-weight: normal; font-size: 0.8rem;">(max. 2 bei Paaren)</span></h4>
                         <input type="text" id="mitglied-search" class="form-control" placeholder="Mitglied suchen..." oninput="App.filterMitgliederZuweisung()" style="margin-bottom: 0.5rem;">
-                        <div id="mitglieder-liste" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.85rem; color: #666;">
+                            <input type="checkbox" id="mitglied-show-paid" onchange="App.renderMitgliederZuweisungListe()">
+                            Bereits bezahlte anzeigen
+                        </label>
+                        <div id="mitglieder-liste" style="max-height: 350px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
                             <!-- Wird dynamisch geladen -->
                         </div>
                         <p id="mitglieder-selection-hint" style="margin-top: 0.5rem; color: #666; font-size: 0.85rem;">Klicken um auszuwählen (max. 2 bei gemeinsamer Zahlung)</p>
