@@ -16070,10 +16070,10 @@ const App = {
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-icon btn-sm" onclick="App.editShopArtikel(${art.id})" title="Bearbeiten">
-                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteShopArtikel(${art.id})" title="Löschen">
-                            <img src="icons/03-trash.svg" alt="Löschen" class="icon-sm">
+                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     </div>
                 </td>
@@ -16294,7 +16294,7 @@ const App = {
                         ${v.storniert
                             ? '<span class="badge badge-danger">Storniert</span>'
                             : `<button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${v.id})" title="Stornieren">
-                                <img src="icons/03-trash.svg" alt="Storno" class="icon-sm">
+                                <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
                                </button>`
                         }
                     </td>
@@ -17194,7 +17194,7 @@ const App = {
                     </div>
                     ${!t.is_system ? `
                         <button class="btn btn-icon btn-sm" onclick="App.deleteArtikelTyp(${t.id})" title="Löschen">
-                            <img src="icons/03-trash.svg" alt="Löschen" class="icon-sm">
+                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     ` : ''}
                 </div>
@@ -17219,7 +17219,7 @@ const App = {
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editEintrittKat(${k.id})" title="Bearbeiten">
-                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                     </div>
                 </div>
@@ -17244,7 +17244,7 @@ const App = {
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editMitgliedKat(${k.id})" title="Bearbeiten">
-                            <img src="icons/02-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                     </div>
                 </div>
