@@ -1056,12 +1056,17 @@ textarea.form-control {
     box-shadow: 0 12px 32px rgba(10, 10, 10, 0.12);
     width: 100%;
     max-width: 640px;
-    max-height: 80vh;
+    max-height: 85vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     transform: translateY(8px);
     transition: transform var(--t-base);
+    margin-bottom: 5vh;
+}
+
+.modal-backdrop .modal {
+    max-height: calc(95vh - 5vh);
 }
 
 .modal-overlay.show .modal,
