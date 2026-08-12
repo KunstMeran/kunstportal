@@ -1390,6 +1390,13 @@ const App = {
                 ).join('');
             }
 
+            // Verschieben-Button
+            const moveButton = `
+                <button class="btn btn-sm btn-outline" onclick="App.showMoveRechnungDialog('${r.rechnungId || r.partitaIva + '_' + r.dokumentNr}', '${r.projektId}')" title="In anderes Projekt verschieben" style="padding: 0.15rem 0.35rem;">
+                    <img src="icons/05-move.svg" alt="Verschieben" class="icon-sm" onerror="this.outerHTML='↔'">
+                </button>
+            `;
+
             row.innerHTML = `
                 <td>${this.formatDate(r.datum || r.belegdatum)}</td>
                 <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.fornitoreName || ''}">${r.fornitoreName || '-'}</td>
@@ -1397,7 +1404,7 @@ const App = {
                 <td style="text-align: right; ${(r.betrag || 0) < 0 ? 'color: #e74c3c;' : ''}">${this.formatCurrency(r.betrag || 0)}</td>
                 <td>${statusDropdown}</td>
                 <td>${notizField}</td>
-                <td>${pdfButton}</td>
+                <td style="white-space: nowrap;">${pdfButton} ${moveButton}</td>
             `;
             tbody.appendChild(row);
         });
@@ -1559,6 +1566,99 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Speichern der Notiz:', error);
             this.showToast('error', 'Fehler', 'Notiz konnte nicht gespeichert werden');
+        }
+    },
+
+    /**
+     * Zeigt Dialog zum Verschieben einer Rechnung in ein anderes Projekt
+     */
+    showMoveRechnungDialog: function(rechnungId, currentProjektId) {
+        // Projekte laden
+        const projekte = Object.values(KUNST_MERAN_PROJEKTE);
+
+        // Dropdown-Optionen erstellen
+        const optionen = projekte
+            .filter(p => String(p.id) !== String(currentProjektId))
+            .map(p => `<option value="${p.id}">${p.id} - ${p.name}</option>`)
+            .join('');
+
+        const currentProjekt = KUNST_MERAN_PROJEKTE[currentProjektId];
+        const currentName = currentProjekt ? `${currentProjektId} - ${currentProjekt.name}` : currentProjektId;
+
+        // Einfaches Modal mit prompt-Stil
+        const modalHtml = `
+            <div id="move-rechnung-modal" class="modal-backdrop" style="display: flex;">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Rechnung verschieben</h2>
+                        <button class="modal-close" onclick="App.closeMoveRechnungDialog()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 1rem; color: #666;">
+                            Aktuelles Projekt: <strong>${currentName}</strong>
+                        </p>
+                        <div class="form-group">
+                            <label class="form-label">Neues Projekt:</label>
+                            <select id="move-rechnung-projekt" class="form-control">
+                                <option value="">-- Projekt wählen --</option>
+                                ${optionen}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="App.closeMoveRechnungDialog()">Abbrechen</button>
+                        <button class="btn btn-primary" onclick="App.moveRechnung('${rechnungId}', '${currentProjektId}')">Verschieben</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Existierendes Modal entfernen falls vorhanden
+        const existing = document.getElementById('move-rechnung-modal');
+        if (existing) existing.remove();
+
+        // Modal einfügen
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    closeMoveRechnungDialog: function() {
+        const modal = document.getElementById('move-rechnung-modal');
+        if (modal) modal.remove();
+    },
+
+    /**
+     * Verschiebt eine Rechnung in ein anderes Projekt
+     */
+    moveRechnung: async function(rechnungId, originalProjektId) {
+        const select = document.getElementById('move-rechnung-projekt');
+        const neuesProjektId = select?.value;
+
+        if (!neuesProjektId) {
+            this.showToast('Fehler', 'Bitte wählen Sie ein Projekt', 'error');
+            return;
+        }
+
+        try {
+            // In DataManager speichern
+            DataManager.moveRechnungToProjekt(rechnungId, neuesProjektId, originalProjektId);
+
+            const neuesProjekt = KUNST_MERAN_PROJEKTE[neuesProjektId];
+            const projektName = neuesProjekt ? neuesProjekt.name : neuesProjektId;
+
+            this.closeMoveRechnungDialog();
+            this.showToast('Erfolg', `Rechnung nach "${projektName}" verschoben`, 'success');
+
+            // Ansicht aktualisieren - die Rechnung sollte aus der aktuellen Liste verschwinden
+            if (this.currentProjectRechnungenMitPdf) {
+                this.currentProjectRechnungenMitPdf = this.currentProjectRechnungenMitPdf.filter(
+                    r => r.rechnungId !== rechnungId
+                );
+                this.renderProjectRechnungen(this.currentProjectRechnungenMitPdf);
+            }
+
+        } catch (error) {
+            console.error('Fehler beim Verschieben:', error);
+            this.showToast('Fehler', 'Rechnung konnte nicht verschoben werden', 'error');
         }
     },
 

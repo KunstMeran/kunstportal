@@ -1646,6 +1646,23 @@ const DataManager = {
     },
 
     /**
+     * Verschiebt eine Rechnung in ein anderes Projekt
+     * @param {string} rechnungId - ID der Rechnung
+     * @param {string|number} neuesProjektId - Ziel-Projekt-ID
+     * @param {string|number|null} originalProjektId - Original-Projekt-ID (für Referenz)
+     * @returns {Object} Aktualisierter Status
+     */
+    moveRechnungToProjekt: function(rechnungId, neuesProjektId, originalProjektId = null) {
+        const currentStatus = this.getRechnungStatus(rechnungId);
+        return this.setRechnungStatus(rechnungId, {
+            projektId: String(neuesProjektId),
+            originalProjektId: currentStatus.originalProjektId || originalProjektId || currentStatus.projektId,
+            movedAt: new Date().toISOString(),
+            movedBy: this.getSession()?.userId
+        });
+    },
+
+    /**
      * Setzt Abgabestelle für eine Rechnung (mit Datum)
      * @param {string} rechnungId - ID der Rechnung
      * @param {string} abgabestelle - Abgabestelle (gemeinde, region, provinz)
