@@ -1209,6 +1209,7 @@
                     <div class="tab active" data-tab="shop-inventar">Inventar</div>
                     <div class="tab" data-tab="shop-verkaeufe">Verkäufe</div>
                     <div class="tab" data-tab="shop-einkaeufe">Einkäufe</div>
+                    <div class="tab" data-tab="shop-rechnungen">Rechnungen</div>
                     <div class="tab" data-tab="shop-kasse">Kasse</div>
                 </div>
 
@@ -1325,6 +1326,46 @@
                                     </tr>
                                 </thead>
                                 <tbody id="shop-einkaeufe-table-body">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Rechnungen -->
+                <div id="tab-shop-rechnungen" class="tab-content">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Shop-Rechnungen (Kostenstelle 2699)</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <select id="shop-rechnungen-filter-status" class="form-control" style="width: 150px;" onchange="App.loadShopRechnungen()">
+                                    <option value="">Alle Status</option>
+                                    <option value="offen">Offen</option>
+                                    <option value="kontrolliert">Kontrolliert</option>
+                                    <option value="bezahlt">Bezahlt</option>
+                                </select>
+                                <select id="shop-rechnungen-filter-typ" class="form-control" style="width: 150px;" onchange="App.loadShopRechnungen()">
+                                    <option value="">Alle Typen</option>
+                                    <option value="eingang">Eingangsrechnungen</option>
+                                    <option value="ausgang">Ausgangsrechnungen</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Lieferant/Kunde</th>
+                                        <th>Beschreibung</th>
+                                        <th style="text-align: right;">Betrag</th>
+                                        <th style="text-align: center;">Status</th>
+                                        <th>Einkauf</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shop-rechnungen-table-body">
                                     <!-- Dynamisch geladen -->
                                 </tbody>
                             </table>

@@ -15980,6 +15980,9 @@ const App = {
                     case 'shop-einkaeufe':
                         await this.loadShopEinkaeufe();
                         break;
+                    case 'shop-rechnungen':
+                        this.loadShopRechnungen();
+                        break;
                     case 'shop-kasse':
                         await this.loadShopKasse();
                         break;
@@ -16575,6 +16578,143 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Einkauf konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    // ---- SHOP RECHNUNGEN ----
+
+    loadShopRechnungen: function() {
+        const statusFilter = document.getElementById('shop-rechnungen-filter-status')?.value || '';
+        const typFilter = document.getElementById('shop-rechnungen-filter-typ')?.value || '';
+
+        // Alle Rechnungen mit Kostenstelle 2699 (Shop) holen
+        const alleRechnungen = DataManager.getRechnungen ? DataManager.getRechnungen() : [];
+        const einkaeufe = DataManager.getShopEinkaeufe ? DataManager.getShopEinkaeufe() : [];
+
+        // Nach Kostenstelle 2699 filtern
+        let shopRechnungen = alleRechnungen.filter(r => {
+            const kostenstelle = r.kostenstelle || r.projektId || r.projekt_id;
+            return String(kostenstelle) === '2699';
+        });
+
+        // Status-Filter
+        if (statusFilter) {
+            shopRechnungen = shopRechnungen.filter(r => {
+                const status = DataManager.getRechnungStatus ? DataManager.getRechnungStatus(r.id) : {};
+                if (statusFilter === 'offen') return !status.kontrolliert && !status.bezahlt;
+                if (statusFilter === 'kontrolliert') return status.kontrolliert && !status.bezahlt;
+                if (statusFilter === 'bezahlt') return status.bezahlt;
+                return true;
+            });
+        }
+
+        // Typ-Filter (Eingang/Ausgang basierend auf Betrag oder Typ)
+        if (typFilter) {
+            shopRechnungen = shopRechnungen.filter(r => {
+                const istEingang = (r.typ === 'eingang') || (r.betrag < 0) || (r.art === 'Ausgabe');
+                if (typFilter === 'eingang') return istEingang;
+                if (typFilter === 'ausgang') return !istEingang;
+                return true;
+            });
+        }
+
+        // Nach Datum sortieren (neueste zuerst)
+        shopRechnungen.sort((a, b) => new Date(b.datum || b.date) - new Date(a.datum || a.date));
+
+        const tbody = document.getElementById('shop-rechnungen-table-body');
+        if (!tbody) return;
+
+        if (shopRechnungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Keine Rechnungen für Shop gefunden</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = shopRechnungen.map(r => {
+            const status = DataManager.getRechnungStatus ? DataManager.getRechnungStatus(r.id) : {};
+            const betrag = r.betrag || r.amount || 0;
+            const datum = r.datum || r.date || '';
+            const lieferant = r.lieferant || r.kreditor || r.partner || '-';
+            const beschreibung = r.beschreibung || r.text || r.verwendungszweck || '-';
+
+            // Verknüpften Einkauf finden
+            const verknuepfterEinkauf = einkaeufe.find(e => e.rechnungId === r.id || e.rechnungNr === r.rechnungsnummer);
+
+            let statusBadge = '<span class="badge">Offen</span>';
+            if (status.bezahlt) {
+                statusBadge = '<span class="badge badge-success">Bezahlt</span>';
+            } else if (status.kontrolliert) {
+                statusBadge = '<span class="badge badge-warning">Kontrolliert</span>';
+            }
+
+            return `
+                <tr>
+                    <td>${this.formatDate(datum)}</td>
+                    <td>${lieferant}</td>
+                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;">${beschreibung}</td>
+                    <td style="text-align: right; ${betrag < 0 ? 'color: var(--error-color);' : ''}">${this.formatCurrency(Math.abs(betrag))}</td>
+                    <td style="text-align: center;">${statusBadge}</td>
+                    <td>
+                        ${verknuepfterEinkauf
+                            ? `<span class="badge badge-info">Einkauf #${verknuepfterEinkauf.id}</span>`
+                            : `<button class="btn btn-outline btn-sm" onclick="App.verknuepfeRechnungMitEinkauf('${r.id}')">Verknüpfen</button>`
+                        }
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 0.25rem;">
+                            ${!status.kontrolliert ? `<button class="btn btn-outline btn-sm" onclick="App.setShopRechnungKontrolliert('${r.id}')" title="Als kontrolliert markieren">✓</button>` : ''}
+                            ${!status.bezahlt ? `<button class="btn btn-outline btn-sm" onclick="App.setShopRechnungBezahlt('${r.id}')" title="Als bezahlt markieren">€</button>` : ''}
+                            <button class="btn btn-outline btn-sm" onclick="App.showRechnungDetails('${r.id}')" title="Details">👁</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    setShopRechnungKontrolliert: function(rechnungId) {
+        if (DataManager.setRechnungStatus) {
+            DataManager.setRechnungStatus(rechnungId, { kontrolliert: true, kontrolliertAt: new Date().toISOString() });
+            this.showToast('Erfolg', 'Rechnung als kontrolliert markiert', 'success');
+            this.loadShopRechnungen();
+        }
+    },
+
+    setShopRechnungBezahlt: function(rechnungId) {
+        if (DataManager.setRechnungStatus) {
+            DataManager.setRechnungStatus(rechnungId, { bezahlt: true, bezahltAt: new Date().toISOString() });
+            this.showToast('Erfolg', 'Rechnung als bezahlt markiert', 'success');
+            this.loadShopRechnungen();
+        }
+    },
+
+    verknuepfeRechnungMitEinkauf: function(rechnungId) {
+        // Einkäufe ohne Verknüpfung anzeigen
+        const einkaeufe = DataManager.getShopEinkaeufe ? DataManager.getShopEinkaeufe() : [];
+        const unverknuepft = einkaeufe.filter(e => !e.rechnungId);
+
+        if (unverknuepft.length === 0) {
+            this.showToast('Info', 'Keine unverknüpften Einkäufe vorhanden', 'info');
+            return;
+        }
+
+        // Einfacher Prompt mit Auswahl
+        const optionen = unverknuepft.map(e => {
+            const artikel = DataManager.getShopArtikelById ? DataManager.getShopArtikelById(e.artikelId) : null;
+            return `${e.id}: ${artikel?.name || 'Unbekannt'} (${e.menge}x, ${this.formatDate(e.datum)})`;
+        }).join('\n');
+
+        const auswahl = prompt(`Welchen Einkauf verknüpfen?\n\n${optionen}\n\nEinkauf-ID eingeben:`);
+
+        if (auswahl) {
+            const einkaufId = parseInt(auswahl);
+            const einkauf = einkaeufe.find(e => e.id === einkaufId);
+            if (einkauf) {
+                einkauf.rechnungId = rechnungId;
+                DataManager.saveShopEinkauf(einkauf);
+                this.showToast('Erfolg', 'Rechnung mit Einkauf verknüpft', 'success');
+                this.loadShopRechnungen();
+                this.loadShopEinkaeufe();
+            }
         }
     },
 
