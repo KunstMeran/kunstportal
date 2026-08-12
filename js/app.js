@@ -13786,6 +13786,15 @@ const App = {
      * Ändert den Status einer Rechnung
      */
     changeInvoiceStatus: async function(invoiceId, newStatus) {
+        console.log('🔄 changeInvoiceStatus aufgerufen:', { invoiceId, newStatus });
+
+        // Wenn invoiceId null/undefined, Fehler zeigen
+        if (!invoiceId || invoiceId === 'null' || invoiceId === 'undefined') {
+            console.error('❌ Keine gültige Invoice-ID!', invoiceId);
+            this.showToast('error', 'Fehler', 'Keine Invoice verknüpft - Status kann nicht geändert werden');
+            return;
+        }
+
         try {
             // Berechtigungen prüfen
             if (newStatus === 'bezahlt' && !DataManager.isAdmin()) {
