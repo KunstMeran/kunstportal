@@ -16122,18 +16122,13 @@ const App = {
         this.renderShopArtikelTabelle(artikel);
     },
 
-    showNewShopArtikelForm: async function() {
-        document.getElementById('shop-artikel-form-title').textContent = 'Neuer Artikel';
+    showNewShopArtikelForm: function() {
+        document.getElementById('shop-artikel-modal-title').textContent = 'Neuer Artikel';
         document.getElementById('shop-artikel-form').reset();
-        document.getElementById('shop-artikel-id').value = '';
-
-        // Artikeltypen laden
-        const artikeltypen = await DataManager.getShopArtikeltypen();
-        const select = document.getElementById('shop-artikel-typ');
-        select.innerHTML = artikeltypen.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
+        document.getElementById('shop-artikel-form-id').value = '';
 
         // Nächste Artikelnummer generieren
-        const artikel = await DataManager.getShopArtikel();
+        const artikel = DataManager.getShopArtikel() || [];
         const maxNr = artikel.reduce((max, a) => {
             const match = (a.artikelnr || '').match(/SHOP-(\d+)/);
             return match ? Math.max(max, parseInt(match[1])) : max;
@@ -16143,12 +16138,12 @@ const App = {
         this.openModal('shop-artikel-form-modal');
     },
 
-    editShopArtikel: async function(id) {
-        const artikel = await DataManager.getShopArtikelById(id);
+    editShopArtikel: function(id) {
+        const artikel = DataManager.getShopArtikelById(id);
         if (!artikel) return;
 
-        document.getElementById('shop-artikel-form-title').textContent = 'Artikel bearbeiten';
-        document.getElementById('shop-artikel-id').value = artikel.id;
+        document.getElementById('shop-artikel-modal-title').textContent = 'Artikel bearbeiten';
+        document.getElementById('shop-artikel-form-id').value = artikel.id;
         document.getElementById('shop-artikel-nr').value = artikel.artikelnr || '';
         document.getElementById('shop-artikel-name').value = artikel.name || '';
         document.getElementById('shop-artikel-beschreibung').value = artikel.beschreibung || '';
@@ -16156,23 +16151,19 @@ const App = {
         document.getElementById('shop-artikel-autor').value = artikel.autor || '';
         document.getElementById('shop-artikel-einkaufsjahr').value = artikel.einkaufsjahr || '';
         document.getElementById('shop-artikel-standort').value = artikel.standort || 'Shop';
-        document.getElementById('shop-artikel-einkaufspreis').value = artikel.einkaufspreis || '';
-        document.getElementById('shop-artikel-verkaufspreis').value = artikel.verkaufspreis || '';
-        document.getElementById('shop-artikel-mwst').value = artikel.mwst_satz || '22';
-        document.getElementById('shop-artikel-bestand').value = artikel.bestand_aktuell || 0;
-        document.getElementById('shop-artikel-bestand-min').value = artikel.bestand_min || 0;
-
-        // Artikeltypen laden und setzen
-        const artikeltypen = await DataManager.getShopArtikeltypen();
-        const select = document.getElementById('shop-artikel-typ');
-        select.innerHTML = artikeltypen.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
-        select.value = artikel.artikeltyp || 'sonstiges';
+        document.getElementById('shop-artikel-ek').value = artikel.einkaufspreis || '';
+        document.getElementById('shop-artikel-vk').value = artikel.verkaufspreis || '';
+        document.getElementById('shop-artikel-mwst').value = artikel.mwstSatz || artikel.mwst_satz || '22';
+        document.getElementById('shop-artikel-bestand').value = artikel.bestandAktuell || artikel.bestand_aktuell || 0;
+        document.getElementById('shop-artikel-typ').value = artikel.artikeltyp || 'sonstiges';
 
         this.openModal('shop-artikel-form-modal');
     },
 
-    saveShopArtikel: async function() {
-        const id = document.getElementById('shop-artikel-id').value;
+    saveShopArtikel: function(event) {
+        if (event) event.preventDefault();
+
+        const id = document.getElementById('shop-artikel-form-id').value;
 
         const artikelData = {
             artikelnr: document.getElementById('shop-artikel-nr').value.trim(),
@@ -16183,11 +16174,10 @@ const App = {
             autor: document.getElementById('shop-artikel-autor').value.trim(),
             einkaufsjahr: document.getElementById('shop-artikel-einkaufsjahr').value.trim(),
             standort: document.getElementById('shop-artikel-standort').value,
-            einkaufspreis: parseFloat(document.getElementById('shop-artikel-einkaufspreis').value) || null,
-            verkaufspreis: parseFloat(document.getElementById('shop-artikel-verkaufspreis').value) || 0,
-            mwst_satz: document.getElementById('shop-artikel-mwst').value,
-            bestand_aktuell: parseInt(document.getElementById('shop-artikel-bestand').value) || 0,
-            bestand_min: parseInt(document.getElementById('shop-artikel-bestand-min').value) || 0
+            einkaufspreis: parseFloat(document.getElementById('shop-artikel-ek').value) || null,
+            verkaufspreis: parseFloat(document.getElementById('shop-artikel-vk').value) || 0,
+            mwstSatz: document.getElementById('shop-artikel-mwst').value,
+            bestandAktuell: parseInt(document.getElementById('shop-artikel-bestand').value) || 0
         };
 
         if (!artikelData.name || !artikelData.verkaufspreis) {
@@ -16200,10 +16190,10 @@ const App = {
         }
 
         try {
-            await DataManager.saveShopArtikel(artikelData);
+            DataManager.saveShopArtikel(artikelData);
             this.closeModal('shop-artikel-form-modal');
             this.showToast('Erfolg', id ? 'Artikel aktualisiert' : 'Artikel erstellt', 'success');
-            await this.loadShopInventar();
+            this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Artikel konnte nicht gespeichert werden', 'error');
