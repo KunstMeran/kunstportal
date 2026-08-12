@@ -16523,25 +16523,32 @@ const App = {
         `).join('');
     },
 
-    showShopEinkaufForm: async function() {
-        const artikel = await DataManager.getShopArtikel();
+    showShopEinkaufForm: function() {
+        const artikel = DataManager.getShopArtikel() || [];
         const select = document.getElementById('shop-einkauf-artikel');
-        select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
-            artikel.map(a => `<option value="${a.id}">${a.artikelnr} - ${a.name}</option>`).join('');
+        if (select) {
+            select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
+                artikel.map(a => `<option value="${a.id}">${a.artikelnr || 'Art.'} - ${a.name}</option>`).join('');
+        }
 
-        document.getElementById('shop-einkauf-form').reset();
-        document.getElementById('shop-einkauf-datum').value = new Date().toISOString().split('T')[0];
+        const form = document.getElementById('shop-einkauf-form');
+        if (form) form.reset();
+
+        const datumEl = document.getElementById('shop-einkauf-datum');
+        if (datumEl) datumEl.value = new Date().toISOString().split('T')[0];
 
         this.openModal('shop-einkauf-form-modal');
     },
 
-    saveShopEinkauf: async function() {
+    saveShopEinkauf: function(event) {
+        if (event) event.preventDefault();
+
         const artikelId = document.getElementById('shop-einkauf-artikel').value;
         const datum = document.getElementById('shop-einkauf-datum').value;
         const menge = parseInt(document.getElementById('shop-einkauf-menge').value) || 0;
-        const einzelpreis = parseFloat(document.getElementById('shop-einkauf-einzelpreis').value) || null;
+        const einzelpreis = parseFloat(document.getElementById('shop-einkauf-preis').value) || null;
         const lieferant = document.getElementById('shop-einkauf-lieferant').value.trim();
-        const rechnungNr = document.getElementById('shop-einkauf-rechnung-nr').value.trim();
+        const rechnungNr = document.getElementById('shop-einkauf-rechnung').value.trim();
         const notizen = document.getElementById('shop-einkauf-notizen').value.trim();
 
         if (!artikelId || !menge) {
@@ -16550,21 +16557,21 @@ const App = {
         }
 
         try {
-            await DataManager.addShopEinkauf({
-                artikel_id: parseInt(artikelId),
+            DataManager.addShopEinkauf({
+                artikelId: parseInt(artikelId),
                 datum: datum,
                 menge: menge,
                 einzelpreis: einzelpreis,
                 gesamtpreis: einzelpreis ? menge * einzelpreis : null,
-                lieferant_name: lieferant,
-                rechnung_nr: rechnungNr,
+                lieferantName: lieferant,
+                rechnungNr: rechnungNr,
                 notizen: notizen
             });
 
             this.closeModal('shop-einkauf-form-modal');
             this.showToast('Erfolg', 'Einkauf erfasst', 'success');
-            await this.loadShopEinkaeufe();
-            await this.loadShopInventar();
+            this.loadShopEinkaeufe();
+            this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Einkauf konnte nicht erfasst werden', 'error');
@@ -16641,15 +16648,16 @@ const App = {
     },
 
     showKassenEntnahmeForm: function() {
-        document.getElementById('shop-kassen-entnahme-form').reset();
+        const form = document.getElementById('shop-kassen-entnahme-form');
+        if (form) form.reset();
         this.openModal('shop-kassen-entnahme-modal');
     },
 
-    saveKassenEntnahme: async function(event) {
+    saveKassenEntnahme: function(event) {
         if (event) event.preventDefault();
 
-        const betrag = parseFloat(document.getElementById('shop-kassen-entnahme-betrag').value) || 0;
-        const grund = document.getElementById('shop-kassen-entnahme-grund').value.trim();
+        const betrag = parseFloat(document.getElementById('shop-entnahme-betrag').value) || 0;
+        const grund = document.getElementById('shop-entnahme-grund').value.trim();
 
         if (betrag <= 0) {
             this.showToast('Fehler', 'Bitte geben Sie einen Betrag ein', 'error');
@@ -16657,11 +16665,11 @@ const App = {
         }
 
         try {
-            await DataManager.addKassenEntnahme(betrag, grund);
+            DataManager.addKassenEntnahme(betrag, grund);
             this.closeModal('shop-kassen-entnahme-modal');
             this.showToast('Erfolg', 'Entnahme erfasst', 'success');
-            await this.loadShopKasse();
-            await this.loadShopStatistiken();
+            this.loadShopKasse();
+            this.loadShopStatistiken();
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Entnahme fehlgeschlagen', 'error');
@@ -16669,15 +16677,16 @@ const App = {
     },
 
     showKassenEinlageForm: function() {
-        document.getElementById('shop-kassen-einlage-form').reset();
+        const form = document.getElementById('shop-kassen-einlage-form');
+        if (form) form.reset();
         this.openModal('shop-kassen-einlage-modal');
     },
 
-    saveKassenEinlage: async function(event) {
+    saveKassenEinlage: function(event) {
         if (event) event.preventDefault();
 
-        const betrag = parseFloat(document.getElementById('shop-kassen-einlage-betrag').value) || 0;
-        const grund = document.getElementById('shop-kassen-einlage-grund').value.trim();
+        const betrag = parseFloat(document.getElementById('shop-einlage-betrag').value) || 0;
+        const grund = document.getElementById('shop-einlage-grund').value.trim();
 
         if (betrag <= 0) {
             this.showToast('Fehler', 'Bitte geben Sie einen Betrag ein', 'error');
@@ -16685,11 +16694,11 @@ const App = {
         }
 
         try {
-            await DataManager.addKassenEinlage(betrag, grund);
+            DataManager.addKassenEinlage(betrag, grund);
             this.closeModal('shop-kassen-einlage-modal');
             this.showToast('Erfolg', 'Einlage erfasst', 'success');
-            await this.loadShopKasse();
-            await this.loadShopStatistiken();
+            this.loadShopKasse();
+            this.loadShopStatistiken();
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Einlage fehlgeschlagen', 'error');
