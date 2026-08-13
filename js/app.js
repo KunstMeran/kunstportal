@@ -16213,7 +16213,8 @@ const App = {
             access_dashboard: toBooleanForDB(getRadioValue('workspace-access-dashboard')),
             access_projekte: toBooleanForDB(getRadioValue('workspace-access-projekte')),
             access_rechnungen: toBooleanForDB(getRadioValue('workspace-access-rechnungen')),
-            access_rechnungen_bezahlt: toBooleanForDB(getRadioValue('workspace-access-rechnungen-bezahlt')),
+            // access_rechnungen_bezahlt: Erst nach Migration add-rechnungen-bezahlt-permission.sql aktivieren
+            // access_rechnungen_bezahlt: toBooleanForDB(getRadioValue('workspace-access-rechnungen-bezahlt')),
             access_bewegungen: toBooleanForDB(getRadioValue('workspace-access-bewegungen')),
             access_lieferanten: toBooleanForDB(getRadioValue('workspace-access-lieferanten')),
             access_mitglieder: toBooleanForDB(getRadioValue('workspace-access-mitglieder')),
