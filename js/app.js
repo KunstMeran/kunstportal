@@ -4185,9 +4185,13 @@ const App = {
                 });
             } else {
                 // Neuer Mitarbeiter
+                if (!name) {
+                    alert('Bitte geben Sie einen Namen ein.');
+                    return;
+                }
                 await DataManager.addUser({
                     name: name,
-                    email: email,
+                    email: email || null,
                     userType: userType,
                     hourlyRate: hourlyRate,
                     role: role
@@ -4195,9 +4199,10 @@ const App = {
             }
             this.hideModal('user-form-modal');
             await this.loadUsers();
+            this.showToast('success', 'Gespeichert', 'Mitarbeiter wurde erfolgreich gespeichert.');
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
-            alert('Fehler beim Speichern: ' + error.message);
+            alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
         }
     },
 
