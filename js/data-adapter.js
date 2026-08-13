@@ -521,6 +521,7 @@ const SupabaseDataAdapter = {
                 budget: projectData.budget || 0,
                 pl1: projectData.pl1 || null,
                 pl2: projectData.pl2 || null,
+                pl3: projectData.pl3 || null,
                 dropbox_link: projectData.dropboxLink || null,
                 hide_in_reporting: projectData.hideInReporting || false
             };
@@ -536,10 +537,12 @@ const SupabaseDataAdapter = {
 
             if (error) throw error;
 
+            console.log('✅ Projekt erstellt:', data);
             return this.convertProjectFromSupabase(data);
         } catch (error) {
-            console.error('Fehler beim Erstellen des Projekts:', error);
-            return DataManager._addProjectOriginal(projectData);
+            console.error('❌ Fehler beim Erstellen des Projekts:', error);
+            // Fehler werfen statt stillschweigend fallback
+            throw error;
         }
     },
 
@@ -556,12 +559,15 @@ const SupabaseDataAdapter = {
                 budget: updates.budget || 0,
                 pl1: updates.pl1 || null,
                 pl2: updates.pl2 || null,
+                pl3: updates.pl3 || null,
                 dropbox_link: updates.dropboxLink || null,
                 hide_in_reporting: updates.hideInReporting || false
             };
 
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
+
+            console.log('📝 Projekt Update:', projectId, supabaseUpdates);
 
             const { data, error } = await SupabaseService.client
                 .from('projects')
@@ -572,10 +578,12 @@ const SupabaseDataAdapter = {
 
             if (error) throw error;
 
+            console.log('✅ Projekt aktualisiert:', data);
             return this.convertProjectFromSupabase(data);
         } catch (error) {
-            console.error('Fehler beim Aktualisieren des Projekts:', error);
-            return DataManager._updateProjectOriginal(projectId, updates);
+            console.error('❌ Fehler beim Aktualisieren des Projekts:', error);
+            // Fehler werfen statt stillschweigend fallback
+            throw error;
         }
     },
 
@@ -728,6 +736,7 @@ const SupabaseDataAdapter = {
             budget: supabaseProject.budget || 0,
             pl1: supabaseProject.pl1 || '',
             pl2: supabaseProject.pl2 || '',
+            pl3: supabaseProject.pl3 || '',
             dropboxLink: supabaseProject.dropbox_link || '',
             hideInReporting: supabaseProject.hide_in_reporting || false,
             // Audit-Felder für User-Tracking

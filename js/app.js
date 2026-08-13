@@ -2664,19 +2664,26 @@ const App = {
             hideInReporting: document.getElementById('project-hide-reporting').checked
         };
 
-        if (id) {
-            // ID direkt verwenden (UUID für Supabase, Nummer für localStorage)
-            await DataManager.updateProject(id, projectData);
-        } else {
-            await DataManager.addProject(projectData);
-        }
+        try {
+            if (id) {
+                // ID direkt verwenden (UUID für Supabase, Nummer für localStorage)
+                await DataManager.updateProject(id, projectData);
+                this.showToast('success', 'Gespeichert', 'Projekt wurde aktualisiert');
+            } else {
+                await DataManager.addProject(projectData);
+                this.showToast('success', 'Erstellt', 'Neues Projekt wurde angelegt');
+            }
 
-        this.hideModal('project-form-modal');
-        await this.loadProjects();
+            this.hideModal('project-form-modal');
+            await this.loadProjects();
 
-        // Fullpage aktualisieren falls offen
-        if (this.currentProjectId && id && id === this.currentProjectId) {
-            await this.openProjectFullpage(this.currentProjectId);
+            // Fullpage aktualisieren falls offen
+            if (this.currentProjectId && id && id === this.currentProjectId) {
+                await this.openProjectFullpage(this.currentProjectId);
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern des Projekts:', error);
+            this.showToast('error', 'Fehler', 'Projekt konnte nicht gespeichert werden: ' + error.message);
         }
     },
 
