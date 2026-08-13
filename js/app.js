@@ -16027,7 +16027,7 @@ const App = {
     },
 
     populateShopArtikelFilter: function(artikeltypen) {
-        const typFilter = document.getElementById('shop-filter-artikeltyp');
+        const typFilter = document.getElementById('shop-filter-typ');
         if (typFilter) {
             typFilter.innerHTML = '<option value="">Alle Typen</option>';
             artikeltypen.forEach(typ => {
@@ -16037,7 +16037,7 @@ const App = {
     },
 
     renderShopArtikelTabelle: function(artikel) {
-        const tbody = document.getElementById('shop-artikel-tbody');
+        const tbody = document.getElementById('shop-artikel-table-body');
         if (!tbody) return;
 
         if (artikel.length === 0) {
@@ -16051,7 +16051,12 @@ const App = {
             return;
         }
 
-        tbody.innerHTML = artikel.map(art => `
+        tbody.innerHTML = artikel.map(art => {
+            // Unterstütze sowohl camelCase als auch snake_case
+            const bestand = art.bestandAktuell ?? art.bestand_aktuell ?? 0;
+            const bestandMin = art.bestandMin ?? art.bestand_min ?? 0;
+            const mwstSatz = art.mwstSatz ?? art.mwst_satz ?? '22';
+            return `
             <tr>
                 <td><code>${art.artikelnr || '-'}</code></td>
                 <td>
@@ -16063,9 +16068,9 @@ const App = {
                 <td>${art.standort || 'Shop'}</td>
                 <td class="text-right">${art.einkaufspreis ? this.formatCurrency(art.einkaufspreis) : '-'}</td>
                 <td class="text-right">${this.formatCurrency(art.verkaufspreis)}</td>
-                <td><span class="badge badge-outline">${this.getMwstLabel(art.mwst_satz)}</span></td>
+                <td><span class="badge badge-outline">${this.getMwstLabel(mwstSatz)}</span></td>
                 <td class="text-center">
-                    <span class="${art.bestand_aktuell <= (art.bestand_min || 0) ? 'text-danger' : ''}">${art.bestand_aktuell}</span>
+                    <span class="${bestand <= bestandMin ? 'text-danger' : ''}">${bestand}</span>
                 </td>
                 <td>
                     <div class="action-buttons">
@@ -16078,7 +16083,7 @@ const App = {
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     },
 
     getArtikelTypLabel: function(typ) {
@@ -16101,9 +16106,9 @@ const App = {
     },
 
     filterShopArtikel: async function() {
-        const typFilter = document.getElementById('shop-filter-artikeltyp')?.value;
+        const typFilter = document.getElementById('shop-filter-typ')?.value;
         const standortFilter = document.getElementById('shop-filter-standort')?.value;
-        const suchtext = document.getElementById('shop-artikel-suche')?.value?.toLowerCase();
+        const suchtext = document.getElementById('shop-suche')?.value?.toLowerCase();
 
         let artikel = await DataManager.getShopArtikel();
 
