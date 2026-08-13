@@ -4108,6 +4108,7 @@ const App = {
                 <div class="config-item" title="${auditInfo}">
                     <div class="config-item-info">
                         <span style="font-weight: 500;">${u.name}</span>
+                        <span style="color: #888; font-size: 0.75rem; margin-left: 0.5rem;">${u.email || ''}</span>
                         <span class="badge badge-${u.role === 'admin' ? 'primary' : 'success'}" style="margin-left: 0.5rem;">
                             ${u.role === 'admin' ? 'Admin' : 'Mitarbeiter'}
                         </span>
@@ -4118,37 +4119,84 @@ const App = {
                     </div>
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <span style="font-weight: 600;">${this.formatCurrency(u.hourlyRate || 0)}/Std.</span>
-                        <button class="btn btn-sm btn-outline" onclick="App.editHourlyRate('${u.id}')">Bearbeiten</button>
+                        <button class="btn btn-sm btn-outline" onclick="App.editUser('${u.id}')">Bearbeiten</button>
                     </div>
                 </div>
             `;
         });
     },
 
-    editHourlyRate: function(userId) {
+    // Neuen Mitarbeiter anlegen
+    showNewUserForm: function() {
+        document.getElementById('user-form').reset();
+        document.getElementById('user-form-id').value = '';
+        document.getElementById('user-modal-title').textContent = 'Neuer Mitarbeiter';
+        document.getElementById('user-form-name').value = '';
+        document.getElementById('user-form-email').value = '';
+        document.getElementById('user-form-type').value = 'extern';
+        document.getElementById('user-form-rate').value = '25';
+        document.getElementById('user-form-role').value = 'user';
+
+        // Name und E-Mail editierbar machen
+        document.getElementById('user-form-name').disabled = false;
+        document.getElementById('user-form-email').disabled = false;
+
+        this.showModal('user-form-modal');
+    },
+
+    // Mitarbeiter bearbeiten
+    editUser: function(userId) {
         const user = DataManager.getUserById(userId);
         if (!user) return;
 
-        document.getElementById('hourlyrate-user-id').value = user.id;
-        document.getElementById('hourlyrate-user-name').value = user.name;
-        document.getElementById('hourlyrate-user-type').value = user.userType || 'intern';
-        document.getElementById('hourlyrate-value').value = user.hourlyRate || 0;
+        document.getElementById('user-form-id').value = user.id;
+        document.getElementById('user-modal-title').textContent = 'Mitarbeiter bearbeiten';
+        document.getElementById('user-form-name').value = user.name || '';
+        document.getElementById('user-form-email').value = user.email || '';
+        document.getElementById('user-form-type').value = user.userType || 'intern';
+        document.getElementById('user-form-rate').value = user.hourlyRate || 0;
+        document.getElementById('user-form-role').value = user.role || 'user';
 
-        this.showModal('hourlyrate-form-modal');
+        // Bei bestehendem User: Name/E-Mail nicht editierbar (da aus Auth)
+        document.getElementById('user-form-name').disabled = true;
+        document.getElementById('user-form-email').disabled = true;
+
+        this.showModal('user-form-modal');
     },
 
-    saveHourlyRate: async function(event) {
+    // Mitarbeiter speichern (neu oder bearbeiten)
+    saveUser: async function(event) {
         event.preventDefault();
 
-        const userId = document.getElementById('hourlyrate-user-id').value; // UUID als String
-        const userType = document.getElementById('hourlyrate-user-type').value;
-        const hourlyRate = parseFloat(document.getElementById('hourlyrate-value').value) || 0;
+        const userId = document.getElementById('user-form-id').value;
+        const name = document.getElementById('user-form-name').value.trim();
+        const email = document.getElementById('user-form-email').value.trim();
+        const userType = document.getElementById('user-form-type').value;
+        const hourlyRate = parseFloat(document.getElementById('user-form-rate').value) || 0;
+        const role = document.getElementById('user-form-role').value;
 
         try {
-            await DataManager.updateUser(userId, { hourlyRate: hourlyRate, userType: userType });
-            this.hideModal('hourlyrate-form-modal');
+            if (userId) {
+                // Bearbeiten
+                await DataManager.updateUser(userId, {
+                    userType: userType,
+                    hourlyRate: hourlyRate,
+                    role: role
+                });
+            } else {
+                // Neuer Mitarbeiter
+                await DataManager.addUser({
+                    name: name,
+                    email: email,
+                    userType: userType,
+                    hourlyRate: hourlyRate,
+                    role: role
+                });
+            }
+            this.hideModal('user-form-modal');
             await this.loadUsers();
         } catch (error) {
+            console.error('Fehler beim Speichern:', error);
             alert('Fehler beim Speichern: ' + error.message);
         }
     },

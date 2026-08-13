@@ -2648,11 +2648,12 @@
                 <!-- Mitarbeiter Tab -->
                 <div id="tab-mitarbeiter" class="tab-content">
                     <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Mitarbeiter-Stundensätze</h3>
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Mitarbeiter</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewUserForm()">+ Neuer Mitarbeiter</button>
                         </div>
                         <p style="padding: 0 1rem; color: #666; font-size: 0.875rem;">
-                            Hier können Sie die Stundensätze für die Personalkosten-Kalkulation festlegen.
+                            Verwalten Sie hier Ihre Mitarbeiter mit Typ (intern/extern) und Stundensatz.
                         </p>
                         <div id="users-list">
                             <!-- Wird dynamisch geladen -->
@@ -3461,34 +3462,45 @@
         </div>
     </div>
 
-    <!-- Mitarbeiter-Bearbeiten Modal -->
-    <div id="hourlyrate-form-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 400px;">
+    <!-- Mitarbeiter-Formular Modal -->
+    <div id="user-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 450px;">
             <div class="modal-header">
-                <h2 class="modal-title">Mitarbeiter bearbeiten</h2>
-                <button class="modal-close" onclick="App.hideModal('hourlyrate-form-modal')">&times;</button>
+                <h2 class="modal-title" id="user-modal-title">Neuer Mitarbeiter</h2>
+                <button class="modal-close" onclick="App.hideModal('user-form-modal')">&times;</button>
             </div>
-            <form id="hourlyrate-form" onsubmit="App.saveHourlyRate(event)">
-                <input type="hidden" id="hourlyrate-user-id">
+            <form id="user-form" onsubmit="App.saveUser(event)">
+                <input type="hidden" id="user-form-id">
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Mitarbeiter</label>
-                        <input type="text" id="hourlyrate-user-name" class="form-control" disabled>
+                    <div class="form-group" id="user-name-group">
+                        <label class="form-label">Name *</label>
+                        <input type="text" id="user-form-name" class="form-control" required placeholder="Vor- und Nachname">
+                    </div>
+                    <div class="form-group" id="user-email-group">
+                        <label class="form-label">E-Mail *</label>
+                        <input type="email" id="user-form-email" class="form-control" required placeholder="email@beispiel.de">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Mitarbeitertyp *</label>
-                        <select id="hourlyrate-user-type" class="form-control" required>
+                        <select id="user-form-type" class="form-control" required>
                             <option value="intern">Intern</option>
                             <option value="extern">Extern</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Stundensatz (EUR) *</label>
-                        <input type="number" id="hourlyrate-value" class="form-control" step="0.01" min="0" required placeholder="z.B. 25.00">
+                        <input type="number" id="user-form-rate" class="form-control" step="0.01" min="0" required placeholder="z.B. 25.00" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rolle</label>
+                        <select id="user-form-role" class="form-control">
+                            <option value="user">Mitarbeiter</option>
+                            <option value="admin">Administrator</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('hourlyrate-form-modal')">Abbrechen</button>
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('user-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>

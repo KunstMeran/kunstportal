@@ -115,6 +115,8 @@ const SupabaseDataAdapter = {
         DataManager._updateUserOriginal = DataManager.updateUser;
         DataManager.updateUser = this.updateUser.bind(this);
 
+        DataManager.addUser = this.addUser.bind(this);
+
         // Cache für Kostentypen initialisieren
         this.costTypesCache = null;
         this.loadCostTypesFromSupabase();
@@ -1854,6 +1856,52 @@ const SupabaseDataAdapter = {
         }
     },
 
+    /**
+     * Neuen Benutzer anlegen (ohne Supabase Auth - nur in users Tabelle)
+     * Für externe Mitarbeiter die keinen Login brauchen
+     */
+    async addUser(userData) {
+        try {
+            const insertData = {
+                username: userData.name,
+                email: userData.email,
+                role: userData.role || 'user',
+                hourly_rate: userData.hourlyRate || 0,
+                user_type: userData.userType || 'extern'
+            };
+
+            // Audit-Trail hinzufuegen
+            const metadata = await this.addCreateMetadata({});
+            insertData.created_by = metadata.created_by;
+            insertData.created_at = metadata.created_at;
+
+            const { data, error } = await SupabaseService.client
+                .from('users')
+                .insert(insertData)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Cache invalidieren
+            await this.loadUsersFromSupabase();
+
+            console.log('Neuer Benutzer angelegt:', data);
+
+            return {
+                id: data.id,
+                name: data.username || data.email,
+                email: data.email,
+                role: data.role || 'user',
+                hourlyRate: parseFloat(data.hourly_rate) || 0,
+                userType: data.user_type || 'extern'
+            };
+        } catch (error) {
+            console.error('Fehler beim Anlegen des Benutzers:', error);
+            throw error;
+        }
+    },
+
     // ==========================================
     // FUNDING SOURCES (EINNAHMEPLANUNG)
     // ==========================================
@@ -2540,6 +2588,7 @@ const SupabaseDataAdapter = {
                     access_mitglieder: workspace.access_mitglieder || 'none',
                     access_einnahmen: workspace.access_einnahmen || 'none',
                     access_konfiguration: workspace.access_konfiguration || 'none',
+                    access_zeiterfassung: workspace.access_zeiterfassung || 'none',
                     access_inventar: workspace.access_inventar || 'none',
                     access_reporting: workspace.access_reporting || 'none',
                     rechnungen_nur_zugewiesene: workspace.rechnungen_nur_zugewiesene || false,
@@ -2573,6 +2622,7 @@ const SupabaseDataAdapter = {
                 access_mitglieder: updates.access_mitglieder || 'none',
                 access_einnahmen: updates.access_einnahmen || 'none',
                 access_konfiguration: updates.access_konfiguration || 'none',
+                access_zeiterfassung: updates.access_zeiterfassung || 'none',
                 access_inventar: updates.access_inventar || 'none',
                 access_reporting: updates.access_reporting || 'none',
                 rechnungen_nur_zugewiesene: updates.rechnungen_nur_zugewiesene,
@@ -2745,6 +2795,7 @@ const SupabaseDataAdapter = {
                         access_mitglieder,
                         access_einnahmen,
                         access_konfiguration,
+                        access_zeiterfassung,
                         access_inventar,
                         access_reporting,
                         rechnungen_nur_zugewiesene,
@@ -2789,6 +2840,7 @@ const SupabaseDataAdapter = {
                 access_mitglieder: 'none',
                 access_einnahmen: 'none',
                 access_konfiguration: 'none',
+                access_zeiterfassung: 'none',
                 access_inventar: 'none',
                 access_reporting: 'none',
                 rechnungen_nur_zugewiesene: true,
@@ -2809,6 +2861,7 @@ const SupabaseDataAdapter = {
                     permissions.access_mitglieder = aggregateLevel(permissions.access_mitglieder, ws.access_mitglieder);
                     permissions.access_einnahmen = aggregateLevel(permissions.access_einnahmen, ws.access_einnahmen);
                     permissions.access_konfiguration = aggregateLevel(permissions.access_konfiguration, ws.access_konfiguration);
+                    permissions.access_zeiterfassung = aggregateLevel(permissions.access_zeiterfassung, ws.access_zeiterfassung);
                     permissions.access_inventar = aggregateLevel(permissions.access_inventar, ws.access_inventar);
                     permissions.access_reporting = aggregateLevel(permissions.access_reporting, ws.access_reporting);
 
@@ -2894,6 +2947,7 @@ const SupabaseDataAdapter = {
             access_mitglieder: 'none',
             access_einnahmen: 'none',
             access_konfiguration: 'none',
+            access_zeiterfassung: 'none',
             access_inventar: 'none',
             access_reporting: 'none',
             rechnungen_nur_zugewiesene: true,
@@ -2917,6 +2971,7 @@ const SupabaseDataAdapter = {
             access_mitglieder: 'delete',
             access_einnahmen: 'delete',
             access_konfiguration: 'delete',
+            access_zeiterfassung: 'delete',
             access_inventar: 'delete',
             access_reporting: 'delete',
             rechnungen_nur_zugewiesene: false,
