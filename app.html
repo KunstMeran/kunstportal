@@ -1389,9 +1389,14 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem;">
                             <div class="kassen-uebersicht" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
                                 <h4 style="margin: 0 0 1rem 0;">Kassensaldo</h4>
-                                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
                                     <span>Anfangsbestand Bar:</span>
-                                    <span id="kasse-anfang">0,00 EUR</span>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span id="kasse-anfang">0,00 EUR</span>
+                                        <button class="btn btn-icon btn-sm" onclick="App.showAnfangsbestandForm()" title="Anfangsbestand setzen">
+                                            <img src="icons/09-edit.svg" alt="Setzen" class="icon-sm">
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--success-color);">
                                     <span>+ Einnahmen Bar:</span>
@@ -1497,6 +1502,7 @@
                         <button class="btn reporting-tab-btn" data-tab="3" onclick="App.showReportingTab(3)">4. Kategorien</button>
                         <button class="btn reporting-tab-btn" data-tab="4" onclick="App.showReportingTab(4)">5. Kontenplan</button>
                         <button class="btn reporting-tab-btn" data-tab="5" onclick="App.showReportingTab(5)">6. Bilanz/GuV</button>
+                        <button class="btn reporting-tab-btn" data-tab="6" onclick="App.showReportingTab(6)">7. Besucher</button>
                     </div>
                     <button class="btn btn-outline" onclick="App.nextReportingTab()" id="reporting-next-btn" style="padding: 0.5rem 1rem; font-size: 1.5rem; line-height: 1;">
                         &#8594;
@@ -1505,7 +1511,7 @@
 
                 <!-- Seiten-Indikator -->
                 <div style="text-align: center; margin-bottom: 1rem; color: #666; font-size: 0.9rem;">
-                    <span id="reporting-page-indicator">Seite 1 von 6</span>
+                    <span id="reporting-page-indicator">Seite 1 von 7</span>
                 </div>
 
                 <!-- TAB 1: Projektübersicht -->
@@ -1790,6 +1796,94 @@
                                     </td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 7: Besucherstatistik -->
+                <div class="reporting-tab-content hidden" id="reporting-tab-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Besucherstatistik</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <label style="font-size: 0.85rem; color: #666;">Von:</label>
+                                <input type="date" id="besucher-von" class="form-control" style="width: auto;" onchange="App.loadBesucherStatistik()">
+                                <label style="font-size: 0.85rem; color: #666;">Bis:</label>
+                                <input type="date" id="besucher-bis" class="form-control" style="width: auto;" onchange="App.loadBesucherStatistik()">
+                                <select id="besucher-gruppierung" class="form-control" style="width: auto;" onchange="App.loadBesucherStatistik()">
+                                    <option value="tag">Pro Tag</option>
+                                    <option value="woche">Pro Woche</option>
+                                    <option value="monat" selected>Pro Monat</option>
+                                    <option value="jahr">Pro Jahr</option>
+                                </select>
+                                <button class="btn btn-outline btn-sm" onclick="App.exportBesucherCsv()">CSV Export</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.loadBesucherStatistik()">Aktualisieren</button>
+                            </div>
+                        </div>
+
+                        <!-- Zusammenfassung -->
+                        <div style="padding: 1rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #3498db; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                                    <div style="font-size: 0.75rem; color: #666;">Gesamt Besucher</div>
+                                    <div id="besucher-gesamt" style="font-size: 1.8rem; font-weight: 700; color: #333;">0</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #27ae60; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                                    <div style="font-size: 0.75rem; color: #666;">Vormittag</div>
+                                    <div id="besucher-vormittag" style="font-size: 1.8rem; font-weight: 700; color: #27ae60;">0</div>
+                                    <div id="besucher-vormittag-pct" style="font-size: 0.7rem; color: #666;">0%</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #e67e22; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                                    <div style="font-size: 0.75rem; color: #666;">Nachmittag</div>
+                                    <div id="besucher-nachmittag" style="font-size: 1.8rem; font-weight: 700; color: #e67e22;">0</div>
+                                    <div id="besucher-nachmittag-pct" style="font-size: 0.7rem; color: #666;">0%</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #9b59b6; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                                    <div style="font-size: 0.75rem; color: #666;">Durchschnitt/Tag</div>
+                                    <div id="besucher-durchschnitt" style="font-size: 1.8rem; font-weight: 700; color: #9b59b6;">0</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #f39c12; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                                    <div style="font-size: 0.75rem; color: #666;">Einnahmen Eintritte</div>
+                                    <div id="besucher-einnahmen" style="font-size: 1.5rem; font-weight: 700; color: #f39c12;">0 EUR</div>
+                                </div>
+                            </div>
+
+                            <!-- Kategorie-Aufschlüsselung -->
+                            <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1rem;">Aufschlüsselung nach Kategorie</h4>
+                            <div class="table-container" style="margin-bottom: 1.5rem;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Kategorie</th>
+                                            <th style="text-align: right;">Anzahl</th>
+                                            <th style="text-align: right;">Anteil</th>
+                                            <th style="text-align: right;">Einnahmen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="besucher-kategorien-table">
+                                        <tr><td colspan="4" class="text-center text-muted">Lade Daten...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Zeitlicher Verlauf -->
+                            <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1rem;">Zeitlicher Verlauf</h4>
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table>
+                                    <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                        <tr>
+                                            <th>Zeitraum</th>
+                                            <th style="text-align: right;">Gesamt</th>
+                                            <th style="text-align: right;">Vormittag</th>
+                                            <th style="text-align: right;">Nachmittag</th>
+                                            <th style="text-align: right;">Einnahmen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="besucher-verlauf-table">
+                                        <tr><td colspan="5" class="text-center text-muted">Lade Daten...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4975,6 +5069,36 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-kassen-einlage-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Einlage speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Anfangsbestand Modal -->
+    <div id="shop-anfangsbestand-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Anfangsbestand setzen</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-anfangsbestand-modal')">&times;</button>
+            </div>
+            <form id="shop-anfangsbestand-form" onsubmit="App.saveAnfangsbestand(event)">
+                <div class="modal-body">
+                    <p class="text-muted" style="margin-bottom: 1rem;">
+                        Setzen Sie hier den Anfangsbestand der Kasse für den gewählten Tag.
+                        Dies wird als erster Kassenabschluss gespeichert.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Datum</label>
+                        <input type="date" id="shop-anfangsbestand-datum" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Anfangsbestand (EUR) *</label>
+                        <input type="number" id="shop-anfangsbestand-betrag" class="form-control" step="0.01" min="0" required placeholder="z.B. 100.00">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-anfangsbestand-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
         </div>

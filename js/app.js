@@ -4548,26 +4548,10 @@ const App = {
                     <datalist id="${datalistId}">
                         ${this.getUnlinkedDatevOptionsAsDatalist()}
                     </datalist>`;
-            } else if (r.projektId && projekt) {
-                // Hat Projekt: Zeige Projektname (mit Trennen-Button wenn Invoice)
-                if (r.invoiceId) {
-                    projektCell = `
-                        <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <span>${projekt.name}</span>
-                            <button class="btn btn-sm"
-                                    style="padding: 0.1rem 0.3rem; font-size: 0.7rem; background: #ff5722; color: white;"
-                                    onclick="App.unlinkInvoiceFromDatev('${r.invoiceId}')"
-                                    title="Verknüpfung trennen">
-                                ${Icons.close}
-                            </button>
-                        </div>`;
-                } else {
-                    projektCell = projekt.name;
-                }
             } else {
-                // DATEV-Buchung ohne Projekt: Dropdown zur Projekt-Auswahl
-                // + Ansprechperson anzeigen wenn vorhanden
+                // DATEV-Buchung: Dropdown zur Projekt-Auswahl (auch wenn bereits Projekt zugewiesen)
                 const selectId = `projekt-select-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
+                const currentProjektId = r.projektId ? String(r.projektId) : '';
                 const contactInfo = r.contactUserName
                     ? `<div style="font-size: 0.7rem; color: #666; margin-top: 0.25rem;">
                         <span title="Zuständig für Rechnungskontrolle">👤 ${r.contactUserName}</span>
@@ -4580,14 +4564,14 @@ const App = {
                                 style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
                                 onchange="App.setProjektForRechnung('${r.rechnungId}', this.value)">
                             <option value="">-- Projekt wählen --</option>
-                            <option value="strukturkosten">Strukturkosten</option>
-                            <option value="2601">Complice</option>
-                            <option value="2602">Animacies</option>
-                            <option value="2603">Stadtraum Meran</option>
-                            <option value="2604">Wanderausstellung</option>
-                            <option value="2605">Konzertreihe</option>
-                            <option value="2606">Menschenbilder</option>
-                            <option value="2607">Rahmenprogramm</option>
+                            <option value="strukturkosten" ${currentProjektId === 'strukturkosten' ? 'selected' : ''}>Strukturkosten</option>
+                            <option value="2601" ${currentProjektId === '2601' ? 'selected' : ''}>Complice</option>
+                            <option value="2602" ${currentProjektId === '2602' ? 'selected' : ''}>Animacies</option>
+                            <option value="2603" ${currentProjektId === '2603' ? 'selected' : ''}>Stadtraum Meran</option>
+                            <option value="2604" ${currentProjektId === '2604' ? 'selected' : ''}>Wanderausstellung</option>
+                            <option value="2605" ${currentProjektId === '2605' ? 'selected' : ''}>Konzertreihe</option>
+                            <option value="2606" ${currentProjektId === '2606' ? 'selected' : ''}>Menschenbilder</option>
+                            <option value="2607" ${currentProjektId === '2607' ? 'selected' : ''}>Rahmenprogramm</option>
                         </select>
                         ${contactInfo}
                     </div>`;
@@ -9128,7 +9112,7 @@ const App = {
 
     // Aktueller Reporting-Tab
     currentReportingTab: 0,
-    totalReportingTabs: 6,
+    totalReportingTabs: 7,
 
     loadReporting: function() {
         const jahr = document.getElementById('reporting-jahr')?.value || new Date().getFullYear();
@@ -16966,10 +16950,28 @@ const App = {
             // MwSt-Aufschlüsselung (mwst gibt Objekte mit brutto/netto/mwst zurück)
             const mwstTable = document.getElementById('kasse-mwst-table');
             if (mwstTable) {
+                const m4 = mwst['4'] || { netto: 0, mwst: 0, brutto: 0 };
+                const m22 = mwst['22'] || { netto: 0, mwst: 0, brutto: 0 };
+                const m74 = mwst['art74'] || { netto: 0, mwst: 0, brutto: 0 };
                 mwstTable.innerHTML = `
-                    <tr><td>4% (Bücher)</td><td class="text-right">${this.formatCurrency(mwst['4']?.brutto || 0)}</td></tr>
-                    <tr><td>22% (Standard)</td><td class="text-right">${this.formatCurrency(mwst['22']?.brutto || 0)}</td></tr>
-                    <tr><td>Art. 74 (Marge)</td><td class="text-right">${this.formatCurrency(mwst['art74']?.brutto || 0)}</td></tr>
+                    <tr>
+                        <td>4% (Bücher)</td>
+                        <td class="text-right">${this.formatCurrency(m4.netto || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m4.mwst || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m4.brutto || 0)}</td>
+                    </tr>
+                    <tr>
+                        <td>22% (Standard)</td>
+                        <td class="text-right">${this.formatCurrency(m22.netto || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m22.mwst || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m22.brutto || 0)}</td>
+                    </tr>
+                    <tr>
+                        <td>Art. 74 (Marge)</td>
+                        <td class="text-right">${this.formatCurrency(m74.netto || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m74.mwst || 0)}</td>
+                        <td class="text-right">${this.formatCurrency(m74.brutto || 0)}</td>
+                    </tr>
                 `;
             }
 
@@ -17223,6 +17225,54 @@ const App = {
     // Alias für HTML ohne "Shop" Präfix
     loadKasse: function() {
         return this.loadShopKasse();
+    },
+
+    showAnfangsbestandForm: function() {
+        const form = document.getElementById('shop-anfangsbestand-form');
+        if (form) form.reset();
+
+        // Datum aus aktueller Kassen-Ansicht übernehmen
+        const kasseDatum = document.getElementById('shop-kasse-datum')?.value || new Date().toISOString().split('T')[0];
+        document.getElementById('shop-anfangsbestand-datum').value = kasseDatum;
+
+        // Aktuellen Anfangsbestand als Vorschlag
+        const aktuellerBestand = document.getElementById('kasse-anfang')?.textContent;
+        if (aktuellerBestand) {
+            const betrag = parseFloat(aktuellerBestand.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+            document.getElementById('shop-anfangsbestand-betrag').value = betrag.toFixed(2);
+        }
+
+        this.openModal('shop-anfangsbestand-modal');
+    },
+
+    saveAnfangsbestand: async function(event) {
+        if (event) event.preventDefault();
+
+        const datum = document.getElementById('shop-anfangsbestand-datum').value;
+        const betrag = parseFloat(document.getElementById('shop-anfangsbestand-betrag').value) || 0;
+
+        if (!datum) {
+            this.showToast('Fehler', 'Bitte Datum eingeben', 'error');
+            return;
+        }
+
+        try {
+            // Erstelle einen Kassenabschluss für den Vortag mit dem gewünschten Endbestand
+            // Damit wird dieser Betrag zum Anfangsbestand des gewählten Tages
+            const vortag = new Date(datum);
+            vortag.setDate(vortag.getDate() - 1);
+            const vortagStr = vortag.toISOString().split('T')[0];
+
+            await DataManager.setzeAnfangsbestand(vortagStr, betrag);
+
+            this.closeModal('shop-anfangsbestand-modal');
+            this.showToast('Erfolg', 'Anfangsbestand gesetzt', 'success');
+            await this.loadShopKasse();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
     },
 
     erstelleKassenabschluss: async function() {

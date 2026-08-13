@@ -3107,6 +3107,40 @@ const DataManager = {
         return abschluss;
     },
 
+    setzeAnfangsbestand: function(vortagDatum, betrag) {
+        // Erstellt einen minimalen Kassenabschluss für den Vortag
+        // Dadurch wird der Betrag zum Anfangsbestand des Folgetags
+        const abschluss = {
+            id: Date.now(),
+            datum: vortagDatum,
+            anfangsbestandBar: 0,
+            einnahmenBar: 0,
+            einnahmenPos: 0,
+            einnahmenGesamt: 0,
+            ausgaengeBar: 0,
+            endbestandBarSoll: betrag,
+            endbestandBarIst: betrag,
+            differenz: 0,
+            anzahlVerkaeufe: 0,
+            notizen: 'Anfangsbestand manuell gesetzt',
+            abgeschlossen: true,
+            abgeschlossenAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+        };
+
+        const liste = this.load(this.KEYS.SHOP_KASSENABSCHLUSS) || [];
+        // Existierenden Abschluss für diesen Tag ersetzen
+        const idx = liste.findIndex(k => k.datum === vortagDatum);
+        if (idx !== -1) {
+            liste[idx] = abschluss;
+        } else {
+            liste.push(abschluss);
+        }
+        this.save(this.KEYS.SHOP_KASSENABSCHLUSS, liste);
+
+        return abschluss;
+    },
+
     // --- Shop-Statistiken ---
     getShopStatistiken: function(jahr = null) {
         const aktuellesJahr = jahr || new Date().getFullYear();
