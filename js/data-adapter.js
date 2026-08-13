@@ -221,13 +221,36 @@ const SupabaseDataAdapter = {
      * Hilfsfunktion: Fügt updated_at und updated_by zu Update-Objekten hinzu
      * Wird bei allen Update-Operationen verwendet für Audit-Trail
      */
+    /**
+     * Hilfsfunktion: Holt die User-ID aus der users-Tabelle (nicht auth.users)
+     * Die users-Tabelle hat eigene IDs, nicht die Supabase Auth UIDs
+     */
+    async getCurrentUserId() {
+        try {
+            const authUser = (await SupabaseService.client.auth.getUser()).data.user;
+            if (!authUser?.email) return null;
+
+            // Suche den User in der users-Tabelle anhand der Email
+            const { data: dbUser } = await SupabaseService.client
+                .from('users')
+                .select('id')
+                .eq('email', authUser.email)
+                .single();
+
+            return dbUser?.id || null;
+        } catch (error) {
+            console.warn('⚠️ Konnte User-ID nicht ermitteln:', error);
+            return null;
+        }
+    },
+
     async addUpdateMetadata(updates) {
         try {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const userId = await this.getCurrentUserId();
             return {
                 ...updates,
                 updated_at: new Date().toISOString(),
-                updated_by: currentUser?.id || null
+                updated_by: userId
             };
         } catch (error) {
             console.warn('⚠️ Konnte Update-Metadaten nicht hinzufügen:', error);
@@ -244,11 +267,11 @@ const SupabaseDataAdapter = {
      */
     async addCreateMetadata(data) {
         try {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const userId = await this.getCurrentUserId();
             return {
                 ...data,
                 created_at: new Date().toISOString(),
-                created_by: currentUser?.id || null
+                created_by: userId
             };
         } catch (error) {
             console.warn('⚠️ Konnte Create-Metadaten nicht hinzufügen:', error);
@@ -269,12 +292,12 @@ const SupabaseDataAdapter = {
      */
     async softDelete(table, id, idColumn = 'id') {
         try {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const userId = await this.getCurrentUserId();
             const { error } = await SupabaseService.client
                 .from(table)
                 .update({
                     deleted_at: new Date().toISOString(),
-                    deleted_by: currentUser?.id || null
+                    deleted_by: userId
                 })
                 .eq(idColumn, id);
 
