@@ -2798,6 +2798,121 @@ const DataManager = {
         return einkauf;
     },
 
+    updateShopEinkauf: function(id, daten) {
+        const liste = this.load(this.KEYS.SHOP_EINKAEUFE) || [];
+        const idx = liste.findIndex(e => e.id === id);
+        if (idx === -1) return null;
+
+        const alterEinkauf = liste[idx];
+        const alteArtikelId = alterEinkauf.artikelId || alterEinkauf.artikel_id;
+        const alteMenge = alterEinkauf.menge || 0;
+
+        // Bestand des alten Artikels reduzieren
+        if (alteArtikelId) {
+            const alterArtikel = this.getShopArtikelById(alteArtikelId);
+            if (alterArtikel) {
+                this.saveShopArtikel({
+                    ...alterArtikel,
+                    bestandAktuell: (alterArtikel.bestandAktuell || 0) - alteMenge
+                });
+            }
+        }
+
+        // Einkauf aktualisieren
+        liste[idx] = {
+            ...alterEinkauf,
+            ...daten,
+            updatedAt: new Date().toISOString()
+        };
+        this.save(this.KEYS.SHOP_EINKAEUFE, liste);
+
+        // Bestand des neuen Artikels erhöhen
+        const neueArtikelId = daten.artikelId || daten.artikel_id;
+        if (neueArtikelId) {
+            const neuerArtikel = this.getShopArtikelById(neueArtikelId);
+            if (neuerArtikel) {
+                this.saveShopArtikel({
+                    ...neuerArtikel,
+                    bestandAktuell: (neuerArtikel.bestandAktuell || 0) + (daten.menge || 0)
+                });
+            }
+        }
+
+        return liste[idx];
+    },
+
+    deleteShopEinkauf: function(id) {
+        const liste = this.load(this.KEYS.SHOP_EINKAEUFE) || [];
+        const idx = liste.findIndex(e => e.id === id);
+        if (idx === -1) return;
+
+        const einkauf = liste[idx];
+        const artikelId = einkauf.artikelId || einkauf.artikel_id;
+        const menge = einkauf.menge || 0;
+
+        // Bestand reduzieren (Einkauf rückgängig machen)
+        if (artikelId) {
+            const artikel = this.getShopArtikelById(artikelId);
+            if (artikel) {
+                this.saveShopArtikel({
+                    ...artikel,
+                    bestandAktuell: (artikel.bestandAktuell || 0) - menge
+                });
+            }
+        }
+
+        // Einkauf löschen
+        liste.splice(idx, 1);
+        this.save(this.KEYS.SHOP_EINKAEUFE, liste);
+    },
+
+    // --- Verkäufe Update ---
+    updateShopVerkauf: function(id, daten) {
+        const liste = this.load(this.KEYS.SHOP_VERKAEUFE) || [];
+        const idx = liste.findIndex(v => v.id === id);
+        if (idx === -1) return null;
+
+        const alterVerkauf = liste[idx];
+
+        // Bei Artikel-Verkauf: alten Bestand zurückgeben
+        if (alterVerkauf.typ === 'artikel') {
+            const alteArtikelId = alterVerkauf.artikel_id || alterVerkauf.artikelId;
+            if (alteArtikelId) {
+                const alterArtikel = this.getShopArtikelById(alteArtikelId);
+                if (alterArtikel) {
+                    this.saveShopArtikel({
+                        ...alterArtikel,
+                        bestandAktuell: (alterArtikel.bestandAktuell || 0) + (alterVerkauf.menge || 0)
+                    });
+                }
+            }
+        }
+
+        // Verkauf aktualisieren
+        liste[idx] = {
+            ...alterVerkauf,
+            ...daten,
+            updatedAt: new Date().toISOString()
+        };
+        this.save(this.KEYS.SHOP_VERKAEUFE, liste);
+
+        // Bei Artikel-Verkauf: neuen Bestand reduzieren
+        if (daten.typ === 'artikel' || alterVerkauf.typ === 'artikel') {
+            const neueArtikelId = daten.artikel_id || daten.artikelId;
+            if (neueArtikelId) {
+                const neuerArtikel = this.getShopArtikelById(neueArtikelId);
+                if (neuerArtikel) {
+                    this.saveShopArtikel({
+                        ...neuerArtikel,
+                        bestandAktuell: (neuerArtikel.bestandAktuell || 0) - (daten.menge || 0)
+                    });
+                }
+            }
+        }
+
+        return liste[idx];
+    },
+
     // --- Kassen-Bewegungen ---
     getKassenBewegungen: function(datum = null) {
         let bewegungen = (this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || []).filter(b => !b.storniert);

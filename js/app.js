@@ -16253,14 +16253,14 @@ const App = {
     },
 
     renderShopVerkaeufeTabelle: function(verkaeufe) {
-        const tbody = document.getElementById('shop-verkaeufe-tbody');
+        const tbody = document.getElementById('shop-verkaeufe-table-body');
         if (!tbody) return;
 
         if (verkaeufe.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center text-muted" style="padding: 3rem;">
-                        Keine Verkäufe für diesen Tag.
+                    <td colspan="9" class="text-center text-muted" style="padding: 3rem;">
+                        Keine Verkäufe vorhanden.
                     </td>
                 </tr>
             `;
@@ -16288,6 +16288,7 @@ const App = {
 
             return `
                 <tr class="${v.storniert ? 'storniert' : ''}">
+                    <td>${this.formatDate(v.datum)}</td>
                     <td>${v.uhrzeit ? v.uhrzeit.substring(0, 5) : '-'}</td>
                     <td>${typBadge}</td>
                     <td>${beschreibung}</td>
@@ -16298,9 +16299,14 @@ const App = {
                     <td>
                         ${v.storniert
                             ? '<span class="badge badge-danger">Storniert</span>'
-                            : `<button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${v.id})" title="Stornieren">
-                                <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
-                               </button>`
+                            : `<div class="action-buttons">
+                                <button class="btn btn-icon btn-sm" onclick="App.editShopVerkauf(${v.id})" title="Bearbeiten">
+                                    <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                                </button>
+                                <button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${v.id})" title="Stornieren">
+                                    <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
+                                </button>
+                               </div>`
                         }
                     </td>
                 </tr>
@@ -16407,6 +16413,9 @@ const App = {
     },
 
     saveShopVerkaufArtikel: async function() {
+        const form = document.getElementById('shop-verkauf-artikel-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const datum = document.getElementById('shop-verkauf-artikel-datum').value;
         const artikelId = document.getElementById('shop-verkauf-artikel-select').value;
         const menge = parseInt(document.getElementById('shop-verkauf-artikel-menge').value) || 1;
@@ -16422,23 +16431,31 @@ const App = {
             return;
         }
 
-        try {
-            await DataManager.addShopVerkauf({
-                typ: 'artikel',
-                datum: datum,
-                artikel_id: parseInt(artikelId),
-                menge: menge,
-                einzelpreis: einzelpreis,
-                mwst_satz: mwstSatz,
-                gesamtpreis: menge * einzelpreis,
-                zahlungsart: zahlungsart
-            });
+        const daten = {
+            typ: 'artikel',
+            datum: datum,
+            artikel_id: parseInt(artikelId),
+            menge: menge,
+            einzelpreis: einzelpreis,
+            mwst_satz: mwstSatz,
+            gesamtpreis: menge * einzelpreis,
+            zahlungsart: zahlungsart
+        };
 
+        try {
+            if (editId) {
+                await DataManager.updateShopVerkauf(editId, daten);
+                this.showToast('Erfolg', 'Verkauf aktualisiert', 'success');
+            } else {
+                await DataManager.addShopVerkauf(daten);
+                this.showToast('Erfolg', 'Verkauf erfasst', 'success');
+            }
+
+            if (form) delete form.dataset.editId;
             this.closeModal('shop-verkauf-artikel-modal');
-            this.showToast('Erfolg', 'Verkauf erfasst', 'success');
             await this.loadShopVerkaeufe();
             await this.loadShopStatistiken();
-            await this.loadShopInventar(); // Bestand aktualisieren
+            await this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Verkauf konnte nicht erfasst werden', 'error');
@@ -16446,29 +16463,40 @@ const App = {
     },
 
     saveShopVerkaufEintritt: async function() {
+        const form = document.getElementById('shop-verkauf-eintritt-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const datum = document.getElementById('shop-verkauf-eintritt-datum').value;
         const select = document.getElementById('shop-verkauf-eintritt-kat');
         const option = select.options[select.selectedIndex];
         const kategorie = select.value;
-        const preis = parseFloat(option?.dataset.preis) || 0;
+        const preis = parseFloat(document.getElementById('shop-verkauf-eintritt-preis')?.value) || parseFloat(option?.dataset.preis) || 0;
         const mwstSatz = option?.dataset.mwst || '22';
         const menge = parseInt(document.getElementById('shop-verkauf-eintritt-menge').value) || 1;
         const zahlungsart = document.getElementById('shop-verkauf-eintritt-zahlung')?.value || 'bar';
 
-        try {
-            await DataManager.addShopVerkauf({
-                typ: 'eintritt',
-                datum: datum,
-                eintritt_kategorie: kategorie,
-                menge: menge,
-                einzelpreis: preis,
-                mwst_satz: mwstSatz,
-                gesamtpreis: menge * preis,
-                zahlungsart: zahlungsart
-            });
+        const daten = {
+            typ: 'eintritt',
+            datum: datum,
+            eintritt_kategorie: kategorie,
+            menge: menge,
+            einzelpreis: preis,
+            mwst_satz: mwstSatz,
+            gesamtpreis: menge * preis,
+            zahlungsart: zahlungsart
+        };
 
+        try {
+            if (editId) {
+                await DataManager.updateShopVerkauf(editId, daten);
+                this.showToast('Erfolg', 'Eintritt aktualisiert', 'success');
+            } else {
+                await DataManager.addShopVerkauf(daten);
+                this.showToast('Erfolg', 'Eintritt erfasst', 'success');
+            }
+
+            if (form) delete form.dataset.editId;
             this.closeModal('shop-verkauf-eintritt-modal');
-            this.showToast('Erfolg', 'Eintritt erfasst', 'success');
             await this.loadShopVerkaeufe();
             await this.loadShopStatistiken();
         } catch (error) {
@@ -16478,29 +16506,40 @@ const App = {
     },
 
     saveShopVerkaufMitglied: async function() {
+        const form = document.getElementById('shop-verkauf-mitglied-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const datum = document.getElementById('shop-verkauf-mitglied-datum').value;
         const select = document.getElementById('shop-verkauf-mitglied-kat');
         const option = select.options[select.selectedIndex];
         const kategorie = select.value;
-        const betrag = parseFloat(option?.dataset.betrag) || 0;
+        const betrag = parseFloat(document.getElementById('shop-verkauf-mitglied-betrag')?.value) || parseFloat(option?.dataset.betrag) || 0;
         const name = document.getElementById('shop-verkauf-mitglied-name').value.trim();
         const zahlungsart = document.getElementById('shop-verkauf-mitglied-zahlung')?.value || 'bar';
 
-        try {
-            await DataManager.addShopVerkauf({
-                typ: 'mitglied',
-                datum: datum,
-                mitglied_kategorie: kategorie,
-                mitglied_name: name,
-                menge: 1,
-                einzelpreis: betrag,
-                mwst_satz: null,
-                gesamtpreis: betrag,
-                zahlungsart: zahlungsart
-            });
+        const daten = {
+            typ: 'mitglied',
+            datum: datum,
+            mitglied_kategorie: kategorie,
+            mitglied_name: name,
+            menge: 1,
+            einzelpreis: betrag,
+            mwst_satz: null,
+            gesamtpreis: betrag,
+            zahlungsart: zahlungsart
+        };
 
+        try {
+            if (editId) {
+                await DataManager.updateShopVerkauf(editId, daten);
+                this.showToast('Erfolg', 'Mitgliedsbeitrag aktualisiert', 'success');
+            } else {
+                await DataManager.addShopVerkauf(daten);
+                this.showToast('Erfolg', 'Mitgliedsbeitrag erfasst', 'success');
+            }
+
+            if (form) delete form.dataset.editId;
             this.closeModal('shop-verkauf-mitglied-modal');
-            this.showToast('Erfolg', 'Mitgliedsbeitrag erfasst', 'success');
             await this.loadShopVerkaeufe();
             await this.loadShopStatistiken();
         } catch (error) {
@@ -16521,6 +16560,50 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Stornieren:', error);
             this.showToast('Fehler', 'Storno fehlgeschlagen', 'error');
+        }
+    },
+
+    editShopVerkauf: async function(id) {
+        const verkaeufe = DataManager.getAllShopVerkaeufe ? DataManager.getAllShopVerkaeufe() : [];
+        const verkauf = verkaeufe.find(v => v.id === id);
+        if (!verkauf) {
+            this.showToast('Fehler', 'Verkauf nicht gefunden', 'error');
+            return;
+        }
+
+        // Je nach Typ das entsprechende Formular öffnen
+        if (verkauf.typ === 'artikel') {
+            this.showShopVerkaufForm('artikel');
+            setTimeout(() => {
+                document.getElementById('shop-verkauf-artikel-datum').value = verkauf.datum || '';
+                document.getElementById('shop-verkauf-artikel-select').value = verkauf.artikel_id || verkauf.artikelId || '';
+                document.getElementById('shop-verkauf-artikel-menge').value = verkauf.menge || 1;
+                document.getElementById('shop-verkauf-artikel-preis').value = verkauf.einzelpreis || '';
+                document.getElementById('shop-verkauf-artikel-zahlung').value = verkauf.zahlungsart || 'bar';
+                document.getElementById('shop-verkauf-artikel-form').dataset.editId = id;
+            }, 100);
+
+        } else if (verkauf.typ === 'eintritt') {
+            this.showShopVerkaufForm('eintritt');
+            setTimeout(() => {
+                document.getElementById('shop-verkauf-eintritt-datum').value = verkauf.datum || '';
+                document.getElementById('shop-verkauf-eintritt-kat').value = verkauf.eintritt_kategorie || '';
+                document.getElementById('shop-verkauf-eintritt-menge').value = verkauf.menge || 1;
+                document.getElementById('shop-verkauf-eintritt-preis').value = verkauf.einzelpreis || '';
+                document.getElementById('shop-verkauf-eintritt-zahlung').value = verkauf.zahlungsart || 'bar';
+                document.getElementById('shop-verkauf-eintritt-form').dataset.editId = id;
+            }, 100);
+
+        } else if (verkauf.typ === 'mitglied') {
+            this.showShopVerkaufForm('mitglied');
+            setTimeout(() => {
+                document.getElementById('shop-verkauf-mitglied-datum').value = verkauf.datum || '';
+                document.getElementById('shop-verkauf-mitglied-kat').value = verkauf.mitglied_kategorie || '';
+                document.getElementById('shop-verkauf-mitglied-name').value = verkauf.mitglied_name || '';
+                document.getElementById('shop-verkauf-mitglied-betrag').value = verkauf.einzelpreis || '';
+                document.getElementById('shop-verkauf-mitglied-zahlung').value = verkauf.zahlungsart || 'bar';
+                document.getElementById('shop-verkauf-mitglied-form').dataset.editId = id;
+            }, 100);
         }
     },
 
@@ -16568,6 +16651,16 @@ const App = {
                     <td class="text-right"><strong>${e.gesamtpreis ? this.formatCurrency(e.gesamtpreis) : '-'}</strong></td>
                     <td>${e.lieferantName || e.lieferant_name || '-'}</td>
                     <td>${e.rechnungNr || e.rechnung_nr || '-'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-icon btn-sm" onclick="App.editShopEinkauf(${e.id})" title="Bearbeiten">
+                                <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            </button>
+                            <button class="btn btn-icon btn-sm" onclick="App.deleteShopEinkauf(${e.id})" title="Löschen">
+                                <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -16593,6 +16686,9 @@ const App = {
     saveShopEinkauf: function(event) {
         if (event) event.preventDefault();
 
+        const form = document.getElementById('shop-einkauf-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const artikelId = document.getElementById('shop-einkauf-artikel').value;
         const datum = document.getElementById('shop-einkauf-datum').value;
         const menge = parseInt(document.getElementById('shop-einkauf-menge').value) || 0;
@@ -16607,24 +16703,81 @@ const App = {
         }
 
         try {
-            DataManager.addShopEinkauf({
-                artikelId: parseInt(artikelId),
-                datum: datum,
-                menge: menge,
-                einzelpreis: einzelpreis,
-                gesamtpreis: einzelpreis ? menge * einzelpreis : null,
-                lieferantName: lieferant,
-                rechnungNr: rechnungNr,
-                notizen: notizen
-            });
+            if (editId) {
+                // Update bestehenden Einkauf
+                DataManager.updateShopEinkauf(editId, {
+                    artikelId: parseInt(artikelId),
+                    datum: datum,
+                    menge: menge,
+                    einzelpreis: einzelpreis,
+                    gesamtpreis: einzelpreis ? menge * einzelpreis : null,
+                    lieferantName: lieferant,
+                    rechnungNr: rechnungNr,
+                    notizen: notizen
+                });
+                this.showToast('Erfolg', 'Einkauf aktualisiert', 'success');
+            } else {
+                // Neuen Einkauf anlegen
+                DataManager.addShopEinkauf({
+                    artikelId: parseInt(artikelId),
+                    datum: datum,
+                    menge: menge,
+                    einzelpreis: einzelpreis,
+                    gesamtpreis: einzelpreis ? menge * einzelpreis : null,
+                    lieferantName: lieferant,
+                    rechnungNr: rechnungNr,
+                    notizen: notizen
+                });
+                this.showToast('Erfolg', 'Einkauf erfasst', 'success');
+            }
+
+            // Edit-ID zurücksetzen
+            if (form) delete form.dataset.editId;
 
             this.closeModal('shop-einkauf-form-modal');
-            this.showToast('Erfolg', 'Einkauf erfasst', 'success');
             this.loadShopEinkaeufe();
             this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Einkauf konnte nicht erfasst werden', 'error');
+        }
+    },
+
+    editShopEinkauf: function(id) {
+        const einkaeufe = DataManager.getShopEinkaeufe() || [];
+        const einkauf = einkaeufe.find(e => e.id === id);
+        if (!einkauf) {
+            this.showToast('Fehler', 'Einkauf nicht gefunden', 'error');
+            return;
+        }
+
+        // Formular befüllen
+        this.showShopEinkaufForm();
+
+        // Werte setzen
+        document.getElementById('shop-einkauf-datum').value = einkauf.datum || '';
+        document.getElementById('shop-einkauf-artikel').value = einkauf.artikelId || einkauf.artikel_id || '';
+        document.getElementById('shop-einkauf-menge').value = einkauf.menge || '';
+        document.getElementById('shop-einkauf-preis').value = einkauf.einzelpreis || '';
+        document.getElementById('shop-einkauf-lieferant').value = einkauf.lieferantName || einkauf.lieferant_name || '';
+        document.getElementById('shop-einkauf-rechnung').value = einkauf.rechnungNr || einkauf.rechnung_nr || '';
+        document.getElementById('shop-einkauf-notizen').value = einkauf.notizen || '';
+
+        // ID speichern für Update
+        document.getElementById('shop-einkauf-form').dataset.editId = id;
+    },
+
+    deleteShopEinkauf: function(id) {
+        if (!confirm('Möchten Sie diesen Einkauf wirklich löschen? Der Bestand wird entsprechend angepasst.')) return;
+
+        try {
+            DataManager.deleteShopEinkauf(id);
+            this.showToast('Erfolg', 'Einkauf gelöscht', 'success');
+            this.loadShopEinkaeufe();
+            this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('Fehler', 'Einkauf konnte nicht gelöscht werden', 'error');
         }
     },
 
