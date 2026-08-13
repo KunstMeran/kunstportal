@@ -2620,6 +2620,7 @@ const SupabaseDataAdapter = {
                 access_dashboard: updates.access_dashboard || 'none',
                 access_projekte: updates.access_projekte || 'none',
                 access_rechnungen: updates.access_rechnungen || 'none',
+                access_rechnungen_bezahlt: updates.access_rechnungen_bezahlt || false,
                 access_bewegungen: updates.access_bewegungen || 'none',
                 access_lieferanten: updates.access_lieferanten || 'none',
                 access_mitglieder: updates.access_mitglieder || 'none',

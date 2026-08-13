@@ -16150,9 +16150,20 @@ const App = {
         // Hilfsfunktion: Radio-Button auf bestimmten Wert setzen
         const setRadioValue = (name, value) => {
             // Konvertiere boolean zu string für Abwärtskompatibilität
-            const strValue = typeof value === 'boolean' ? (value ? 'write' : 'none') : (value || 'none');
+            let strValue = 'none';
+            if (typeof value === 'boolean') {
+                strValue = value ? 'write' : 'none';
+            } else if (value) {
+                strValue = value;
+            }
             const radio = document.querySelector(`input[name="${name}"][value="${strValue}"]`);
-            if (radio) radio.checked = true;
+            if (radio) {
+                radio.checked = true;
+            } else {
+                // Fallback: Setze auf 'none'
+                const noneRadio = document.querySelector(`input[name="${name}"][value="none"]`);
+                if (noneRadio) noneRadio.checked = true;
+            }
         };
 
         // Formular zurücksetzen
@@ -16214,6 +16225,7 @@ const App = {
             access_dashboard: getRadioValue('workspace-access-dashboard'),
             access_projekte: getRadioValue('workspace-access-projekte'),
             access_rechnungen: getRadioValue('workspace-access-rechnungen'),
+            access_rechnungen_bezahlt: getRadioValue('workspace-access-rechnungen-bezahlt') === 'write',
             access_bewegungen: getRadioValue('workspace-access-bewegungen'),
             access_lieferanten: getRadioValue('workspace-access-lieferanten'),
             access_mitglieder: getRadioValue('workspace-access-mitglieder'),
