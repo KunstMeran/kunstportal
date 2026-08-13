@@ -16944,12 +16944,13 @@ const App = {
         try {
             // Datum aus Datepicker oder heute
             const datumInput = document.getElementById('shop-kasse-datum');
-            const heute = datumInput?.value || new Date().toISOString().split('T')[0];
-            if (datumInput && !datumInput.value) datumInput.value = heute;
+            const datum = datumInput?.value || new Date().toISOString().split('T')[0];
+            if (datumInput && !datumInput.value) datumInput.value = datum;
 
-            const saldo = await DataManager.berechneKassensaldo(heute);
-            const mwst = await DataManager.getMwstAufschluesselung(heute);
-            const bewegungen = await DataManager.getKassenBewegungen(heute);
+            const saldo = await DataManager.berechneKassensaldo(datum);
+            const mwst = await DataManager.getMwstAufschluesselung(datum);
+            const kassenBewegungen = await DataManager.getKassenBewegungen(datum);
+            const verkaeufe = DataManager.getShopVerkaeufe(datum) || [];
 
             // Kassen-Übersicht (IDs ohne shop- Präfix)
             const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = this.formatCurrency(val || 0); };
@@ -16972,12 +16973,53 @@ const App = {
                 `;
             }
 
-            // Bewegungen
-            this.renderKassenBewegungen(bewegungen);
+            // Alle Bewegungen zusammenführen (Verkäufe + Entnahmen/Einlagen)
+            const alleBewegungen = this.erstelleKassenBewegungsListe(verkaeufe, kassenBewegungen);
+            this.renderKassenBewegungen(alleBewegungen);
 
         } catch (error) {
             console.error('Fehler beim Laden der Kasse:', error);
         }
+    },
+
+    erstelleKassenBewegungsListe: function(verkaeufe, kassenBewegungen) {
+        const bewegungen = [];
+
+        // Verkäufe hinzufügen
+        verkaeufe.forEach(v => {
+            if (v.storniert) return;
+
+            let beschreibung = '';
+            if (v.typ === 'artikel') {
+                beschreibung = v.artikel_name || `Artikel #${v.artikel_id}`;
+            } else if (v.typ === 'eintritt') {
+                beschreibung = this.getEintrittKategorieLabel(v.eintritt_kategorie);
+            } else if (v.typ === 'mitglied') {
+                beschreibung = `Mitglied: ${v.mitglied_name || this.getMitgliedKategorieLabel(v.mitglied_kategorie)}`;
+            }
+
+            bewegungen.push({
+                id: v.id,
+                typ: 'verkauf',
+                subtyp: v.typ,
+                uhrzeit: v.uhrzeit,
+                betrag: v.gesamtpreis || 0,
+                grund: beschreibung,
+                zahlungsart: v.zahlungsart,
+                isVerkauf: true
+            });
+        });
+
+        // Kassen-Bewegungen hinzufügen
+        kassenBewegungen.forEach(b => {
+            bewegungen.push({
+                ...b,
+                isVerkauf: false
+            });
+        });
+
+        // Nach Uhrzeit sortieren
+        return bewegungen.sort((a, b) => (a.uhrzeit || '').localeCompare(b.uhrzeit || ''));
     },
 
     renderKassenBewegungen: function(bewegungen) {
@@ -16994,28 +17036,59 @@ const App = {
         }
 
         tbody.innerHTML = bewegungen.map(b => {
-            const typLabel = b.typ === 'entnahme' ? 'Entnahme' : (b.typ === 'einlage' ? 'Einlage' : 'Korrektur');
-            const typClass = b.typ === 'entnahme' ? 'badge-danger' : 'badge-success';
+            let typLabel, typClass, aktionen;
+
+            if (b.isVerkauf) {
+                // Verkauf
+                if (b.subtyp === 'eintritt') {
+                    typLabel = 'Eintritt';
+                    typClass = 'badge-success';
+                } else if (b.subtyp === 'artikel') {
+                    typLabel = 'Artikel';
+                    typClass = 'badge-primary';
+                } else if (b.subtyp === 'mitglied') {
+                    typLabel = 'Mitglied';
+                    typClass = 'badge-warning';
+                } else {
+                    typLabel = 'Verkauf';
+                    typClass = 'badge-success';
+                }
+                // Zahlungsart anzeigen
+                const zahlBadge = b.zahlungsart === 'bar' ? '' : ' <span class="badge badge-info">POS</span>';
+                aktionen = `<button class="btn btn-icon btn-sm" onclick="App.editShopVerkauf(${b.id})" title="Bearbeiten">
+                                <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            </button>
+                            <button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${b.id})" title="Stornieren">
+                                <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
+                            </button>${zahlBadge}`;
+            } else {
+                // Entnahme/Einlage
+                typLabel = b.typ === 'entnahme' ? 'Entnahme' : (b.typ === 'einlage' ? 'Einlage' : 'Korrektur');
+                typClass = b.typ === 'entnahme' ? 'badge-danger' : 'badge-info';
+                aktionen = b.storniert
+                    ? '<span class="badge badge-outline">Storniert</span>'
+                    : `<button class="btn btn-icon btn-sm" onclick="App.editKassenBewegung(${b.id})" title="Bearbeiten">
+                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                        </button>
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteKassenBewegung(${b.id})" title="Löschen">
+                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                        </button>`;
+            }
+
             const storniert = b.storniert ? 'storniert' : '';
+            const betragClass = b.betrag < 0 ? 'text-danger' : 'text-success';
+
             return `
                 <tr class="${storniert}">
                     <td>${b.uhrzeit ? b.uhrzeit.substring(0, 5) : '-'}</td>
                     <td><span class="badge ${typClass}">${typLabel}</span></td>
-                    <td class="text-right ${b.betrag < 0 ? 'text-danger' : 'text-success'}">${this.formatCurrency(Math.abs(b.betrag))}</td>
+                    <td class="text-right ${betragClass}">${b.betrag < 0 ? '-' : '+'}${this.formatCurrency(Math.abs(b.betrag))}</td>
                     <td>${b.grund || '-'}</td>
                     <td>${b.createdByName || '-'}</td>
                     <td>
-                        ${b.storniert
-                            ? '<span class="badge badge-outline">Storniert</span>'
-                            : `<div class="action-buttons">
-                                <button class="btn btn-icon btn-sm" onclick="App.editKassenBewegung(${b.id})" title="Bearbeiten">
-                                    <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
-                                </button>
-                                <button class="btn btn-icon btn-sm" onclick="App.deleteKassenBewegung(${b.id})" title="Löschen">
-                                    <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
-                                </button>
-                               </div>`
-                        }
+                        <div class="action-buttons">
+                            ${aktionen}
+                        </div>
                     </td>
                 </tr>
             `;
