@@ -4225,35 +4225,36 @@
     </div>
 
     <!-- Workspace-Formular Modal -->
-    <div id="workspace-form-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 600px;">
-            <form onsubmit="App.saveWorkspace(event)">
-                <div class="modal-header">
+    <div id="workspace-form-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('workspace-form-modal')">
+        <div class="modal" style="max-width: 550px; max-height: 90vh; display: flex; flex-direction: column;">
+            <form onsubmit="App.saveWorkspace(event)" style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+                <div class="modal-header" style="flex-shrink: 0;">
                     <h2 id="workspace-modal-title">Neuer Workspace</h2>
-                    <button type="button" class="modal-close" onclick="App.hideModal('workspace-form-modal')">&times;</button>
+                    <button type="button" class="modal-close" onclick="event.preventDefault(); event.stopPropagation(); App.hideModal('workspace-form-modal')">&times;</button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1rem;">
                     <input type="hidden" id="workspace-id">
 
-                    <div class="form-group">
-                        <label class="form-label">Name *</label>
-                        <input type="text" id="workspace-name" class="form-control" required placeholder="z.B. Buchhaltung, Projektleitung">
+                    <div class="form-row" style="gap: 0.75rem;">
+                        <div class="form-group" style="flex: 2; margin-bottom: 0.75rem;">
+                            <label class="form-label" style="font-size: 0.8rem;">Name *</label>
+                            <input type="text" id="workspace-name" class="form-control" required placeholder="z.B. Buchhaltung">
+                        </div>
+                        <div class="form-group" style="flex: 3; margin-bottom: 0.75rem;">
+                            <label class="form-label" style="font-size: 0.8rem;">Beschreibung</label>
+                            <input type="text" id="workspace-description" class="form-control" placeholder="Optional">
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Beschreibung</label>
-                        <textarea id="workspace-description" class="form-control" rows="2" placeholder="Optionale Beschreibung"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" style="margin-bottom: 0.75rem;">Zugriff auf Bereiche</label>
-                        <div class="permission-grid" style="display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 0.5rem 0.75rem; align-items: center;">
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.5rem;">Zugriff auf Bereiche</label>
+                        <div class="permission-grid" style="display: grid; grid-template-columns: 1fr repeat(4, 40px); gap: 0.25rem 0.5rem; align-items: center; font-size: 0.75rem;">
                             <!-- Header -->
-                            <div style="font-weight: 600; font-size: 0.7rem; color: #666;">Bereich</div>
-                            <div style="text-align: center; font-weight: 600; font-size: 0.7rem; color: #666;">Kein</div>
-                            <div style="text-align: center; font-weight: 600; font-size: 0.7rem; color: #666;">Lesen</div>
-                            <div style="text-align: center; font-weight: 600; font-size: 0.7rem; color: #666;">Bearbeiten</div>
-                            <div style="text-align: center; font-weight: 600; font-size: 0.7rem; color: #c00;">Löschen</div>
+                            <div style="font-weight: 600; color: #666;">Bereich</div>
+                            <div style="text-align: center; font-weight: 600; color: #999; font-size: 0.65rem;">Kein</div>
+                            <div style="text-align: center; font-weight: 600; color: #999; font-size: 0.65rem;">Lesen</div>
+                            <div style="text-align: center; font-weight: 600; color: #999; font-size: 0.65rem;">Bearb.</div>
+                            <div style="text-align: center; font-weight: 600; color: #c00; font-size: 0.65rem;">Lsch.</div>
 
                             <!-- Dashboard -->
                             <div>Dashboard</div>
@@ -4275,6 +4276,13 @@
                             <div style="text-align: center;"><input type="radio" name="workspace-access-rechnungen" value="read"></div>
                             <div style="text-align: center;"><input type="radio" name="workspace-access-rechnungen" value="write"></div>
                             <div style="text-align: center;"><input type="radio" name="workspace-access-rechnungen" value="delete"></div>
+
+                            <!-- Rechnungen bezahlt markieren -->
+                            <div style="padding-left: 1rem; color: #666;">- Als bezahlt markieren</div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-rechnungen-bezahlt" value="none" checked></div>
+                            <div style="text-align: center;"></div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-rechnungen-bezahlt" value="write"></div>
+                            <div style="text-align: center;"></div>
 
                             <!-- Bewegungen -->
                             <div>Bewegungen</div>
@@ -4334,17 +4342,14 @@
                         </div>
                     </div>
 
-                    <div class="form-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                            <input type="checkbox" id="workspace-rechnungen-nur-zugewiesene">
-                            <span>Bei Rechnungen: Nur zugewiesene anzeigen</span>
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #eee;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.8rem;">
+                            <input type="checkbox" id="workspace-rechnungen-nur-zugewiesene" style="width: 16px; height: 16px;">
+                            <span>Rechnungen: Nur zugewiesene anzeigen</span>
                         </label>
-                        <small style="color: #666; display: block; margin-top: 0.25rem; margin-left: 1.5rem;">
-                            Aktivieren Sie dies, wenn User nur Rechnungen sehen sollen, die ihnen zugewiesen wurden.
-                        </small>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="flex-shrink: 0;">
                     <button type="button" class="btn btn-outline" onclick="App.hideModal('workspace-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>

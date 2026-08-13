@@ -16148,7 +16148,7 @@ const App = {
         document.getElementById('workspace-description').value = '';
 
         // Alle Radio-Buttons auf 'none' setzen
-        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'zeiterfassung', 'inventar', 'reporting'];
+        const areas = ['dashboard', 'projekte', 'rechnungen', 'rechnungen-bezahlt', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'zeiterfassung', 'inventar', 'reporting'];
         areas.forEach(area => {
             setRadioValue(`workspace-access-${area}`, 'none');
         });
@@ -16165,7 +16165,9 @@ const App = {
 
                 // Radio-Buttons setzen (3-stufige Berechtigungen)
                 areas.forEach(area => {
-                    setRadioValue(`workspace-access-${area}`, ws[`access_${area}`]);
+                    // Konvertiere area mit Bindestrich zu Unterstrich für DB-Feld
+                    const dbField = area.replace(/-/g, '_');
+                    setRadioValue(`workspace-access-${area}`, ws[`access_${dbField}`]);
                 });
 
                 document.getElementById('workspace-rechnungen-nur-zugewiesene').checked = ws.rechnungen_nur_zugewiesene;
@@ -16206,6 +16208,7 @@ const App = {
             access_dashboard: toBooleanForDB(getRadioValue('workspace-access-dashboard')),
             access_projekte: toBooleanForDB(getRadioValue('workspace-access-projekte')),
             access_rechnungen: toBooleanForDB(getRadioValue('workspace-access-rechnungen')),
+            access_rechnungen_bezahlt: toBooleanForDB(getRadioValue('workspace-access-rechnungen-bezahlt')),
             access_bewegungen: toBooleanForDB(getRadioValue('workspace-access-bewegungen')),
             access_lieferanten: toBooleanForDB(getRadioValue('workspace-access-lieferanten')),
             access_mitglieder: toBooleanForDB(getRadioValue('workspace-access-mitglieder')),

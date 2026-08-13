@@ -1862,18 +1862,20 @@ const SupabaseDataAdapter = {
      */
     async addUser(userData) {
         try {
+            // Aktuellen User fuer created_by holen
+            const { data: { user: currentUser } } = await SupabaseService.client.auth.getUser();
+
             const insertData = {
                 username: userData.name,
-                email: userData.email,
+                email: userData.email || `${userData.name.toLowerCase().replace(/\s+/g, '.')}@extern.local`,
                 role: userData.role || 'user',
                 hourly_rate: userData.hourlyRate || 0,
-                user_type: userData.userType || 'extern'
+                user_type: userData.userType || 'extern',
+                created_by: currentUser?.id || null,
+                created_at: new Date().toISOString()
             };
 
-            // Audit-Trail hinzufuegen
-            const metadata = await this.addCreateMetadata({});
-            insertData.created_by = metadata.created_by;
-            insertData.created_at = metadata.created_at;
+            console.log('Versuche User anzulegen mit:', insertData);
 
             const { data, error } = await SupabaseService.client
                 .from('users')
@@ -1881,7 +1883,10 @@ const SupabaseDataAdapter = {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase Error Details:', error);
+                throw new Error(error.message || 'Fehler beim Anlegen');
+            }
 
             // Cache invalidieren
             await this.loadUsersFromSupabase();
