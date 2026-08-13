@@ -8566,7 +8566,15 @@ const App = {
     },
 
     hideModal: function(modalId) {
-        document.getElementById(modalId).classList.remove('show');
+        console.log('🔒 hideModal aufgerufen für:', modalId);
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('show');
+            modal.classList.remove('active');
+            console.log('✅ Modal geschlossen:', modalId);
+        } else {
+            console.error('❌ Modal nicht gefunden:', modalId);
+        }
     },
 
     // Für Modals mit "hidden" Klasse (Shop-Modals)
