@@ -2639,6 +2639,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
+            console.log('🔄 Workspace Update - Sende an DB:', JSON.stringify(supabaseUpdates, null, 2));
+
             const { data, error } = await SupabaseService.client
                 .from('workspaces')
                 .update(supabaseUpdates)
@@ -2646,7 +2648,10 @@ const SupabaseDataAdapter = {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Workspace Update Fehler:', error.message, error.details, error.hint);
+                throw error;
+            }
 
             // Cache invalidieren
             this.permissionsCache = null;
