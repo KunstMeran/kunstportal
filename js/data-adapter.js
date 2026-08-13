@@ -1515,11 +1515,17 @@ const SupabaseDataAdapter = {
 
     async addTimeEntry(entryData) {
         try {
-            // Wenn userId übergeben wird, diese verwenden, sonst aktuellen User
+            // user_id verweist auf public.users(id) - UUID
             let userId = entryData.userId;
+
             if (!userId) {
-                const user = await Auth.getCurrentUser();
-                userId = user?.id || null;
+                // Fallback: aktuell eingeloggter User - finde dessen public.users.id
+                const currentAuthUser = await Auth.getCurrentUser();
+                if (currentAuthUser) {
+                    const users = this.getUsers();
+                    const publicUser = users.find(u => u.auth_id === currentAuthUser.id);
+                    userId = publicUser?.id || null;
+                }
             }
 
             const supabaseEntry = {
