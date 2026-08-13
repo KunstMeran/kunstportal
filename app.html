@@ -4775,14 +4775,21 @@
                             <label class="form-label">Datum *</label>
                             <input type="date" id="shop-verkauf-eintritt-datum" class="form-control" required>
                         </div>
+                        <div class="form-group">
+                            <label class="form-label">Tageszeit *</label>
+                            <select id="shop-verkauf-eintritt-tageszeit" class="form-control" required>
+                                <option value="vormittag">Vormittag (bis 12:00)</option>
+                                <option value="nachmittag">Nachmittag (ab 12:00)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group" style="flex: 2;">
                             <label class="form-label">Kategorie *</label>
                             <select id="shop-verkauf-eintritt-kat" class="form-control" required onchange="App.onEintrittKatSelect()">
                                 <option value="">-- Kategorie auswählen --</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Anzahl *</label>
                             <input type="number" id="shop-verkauf-eintritt-menge" class="form-control" min="1" value="1" required>

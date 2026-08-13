@@ -16281,7 +16281,8 @@ const App = {
                 beschreibung = v.artikel_name || `Artikel #${v.artikel_id}`;
             } else if (v.typ === 'eintritt') {
                 typBadge = '<span class="badge badge-success">Eintritt</span>';
-                beschreibung = this.getEintrittKategorieLabel(v.eintritt_kategorie);
+                const tageszeitLabel = v.tageszeit === 'nachmittag' ? 'NM' : (v.tageszeit === 'vormittag' ? 'VM' : '');
+                beschreibung = this.getEintrittKategorieLabel(v.eintritt_kategorie) + (tageszeitLabel ? ` (${tageszeitLabel})` : '');
             } else if (v.typ === 'mitglied') {
                 typBadge = '<span class="badge badge-warning">Mitglied</span>';
                 beschreibung = `${this.getMitgliedKategorieLabel(v.mitglied_kategorie)}${v.mitglied_name ? ': ' + v.mitglied_name : ''}`;
@@ -16354,7 +16355,16 @@ const App = {
                 const datumEl = document.getElementById('shop-verkauf-eintritt-datum');
                 if (datumEl) datumEl.value = heute;
 
-                const kategorien = DataManager.getEintrittKategorien() || [];
+                // Tageszeit automatisch basierend auf aktueller Uhrzeit setzen
+                const tageszeitEl = document.getElementById('shop-verkauf-eintritt-tageszeit');
+                if (tageszeitEl) {
+                    const stunde = new Date().getHours();
+                    tageszeitEl.value = stunde < 12 ? 'vormittag' : 'nachmittag';
+                }
+
+                // Nur aktive Kategorien anzeigen
+                const alleKategorien = DataManager.getEintrittKategorien() || [];
+                const kategorien = alleKategorien.filter(k => k.is_active !== false);
                 const select = document.getElementById('shop-verkauf-eintritt-kat');
                 if (select) {
                     select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
@@ -16472,6 +16482,7 @@ const App = {
         const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
 
         const datum = document.getElementById('shop-verkauf-eintritt-datum').value;
+        const tageszeit = document.getElementById('shop-verkauf-eintritt-tageszeit')?.value || 'vormittag';
         const select = document.getElementById('shop-verkauf-eintritt-kat');
         const option = select.options[select.selectedIndex];
         const kategorie = select.value;
@@ -16483,6 +16494,7 @@ const App = {
         const daten = {
             typ: 'eintritt',
             datum: datum,
+            tageszeit: tageszeit,
             eintritt_kategorie: kategorie,
             menge: menge,
             einzelpreis: preis,
@@ -16592,6 +16604,7 @@ const App = {
             this.showShopVerkaufForm('eintritt');
             setTimeout(() => {
                 document.getElementById('shop-verkauf-eintritt-datum').value = verkauf.datum || '';
+                document.getElementById('shop-verkauf-eintritt-tageszeit').value = verkauf.tageszeit || 'vormittag';
                 document.getElementById('shop-verkauf-eintritt-kat').value = verkauf.eintritt_kategorie || '';
                 document.getElementById('shop-verkauf-eintritt-menge').value = verkauf.menge || 1;
                 document.getElementById('shop-verkauf-eintritt-preis').value = verkauf.einzelpreis || '';
