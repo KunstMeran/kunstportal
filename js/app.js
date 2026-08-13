@@ -16536,7 +16536,7 @@ const App = {
     },
 
     renderShopEinkaeufeTabelle: function(einkaeufe) {
-        const tbody = document.getElementById('shop-einkaeufe-tbody');
+        const tbody = document.getElementById('shop-einkaeufe-table-body');
         if (!tbody) return;
 
         if (einkaeufe.length === 0) {
@@ -16550,17 +16550,27 @@ const App = {
             return;
         }
 
-        tbody.innerHTML = einkaeufe.map(e => `
-            <tr>
-                <td>${this.formatDate(e.datum)}</td>
-                <td>${e.artikel_name || `Artikel #${e.artikel_id}`}</td>
-                <td class="text-center">${e.menge}</td>
-                <td class="text-right">${e.einzelpreis ? this.formatCurrency(e.einzelpreis) : '-'}</td>
-                <td class="text-right"><strong>${e.gesamtpreis ? this.formatCurrency(e.gesamtpreis) : '-'}</strong></td>
-                <td>${e.lieferant_name || '-'}</td>
-                <td>${e.rechnung_nr || '-'}</td>
-            </tr>
-        `).join('');
+        // Artikel-Namen holen
+        const artikel = DataManager.getAllShopArtikel ? DataManager.getAllShopArtikel() : [];
+
+        tbody.innerHTML = einkaeufe.map(e => {
+            // Artikel-ID kann artikelId oder artikel_id sein
+            const artId = e.artikelId || e.artikel_id;
+            const art = artikel.find(a => a.id === artId);
+            const artikelName = art ? art.name : (e.artikel_name || `Artikel #${artId}`);
+
+            return `
+                <tr>
+                    <td>${this.formatDate(e.datum)}</td>
+                    <td>${artikelName}</td>
+                    <td class="text-center">${e.menge}</td>
+                    <td class="text-right">${e.einzelpreis ? this.formatCurrency(e.einzelpreis) : '-'}</td>
+                    <td class="text-right"><strong>${e.gesamtpreis ? this.formatCurrency(e.gesamtpreis) : '-'}</strong></td>
+                    <td>${e.lieferantName || e.lieferant_name || '-'}</td>
+                    <td>${e.rechnungNr || e.rechnung_nr || '-'}</td>
+                </tr>
+            `;
+        }).join('');
     },
 
     showShopEinkaufForm: function() {
