@@ -9216,7 +9216,7 @@ const App = {
         }
 
         // Bei Tab 6 (Besucher) automatisch Statistik laden
-        if (tabIndex === 6) {
+        if (this.currentReportingTab === 6) {
             this.loadBesucherStatistik();
         }
     },
