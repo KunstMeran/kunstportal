@@ -2989,7 +2989,7 @@ const DataManager = {
 
         verkaeufe.forEach(v => {
             const brutto = v.gesamtpreis || 0;
-            const satz = v.mwstSatz || 'keine';
+            const satz = v.mwstSatz || v.mwst_satz || 'keine';
 
             if (satz === 'art74' || satz === 'keine') {
                 aufschluesselung[satz].brutto += brutto;

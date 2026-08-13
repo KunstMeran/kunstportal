@@ -16422,6 +16422,7 @@ const App = {
             this.showToast('Erfolg', 'Verkauf erfasst', 'success');
             await this.loadShopVerkaeufe();
             await this.loadShopStatistiken();
+            await this.loadShopInventar(); // Bestand aktualisieren
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Verkauf konnte nicht erfasst werden', 'error');
@@ -16496,6 +16497,7 @@ const App = {
             this.showToast('Erfolg', 'Verkauf storniert', 'success');
             await this.loadShopVerkaeufe();
             await this.loadShopStatistiken();
+            await this.loadShopInventar(); // Bestand zurückgeben
         } catch (error) {
             console.error('Fehler beim Stornieren:', error);
             this.showToast('Fehler', 'Storno fehlgeschlagen', 'error');
@@ -16749,21 +16751,21 @@ const App = {
             // Kassen-Übersicht (IDs ohne shop- Präfix)
             const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = this.formatCurrency(val || 0); };
 
-            setEl('kasse-anfang', saldo.anfangsbestand);
+            setEl('kasse-anfang', saldo.anfangsbestandBar);
             setEl('kasse-einnahmen-bar', saldo.einnahmenBar);
             setEl('kasse-einlagen', saldo.einlagenBar || 0);
             setEl('kasse-ausgaenge', saldo.ausgaengeBar);
-            setEl('kasse-saldo-soll', saldo.saldoBar);
+            setEl('kasse-saldo-soll', saldo.endbestandBarSoll);
             setEl('kasse-einnahmen-pos', saldo.einnahmenPos);
-            setEl('kasse-gesamt', (saldo.einnahmenBar || 0) + (saldo.einnahmenPos || 0));
+            setEl('kasse-gesamt', saldo.einnahmenGesamt || ((saldo.einnahmenBar || 0) + (saldo.einnahmenPos || 0)));
 
-            // MwSt-Aufschlüsselung
+            // MwSt-Aufschlüsselung (mwst gibt Objekte mit brutto/netto/mwst zurück)
             const mwstTable = document.getElementById('kasse-mwst-table');
             if (mwstTable) {
                 mwstTable.innerHTML = `
-                    <tr><td>4% (Bücher)</td><td class="text-right">${this.formatCurrency(mwst['4'] || 0)}</td></tr>
-                    <tr><td>22% (Standard)</td><td class="text-right">${this.formatCurrency(mwst['22'] || 0)}</td></tr>
-                    <tr><td>Art. 74 (Marge)</td><td class="text-right">${this.formatCurrency(mwst['art74'] || 0)}</td></tr>
+                    <tr><td>4% (Bücher)</td><td class="text-right">${this.formatCurrency(mwst['4']?.brutto || 0)}</td></tr>
+                    <tr><td>22% (Standard)</td><td class="text-right">${this.formatCurrency(mwst['22']?.brutto || 0)}</td></tr>
+                    <tr><td>Art. 74 (Marge)</td><td class="text-right">${this.formatCurrency(mwst['art74']?.brutto || 0)}</td></tr>
                 `;
             }
 
