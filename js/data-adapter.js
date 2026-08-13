@@ -521,7 +521,8 @@ const SupabaseDataAdapter = {
                 budget: projectData.budget || 0,
                 pl1: projectData.pl1 || null,
                 pl2: projectData.pl2 || null,
-                dropbox_link: projectData.dropboxLink || null
+                dropbox_link: projectData.dropboxLink || null,
+                hide_in_reporting: projectData.hideInReporting || false
             };
 
             // Audit-Trail: created_at und created_by hinzufügen
@@ -555,7 +556,8 @@ const SupabaseDataAdapter = {
                 budget: updates.budget || 0,
                 pl1: updates.pl1 || null,
                 pl2: updates.pl2 || null,
-                dropbox_link: updates.dropboxLink || null
+                dropbox_link: updates.dropboxLink || null,
+                hide_in_reporting: updates.hideInReporting || false
             };
 
             // Audit-Trail: updated_at und updated_by hinzufügen
@@ -727,6 +729,7 @@ const SupabaseDataAdapter = {
             pl1: supabaseProject.pl1 || '',
             pl2: supabaseProject.pl2 || '',
             dropboxLink: supabaseProject.dropbox_link || '',
+            hideInReporting: supabaseProject.hide_in_reporting || false,
             // Audit-Felder für User-Tracking
             createdBy: supabaseProject.created_by,
             createdAt: supabaseProject.created_at,
@@ -3033,13 +3036,16 @@ const SupabaseDataAdapter = {
             // 1. Kontenplan laden
             const chartOfAccounts = await this.getChartOfAccounts();
 
-            // 2. Projekte laden
-            const { data: projects, error: projectsError } = await supabaseClient
+            // 2. Projekte laden (nur Ausstellungen, ohne hideInReporting)
+            const { data: allProjects, error: projectsError } = await supabaseClient
                 .from('projects')
                 .select('*')
                 .eq('ist_ausstellung', true);
 
             if (projectsError) throw projectsError;
+
+            // Projekte mit hideInReporting ausfiltern
+            const projects = (allProjects || []).filter(p => !p.hide_in_reporting);
 
             // 3. DATEV-Buchungen laden
             const { data: buchungen, error: buchungenError } = await supabaseClient

@@ -3002,23 +3002,25 @@
 
     <!-- Projekt-Formular Modal -->
     <div id="project-form-modal" class="modal-overlay">
-        <div class="modal">
+        <div class="modal" style="max-height: 90vh;">
             <div class="modal-header">
                 <h2 class="modal-title" id="project-modal-title">Neues Projekt</h2>
                 <button class="modal-close" onclick="App.hideModal('project-form-modal')">&times;</button>
             </div>
-            <form id="project-form" onsubmit="App.saveProject(event)">
+            <form id="project-form" onsubmit="App.saveProject(event)" style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
                 <input type="hidden" id="project-form-id">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Projektname *</label>
-                        <input type="text" id="project-name" class="form-control" required>
-                    </div>
+                <div class="modal-body" style="overflow-y: auto; flex: 1;">
                     <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">DATEV Kostenstellen-ID</label>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Projektname *</label>
+                            <input type="text" id="project-name" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">DATEV-ID</label>
                             <input type="text" id="project-datev-id" class="form-control" placeholder="z.B. 2601">
                         </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Status</label>
                             <select id="project-status" class="form-control">
@@ -3027,8 +3029,6 @@
                                 <option value="abgeschlossen">Abgeschlossen</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Standort</label>
                             <select id="project-location" class="form-control">
@@ -3042,37 +3042,6 @@
                             <input type="number" id="project-budget" class="form-control" step="0.01" min="0">
                         </div>
                     </div>
-                    <!-- Verantwortlichkeiten -->
-                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                        <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #1565c0;">Verantwortlichkeiten</h4>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">PL1 - Ausstellungsmanagement</label>
-                                <select id="project-pl1" class="form-control">
-                                    <option value="">-- Nicht zugewiesen --</option>
-                                    <!-- Wird dynamisch mit Mitarbeitern gefüllt -->
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">PL2 - Kommunikation</label>
-                                <select id="project-pl2" class="form-control">
-                                    <option value="">-- Nicht zugewiesen --</option>
-                                    <!-- Wird dynamisch mit Mitarbeitern gefüllt -->
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">PL3 - Vermittlung</label>
-                                <select id="project-pl3" class="form-control">
-                                    <option value="">-- Nicht zugewiesen --</option>
-                                    <!-- Wird dynamisch mit Mitarbeitern gefüllt -->
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Beschreibung</label>
-                        <textarea id="project-description" class="form-control"></textarea>
-                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Startdatum *</label>
@@ -3083,12 +3052,47 @@
                             <input type="date" id="project-end" class="form-control" required>
                         </div>
                     </div>
+                    <!-- Optionen -->
+                    <div style="background: #fff3e0; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="project-hide-reporting" style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.9rem;"><strong>Nicht im Reporting anzeigen</strong> – für Shop, Strukturkosten etc.</span>
+                        </label>
+                    </div>
+                    <!-- Verantwortlichkeiten -->
+                    <div style="background: #e3f2fd; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: #1565c0;">Verantwortlichkeiten</h4>
+                        <div class="form-row" style="gap: 0.5rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">PL1 - Ausstellung</label>
+                                <select id="project-pl1" class="form-control">
+                                    <option value="">--</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">PL2 - Kommunikation</label>
+                                <select id="project-pl2" class="form-control">
+                                    <option value="">--</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">PL3 - Vermittlung</label>
+                                <select id="project-pl3" class="form-control">
+                                    <option value="">--</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="project-description" class="form-control" rows="2"></textarea>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Dropbox-Link</label>
                         <input type="url" id="project-dropbox" class="form-control" placeholder="https://www.dropbox.com/...">
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="flex-shrink: 0;">
                     <button type="button" class="btn btn-outline" onclick="App.hideModal('project-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>

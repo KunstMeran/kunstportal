@@ -783,8 +783,11 @@ const App = {
     loadDashboard: async function() {
         try {
             // Projekte und Rechnungen aus Supabase laden
-            const projects = await DataManager.getProjects();
+            const allProjects = await DataManager.getProjects();
             const rechnungen = await DataManager.getRechnungenMitStatus();
+
+            // Projekte filtern: hideInReporting ausblenden
+            const projects = allProjects.filter(p => !p.hideInReporting);
 
             // Projekt-Summaries berechnen
             const summaries = projects.map(project => {
@@ -2611,6 +2614,7 @@ const App = {
         document.getElementById('project-pl2').value = project.pl2 || '';
         document.getElementById('project-pl3').value = project.pl3 || '';
         document.getElementById('project-dropbox').value = project.dropboxLink || '';
+        document.getElementById('project-hide-reporting').checked = project.hideInReporting || false;
 
         document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
         this.showModal('project-form-modal');
@@ -2656,7 +2660,8 @@ const App = {
             pl1: document.getElementById('project-pl1').value || null,
             pl2: document.getElementById('project-pl2').value || null,
             pl3: document.getElementById('project-pl3').value || null,
-            dropboxLink: document.getElementById('project-dropbox').value || null
+            dropboxLink: document.getElementById('project-dropbox').value || null,
+            hideInReporting: document.getElementById('project-hide-reporting').checked
         };
 
         if (id) {
@@ -9202,6 +9207,228 @@ const App = {
         if (indicator) {
             indicator.textContent = `Seite ${this.currentReportingTab + 1} von ${this.totalReportingTabs}`;
         }
+
+        // Bei Tab 6 (Besucher) automatisch Statistik laden
+        if (tabIndex === 6) {
+            this.loadBesucherStatistik();
+        }
+    },
+
+    // ==========================================
+    // BESUCHERSTATISTIK
+    // ==========================================
+
+    loadBesucherStatistik: function() {
+        console.log('loadBesucherStatistik aufgerufen');
+
+        // Default-Zeitraum: aktuelles Jahr
+        const heute = new Date();
+        const jahrStart = `${heute.getFullYear()}-01-01`;
+        const jahrEnde = heute.toISOString().split('T')[0];
+
+        const vonEl = document.getElementById('besucher-von');
+        const bisEl = document.getElementById('besucher-bis');
+
+        // Immer Default setzen wenn leer
+        if (vonEl && !vonEl.value) vonEl.value = jahrStart;
+        if (bisEl && !bisEl.value) bisEl.value = jahrEnde;
+
+        const von = vonEl?.value || jahrStart;
+        const bis = bisEl?.value || jahrEnde;
+        const gruppierung = document.getElementById('besucher-gruppierung')?.value || 'monat';
+
+        console.log('Besucher-Filter:', { von, bis, gruppierung });
+
+        // Alle Eintritte im Zeitraum laden
+        const alleVerkaeufe = DataManager.getAllShopVerkaeufe() || [];
+        console.log('Alle Verkäufe:', alleVerkaeufe.length, 'davon Eintritte:', alleVerkaeufe.filter(v => v.typ === 'eintritt').length);
+        const eintritte = alleVerkaeufe.filter(v =>
+            v.typ === 'eintritt' &&
+            !v.storniert &&
+            v.datum >= von &&
+            v.datum <= bis
+        );
+
+        // Statistiken berechnen
+        let gesamt = 0;
+        let vormittag = 0;
+        let nachmittag = 0;
+        let einnahmen = 0;
+        const kategorieStats = {};
+        const verlaufStats = {};
+
+        const kategorien = DataManager.getEintrittKategorien() || [];
+        const katMap = {};
+        kategorien.forEach(k => katMap[k.id] = k.name);
+
+        eintritte.forEach(v => {
+            const anzahl = v.menge || 1;
+            gesamt += anzahl;
+            einnahmen += v.gesamtpreis || 0;
+
+            // Tageszeit
+            const tz = v.tageszeit || '';
+            if (tz === 'vormittag') vormittag += anzahl;
+            else if (tz === 'nachmittag') nachmittag += anzahl;
+
+            // Kategorie
+            const katId = v.eintritt_kategorie || 'unbekannt';
+            if (!kategorieStats[katId]) {
+                kategorieStats[katId] = { anzahl: 0, einnahmen: 0, name: katMap[katId] || 'Unbekannt' };
+            }
+            kategorieStats[katId].anzahl += anzahl;
+            kategorieStats[katId].einnahmen += v.gesamtpreis || 0;
+
+            // Verlauf (nach Gruppierung)
+            const key = this.getBesucherZeitraumKey(v.datum, gruppierung);
+            if (!verlaufStats[key]) {
+                verlaufStats[key] = { gesamt: 0, vormittag: 0, nachmittag: 0, einnahmen: 0 };
+            }
+            verlaufStats[key].gesamt += anzahl;
+            verlaufStats[key].einnahmen += v.gesamtpreis || 0;
+            if (tz === 'vormittag') verlaufStats[key].vormittag += anzahl;
+            else if (tz === 'nachmittag') verlaufStats[key].nachmittag += anzahl;
+        });
+
+        // Anzahl Tage berechnen (für Durchschnitt)
+        const vonDate = new Date(von);
+        const bisDate = new Date(bis);
+        const diffTime = Math.abs(bisDate - vonDate);
+        const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        const durchschnitt = gesamt / diffDays;
+
+        // UI aktualisieren
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setEl('besucher-gesamt', gesamt.toLocaleString('de-DE'));
+        setEl('besucher-vormittag', vormittag.toLocaleString('de-DE'));
+        setEl('besucher-nachmittag', nachmittag.toLocaleString('de-DE'));
+        setEl('besucher-durchschnitt', durchschnitt.toFixed(1));
+        setEl('besucher-einnahmen', this.formatCurrency(einnahmen));
+
+        // Prozentanteile
+        const vmPct = gesamt > 0 ? ((vormittag / gesamt) * 100).toFixed(1) : 0;
+        const nmPct = gesamt > 0 ? ((nachmittag / gesamt) * 100).toFixed(1) : 0;
+        setEl('besucher-vormittag-pct', `${vmPct}%`);
+        setEl('besucher-nachmittag-pct', `${nmPct}%`);
+
+        // Kategorien-Tabelle
+        const katTable = document.getElementById('besucher-kategorien-table');
+        if (katTable) {
+            const katArr = Object.values(kategorieStats).sort((a, b) => b.anzahl - a.anzahl);
+            if (katArr.length === 0) {
+                katTable.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Keine Eintritte im Zeitraum</td></tr>';
+            } else {
+                katTable.innerHTML = katArr.map(k => {
+                    const anteil = gesamt > 0 ? ((k.anzahl / gesamt) * 100).toFixed(1) : 0;
+                    return `<tr>
+                        <td>${k.name}</td>
+                        <td class="text-right">${k.anzahl}</td>
+                        <td class="text-right">${anteil}%</td>
+                        <td class="text-right">${this.formatCurrency(k.einnahmen)}</td>
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        // Verlaufs-Tabelle
+        const verlaufTable = document.getElementById('besucher-verlauf-table');
+        if (verlaufTable) {
+            const verlaufArr = Object.entries(verlaufStats)
+                .map(([key, val]) => ({ key, ...val }))
+                .sort((a, b) => a.key.localeCompare(b.key));
+
+            if (verlaufArr.length === 0) {
+                verlaufTable.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Keine Daten im Zeitraum</td></tr>';
+            } else {
+                verlaufTable.innerHTML = verlaufArr.map(v => `<tr>
+                    <td>${this.formatBesucherZeitraum(v.key, gruppierung)}</td>
+                    <td class="text-right">${v.gesamt}</td>
+                    <td class="text-right">${v.vormittag}</td>
+                    <td class="text-right">${v.nachmittag}</td>
+                    <td class="text-right">${this.formatCurrency(v.einnahmen)}</td>
+                </tr>`).join('');
+            }
+        }
+    },
+
+    getBesucherZeitraumKey: function(datum, gruppierung) {
+        const d = new Date(datum);
+        switch (gruppierung) {
+            case 'tag':
+                return datum;
+            case 'woche':
+                const weekStart = new Date(d);
+                weekStart.setDate(d.getDate() - d.getDay() + 1); // Montag
+                return weekStart.toISOString().split('T')[0];
+            case 'monat':
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            case 'jahr':
+                return String(d.getFullYear());
+            default:
+                return datum;
+        }
+    },
+
+    formatBesucherZeitraum: function(key, gruppierung) {
+        switch (gruppierung) {
+            case 'tag':
+                return new Date(key).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+            case 'woche':
+                const weekEnd = new Date(key);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                return `KW ${this.getWeekNumber(new Date(key))} (${new Date(key).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${weekEnd.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`;
+            case 'monat':
+                const [year, month] = key.split('-');
+                const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+                return `${monthNames[parseInt(month) - 1]} ${year}`;
+            case 'jahr':
+                return key;
+            default:
+                return key;
+        }
+    },
+
+    getWeekNumber: function(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    },
+
+    exportBesucherCsv: function() {
+        const von = document.getElementById('besucher-von')?.value || '';
+        const bis = document.getElementById('besucher-bis')?.value || '';
+        const gruppierung = document.getElementById('besucher-gruppierung')?.value || 'monat';
+
+        const alleVerkaeufe = DataManager.getAllShopVerkaeufe() || [];
+        const eintritte = alleVerkaeufe.filter(v =>
+            v.typ === 'eintritt' &&
+            !v.storniert &&
+            v.datum >= von &&
+            v.datum <= bis
+        );
+
+        const kategorien = DataManager.getEintrittKategorien() || [];
+        const katMap = {};
+        kategorien.forEach(k => katMap[k.id] = k.name);
+
+        // CSV mit allen Eintrittsdaten
+        const header = ['Datum', 'Uhrzeit', 'Tageszeit', 'Kategorie', 'Menge', 'Preis'];
+        const rows = eintritte.map(v => [
+            v.datum,
+            v.uhrzeit || '',
+            v.tageszeit || '',
+            katMap[v.eintritt_kategorie] || 'Unbekannt',
+            v.menge || 1,
+            (v.gesamtpreis || 0).toFixed(2).replace('.', ',')
+        ]);
+
+        const csvContent = [header, ...rows].map(row => row.join(';')).join('\n');
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Besucherstatistik_${von}_${bis}.csv`;
+        link.click();
     },
 
     // Cache für DB-Ergebnisse
@@ -10779,8 +11006,9 @@ const App = {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Lade Projekte...</td></tr>';
 
         try {
-            // Projekte aus Supabase laden
-            const projects = await SupabaseDataAdapter.getProjects();
+            // Projekte aus Supabase laden und hideInReporting filtern
+            const allProjects = await SupabaseDataAdapter.getProjects();
+            const projects = allProjects.filter(p => !p.hideInReporting);
             const startDate = `${jahr}-01-01`;
             const endDate = `${jahr}-12-31`;
 
