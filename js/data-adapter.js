@@ -2613,28 +2613,27 @@ const SupabaseDataAdapter = {
      */
     async updateWorkspace(workspaceId, updates) {
         try {
+            // ENUM-Werte: 'none', 'read', 'write', 'delete'
             let supabaseUpdates = {
                 name: updates.name,
                 description: updates.description,
-                access_dashboard: updates.access_dashboard || false,
-                access_projekte: updates.access_projekte || false,
-                access_rechnungen: updates.access_rechnungen || false,
-                access_bewegungen: updates.access_bewegungen || false,
-                access_lieferanten: updates.access_lieferanten || false,
-                access_mitglieder: updates.access_mitglieder || false,
-                access_einnahmen: updates.access_einnahmen || false,
-                access_konfiguration: updates.access_konfiguration || false,
-                access_zeiterfassung: updates.access_zeiterfassung || false,
-                access_inventar: updates.access_inventar || false,
-                access_reporting: updates.access_reporting || false,
+                access_dashboard: updates.access_dashboard || 'none',
+                access_projekte: updates.access_projekte || 'none',
+                access_rechnungen: updates.access_rechnungen || 'none',
+                access_bewegungen: updates.access_bewegungen || 'none',
+                access_lieferanten: updates.access_lieferanten || 'none',
+                access_mitglieder: updates.access_mitglieder || 'none',
+                access_einnahmen: updates.access_einnahmen || 'none',
+                access_konfiguration: updates.access_konfiguration || 'none',
+                access_inventar: updates.access_inventar || 'none',
+                access_reporting: updates.access_reporting || 'none',
                 rechnungen_nur_zugewiesene: updates.rechnungen_nur_zugewiesene || false,
                 is_active: updates.is_active !== undefined ? updates.is_active : true
             };
 
-            // Neues Feld nur hinzufügen wenn es in updates vorhanden ist
-            // (Spalte muss in DB existieren - Migration: add-rechnungen-bezahlt-permission.sql)
-            if (updates.access_rechnungen_bezahlt !== undefined) {
-                supabaseUpdates.access_rechnungen_bezahlt = updates.access_rechnungen_bezahlt || false;
+            // Zeiterfassung ist TEXT (nicht ENUM) - nur hinzufügen wenn Migration ausgeführt wurde
+            if (updates.access_zeiterfassung !== undefined) {
+                supabaseUpdates.access_zeiterfassung = updates.access_zeiterfassung || 'none';
             }
 
             // Audit-Trail: updated_at und updated_by hinzufügen
