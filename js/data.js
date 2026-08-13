@@ -2717,8 +2717,9 @@ const DataManager = {
         this.save(this.KEYS.SHOP_VERKAEUFE, liste);
 
         // Bei Artikelverkauf: Bestand reduzieren
-        if (verkauf.typ === 'artikel' && verkauf.artikelId) {
-            const artikel = this.getShopArtikelById(verkauf.artikelId);
+        const artikelId = verkauf.artikelId || verkauf.artikel_id;
+        if (verkauf.typ === 'artikel' && artikelId) {
+            const artikel = this.getShopArtikelById(artikelId);
             if (artikel) {
                 this.saveShopArtikel({
                     ...artikel,
@@ -2741,8 +2742,9 @@ const DataManager = {
             this.save(this.KEYS.SHOP_VERKAEUFE, liste);
 
             // Bei Artikelverkauf: Bestand zurückgeben
-            if (verkauf.typ === 'artikel' && verkauf.artikelId) {
-                const artikel = this.getShopArtikelById(verkauf.artikelId);
+            const stornierteArtikelId = verkauf.artikelId || verkauf.artikel_id;
+            if (verkauf.typ === 'artikel' && stornierteArtikelId) {
+                const artikel = this.getShopArtikelById(stornierteArtikelId);
                 if (artikel) {
                     this.saveShopArtikel({
                         ...artikel,
@@ -2772,8 +2774,9 @@ const DataManager = {
         this.save(this.KEYS.SHOP_EINKAEUFE, liste);
 
         // Bestand erhöhen
-        if (einkauf.artikelId) {
-            const artikel = this.getShopArtikelById(einkauf.artikelId);
+        const einkaufArtikelId = einkauf.artikelId || einkauf.artikel_id;
+        if (einkaufArtikelId) {
+            const artikel = this.getShopArtikelById(einkaufArtikelId);
             if (artikel) {
                 this.saveShopArtikel({
                     ...artikel,
@@ -2782,6 +2785,16 @@ const DataManager = {
             }
         }
 
+        return einkauf;
+    },
+
+    saveShopEinkauf: function(einkauf) {
+        const liste = this.load(this.KEYS.SHOP_EINKAEUFE) || [];
+        const idx = liste.findIndex(e => e.id === einkauf.id);
+        if (idx !== -1) {
+            liste[idx] = { ...liste[idx], ...einkauf };
+            this.save(this.KEYS.SHOP_EINKAEUFE, liste);
+        }
         return einkauf;
     },
 
