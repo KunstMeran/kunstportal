@@ -900,53 +900,131 @@
                     </button>
                 </div>
 
-                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
-                    <div class="stat-card">
-                        <div class="stat-value" id="stat-total-hours">0</div>
-                        <div class="stat-label">Stunden diese Woche</div>
+                <!-- Tabs für Zeiterfassung -->
+                <div class="tabs" style="margin-bottom: 1rem;">
+                    <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchTimeTab('eintraege')">Zeiteintraege</div>
+                    <div class="tab" data-tab="zeit-externe" onclick="App.switchTimeTab('externe')">Externe Auswertung</div>
+                </div>
+
+                <!-- Tab: Zeiteinträge -->
+                <div id="tab-zeit-eintraege" class="tab-content active">
+                    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-total-hours">0</div>
+                            <div class="stat-label">Stunden diese Woche</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="stat-total-hours-month">0</div>
+                            <div class="stat-label">Stunden diesen Monat</div>
+                        </div>
                     </div>
-                    <div class="stat-card success">
-                        <div class="stat-value" id="stat-total-hours-month">0</div>
-                        <div class="stat-label">Stunden diesen Monat</div>
+
+                    <!-- Admin-Filter (nur für Admins sichtbar) -->
+                    <div id="time-admin-filters" class="card admin-only" style="margin-bottom: 1rem; display: none;">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0;">Filter (Admin)</h3>
+                        </div>
+                        <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Mitarbeiter</label>
+                                <select id="time-filter-user" class="form-control" onchange="App.loadTimeTracking()">
+                                    <option value="">Alle Mitarbeiter</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Projekt</label>
+                                <select id="time-filter-project" class="form-control" onchange="App.loadTimeTracking()">
+                                    <option value="">Alle Projekte</option>
+                            </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Von</label>
+                                <input type="date" id="time-filter-from" class="form-control" onchange="App.loadTimeTracking()">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Bis</label>
+                                <input type="date" id="time-filter-to" class="form-control" onchange="App.loadTimeTracking()">
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetTimeFilters()">Filter zurucksetzen</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title" id="time-entries-title">Meine Zeiteintraege</h3>
+                        </div>
+                        <div id="time-entries-list">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- Admin-Filter (nur für Admins sichtbar) -->
-                <div id="time-admin-filters" class="card admin-only" style="margin-bottom: 1rem; display: none;">
-                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 class="card-title" style="margin: 0;">Filter (Admin)</h3>
+                <!-- Tab: Externe Auswertung -->
+                <div id="tab-zeit-externe" class="tab-content" style="display: none;">
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0;">Filter</h3>
+                        </div>
+                        <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Externer Mitarbeiter</label>
+                                <select id="externe-filter-user" class="form-control" onchange="App.loadExterneAuswertung()">
+                                    <option value="">Alle Externen</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Projekt</label>
+                                <select id="externe-filter-project" class="form-control" onchange="App.loadExterneAuswertung()">
+                                    <option value="">Alle Projekte</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Von</label>
+                                <input type="date" id="externe-filter-from" class="form-control" onchange="App.loadExterneAuswertung()">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Bis</label>
+                                <input type="date" id="externe-filter-to" class="form-control" onchange="App.loadExterneAuswertung()">
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetExterneFilters()">Filter zurucksetzen</button>
+                        </div>
                     </div>
-                    <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Mitarbeiter</label>
-                            <select id="time-filter-user" class="form-control" onchange="App.loadTimeTracking()">
-                                <option value="">Alle Mitarbeiter</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Projekt</label>
-                            <select id="time-filter-project" class="form-control" onchange="App.loadTimeTracking()">
-                                <option value="">Alle Projekte</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Von</label>
-                            <input type="date" id="time-filter-from" class="form-control" onchange="App.loadTimeTracking()">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Bis</label>
-                            <input type="date" id="time-filter-to" class="form-control" onchange="App.loadTimeTracking()">
-                        </div>
-                        <button class="btn btn-outline btn-sm" onclick="App.resetTimeFilters()">Filter zurücksetzen</button>
-                    </div>
-                </div>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title" id="time-entries-title">Meine Zeiteinträge</h3>
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1rem;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-externe-stunden">0</div>
+                            <div class="stat-label">Externe Stunden gesamt</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value" id="stat-externe-kosten">0</div>
+                            <div class="stat-label">Externe Kosten gesamt</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="stat-externe-mitarbeiter">0</div>
+                            <div class="stat-label">Externe Mitarbeiter</div>
+                        </div>
                     </div>
-                    <div id="time-entries-list">
-                        <!-- Wird dynamisch geladen -->
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Externe Stunden nach Projekt</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Mitarbeiter</th>
+                                        <th>Projekt</th>
+                                        <th style="text-align: right;">Stunden</th>
+                                        <th style="text-align: right;">Stundensatz</th>
+                                        <th style="text-align: right;">Kosten</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="externe-auswertung-list">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3383,11 +3461,11 @@
         </div>
     </div>
 
-    <!-- Stundensatz-Formular Modal -->
+    <!-- Mitarbeiter-Bearbeiten Modal -->
     <div id="hourlyrate-form-modal" class="modal-overlay">
         <div class="modal" style="max-width: 400px;">
             <div class="modal-header">
-                <h2 class="modal-title">Stundensatz bearbeiten</h2>
+                <h2 class="modal-title">Mitarbeiter bearbeiten</h2>
                 <button class="modal-close" onclick="App.hideModal('hourlyrate-form-modal')">&times;</button>
             </div>
             <form id="hourlyrate-form" onsubmit="App.saveHourlyRate(event)">
@@ -3396,6 +3474,13 @@
                     <div class="form-group">
                         <label class="form-label">Mitarbeiter</label>
                         <input type="text" id="hourlyrate-user-name" class="form-control" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mitarbeitertyp *</label>
+                        <select id="hourlyrate-user-type" class="form-control" required>
+                            <option value="intern">Intern</option>
+                            <option value="extern">Extern</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Stundensatz (EUR) *</label>
@@ -4213,6 +4298,13 @@
                             <div style="text-align: center;"><input type="radio" name="workspace-access-konfiguration" value="read"></div>
                             <div style="text-align: center;"><input type="radio" name="workspace-access-konfiguration" value="write"></div>
                             <div style="text-align: center;"><input type="radio" name="workspace-access-konfiguration" value="delete"></div>
+
+                            <!-- Zeiterfassung -->
+                            <div>Zeiterfassung</div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-zeiterfassung" value="none" checked></div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-zeiterfassung" value="read"></div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-zeiterfassung" value="write"></div>
+                            <div style="text-align: center;"><input type="radio" name="workspace-access-zeiterfassung" value="delete"></div>
 
                             <!-- Inventar -->
                             <div>Inventar</div>

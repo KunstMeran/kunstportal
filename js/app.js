@@ -220,7 +220,8 @@ const App = {
             this.userPermissions = {
                 access_dashboard: true, access_projekte: true, access_rechnungen: true,
                 access_bewegungen: true, access_lieferanten: true, access_mitglieder: true,
-                access_einnahmen: true, access_konfiguration: true, rechnungen_nur_zugewiesene: false
+                access_einnahmen: true, access_konfiguration: true, access_zeiterfassung: true,
+                rechnungen_nur_zugewiesene: false
             };
         }
     },
@@ -239,8 +240,8 @@ const App = {
         'konfiguration': 'access_konfiguration',
         'inventar': 'access_inventar',
         'reporting': 'access_reporting',
+        'zeiterfassung': 'access_zeiterfassung',
         // Zusätzliche Views die zur Konfiguration gehören
-        'zeiterfassung': 'access_konfiguration',
         'budgetplanung': 'access_konfiguration',
         'import': 'access_konfiguration'
     },
@@ -3234,6 +3235,155 @@ const App = {
         this.loadTimeTracking();
     },
 
+    // Tab-Wechsel in Zeiterfassung
+    switchTimeTab: function(tab) {
+        const tabEintraege = document.querySelector('[data-tab="zeit-eintraege"]');
+        const tabExterne = document.querySelector('[data-tab="zeit-externe"]');
+        const contentEintraege = document.getElementById('tab-zeit-eintraege');
+        const contentExterne = document.getElementById('tab-zeit-externe');
+
+        if (tab === 'eintraege') {
+            tabEintraege.classList.add('active');
+            tabExterne.classList.remove('active');
+            contentEintraege.style.display = 'block';
+            contentExterne.style.display = 'none';
+        } else if (tab === 'externe') {
+            tabEintraege.classList.remove('active');
+            tabExterne.classList.add('active');
+            contentEintraege.style.display = 'none';
+            contentExterne.style.display = 'block';
+            this.loadExterneAuswertung();
+        }
+    },
+
+    // Externe Mitarbeiter Auswertung laden
+    loadExterneAuswertung: async function() {
+        const allEntries = await DataManager.getTimeEntries();
+        const projects = await DataManager.getProjects();
+        const users = await DataManager.getUsers();
+
+        // Nur externe Mitarbeiter
+        const externeUsers = users.filter(u => u.userType === 'extern');
+        const externeUserIds = externeUsers.map(u => u.id);
+
+        // Filter-Dropdowns befuellen
+        const userSelect = document.getElementById('externe-filter-user');
+        const projectSelect = document.getElementById('externe-filter-project');
+
+        if (userSelect && userSelect.options.length <= 1) {
+            externeUsers.forEach(u => {
+                userSelect.innerHTML += `<option value="${u.id}">${u.name}</option>`;
+            });
+        }
+
+        if (projectSelect && projectSelect.options.length <= 1) {
+            projects.forEach(p => {
+                projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            });
+        }
+
+        // Filter anwenden
+        const filterUserId = document.getElementById('externe-filter-user')?.value || '';
+        const filterProjectId = document.getElementById('externe-filter-project')?.value || '';
+        const filterFrom = document.getElementById('externe-filter-from')?.value || '';
+        const filterTo = document.getElementById('externe-filter-to')?.value || '';
+
+        // Nur Eintraege von externen Mitarbeitern
+        let filteredEntries = allEntries.filter(e => externeUserIds.includes(e.userId));
+
+        if (filterUserId) {
+            filteredEntries = filteredEntries.filter(e => String(e.userId) === filterUserId);
+        }
+        if (filterProjectId) {
+            filteredEntries = filteredEntries.filter(e => String(e.projectId) === filterProjectId);
+        }
+        if (filterFrom) {
+            filteredEntries = filteredEntries.filter(e => e.date >= filterFrom);
+        }
+        if (filterTo) {
+            filteredEntries = filteredEntries.filter(e => e.date <= filterTo);
+        }
+
+        // Gruppieren nach Mitarbeiter und Projekt
+        const grouped = {};
+        filteredEntries.forEach(entry => {
+            const key = `${entry.userId}_${entry.projectId}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    userId: entry.userId,
+                    projectId: entry.projectId,
+                    hours: 0
+                };
+            }
+            grouped[key].hours += entry.hours || 0;
+        });
+
+        // Tabelle rendern
+        const tbody = document.getElementById('externe-auswertung-list');
+        if (!tbody) return;
+
+        const rows = Object.values(grouped);
+        let totalHours = 0;
+        let totalCosts = 0;
+        const uniqueUsers = new Set();
+
+        tbody.innerHTML = '';
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666; padding: 2rem;">Keine Eintraege gefunden</td></tr>';
+        } else {
+            rows.forEach(row => {
+                const user = users.find(u => String(u.id) === String(row.userId));
+                const project = projects.find(p => String(p.id) === String(row.projectId));
+                const hourlyRate = user?.hourlyRate || 0;
+                const costs = row.hours * hourlyRate;
+
+                totalHours += row.hours;
+                totalCosts += costs;
+                if (user) uniqueUsers.add(user.id);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${user?.name || 'Unbekannt'}</td>
+                        <td>${project?.name || 'Unbekannt'}</td>
+                        <td style="text-align: right;">${row.hours.toFixed(1)}</td>
+                        <td style="text-align: right;">${this.formatCurrency(hourlyRate)}</td>
+                        <td style="text-align: right; font-weight: 600;">${this.formatCurrency(costs)}</td>
+                    </tr>
+                `;
+            });
+
+            // Summenzeile
+            tbody.innerHTML += `
+                <tr style="background: #f8f9fa; font-weight: 600;">
+                    <td colspan="2">Gesamt</td>
+                    <td style="text-align: right;">${totalHours.toFixed(1)}</td>
+                    <td></td>
+                    <td style="text-align: right;">${this.formatCurrency(totalCosts)}</td>
+                </tr>
+            `;
+        }
+
+        // Statistiken aktualisieren
+        document.getElementById('stat-externe-stunden').textContent = totalHours.toFixed(1);
+        document.getElementById('stat-externe-kosten').textContent = this.formatCurrency(totalCosts);
+        document.getElementById('stat-externe-mitarbeiter').textContent = uniqueUsers.size;
+    },
+
+    resetExterneFilters: function() {
+        const userSelect = document.getElementById('externe-filter-user');
+        const projectSelect = document.getElementById('externe-filter-project');
+        const fromDate = document.getElementById('externe-filter-from');
+        const toDate = document.getElementById('externe-filter-to');
+
+        if (userSelect) userSelect.value = '';
+        if (projectSelect) projectSelect.value = '';
+        if (fromDate) fromDate.value = '';
+        if (toDate) toDate.value = '';
+
+        this.loadExterneAuswertung();
+    },
+
     showNewTimeEntryForm: async function() {
         document.getElementById('time-form').reset();
         document.getElementById('time-form-id').value = '';
@@ -3948,6 +4098,12 @@ const App = {
             const updatedByName = resolveUserName(u.updated_by || u.created_by);
             const updatedAtFormatted = u.updated_at ? this.formatDateTime(u.updated_at) : (u.created_at ? this.formatDateTime(u.created_at) : '-');
 
+            // Mitarbeitertyp Badge
+            const userType = u.userType || 'intern';
+            const userTypeBadge = userType === 'extern'
+                ? '<span class="badge" style="background: #e67e22; color: white; margin-left: 0.5rem;">Extern</span>'
+                : '<span class="badge" style="background: #3498db; color: white; margin-left: 0.5rem;">Intern</span>';
+
             container.innerHTML += `
                 <div class="config-item" title="${auditInfo}">
                     <div class="config-item-info">
@@ -3955,6 +4111,7 @@ const App = {
                         <span class="badge badge-${u.role === 'admin' ? 'primary' : 'success'}" style="margin-left: 0.5rem;">
                             ${u.role === 'admin' ? 'Admin' : 'Mitarbeiter'}
                         </span>
+                        ${userTypeBadge}
                         <span style="margin-left: auto; font-size: 11px; color: #666;">
                             ${updatedAtFormatted}${updatedByName ? ` (${updatedByName})` : ''}
                         </span>
@@ -3974,6 +4131,7 @@ const App = {
 
         document.getElementById('hourlyrate-user-id').value = user.id;
         document.getElementById('hourlyrate-user-name').value = user.name;
+        document.getElementById('hourlyrate-user-type').value = user.userType || 'intern';
         document.getElementById('hourlyrate-value').value = user.hourlyRate || 0;
 
         this.showModal('hourlyrate-form-modal');
@@ -3983,10 +4141,11 @@ const App = {
         event.preventDefault();
 
         const userId = document.getElementById('hourlyrate-user-id').value; // UUID als String
+        const userType = document.getElementById('hourlyrate-user-type').value;
         const hourlyRate = parseFloat(document.getElementById('hourlyrate-value').value) || 0;
 
         try {
-            await DataManager.updateUser(userId, { hourlyRate: hourlyRate });
+            await DataManager.updateUser(userId, { hourlyRate: hourlyRate, userType: userType });
             this.hideModal('hourlyrate-form-modal');
             await this.loadUsers();
         } catch (error) {
@@ -15875,7 +16034,8 @@ const App = {
             access_lieferanten: 'Lieferanten',
             access_mitglieder: 'Mitglieder',
             access_einnahmen: 'Einnahmen',
-            access_konfiguration: 'Konfiguration'
+            access_konfiguration: 'Konfiguration',
+            access_zeiterfassung: 'Zeiterfassung'
         };
 
         container.innerHTML = this.workspacesData.map(ws => {
@@ -15940,7 +16100,7 @@ const App = {
         document.getElementById('workspace-description').value = '';
 
         // Alle Radio-Buttons auf 'none' setzen
-        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'inventar', 'reporting'];
+        const areas = ['dashboard', 'projekte', 'rechnungen', 'bewegungen', 'lieferanten', 'mitglieder', 'einnahmen', 'konfiguration', 'zeiterfassung', 'inventar', 'reporting'];
         areas.forEach(area => {
             setRadioValue(`workspace-access-${area}`, 'none');
         });
@@ -16003,6 +16163,7 @@ const App = {
             access_mitglieder: toBooleanForDB(getRadioValue('workspace-access-mitglieder')),
             access_einnahmen: toBooleanForDB(getRadioValue('workspace-access-einnahmen')),
             access_konfiguration: toBooleanForDB(getRadioValue('workspace-access-konfiguration')),
+            access_zeiterfassung: toBooleanForDB(getRadioValue('workspace-access-zeiterfassung')),
             access_inventar: toBooleanForDB(getRadioValue('workspace-access-inventar')),
             access_reporting: toBooleanForDB(getRadioValue('workspace-access-reporting')),
             rechnungen_nur_zugewiesene: document.getElementById('workspace-rechnungen-nur-zugewiesene').checked,

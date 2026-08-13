@@ -58,6 +58,13 @@ const SupabaseDataAdapter = {
         DataManager._getRechnungenMitStatusOriginal = DataManager.getRechnungenMitStatus;
         DataManager.getRechnungenMitStatus = this.getRechnungenMitStatus.bind(this);
 
+        // Kostentyp/Status-Funktionen überschreiben (speichert in Supabase statt localStorage)
+        DataManager._setKostentypOriginal = DataManager.setKostentyp;
+        DataManager.setKostentyp = this.setKostentyp.bind(this);
+
+        DataManager._setRechnungStatusOriginal = DataManager.setRechnungStatus;
+        DataManager.setRechnungStatus = this.setRechnungStatus.bind(this);
+
         // Lieferanten-Funktionen überschreiben
         DataManager._getDatevLieferantenOriginal = DataManager.getDatevLieferanten;
         DataManager.getDatevLieferanten = this.getSuppliers.bind(this);
@@ -310,6 +317,109 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * Setzt den Kostentyp für eine DATEV-Buchung in Supabase
+     * @param {string} rechnungId - ID der DATEV-Buchung
+     * @param {string} kostentyp - Name des Kostentyps
+     * @param {string} datum - Optionales Datum (ISO-Format)
+     */
+    async setKostentyp(rechnungId, kostentyp, datum = null) {
+        try {
+            const kostentypAm = kostentyp ? (datum || new Date().toISOString().split('T')[0]) : null;
+            const userId = await this.getCurrentUserId();
+
+            console.log('📝 Setze Kostentyp:', { rechnungId, kostentyp, kostentypAm });
+
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update({
+                    kostentyp: kostentyp || null,
+                    kostentyp_am: kostentypAm,
+                    kostentyp_von: userId,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', rechnungId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log('✅ Kostentyp gespeichert:', data);
+
+            // Cache invalidieren damit Änderungen sofort sichtbar sind
+            this.invalidateRechnungenCache();
+            // Auch DATEV-Buchungen-Cache invalidieren
+            this.datevBuchungenCache = null;
+
+            return data;
+        } catch (error) {
+            console.error('❌ Fehler beim Setzen des Kostentyps:', error);
+            // Fallback zu localStorage
+            return DataManager._setKostentypOriginal(rechnungId, kostentyp, datum);
+        }
+    },
+
+    /**
+     * Setzt den Status für eine DATEV-Buchung in Supabase
+     * @param {string} rechnungId - ID der DATEV-Buchung
+     * @param {object} statusUpdate - Status-Update-Objekt
+     */
+    async setRechnungStatus(rechnungId, statusUpdate) {
+        try {
+            const userId = await this.getCurrentUserId();
+
+            // Mapping von localStorage-Feldern zu Supabase-Feldern
+            const supabaseUpdate = {
+                updated_at: new Date().toISOString()
+            };
+
+            if (statusUpdate.kostentyp !== undefined) {
+                supabaseUpdate.kostentyp = statusUpdate.kostentyp;
+            }
+            if (statusUpdate.kostentypAm !== undefined) {
+                supabaseUpdate.kostentyp_am = statusUpdate.kostentypAm;
+                supabaseUpdate.kostentyp_von = userId;
+            }
+            if (statusUpdate.status !== undefined) {
+                supabaseUpdate.workflow_status = statusUpdate.status;
+            }
+            if (statusUpdate.kontrolliertVon !== undefined || statusUpdate.kontrolliertAm !== undefined) {
+                supabaseUpdate.kontrolliert_von = userId;
+                supabaseUpdate.kontrolliert_am = statusUpdate.kontrolliertAm || new Date().toISOString().split('T')[0];
+            }
+            if (statusUpdate.bezahltAm !== undefined) {
+                supabaseUpdate.bezahlt_am = statusUpdate.bezahltAm;
+            }
+            if (statusUpdate.notizen !== undefined) {
+                supabaseUpdate.notizen = statusUpdate.notizen;
+            }
+
+            console.log('📝 Setze Rechnungsstatus:', { rechnungId, supabaseUpdate });
+
+            const { data, error } = await SupabaseService.client
+                .from('datev_bookings')
+                .update(supabaseUpdate)
+                .eq('id', rechnungId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log('✅ Status gespeichert:', data);
+
+            // Cache invalidieren damit Änderungen sofort sichtbar sind
+            this.invalidateRechnungenCache();
+            // Auch DATEV-Buchungen-Cache invalidieren
+            this.datevBuchungenCache = null;
+
+            return data;
+        } catch (error) {
+            console.error('❌ Fehler beim Setzen des Status:', error);
+            // Fallback zu localStorage
+            return DataManager._setRechnungStatusOriginal(rechnungId, statusUpdate);
+        }
+    },
+
+    /**
      * DATEV-Buchungen aus Supabase laden
      * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
      * Reichert Buchungen mit Lieferantennamen aus suppliers-Tabelle an
@@ -429,10 +539,15 @@ const SupabaseDataAdapter = {
                     workflowStatus: b.workflow_status || 'neu',
                     kontrolliertAm: b.kontrolled_at || null,
                     kontrolliertVon: b.kontrolled_by || null,
-                    bezahltAm: b.paid_at || null,
+                    bezahltAm: b.bezahlt_am || b.paid_at || null,
                     bezahltVon: b.paid_by || null,
                     abgabestelle: b.abgabestelle || null,
                     abgabestelleAm: b.abgabestelle_am || null,
+                    // Kostentyp-Felder aus Supabase
+                    kostentyp: b.kostentyp || '',
+                    kostentypAm: b.kostentyp_am || null,
+                    kostentypVon: b.kostentyp_von || null,
+                    notizen: b.notizen || '',
                     // Änderungsdatum
                     updatedAt: b.updated_at || null,
                     // Audit-Felder für User-Tracking
@@ -1657,7 +1772,7 @@ const SupabaseDataAdapter = {
         try {
             const { data, error } = await SupabaseService.client
                 .from('users')
-                .select('id, username, email, role, hourly_rate, auth_id')
+                .select('id, username, email, role, hourly_rate, auth_id, user_type')
                 .order('username', { ascending: true });
 
             if (error) throw error;
@@ -1668,7 +1783,8 @@ const SupabaseDataAdapter = {
                 name: u.username || u.email,
                 email: u.email,
                 role: u.role || 'user',
-                hourlyRate: parseFloat(u.hourly_rate) || 0
+                hourlyRate: parseFloat(u.hourly_rate) || 0,
+                userType: u.user_type || 'intern'  // 'intern' oder 'extern'
             }));
 
             console.log(`👥 ${this.usersCache.length} Benutzer aus Supabase geladen`);
@@ -1705,6 +1821,9 @@ const SupabaseDataAdapter = {
             if (updates.role !== undefined) {
                 supabaseUpdates.role = updates.role;
             }
+            if (updates.userType !== undefined) {
+                supabaseUpdates.user_type = updates.userType;
+            }
 
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
@@ -1726,7 +1845,8 @@ const SupabaseDataAdapter = {
                 name: data.username || data.email,
                 email: data.email,
                 role: data.role || 'user',
-                hourlyRate: parseFloat(data.hourly_rate) || 0
+                hourlyRate: parseFloat(data.hourly_rate) || 0,
+                userType: data.user_type || 'intern'
             };
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Benutzers:', error);
