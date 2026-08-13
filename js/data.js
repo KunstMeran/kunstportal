@@ -2996,6 +2996,29 @@ const DataManager = {
         }
     },
 
+    getAllKassenBewegungen: function() {
+        return this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
+    },
+
+    updateKassenBewegung: function(id, daten) {
+        const liste = this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
+        const idx = liste.findIndex(b => b.id === id);
+        if (idx !== -1) {
+            liste[idx] = { ...liste[idx], ...daten };
+            liste[idx].updatedAt = new Date().toISOString();
+            liste[idx].updatedBy = this.getSession()?.userId;
+            this.save(this.KEYS.SHOP_KASSEN_BEWEGUNGEN, liste);
+            return liste[idx];
+        }
+        return null;
+    },
+
+    deleteKassenBewegung: function(id) {
+        let liste = this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
+        liste = liste.filter(b => b.id !== id);
+        this.save(this.KEYS.SHOP_KASSEN_BEWEGUNGEN, liste);
+    },
+
     // --- Kassenabschluss ---
     getKassenabschluss: function(datum) {
         const liste = this.load(this.KEYS.SHOP_KASSENABSCHLUSS) || [];

@@ -16987,7 +16987,7 @@ const App = {
         if (bewegungen.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center text-muted">Keine Bewegungen heute</td>
+                    <td colspan="6" class="text-center text-muted">Keine Bewegungen an diesem Tag</td>
                 </tr>
             `;
             return;
@@ -16996,12 +16996,27 @@ const App = {
         tbody.innerHTML = bewegungen.map(b => {
             const typLabel = b.typ === 'entnahme' ? 'Entnahme' : (b.typ === 'einlage' ? 'Einlage' : 'Korrektur');
             const typClass = b.typ === 'entnahme' ? 'badge-danger' : 'badge-success';
+            const storniert = b.storniert ? 'storniert' : '';
             return `
-                <tr>
+                <tr class="${storniert}">
                     <td>${b.uhrzeit ? b.uhrzeit.substring(0, 5) : '-'}</td>
                     <td><span class="badge ${typClass}">${typLabel}</span></td>
                     <td class="text-right ${b.betrag < 0 ? 'text-danger' : 'text-success'}">${this.formatCurrency(Math.abs(b.betrag))}</td>
                     <td>${b.grund || '-'}</td>
+                    <td>${b.createdByName || '-'}</td>
+                    <td>
+                        ${b.storniert
+                            ? '<span class="badge badge-outline">Storniert</span>'
+                            : `<div class="action-buttons">
+                                <button class="btn btn-icon btn-sm" onclick="App.editKassenBewegung(${b.id})" title="Bearbeiten">
+                                    <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                                </button>
+                                <button class="btn btn-icon btn-sm" onclick="App.deleteKassenBewegung(${b.id})" title="Löschen">
+                                    <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                                </button>
+                               </div>`
+                        }
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -17019,6 +17034,9 @@ const App = {
     saveKassenEntnahme: function(event) {
         if (event) event.preventDefault();
 
+        const form = document.getElementById('shop-kassen-entnahme-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const datum = document.getElementById('shop-entnahme-datum').value;
         const betrag = parseFloat(document.getElementById('shop-entnahme-betrag').value) || 0;
         const grund = document.getElementById('shop-entnahme-grund').value.trim();
@@ -17029,9 +17047,15 @@ const App = {
         }
 
         try {
-            DataManager.addKassenEntnahme(betrag, grund, datum);
+            if (editId) {
+                DataManager.updateKassenBewegung(editId, { betrag: -Math.abs(betrag), grund, datum });
+                this.showToast('Erfolg', 'Entnahme aktualisiert', 'success');
+            } else {
+                DataManager.addKassenEntnahme(betrag, grund, datum);
+                this.showToast('Erfolg', 'Entnahme erfasst', 'success');
+            }
+            if (form) delete form.dataset.editId;
             this.closeModal('shop-kassen-entnahme-modal');
-            this.showToast('Erfolg', 'Entnahme erfasst', 'success');
             this.loadShopKasse();
             this.loadShopStatistiken();
         } catch (error) {
@@ -17052,6 +17076,9 @@ const App = {
     saveKassenEinlage: function(event) {
         if (event) event.preventDefault();
 
+        const form = document.getElementById('shop-kassen-einlage-form');
+        const editId = form?.dataset.editId ? parseInt(form.dataset.editId) : null;
+
         const datum = document.getElementById('shop-einlage-datum').value;
         const betrag = parseFloat(document.getElementById('shop-einlage-betrag').value) || 0;
         const grund = document.getElementById('shop-einlage-grund').value.trim();
@@ -17062,14 +17089,61 @@ const App = {
         }
 
         try {
-            DataManager.addKassenEinlage(betrag, grund, datum);
+            if (editId) {
+                DataManager.updateKassenBewegung(editId, { betrag, grund, datum });
+                this.showToast('Erfolg', 'Einlage aktualisiert', 'success');
+            } else {
+                DataManager.addKassenEinlage(betrag, grund, datum);
+                this.showToast('Erfolg', 'Einlage erfasst', 'success');
+            }
+            if (form) delete form.dataset.editId;
             this.closeModal('shop-kassen-einlage-modal');
-            this.showToast('Erfolg', 'Einlage erfasst', 'success');
             this.loadShopKasse();
             this.loadShopStatistiken();
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Einlage fehlgeschlagen', 'error');
+        }
+    },
+
+    editKassenBewegung: function(id) {
+        const bewegungen = DataManager.getAllKassenBewegungen ? DataManager.getAllKassenBewegungen() : [];
+        const bewegung = bewegungen.find(b => b.id === id);
+        if (!bewegung) {
+            this.showToast('Fehler', 'Bewegung nicht gefunden', 'error');
+            return;
+        }
+
+        if (bewegung.typ === 'entnahme') {
+            this.showKassenEntnahmeForm();
+            setTimeout(() => {
+                document.getElementById('shop-entnahme-datum').value = bewegung.datum || '';
+                document.getElementById('shop-entnahme-betrag').value = Math.abs(bewegung.betrag) || '';
+                document.getElementById('shop-entnahme-grund').value = bewegung.grund || '';
+                document.getElementById('shop-kassen-entnahme-form').dataset.editId = id;
+            }, 100);
+        } else if (bewegung.typ === 'einlage') {
+            this.showKassenEinlageForm();
+            setTimeout(() => {
+                document.getElementById('shop-einlage-datum').value = bewegung.datum || '';
+                document.getElementById('shop-einlage-betrag').value = Math.abs(bewegung.betrag) || '';
+                document.getElementById('shop-einlage-grund').value = bewegung.grund || '';
+                document.getElementById('shop-kassen-einlage-form').dataset.editId = id;
+            }, 100);
+        }
+    },
+
+    deleteKassenBewegung: async function(id) {
+        if (!confirm('Möchten Sie diese Kassen-Bewegung wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteKassenBewegung(id);
+            this.showToast('Erfolg', 'Bewegung gelöscht', 'success');
+            await this.loadShopKasse();
+            await this.loadShopStatistiken();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
         }
     },
 
