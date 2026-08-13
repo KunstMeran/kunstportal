@@ -4102,6 +4102,9 @@ const App = {
     // Aktive Abgabestellen (für Dropdown in Rechnungen-Tabelle)
     activeAbgabestellen: [],
 
+    // Projekte-Cache für Rechnungen-Dropdown
+    cachedProjekteForRechnungen: [],
+
     loadRechnungen: async function() {
         // Statistiken aktualisieren
         const rechnungen = await DataManager.getRechnungenMitStatus();
@@ -4133,6 +4136,14 @@ const App = {
             this.activeAbgabestellen = [];
         }
 
+        // Projekte laden für Dropdown (alle, auch hideInReporting)
+        try {
+            this.cachedProjekteForRechnungen = await DataManager.getProjects();
+        } catch (error) {
+            console.error('Fehler beim Laden der Projekte:', error);
+            this.cachedProjekteForRechnungen = [];
+        }
+
         // Filter-Dropdowns befüllen
         await this.populateRechnungenFilters();
 
@@ -4144,6 +4155,34 @@ const App = {
             this.setupResizableColumns();
             this._resizableColumnsInitialized = true;
         }
+    },
+
+    /**
+     * Generiert Projekt-Optionen für Dropdown in Rechnungen
+     * @param {string} currentProjektId - Aktuell ausgewählte Projekt-ID
+     * @returns {string} HTML-Optionen
+     */
+    getProjektOptionsHtml: function(currentProjektId) {
+        const projects = this.cachedProjekteForRechnungen || [];
+
+        // Sortiere Projekte: Erst nach datevId (numerisch), dann nach Name
+        const sortedProjects = [...projects].sort((a, b) => {
+            const aId = parseInt(a.datevId) || 9999;
+            const bId = parseInt(b.datevId) || 9999;
+            if (aId !== bId) return aId - bId;
+            return (a.name || '').localeCompare(b.name || '');
+        });
+
+        let html = '<option value="">-- Projekt wählen --</option>';
+
+        for (const project of sortedProjects) {
+            const projektId = project.datevId || project.id;
+            const isSelected = String(currentProjektId) === String(projektId);
+            const statusBadge = project.status === 'abgeschlossen' ? ' [abgeschl.]' : '';
+            html += `<option value="${projektId}" ${isSelected ? 'selected' : ''}>${project.name}${statusBadge}</option>`;
+        }
+
+        return html;
     },
 
     populateRechnungenFilters: async function() {
@@ -4561,7 +4600,7 @@ const App = {
                         ${this.getUnlinkedDatevOptionsAsDatalist()}
                     </datalist>`;
             } else {
-                // DATEV-Buchung: Dropdown zur Projekt-Auswahl (auch wenn bereits Projekt zugewiesen)
+                // DATEV-Buchung: Dropdown zur Projekt-Auswahl (dynamisch aus DB)
                 const selectId = `projekt-select-${r.rechnungId}`.replace(/[^a-zA-Z0-9-]/g, '');
                 const currentProjektId = r.projektId ? String(r.projektId) : '';
                 const contactInfo = r.contactUserName
@@ -4575,15 +4614,7 @@ const App = {
                                 id="${selectId}"
                                 style="font-size: 0.75rem; padding: 0.25rem; min-width: 150px;"
                                 onchange="App.setProjektForRechnung('${r.rechnungId}', this.value)">
-                            <option value="">-- Projekt wählen --</option>
-                            <option value="strukturkosten" ${currentProjektId === 'strukturkosten' ? 'selected' : ''}>Strukturkosten</option>
-                            <option value="2601" ${currentProjektId === '2601' ? 'selected' : ''}>Complice</option>
-                            <option value="2602" ${currentProjektId === '2602' ? 'selected' : ''}>Animacies</option>
-                            <option value="2603" ${currentProjektId === '2603' ? 'selected' : ''}>Stadtraum Meran</option>
-                            <option value="2604" ${currentProjektId === '2604' ? 'selected' : ''}>Wanderausstellung</option>
-                            <option value="2605" ${currentProjektId === '2605' ? 'selected' : ''}>Konzertreihe</option>
-                            <option value="2606" ${currentProjektId === '2606' ? 'selected' : ''}>Menschenbilder</option>
-                            <option value="2607" ${currentProjektId === '2607' ? 'selected' : ''}>Rahmenprogramm</option>
+                            ${this.getProjektOptionsHtml(currentProjektId)}
                         </select>
                         ${contactInfo}
                     </div>`;
