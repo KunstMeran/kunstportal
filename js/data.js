@@ -2557,7 +2557,7 @@ const DataManager = {
     // --- Eintritts-Kategorien ---
     getEintrittKategorien: function() {
         const stored = this.load(this.KEYS.SHOP_EINTRITT_KAT);
-        if (stored && stored.length > 0) return stored.filter(k => k.isActive !== false);
+        if (stored && stored.length > 0) return stored; // Alle zurückgeben, Filterung in App
         this.save(this.KEYS.SHOP_EINTRITT_KAT, SHOP_EINTRITT_KATEGORIEN_DEFAULT);
         return SHOP_EINTRITT_KATEGORIEN_DEFAULT;
     },
@@ -2593,7 +2593,7 @@ const DataManager = {
     // --- Mitgliedsbeitrags-Kategorien ---
     getMitgliedKategorien: function() {
         const stored = this.load(this.KEYS.SHOP_MITGLIED_KAT);
-        if (stored && stored.length > 0) return stored.filter(k => k.isActive !== false);
+        if (stored && stored.length > 0) return stored; // Alle zurückgeben, Filterung in App
         this.save(this.KEYS.SHOP_MITGLIED_KAT, SHOP_MITGLIED_KATEGORIEN_DEFAULT);
         return SHOP_MITGLIED_KATEGORIEN_DEFAULT;
     },

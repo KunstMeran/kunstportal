@@ -16380,7 +16380,9 @@ const App = {
                 const datumEl = document.getElementById('shop-verkauf-mitglied-datum');
                 if (datumEl) datumEl.value = heute;
 
-                const kategorien = DataManager.getMitgliedKategorien() || [];
+                // Nur aktive Kategorien anzeigen
+                const alleKategorien = DataManager.getMitgliedKategorien() || [];
+                const kategorien = alleKategorien.filter(k => k.is_active !== false);
                 const select = document.getElementById('shop-verkauf-mitglied-kat');
                 if (select) {
                     select.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
@@ -17426,20 +17428,26 @@ const App = {
 
         try {
             const kategorien = await DataManager.getEintrittKategorien();
-            container.innerHTML = kategorien.map(k => `
+            this.shopEintrittKategorien = kategorien; // Cache für Dropdown
+            container.innerHTML = kategorien.map(k => {
+                const isActive = k.is_active !== false; // Default true wenn undefined
+                return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
                     <div>
                         <strong>${k.name}</strong>
                         <span class="text-muted" style="margin-left: 0.5rem;">${this.formatCurrency(k.preis)}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                        <span class="badge ${isActive ? 'badge-success' : 'badge-outline'}">${isActive ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editEintrittKat(${k.id})" title="Bearbeiten">
                             <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteEintrittKat(${k.id})" title="Löschen">
+                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                        </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } catch (error) {
             console.error('Fehler:', error);
         }
@@ -17451,20 +17459,26 @@ const App = {
 
         try {
             const kategorien = await DataManager.getMitgliedKategorien();
-            container.innerHTML = kategorien.map(k => `
+            this.shopMitgliedKategorien = kategorien; // Cache für Dropdown
+            container.innerHTML = kategorien.map(k => {
+                const isActive = k.is_active !== false; // Default true wenn undefined
+                return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
                     <div>
                         <strong>${k.name}</strong>
                         <span class="text-muted" style="margin-left: 0.5rem;">${this.formatCurrency(k.betrag)}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="badge ${k.is_active ? 'badge-success' : 'badge-outline'}">${k.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                        <span class="badge ${isActive ? 'badge-success' : 'badge-outline'}">${isActive ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editMitgliedKat(${k.id})" title="Bearbeiten">
                             <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteMitgliedKat(${k.id})" title="Löschen">
+                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                        </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } catch (error) {
             console.error('Fehler:', error);
         }
@@ -17607,6 +17621,19 @@ const App = {
         }
     },
 
+    deleteEintrittKat: async function(id) {
+        if (!confirm('Möchten Sie diese Eintritts-Kategorie wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteEintrittKategorie(id);
+            this.showToast('Erfolg', 'Kategorie gelöscht', 'success');
+            await this.loadShopEintrittKategorien();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
+        }
+    },
+
     showNewMitgliedKatForm: function() {
         // Modal öffnen für neue Mitglieds-Kategorie
         const form = document.getElementById('shop-mitglied-kat-form');
@@ -17695,6 +17722,19 @@ const App = {
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    deleteMitgliedKat: async function(id) {
+        if (!confirm('Möchten Sie diese Mitglieds-Kategorie wirklich löschen?')) return;
+
+        try {
+            await DataManager.deleteMitgliedKategorie(id);
+            this.showToast('Erfolg', 'Kategorie gelöscht', 'success');
+            await this.loadShopMitgliedKategorien();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
         }
     }
 };
