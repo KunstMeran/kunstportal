@@ -4713,11 +4713,17 @@
             </div>
             <form id="shop-verkauf-artikel-form" onsubmit="App.saveShopVerkaufArtikel(event)">
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Artikel *</label>
-                        <select id="shop-verkauf-artikel-select" class="form-control" required onchange="App.onShopArtikelSelect()">
-                            <option value="">-- Artikel auswählen --</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="shop-verkauf-artikel-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Artikel *</label>
+                            <select id="shop-verkauf-artikel-select" class="form-control" required onchange="App.onShopArtikelSelect()">
+                                <option value="">-- Artikel auswählen --</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -4764,11 +4770,17 @@
             </div>
             <form id="shop-verkauf-eintritt-form" onsubmit="App.saveShopVerkaufEintritt(event)">
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Kategorie *</label>
-                        <select id="shop-verkauf-eintritt-kat" class="form-control" required onchange="App.onEintrittKatSelect()">
-                            <option value="">-- Kategorie auswählen --</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="shop-verkauf-eintritt-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Kategorie *</label>
+                            <select id="shop-verkauf-eintritt-kat" class="form-control" required onchange="App.onEintrittKatSelect()">
+                                <option value="">-- Kategorie auswählen --</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -4809,11 +4821,17 @@
             </div>
             <form id="shop-verkauf-mitglied-form" onsubmit="App.saveShopVerkaufMitglied(event)">
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Mitgliedskategorie *</label>
-                        <select id="shop-verkauf-mitglied-kat" class="form-control" required onchange="App.onMitgliedKatSelect()">
-                            <option value="">-- Kategorie auswählen --</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="shop-verkauf-mitglied-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Mitgliedskategorie *</label>
+                            <select id="shop-verkauf-mitglied-kat" class="form-control" required onchange="App.onMitgliedKatSelect()">
+                                <option value="">-- Kategorie auswählen --</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Name des Mitglieds</label>
@@ -4905,6 +4923,10 @@
             <form id="shop-kassen-entnahme-form" onsubmit="App.saveKassenEntnahme(event)">
                 <div class="modal-body">
                     <div class="form-group">
+                        <label class="form-label">Datum *</label>
+                        <input type="date" id="shop-entnahme-datum" class="form-control" required>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Betrag (EUR) *</label>
                         <input type="number" id="shop-entnahme-betrag" class="form-control" step="0.01" min="0.01" required>
                     </div>
@@ -4930,6 +4952,10 @@
             </div>
             <form id="shop-kassen-einlage-form" onsubmit="App.saveKassenEinlage(event)">
                 <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Datum *</label>
+                        <input type="date" id="shop-einlage-datum" class="form-control" required>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Betrag (EUR) *</label>
                         <input type="number" id="shop-einlage-betrag" class="form-control" step="0.01" min="0.01" required>

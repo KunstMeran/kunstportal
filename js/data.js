@@ -2827,19 +2827,21 @@ const DataManager = {
         return bewegung;
     },
 
-    addKassenEntnahme: function(betrag, grund) {
+    addKassenEntnahme: function(betrag, grund, datum = null) {
         return this.addKassenBewegung({
             typ: 'entnahme',
             betrag: -Math.abs(betrag),
-            grund: grund
+            grund: grund,
+            datum: datum
         });
     },
 
-    addKassenEinlage: function(betrag, grund) {
+    addKassenEinlage: function(betrag, grund, datum = null) {
         return this.addKassenBewegung({
             typ: 'einlage',
             betrag: Math.abs(betrag),
-            grund: grund
+            grund: grund,
+            datum: datum
         });
     },
 

@@ -16320,7 +16320,13 @@ const App = {
 
     showShopVerkaufForm: function(typ) {
         try {
+            const heute = new Date().toISOString().split('T')[0];
+
             if (typ === 'artikel') {
+                // Datum setzen
+                const datumEl = document.getElementById('shop-verkauf-artikel-datum');
+                if (datumEl) datumEl.value = heute;
+
                 // Artikel-Dropdown befüllen
                 const artikel = DataManager.getShopArtikel() || [];
                 const select = document.getElementById('shop-verkauf-artikel-select');
@@ -16333,6 +16339,10 @@ const App = {
                 this.openModal('shop-verkauf-artikel-modal');
 
             } else if (typ === 'eintritt') {
+                // Datum setzen
+                const datumEl = document.getElementById('shop-verkauf-eintritt-datum');
+                if (datumEl) datumEl.value = heute;
+
                 const kategorien = DataManager.getEintrittKategorien() || [];
                 const select = document.getElementById('shop-verkauf-eintritt-kat');
                 if (select) {
@@ -16345,6 +16355,10 @@ const App = {
                 this.openModal('shop-verkauf-eintritt-modal');
 
             } else if (typ === 'mitglied') {
+                // Datum setzen
+                const datumEl = document.getElementById('shop-verkauf-mitglied-datum');
+                if (datumEl) datumEl.value = heute;
+
                 const kategorien = DataManager.getMitgliedKategorien() || [];
                 const select = document.getElementById('shop-verkauf-mitglied-kat');
                 if (select) {
@@ -16393,10 +16407,11 @@ const App = {
     },
 
     saveShopVerkaufArtikel: async function() {
+        const datum = document.getElementById('shop-verkauf-artikel-datum').value;
         const artikelId = document.getElementById('shop-verkauf-artikel-select').value;
         const menge = parseInt(document.getElementById('shop-verkauf-artikel-menge').value) || 1;
         const einzelpreis = parseFloat(document.getElementById('shop-verkauf-artikel-preis').value) || 0;
-        const zahlungsart = document.getElementById('shop-verkauf-artikel-zahlungsart').value;
+        const zahlungsart = document.getElementById('shop-verkauf-artikel-zahlung')?.value || 'bar';
 
         const select = document.getElementById('shop-verkauf-artikel-select');
         const option = select.options[select.selectedIndex];
@@ -16410,6 +16425,7 @@ const App = {
         try {
             await DataManager.addShopVerkauf({
                 typ: 'artikel',
+                datum: datum,
                 artikel_id: parseInt(artikelId),
                 menge: menge,
                 einzelpreis: einzelpreis,
@@ -16430,17 +16446,19 @@ const App = {
     },
 
     saveShopVerkaufEintritt: async function() {
-        const select = document.getElementById('shop-verkauf-eintritt-kategorie');
+        const datum = document.getElementById('shop-verkauf-eintritt-datum').value;
+        const select = document.getElementById('shop-verkauf-eintritt-kat');
         const option = select.options[select.selectedIndex];
         const kategorie = select.value;
         const preis = parseFloat(option?.dataset.preis) || 0;
         const mwstSatz = option?.dataset.mwst || '22';
         const menge = parseInt(document.getElementById('shop-verkauf-eintritt-menge').value) || 1;
-        const zahlungsart = document.getElementById('shop-verkauf-eintritt-zahlungsart').value;
+        const zahlungsart = document.getElementById('shop-verkauf-eintritt-zahlung')?.value || 'bar';
 
         try {
             await DataManager.addShopVerkauf({
                 typ: 'eintritt',
+                datum: datum,
                 eintritt_kategorie: kategorie,
                 menge: menge,
                 einzelpreis: preis,
@@ -16460,16 +16478,18 @@ const App = {
     },
 
     saveShopVerkaufMitglied: async function() {
-        const select = document.getElementById('shop-verkauf-mitglied-kategorie');
+        const datum = document.getElementById('shop-verkauf-mitglied-datum').value;
+        const select = document.getElementById('shop-verkauf-mitglied-kat');
         const option = select.options[select.selectedIndex];
         const kategorie = select.value;
         const betrag = parseFloat(option?.dataset.betrag) || 0;
         const name = document.getElementById('shop-verkauf-mitglied-name').value.trim();
-        const zahlungsart = document.getElementById('shop-verkauf-mitglied-zahlungsart').value;
+        const zahlungsart = document.getElementById('shop-verkauf-mitglied-zahlung')?.value || 'bar';
 
         try {
             await DataManager.addShopVerkauf({
                 typ: 'mitglied',
+                datum: datum,
                 mitglied_kategorie: kategorie,
                 mitglied_name: name,
                 menge: 1,
@@ -16807,12 +16827,16 @@ const App = {
     showKassenEntnahmeForm: function() {
         const form = document.getElementById('shop-kassen-entnahme-form');
         if (form) form.reset();
+        // Datum auf heute setzen
+        const datumEl = document.getElementById('shop-entnahme-datum');
+        if (datumEl) datumEl.value = new Date().toISOString().split('T')[0];
         this.openModal('shop-kassen-entnahme-modal');
     },
 
     saveKassenEntnahme: function(event) {
         if (event) event.preventDefault();
 
+        const datum = document.getElementById('shop-entnahme-datum').value;
         const betrag = parseFloat(document.getElementById('shop-entnahme-betrag').value) || 0;
         const grund = document.getElementById('shop-entnahme-grund').value.trim();
 
@@ -16822,7 +16846,7 @@ const App = {
         }
 
         try {
-            DataManager.addKassenEntnahme(betrag, grund);
+            DataManager.addKassenEntnahme(betrag, grund, datum);
             this.closeModal('shop-kassen-entnahme-modal');
             this.showToast('Erfolg', 'Entnahme erfasst', 'success');
             this.loadShopKasse();
@@ -16836,12 +16860,16 @@ const App = {
     showKassenEinlageForm: function() {
         const form = document.getElementById('shop-kassen-einlage-form');
         if (form) form.reset();
+        // Datum auf heute setzen
+        const datumEl = document.getElementById('shop-einlage-datum');
+        if (datumEl) datumEl.value = new Date().toISOString().split('T')[0];
         this.openModal('shop-kassen-einlage-modal');
     },
 
     saveKassenEinlage: function(event) {
         if (event) event.preventDefault();
 
+        const datum = document.getElementById('shop-einlage-datum').value;
         const betrag = parseFloat(document.getElementById('shop-einlage-betrag').value) || 0;
         const grund = document.getElementById('shop-einlage-grund').value.trim();
 
@@ -16851,7 +16879,7 @@ const App = {
         }
 
         try {
-            DataManager.addKassenEinlage(betrag, grund);
+            DataManager.addKassenEinlage(betrag, grund, datum);
             this.closeModal('shop-kassen-einlage-modal');
             this.showToast('Erfolg', 'Einlage erfasst', 'success');
             this.loadShopKasse();
