@@ -2636,10 +2636,8 @@ const SupabaseDataAdapter = {
                 supabaseUpdates.access_zeiterfassung = updates.access_zeiterfassung || 'none';
             }
 
-            // Audit-Trail: updated_at und updated_by hinzufügen
-            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
-
-            console.log('🔄 Workspace Update - Sende an DB:', JSON.stringify(supabaseUpdates, null, 2));
+            // Nur updated_at setzen (updated_by existiert nicht in workspaces Tabelle)
+            supabaseUpdates.updated_at = new Date().toISOString();
 
             const { data, error } = await SupabaseService.client
                 .from('workspaces')
