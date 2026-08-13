@@ -623,6 +623,31 @@ table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
     color: var(--c-paper);
 }
 
+/* Logout Button mit Initialen */
+.sidebar .logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2);
+}
+
+.sidebar .logout-initials {
+    display: inline-block;
+    font-weight: 600;
+}
+
+.sidebar .logout-text {
+    display: none;
+}
+
+.sidebar:hover .logout-initials {
+    display: none;
+}
+
+.sidebar:hover .logout-text {
+    display: inline-block;
+}
+
 /* Main Content */
 .main-content {
     flex: 1;

@@ -635,9 +635,16 @@ const App = {
             const userName = user.name || user.username || user.email?.split('@')[0] || 'User';
             const userRole = user.role || 'Admin';
 
+            // Initialen erstellen (z.B. "Martina Oberprantacher" -> "MO")
+            const initials = userName.split(' ')
+                .map(word => word.charAt(0).toUpperCase())
+                .join('')
+                .substring(0, 2); // Max 2 Buchstaben
+
             document.getElementById('user-name').textContent = userName;
             document.getElementById('user-role').textContent = userRole === 'admin' || userRole === 'Admin' ? 'Administrator' : 'Mitarbeiter';
-            document.getElementById('user-avatar').textContent = userName.charAt(0).toUpperCase();
+            document.getElementById('user-avatar').textContent = initials || userName.charAt(0).toUpperCase();
+            document.getElementById('logout-initials').textContent = initials || userName.charAt(0).toUpperCase();
 
             // Admin-only Elemente anzeigen/verstecken
             const adminElements = document.querySelectorAll('.admin-only');
