@@ -4135,7 +4135,7 @@ const App = {
         document.getElementById('user-form-email').value = '';
         document.getElementById('user-form-type').value = 'extern';
         document.getElementById('user-form-rate').value = '25';
-        document.getElementById('user-form-role').value = 'user';
+        document.getElementById('user-form-role').value = 'mitarbeiter';
 
         // Name und E-Mail editierbar machen
         document.getElementById('user-form-name').disabled = false;
@@ -4155,7 +4155,7 @@ const App = {
         document.getElementById('user-form-email').value = user.email || '';
         document.getElementById('user-form-type').value = user.userType || 'intern';
         document.getElementById('user-form-rate').value = user.hourlyRate || 0;
-        document.getElementById('user-form-role').value = user.role || 'user';
+        document.getElementById('user-form-role').value = user.role || 'mitarbeiter';
 
         // Bei bestehendem User: Name/E-Mail nicht editierbar (da aus Auth)
         document.getElementById('user-form-name').disabled = true;
