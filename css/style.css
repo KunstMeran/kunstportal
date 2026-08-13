@@ -1133,6 +1133,17 @@ textarea.form-control {
     gap: 10px;
     padding: var(--s-6);
     border-top: 1px solid var(--c-line);
+    position: relative;
+    z-index: 10;
+}
+
+/* Sicherstellen dass Buttons in Modals klickbar sind */
+.modal-close,
+.modal-footer .btn {
+    position: relative;
+    z-index: 20;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 /* --- Hinweisbox / Callout --- */

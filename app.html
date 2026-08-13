@@ -3463,13 +3463,13 @@
     </div>
 
     <!-- Mitarbeiter-Formular Modal -->
-    <div id="user-form-modal" class="modal-overlay">
+    <div id="user-form-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('user-form-modal')">
         <div class="modal" style="max-width: 450px;">
-            <div class="modal-header">
-                <h2 class="modal-title" id="user-modal-title">Neuer Mitarbeiter</h2>
-                <button class="modal-close" onclick="App.hideModal('user-form-modal')">&times;</button>
-            </div>
             <form id="user-form" onsubmit="App.saveUser(event)">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="user-modal-title">Neuer Mitarbeiter</h2>
+                    <button type="button" class="modal-close" onclick="event.preventDefault(); event.stopPropagation(); App.hideModal('user-form-modal')">&times;</button>
+                </div>
                 <input type="hidden" id="user-form-id">
                 <div class="modal-body">
                     <div class="form-group" id="user-name-group">
