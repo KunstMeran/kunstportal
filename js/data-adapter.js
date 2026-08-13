@@ -1866,6 +1866,7 @@ const SupabaseDataAdapter = {
             const insertData = {
                 username: userData.name,
                 email: userData.email || `${userData.name.toLowerCase().replace(/\s+/g, '.')}@extern.local`,
+                password_hash: 'EXTERN_NO_LOGIN',  // Dummy-Wert, externe User loggen sich nicht ein
                 role: userData.role || 'user',
                 hourly_rate: userData.hourlyRate || 0,
                 user_type: userData.userType || 'extern'

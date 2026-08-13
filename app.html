@@ -4226,13 +4226,13 @@
 
     <!-- Workspace-Formular Modal -->
     <div id="workspace-form-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('workspace-form-modal')">
-        <div class="modal" style="max-width: 550px; max-height: 90vh; display: flex; flex-direction: column;">
-            <form onsubmit="App.saveWorkspace(event)" style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+        <div class="modal" style="max-width: 550px; max-height: 80vh; display: flex; flex-direction: column; overflow: visible;">
+            <form onsubmit="App.saveWorkspace(event)" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
                 <div class="modal-header" style="flex-shrink: 0;">
                     <h2 id="workspace-modal-title">Neuer Workspace</h2>
                     <button type="button" class="modal-close" onclick="event.preventDefault(); event.stopPropagation(); App.hideModal('workspace-form-modal')">&times;</button>
                 </div>
-                <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1rem;">
+                <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1rem; min-height: 0;">
                     <input type="hidden" id="workspace-id">
 
                     <div class="form-row" style="gap: 0.75rem;">
@@ -4349,8 +4349,8 @@
                         </label>
                     </div>
                 </div>
-                <div class="modal-footer" style="flex-shrink: 0;">
-                    <button type="button" class="btn btn-outline" onclick="App.hideModal('workspace-form-modal')">Abbrechen</button>
+                <div class="modal-footer" style="flex-shrink: 0; padding: 1rem; border-top: 1px solid #eee; background: #fff;">
+                    <button type="button" class="btn btn-outline" onclick="event.preventDefault(); event.stopPropagation(); App.hideModal('workspace-form-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
