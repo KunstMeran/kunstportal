@@ -1245,11 +1245,11 @@
                                         <th>Art.-Nr.</th>
                                         <th>Bezeichnung</th>
                                         <th>Typ</th>
-                                        <th>Standort</th>
+                                        <th style="text-align: right;">Ø EK</th>
                                         <th style="text-align: right;">VK</th>
+                                        <th style="text-align: center;">Marge</th>
                                         <th style="text-align: right;">MwSt</th>
                                         <th style="text-align: center;">Bestand</th>
-                                        <th style="text-align: right;">Wert</th>
                                         <th>Aktionen</th>
                                     </tr>
                                 </thead>
@@ -4968,6 +4968,129 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-kassen-einlage-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Einlage speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Eintritts-Kategorie Modal -->
+    <div id="shop-eintritt-kat-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="eintritt-kat-modal-title">Eintritts-Kategorie</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-eintritt-kat-modal')">&times;</button>
+            </div>
+            <form id="shop-eintritt-kat-form" onsubmit="App.saveEintrittKatForm(event)">
+                <input type="hidden" id="eintritt-kat-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Code *</label>
+                            <input type="text" id="eintritt-kat-code" class="form-control" required placeholder="z.B. erwachsen">
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Bezeichnung *</label>
+                            <input type="text" id="eintritt-kat-name" class="form-control" required placeholder="z.B. Erwachsene">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Preis (EUR) *</label>
+                            <input type="number" id="eintritt-kat-preis" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">MwSt-Satz *</label>
+                            <select id="eintritt-kat-mwst" class="form-control" required>
+                                <option value="22">22% (Standard)</option>
+                                <option value="10">10% (ermäßigt)</option>
+                                <option value="4">4% (Bücher)</option>
+                                <option value="0">0% (befreit)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Gültig ab</label>
+                            <input type="date" id="eintritt-kat-gueltig-ab" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gültig bis</label>
+                            <input type="date" id="eintritt-kat-gueltig-bis" class="form-control">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="eintritt-kat-unbegrenzt" onchange="App.toggleGueltigBis('eintritt')">
+                                Unbegrenzt
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="eintritt-kat-aktiv" checked>
+                            Kategorie aktiv
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-eintritt-kat-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mitglieds-Kategorie Modal -->
+    <div id="shop-mitglied-kat-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="mitglied-kat-modal-title">Mitglieds-Kategorie</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-mitglied-kat-modal')">&times;</button>
+            </div>
+            <form id="shop-mitglied-kat-form" onsubmit="App.saveMitgliedKatForm(event)">
+                <input type="hidden" id="mitglied-kat-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Code *</label>
+                            <input type="text" id="mitglied-kat-code" class="form-control" required placeholder="z.B. standard">
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Bezeichnung *</label>
+                            <input type="text" id="mitglied-kat-name" class="form-control" required placeholder="z.B. Einzelmitglied">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Jahresbeitrag (EUR) *</label>
+                            <input type="number" id="mitglied-kat-betrag" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Gültig ab</label>
+                            <input type="date" id="mitglied-kat-gueltig-ab" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gültig bis</label>
+                            <input type="date" id="mitglied-kat-gueltig-bis" class="form-control">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="mitglied-kat-unbegrenzt" onchange="App.toggleGueltigBis('mitglied')">
+                                Unbegrenzt
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="mitglied-kat-aktiv" checked>
+                            Kategorie aktiv
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-mitglied-kat-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
         </div>

@@ -2713,11 +2713,23 @@ const DataManager = {
         verkauf.createdAt = new Date().toISOString();
         verkauf.createdBy = session?.userId;
 
+        // Bei Artikelverkauf: Gewinn berechnen basierend auf Durchschnitts-EK
+        const artikelId = verkauf.artikelId || verkauf.artikel_id;
+        if (verkauf.typ === 'artikel' && artikelId) {
+            const artikel = this.getShopArtikelById(artikelId);
+            if (artikel) {
+                const durchschnittEK = artikel.durchschnittEK || 0;
+                const menge = verkauf.menge || 1;
+                verkauf.einkaufspreis_pro_stueck = durchschnittEK;
+                verkauf.einkaufspreis_gesamt = durchschnittEK * menge;
+                verkauf.gewinn = verkauf.gesamtpreis - verkauf.einkaufspreis_gesamt;
+            }
+        }
+
         liste.push(verkauf);
         this.save(this.KEYS.SHOP_VERKAEUFE, liste);
 
         // Bei Artikelverkauf: Bestand reduzieren
-        const artikelId = verkauf.artikelId || verkauf.artikel_id;
         if (verkauf.typ === 'artikel' && artikelId) {
             const artikel = this.getShopArtikelById(artikelId);
             if (artikel) {
@@ -2773,14 +2785,27 @@ const DataManager = {
         liste.push(einkauf);
         this.save(this.KEYS.SHOP_EINKAEUFE, liste);
 
-        // Bestand erhöhen
+        // Bestand erhöhen und Durchschnitts-EK berechnen
         const einkaufArtikelId = einkauf.artikelId || einkauf.artikel_id;
         if (einkaufArtikelId) {
             const artikel = this.getShopArtikelById(einkaufArtikelId);
             if (artikel) {
+                const alterBestand = artikel.bestandAktuell || 0;
+                const alterDurchschnittEK = artikel.durchschnittEK || 0;
+                const neueMenge = einkauf.menge || 0;
+                const neuerEK = einkauf.einzelpreis || 0;
+
+                // Gewichteter Durchschnitt: (alterBestand * alterPreis + neueMenge * neuerPreis) / (alterBestand + neueMenge)
+                const neuerBestand = alterBestand + neueMenge;
+                let neuerDurchschnittEK = neuerEK;
+                if (neuerBestand > 0) {
+                    neuerDurchschnittEK = ((alterBestand * alterDurchschnittEK) + (neueMenge * neuerEK)) / neuerBestand;
+                }
+
                 this.saveShopArtikel({
                     ...artikel,
-                    bestandAktuell: (artikel.bestandAktuell || 0) + (einkauf.menge || 0)
+                    bestandAktuell: neuerBestand,
+                    durchschnittEK: Math.round(neuerDurchschnittEK * 100) / 100 // auf 2 Dezimalen runden
                 });
             }
         }

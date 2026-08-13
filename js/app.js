@@ -16056,6 +16056,10 @@ const App = {
             const bestand = art.bestandAktuell ?? art.bestand_aktuell ?? 0;
             const bestandMin = art.bestandMin ?? art.bestand_min ?? 0;
             const mwstSatz = art.mwstSatz ?? art.mwst_satz ?? '22';
+            const durchschnittEK = art.durchschnittEK ?? art.durchschnitt_ek ?? 0;
+            const verkaufspreis = art.verkaufspreis || 0;
+            const gewinnMarge = durchschnittEK > 0 ? ((verkaufspreis - durchschnittEK) / durchschnittEK * 100).toFixed(0) : '-';
+
             return `
             <tr>
                 <td><code>${art.artikelnr || '-'}</code></td>
@@ -16063,11 +16067,12 @@ const App = {
                     <strong>${art.name}</strong>
                     ${art.autor ? `<br><small class="text-muted">${art.autor}</small>` : ''}
                 </td>
-                <td>${art.hersteller || '-'}</td>
                 <td><span class="badge badge-outline">${this.getArtikelTypLabel(art.artikeltyp)}</span></td>
-                <td>${art.standort || 'Shop'}</td>
-                <td class="text-right">${art.einkaufspreis ? this.formatCurrency(art.einkaufspreis) : '-'}</td>
-                <td class="text-right">${this.formatCurrency(art.verkaufspreis)}</td>
+                <td class="text-right">${durchschnittEK > 0 ? this.formatCurrency(durchschnittEK) : '-'}</td>
+                <td class="text-right">${this.formatCurrency(verkaufspreis)}</td>
+                <td class="text-center">
+                    ${durchschnittEK > 0 ? `<span class="${gewinnMarge > 0 ? 'text-success' : 'text-danger'}">${gewinnMarge}%</span>` : '-'}
+                </td>
                 <td><span class="badge badge-outline">${this.getMwstLabel(mwstSatz)}</span></td>
                 <td class="text-center">
                     <span class="${bestand <= bestandMin ? 'text-danger' : ''}">${bestand}</span>
@@ -17485,20 +17490,24 @@ const App = {
     },
 
     showNewEintrittKatForm: function() {
-        const name = prompt('Name der Eintritts-Kategorie:');
-        if (!name || !name.trim()) return;
+        // Modal öffnen für neue Eintritts-Kategorie
+        const form = document.getElementById('shop-eintritt-kat-form');
+        if (form) form.reset();
 
-        const preis = prompt('Preis in EUR:', '0.00');
-        if (preis === null) return;
+        document.getElementById('eintritt-kat-id').value = '';
+        document.getElementById('eintritt-kat-code').value = '';
+        document.getElementById('eintritt-kat-code').disabled = false;
+        document.getElementById('eintritt-kat-name').value = '';
+        document.getElementById('eintritt-kat-preis').value = '0.00';
+        document.getElementById('eintritt-kat-mwst').value = '22';
+        document.getElementById('eintritt-kat-gueltig-ab').value = new Date().toISOString().split('T')[0];
+        document.getElementById('eintritt-kat-gueltig-bis').value = '';
+        document.getElementById('eintritt-kat-unbegrenzt').checked = true;
+        document.getElementById('eintritt-kat-gueltig-bis').disabled = true;
+        document.getElementById('eintritt-kat-aktiv').checked = true;
 
-        const code = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        this.saveEintrittKat({
-            code,
-            name: name.trim(),
-            preis: parseFloat(preis) || 0,
-            mwst_satz: 22,
-            is_active: true
-        });
+        document.getElementById('eintritt-kat-modal-title').textContent = 'Neue Eintritts-Kategorie';
+        this.openModal('shop-eintritt-kat-modal');
     },
 
     editEintrittKat: async function(id) {
@@ -17506,22 +17515,72 @@ const App = {
         const kat = kategorien.find(k => k.id === id);
         if (!kat) return;
 
-        const name = prompt('Name:', kat.name);
-        if (!name) return;
+        document.getElementById('eintritt-kat-id').value = id;
+        document.getElementById('eintritt-kat-code').value = kat.code || '';
+        document.getElementById('eintritt-kat-code').disabled = true; // Code nicht änderbar
+        document.getElementById('eintritt-kat-name').value = kat.name || '';
+        document.getElementById('eintritt-kat-preis').value = (kat.preis || 0).toFixed(2);
+        document.getElementById('eintritt-kat-mwst').value = kat.mwst_satz || '22';
+        document.getElementById('eintritt-kat-gueltig-ab').value = kat.gueltig_ab || '';
+        document.getElementById('eintritt-kat-gueltig-bis').value = kat.gueltig_bis || '';
 
-        const preis = prompt('Preis in EUR:', kat.preis);
-        if (preis === null) return;
+        const unbegrenzt = !kat.gueltig_bis;
+        document.getElementById('eintritt-kat-unbegrenzt').checked = unbegrenzt;
+        document.getElementById('eintritt-kat-gueltig-bis').disabled = unbegrenzt;
+        document.getElementById('eintritt-kat-aktiv').checked = kat.is_active !== false;
 
-        const aktiv = confirm('Kategorie aktiv?');
+        document.getElementById('eintritt-kat-modal-title').textContent = 'Eintritts-Kategorie bearbeiten';
+        this.openModal('shop-eintritt-kat-modal');
+    },
 
-        await this.saveEintrittKat({
-            id,
-            code: kat.code,
-            name: name.trim(),
-            preis: parseFloat(preis) || 0,
-            mwst_satz: kat.mwst_satz || 22,
-            is_active: aktiv
-        });
+    toggleGueltigBis: function(type) {
+        // Generische Funktion für beide Modal-Typen (eintritt, mitglied)
+        const unbegrenzt = document.getElementById(`${type}-kat-unbegrenzt`).checked;
+        const gueltigBisField = document.getElementById(`${type}-kat-gueltig-bis`);
+        gueltigBisField.disabled = unbegrenzt;
+        if (unbegrenzt) {
+            gueltigBisField.value = '';
+        }
+    },
+
+    toggleEintrittKatGueltigBis: function() {
+        this.toggleGueltigBis('eintritt');
+    },
+
+    saveEintrittKatForm: async function(event) {
+        if (event) event.preventDefault();
+
+        const id = document.getElementById('eintritt-kat-id').value;
+        const code = document.getElementById('eintritt-kat-code').value.trim();
+        const name = document.getElementById('eintritt-kat-name').value.trim();
+        const preis = parseFloat(document.getElementById('eintritt-kat-preis').value) || 0;
+        const mwst_satz = parseFloat(document.getElementById('eintritt-kat-mwst').value) || 22;
+        const gueltig_ab = document.getElementById('eintritt-kat-gueltig-ab').value || null;
+        const unbegrenzt = document.getElementById('eintritt-kat-unbegrenzt').checked;
+        const gueltig_bis = unbegrenzt ? null : (document.getElementById('eintritt-kat-gueltig-bis').value || null);
+        const is_active = document.getElementById('eintritt-kat-aktiv').checked;
+
+        if (!code || !name) {
+            this.showToast('Fehler', 'Code und Name sind erforderlich', 'error');
+            return;
+        }
+
+        const data = {
+            code,
+            name,
+            preis,
+            mwst_satz,
+            gueltig_ab,
+            gueltig_bis,
+            is_active
+        };
+
+        if (id) {
+            data.id = parseInt(id);
+        }
+
+        await this.saveEintrittKat(data);
+        this.closeModal('shop-eintritt-kat-modal');
     },
 
     saveEintrittKat: async function(data) {
@@ -17536,19 +17595,23 @@ const App = {
     },
 
     showNewMitgliedKatForm: function() {
-        const name = prompt('Name der Mitgliedskategorie:');
-        if (!name || !name.trim()) return;
+        // Modal öffnen für neue Mitglieds-Kategorie
+        const form = document.getElementById('shop-mitglied-kat-form');
+        if (form) form.reset();
 
-        const betrag = prompt('Jahresbeitrag in EUR:', '0.00');
-        if (betrag === null) return;
+        document.getElementById('mitglied-kat-id').value = '';
+        document.getElementById('mitglied-kat-code').value = '';
+        document.getElementById('mitglied-kat-code').disabled = false;
+        document.getElementById('mitglied-kat-name').value = '';
+        document.getElementById('mitglied-kat-betrag').value = '0.00';
+        document.getElementById('mitglied-kat-gueltig-ab').value = new Date().toISOString().split('T')[0];
+        document.getElementById('mitglied-kat-gueltig-bis').value = '';
+        document.getElementById('mitglied-kat-unbegrenzt').checked = true;
+        document.getElementById('mitglied-kat-gueltig-bis').disabled = true;
+        document.getElementById('mitglied-kat-aktiv').checked = true;
 
-        const code = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        this.saveMitgliedKat({
-            code,
-            name: name.trim(),
-            betrag: parseFloat(betrag) || 0,
-            is_active: true
-        });
+        document.getElementById('mitglied-kat-modal-title').textContent = 'Neue Mitglieds-Kategorie';
+        this.openModal('shop-mitglied-kat-modal');
     },
 
     editMitgliedKat: async function(id) {
@@ -17556,21 +17619,59 @@ const App = {
         const kat = kategorien.find(k => k.id === id);
         if (!kat) return;
 
-        const name = prompt('Name:', kat.name);
-        if (!name) return;
+        document.getElementById('mitglied-kat-id').value = id;
+        document.getElementById('mitglied-kat-code').value = kat.code || '';
+        document.getElementById('mitglied-kat-code').disabled = true; // Code nicht änderbar
+        document.getElementById('mitglied-kat-name').value = kat.name || '';
+        document.getElementById('mitglied-kat-betrag').value = (kat.betrag || 0).toFixed(2);
+        document.getElementById('mitglied-kat-gueltig-ab').value = kat.gueltig_ab || '';
+        document.getElementById('mitglied-kat-gueltig-bis').value = kat.gueltig_bis || '';
 
-        const betrag = prompt('Jahresbeitrag in EUR:', kat.betrag);
-        if (betrag === null) return;
+        const unbegrenzt = !kat.gueltig_bis;
+        document.getElementById('mitglied-kat-unbegrenzt').checked = unbegrenzt;
+        document.getElementById('mitglied-kat-gueltig-bis').disabled = unbegrenzt;
+        document.getElementById('mitglied-kat-aktiv').checked = kat.is_active !== false;
 
-        const aktiv = confirm('Kategorie aktiv?');
+        document.getElementById('mitglied-kat-modal-title').textContent = 'Mitglieds-Kategorie bearbeiten';
+        this.openModal('shop-mitglied-kat-modal');
+    },
 
-        await this.saveMitgliedKat({
-            id,
-            code: kat.code,
-            name: name.trim(),
-            betrag: parseFloat(betrag) || 0,
-            is_active: aktiv
-        });
+    toggleMitgliedKatGueltigBis: function() {
+        this.toggleGueltigBis('mitglied');
+    },
+
+    saveMitgliedKatForm: async function(event) {
+        if (event) event.preventDefault();
+
+        const id = document.getElementById('mitglied-kat-id').value;
+        const code = document.getElementById('mitglied-kat-code').value.trim();
+        const name = document.getElementById('mitglied-kat-name').value.trim();
+        const betrag = parseFloat(document.getElementById('mitglied-kat-betrag').value) || 0;
+        const gueltig_ab = document.getElementById('mitglied-kat-gueltig-ab').value || null;
+        const unbegrenzt = document.getElementById('mitglied-kat-unbegrenzt').checked;
+        const gueltig_bis = unbegrenzt ? null : (document.getElementById('mitglied-kat-gueltig-bis').value || null);
+        const is_active = document.getElementById('mitglied-kat-aktiv').checked;
+
+        if (!code || !name) {
+            this.showToast('Fehler', 'Code und Name sind erforderlich', 'error');
+            return;
+        }
+
+        const data = {
+            code,
+            name,
+            betrag,
+            gueltig_ab,
+            gueltig_bis,
+            is_active
+        };
+
+        if (id) {
+            data.id = parseInt(id);
+        }
+
+        await this.saveMitgliedKat(data);
+        this.closeModal('shop-mitglied-kat-modal');
     },
 
     saveMitgliedKat: async function(data) {
