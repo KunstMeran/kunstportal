@@ -1522,17 +1522,15 @@ const SupabaseDataAdapter = {
                 userId = user?.id || null;
             }
 
-            let supabaseEntry = {
+            const supabaseEntry = {
                 project_id: entryData.projectId,
                 user_id: userId,
                 date: entryData.date,
                 hours: entryData.hours,
                 description: entryData.description || '',
-                activity_type: entryData.activityType || null
+                activity_type: entryData.activityType || null,
+                created_at: new Date().toISOString()
             };
-
-            // Audit-Trail: created_at und created_by hinzufügen
-            supabaseEntry = await this.addCreateMetadata(supabaseEntry);
 
             const { data, error } = await SupabaseService.client
                 .from('time_entries')

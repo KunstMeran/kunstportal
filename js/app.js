@@ -3405,7 +3405,7 @@ const App = {
         userSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         users.forEach(u => {
             const selected = currentUser && String(u.id) === String(currentUser.id) ? 'selected' : '';
-            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.username || u.email}</option>`;
+            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.username || u.email}</option>`;
         });
 
         // Heutiges Datum als Standard
@@ -3434,7 +3434,7 @@ const App = {
         userSelect.innerHTML = '';
         users.forEach(u => {
             const selected = String(u.id) === String(entry.userId) ? 'selected' : '';
-            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.username || u.email}</option>`;
+            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.username || u.email}</option>`;
         });
 
         document.getElementById('time-form-id').value = entry.id;
