@@ -428,6 +428,16 @@ table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
     color: var(--c-ink);
 }
 
+.btn-icon .icon-sm,
+.btn-icon img {
+    filter: invert(1);
+}
+
+.btn-icon:hover .icon-sm,
+.btn-icon:hover img {
+    filter: invert(1) brightness(0.2);
+}
+
 /* --- App Layout --- */
 .app-container {
     display: flex;
