@@ -1290,6 +1290,7 @@
                     <div class="tab" data-tab="shop-einkaeufe">Einkäufe</div>
                     <div class="tab" data-tab="shop-rechnungen">Rechnungen</div>
                     <div class="tab" data-tab="shop-kasse">Kasse</div>
+                    <div class="tab" data-tab="shop-ausgaben">Ausgaben</div>
                 </div>
 
                 <!-- Tab: Inventar -->
@@ -1548,6 +1549,45 @@
                                     </tr>
                                 </thead>
                                 <tbody id="kasse-bewegungen-table">
+                                    <!-- Dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Ausgaben (Publikationen an Mitarbeiter/Externe) -->
+                <div id="tab-shop-ausgaben" class="tab-content">
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title">Publikations-Ausgaben</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="date" id="shop-ausgaben-datum-von" class="form-control" style="width: 140px;" onchange="App.loadShopAusgaben()">
+                                <span>bis</span>
+                                <input type="date" id="shop-ausgaben-datum-bis" class="form-control" style="width: 140px;" onchange="App.loadShopAusgaben()">
+                                <select id="shop-ausgaben-filter-typ" class="form-control" style="width: 150px;" onchange="App.loadShopAusgaben()">
+                                    <option value="">Alle Empfänger</option>
+                                    <option value="mitarbeiter">Mitarbeiter</option>
+                                    <option value="extern">Externe</option>
+                                </select>
+                                <input type="text" id="shop-ausgaben-suche" class="form-control" placeholder="Suche..." style="width: 180px;" oninput="App.filterShopAusgaben()">
+                                <button class="btn btn-primary btn-sm" onclick="App.showShopAusgabeForm()">+ Neue Ausgabe</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Artikel</th>
+                                        <th style="text-align: center;">Menge</th>
+                                        <th>Empfänger</th>
+                                        <th>Typ</th>
+                                        <th>Zweck/Notiz</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shop-ausgaben-table-body">
                                     <!-- Dynamisch geladen -->
                                 </tbody>
                             </table>
@@ -4835,6 +4875,106 @@
     </div>
 
     <!-- ==================== SHOP MODALS ==================== -->
+
+    <!-- Shop: Ausgabe Modal (Publikation an Mitarbeiter/Externe) -->
+    <div id="shop-ausgabe-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Publikation ausgeben</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-ausgabe-modal')">&times;</button>
+            </div>
+            <form id="shop-ausgabe-form" onsubmit="App.saveShopAusgabe(event)">
+                <div class="modal-body">
+                    <!-- Duplikat-Warnung (initial versteckt) -->
+                    <div id="shop-ausgabe-duplikat-warning" class="alert alert-warning hidden" style="margin-bottom: 1rem; background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 0.75rem 1rem; border-radius: 8px;">
+                        <strong>Hinweis:</strong> Dieser Empfänger hat diesen Artikel bereits am <span id="shop-ausgabe-duplikat-datum"></span> erhalten (<span id="shop-ausgabe-duplikat-menge"></span> Stück).
+                        <br>Möchten Sie trotzdem fortfahren?
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="shop-ausgabe-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Artikel *</label>
+                            <select id="shop-ausgabe-artikel" class="form-control" required onchange="App.onShopAusgabeArtikelSelect()">
+                                <option value="">-- Artikel auswählen --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Menge *</label>
+                            <input type="number" id="shop-ausgabe-menge" class="form-control" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bestand</label>
+                            <input type="text" id="shop-ausgabe-bestand" class="form-control" readonly style="background: #f5f5f5;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Empfänger-Typ *</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" id="btn-empfaenger-mitarbeiter" class="btn btn-outline" style="flex: 1;" onclick="App.toggleEmpfaengerTyp('mitarbeiter')">
+                                Mitarbeiter
+                            </button>
+                            <button type="button" id="btn-empfaenger-extern" class="btn btn-outline" style="flex: 1;" onclick="App.toggleEmpfaengerTyp('extern')">
+                                Extern
+                            </button>
+                        </div>
+                        <input type="hidden" id="shop-ausgabe-empfaenger-typ" value="mitarbeiter">
+                    </div>
+
+                    <!-- Mitarbeiter-Auswahl -->
+                    <div id="empfaenger-mitarbeiter-section">
+                        <div class="form-group">
+                            <label class="form-label">Mitarbeiter *</label>
+                            <select id="shop-ausgabe-mitarbeiter" class="form-control" onchange="App.onShopAusgabeEmpfaengerChange()">
+                                <option value="">-- Mitarbeiter auswählen --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Externe-Auswahl -->
+                    <div id="empfaenger-extern-section" class="hidden">
+                        <div class="form-group">
+                            <label class="form-label">Externe Person</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="shop-ausgabe-extern-select" class="form-control" style="flex: 1;" onchange="App.onShopAusgabeExternSelect()">
+                                    <option value="">-- Bestehend auswählen --</option>
+                                    <option value="__NEU__">+ Neue Person erfassen</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Neue externe Person erfassen -->
+                        <div id="extern-neu-section" class="hidden" style="padding: 1rem; background: #f5f5f5; border-radius: 8px; margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Name *</label>
+                                <input type="text" id="shop-ausgabe-extern-name" class="form-control" placeholder="Name der Person">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Notiz</label>
+                                <input type="text" id="shop-ausgabe-extern-notiz" class="form-control" placeholder="z.B. Organisation, Anlass">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Zweck/Anlass</label>
+                        <input type="text" id="shop-ausgabe-zweck" class="form-control" placeholder="z.B. Presseexemplar, Kooperation">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-ausgabe-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Ausgabe speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Shop: Artikel-Formular Modal -->
     <div id="shop-artikel-form-modal" class="modal-backdrop hidden">

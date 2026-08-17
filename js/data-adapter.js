@@ -204,6 +204,25 @@ const SupabaseDataAdapter = {
         // Cache-Invalidierung Funktion global verfügbar machen
         DataManager.invalidateRechnungenCache = this.invalidateRechnungenCache.bind(this);
 
+        // Shop-Ausgaben Funktionen (Publikationen an Mitarbeiter/Externe)
+        DataManager._getShopAusgabenOriginal = DataManager.getShopAusgaben;
+        DataManager.getShopAusgaben = this.getShopAusgaben.bind(this);
+
+        DataManager._addShopAusgabeOriginal = DataManager.addShopAusgabe;
+        DataManager.addShopAusgabe = this.addShopAusgabe.bind(this);
+
+        DataManager._deleteShopAusgabeOriginal = DataManager.deleteShopAusgabe;
+        DataManager.deleteShopAusgabe = this.deleteShopAusgabe.bind(this);
+
+        DataManager._checkDuplicateAusgabeOriginal = DataManager.checkDuplicateAusgabe;
+        DataManager.checkDuplicateAusgabe = this.checkDuplicateAusgabe.bind(this);
+
+        DataManager._getExterneEmpfaengerOriginal = DataManager.getExterneEmpfaenger;
+        DataManager.getExterneEmpfaenger = this.getExterneEmpfaenger.bind(this);
+
+        DataManager._addExternerEmpfaengerOriginal = DataManager.addExternerEmpfaenger;
+        DataManager.addExternerEmpfaenger = this.addExternerEmpfaenger.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -3796,6 +3815,219 @@ const SupabaseDataAdapter = {
             return data;
         } catch (error) {
             console.error('Fehler beim Speichern der Konto-Notiz:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // SHOP-AUSGABEN (Publikationen an Mitarbeiter/Externe)
+    // ========================================
+
+    /**
+     * Lädt Shop-Ausgaben mit optionalem Filter
+     */
+    async getShopAusgaben(filter = {}) {
+        try {
+            let query = SupabaseService.client
+                .from('shop_ausgaben')
+                .select(`
+                    *,
+                    artikel:shop_artikel(id, name, artikelnr),
+                    user:users!empfaenger_user_id(id, name, email),
+                    externer:shop_externe_empfaenger(id, name, notiz)
+                `)
+                .order('datum', { ascending: false })
+                .order('uhrzeit', { ascending: false });
+
+            if (filter.datum) {
+                query = query.eq('datum', filter.datum);
+            }
+            if (filter.datumVon) {
+                query = query.gte('datum', filter.datumVon);
+            }
+            if (filter.datumBis) {
+                query = query.lte('datum', filter.datumBis);
+            }
+            if (filter.artikelId) {
+                query = query.eq('artikel_id', filter.artikelId);
+            }
+            if (filter.empfaengerTyp) {
+                query = query.eq('empfaenger_typ', filter.empfaengerTyp);
+            }
+            if (filter.empfaengerUserId) {
+                query = query.eq('empfaenger_user_id', filter.empfaengerUserId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            return (data || []).map(a => ({
+                id: a.id,
+                datum: a.datum,
+                uhrzeit: a.uhrzeit,
+                artikelId: a.artikel_id,
+                artikel_id: a.artikel_id,
+                artikel_name: a.artikel?.name,
+                artikel_nr: a.artikel?.artikelnr,
+                menge: a.menge,
+                empfaenger_typ: a.empfaenger_typ,
+                empfaenger_user_id: a.empfaenger_user_id,
+                empfaenger_extern_id: a.empfaenger_extern_id,
+                empfaenger_name: a.empfaenger_typ === 'mitarbeiter'
+                    ? (a.user?.name || a.user?.email)
+                    : (a.externer?.name || a.empfaenger_extern_name),
+                empfaenger_extern_notiz: a.externer?.notiz || a.empfaenger_extern_notiz,
+                zweck: a.zweck,
+                createdAt: a.created_at,
+                createdBy: a.created_by
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Ausgaben:', error);
+            // Fallback auf localStorage
+            return DataManager._getShopAusgabenOriginal(filter);
+        }
+    },
+
+    /**
+     * Speichert eine neue Shop-Ausgabe
+     * Der Datenbank-Trigger reduziert automatisch den Bestand
+     */
+    async addShopAusgabe(ausgabe) {
+        try {
+            let insertData = {
+                datum: ausgabe.datum || new Date().toISOString().split('T')[0],
+                artikel_id: ausgabe.artikelId || ausgabe.artikel_id,
+                menge: ausgabe.menge || 1,
+                empfaenger_typ: ausgabe.empfaenger_typ,
+                zweck: ausgabe.zweck || null
+            };
+
+            if (ausgabe.empfaenger_typ === 'mitarbeiter') {
+                insertData.empfaenger_user_id = ausgabe.empfaenger_user_id;
+            } else {
+                if (ausgabe.empfaenger_extern_id) {
+                    insertData.empfaenger_extern_id = ausgabe.empfaenger_extern_id;
+                } else {
+                    insertData.empfaenger_extern_name = ausgabe.empfaenger_extern_name;
+                    insertData.empfaenger_extern_notiz = ausgabe.empfaenger_extern_notiz;
+                }
+            }
+
+            // Audit-Felder
+            insertData = await this.addCreateMetadata(insertData);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_ausgaben')
+                .insert(insertData)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log('✅ Ausgabe erfasst:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Speichern der Ausgabe:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Löscht eine Shop-Ausgabe
+     * Der Datenbank-Trigger gibt automatisch den Bestand zurück
+     */
+    async deleteShopAusgabe(id) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('shop_ausgaben')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            console.log('✅ Ausgabe gelöscht:', id);
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Löschen der Ausgabe:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Prüft ob ein Empfänger diesen Artikel bereits erhalten hat
+     */
+    async checkDuplicateAusgabe(artikelId, empfaengerTyp, empfaengerId) {
+        try {
+            let query = SupabaseService.client
+                .from('shop_ausgaben')
+                .select('id, datum, menge')
+                .eq('artikel_id', artikelId)
+                .eq('empfaenger_typ', empfaengerTyp);
+
+            if (empfaengerTyp === 'mitarbeiter') {
+                query = query.eq('empfaenger_user_id', empfaengerId);
+            } else {
+                // Bei Externen: Entweder ID oder Name prüfen
+                if (typeof empfaengerId === 'number' || !isNaN(parseInt(empfaengerId))) {
+                    query = query.eq('empfaenger_extern_id', empfaengerId);
+                } else {
+                    query = query.eq('empfaenger_extern_name', empfaengerId);
+                }
+            }
+
+            const { data, error } = await query.limit(1);
+            if (error) throw error;
+
+            return data && data.length > 0 ? data[0] : null;
+        } catch (error) {
+            console.error('Fehler beim Duplikat-Check:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Lädt alle externen Empfänger
+     */
+    async getExterneEmpfaenger() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_externe_empfaenger')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden externer Empfänger:', error);
+            // Fallback auf localStorage
+            return DataManager._getExterneEmpfaengerOriginal();
+        }
+    },
+
+    /**
+     * Legt einen neuen externen Empfänger an
+     */
+    async addExternerEmpfaenger(empfaenger) {
+        try {
+            let insertData = {
+                name: empfaenger.name,
+                notiz: empfaenger.notiz || null
+            };
+
+            insertData = await this.addCreateMetadata(insertData);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_externe_empfaenger')
+                .insert(insertData)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log('✅ Externer Empfänger angelegt:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Anlegen externem Empfänger:', error);
             throw error;
         }
     }

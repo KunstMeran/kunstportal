@@ -137,7 +137,9 @@ const DataManager = {
         SHOP_VERKAEUFE: 'km_shop_verkaeufe',
         SHOP_EINKAEUFE: 'km_shop_einkaeufe',
         SHOP_KASSEN_BEWEGUNGEN: 'km_shop_kassen_bewegungen',
-        SHOP_KASSENABSCHLUSS: 'km_shop_kassenabschluss'
+        SHOP_KASSENABSCHLUSS: 'km_shop_kassenabschluss',
+        SHOP_AUSGABEN: 'km_shop_ausgaben',
+        SHOP_EXTERNE_EMPFAENGER: 'km_shop_externe_empfaenger'
     },
 
     // Pfade
@@ -3017,6 +3019,133 @@ const DataManager = {
         let liste = this.load(this.KEYS.SHOP_KASSEN_BEWEGUNGEN) || [];
         liste = liste.filter(b => b.id !== id);
         this.save(this.KEYS.SHOP_KASSEN_BEWEGUNGEN, liste);
+    },
+
+    // --- Shop-Ausgaben (Publikationen an Mitarbeiter/Externe) ---
+
+    getShopAusgaben: function(filter = {}) {
+        let ausgaben = this.load(this.KEYS.SHOP_AUSGABEN) || [];
+
+        if (filter.datum) {
+            ausgaben = ausgaben.filter(a => a.datum === filter.datum);
+        }
+        if (filter.datumVon) {
+            ausgaben = ausgaben.filter(a => a.datum >= filter.datumVon);
+        }
+        if (filter.datumBis) {
+            ausgaben = ausgaben.filter(a => a.datum <= filter.datumBis);
+        }
+        if (filter.artikelId) {
+            ausgaben = ausgaben.filter(a =>
+                (a.artikelId || a.artikel_id) == filter.artikelId
+            );
+        }
+        if (filter.empfaengerTyp) {
+            ausgaben = ausgaben.filter(a => a.empfaenger_typ === filter.empfaengerTyp);
+        }
+        if (filter.empfaengerUserId) {
+            ausgaben = ausgaben.filter(a =>
+                a.empfaenger_user_id === filter.empfaengerUserId
+            );
+        }
+
+        return ausgaben.sort((a, b) => {
+            const dateCompare = b.datum.localeCompare(a.datum);
+            if (dateCompare !== 0) return dateCompare;
+            return (b.uhrzeit || '').localeCompare(a.uhrzeit || '');
+        });
+    },
+
+    addShopAusgabe: function(ausgabe) {
+        const liste = this.load(this.KEYS.SHOP_AUSGABEN) || [];
+        const session = this.getSession();
+
+        ausgabe.id = Date.now();
+        ausgabe.datum = ausgabe.datum || new Date().toISOString().split('T')[0];
+        ausgabe.uhrzeit = new Date().toTimeString().split(' ')[0].substring(0, 5);
+        ausgabe.createdAt = new Date().toISOString();
+        ausgabe.createdBy = session?.userId;
+
+        liste.push(ausgabe);
+        this.save(this.KEYS.SHOP_AUSGABEN, liste);
+
+        // Bestand reduzieren
+        const artikelId = ausgabe.artikelId || ausgabe.artikel_id;
+        if (artikelId) {
+            const artikel = this.getShopArtikelById(artikelId);
+            if (artikel) {
+                this.saveShopArtikel({
+                    ...artikel,
+                    bestandAktuell: (artikel.bestandAktuell || 0) - (ausgabe.menge || 1)
+                });
+            }
+        }
+
+        return ausgabe;
+    },
+
+    deleteShopAusgabe: function(id) {
+        const liste = this.load(this.KEYS.SHOP_AUSGABEN) || [];
+        const idx = liste.findIndex(a => a.id === id);
+        if (idx === -1) return;
+
+        const ausgabe = liste[idx];
+        const artikelId = ausgabe.artikelId || ausgabe.artikel_id;
+
+        // Bestand zurueckgeben
+        if (artikelId) {
+            const artikel = this.getShopArtikelById(artikelId);
+            if (artikel) {
+                this.saveShopArtikel({
+                    ...artikel,
+                    bestandAktuell: (artikel.bestandAktuell || 0) + (ausgabe.menge || 1)
+                });
+            }
+        }
+
+        liste.splice(idx, 1);
+        this.save(this.KEYS.SHOP_AUSGABEN, liste);
+    },
+
+    // Duplikat-Check: Hat dieser Empfaenger diesen Artikel schon erhalten?
+    checkDuplicateAusgabe: function(artikelId, empfaengerTyp, empfaengerId) {
+        const ausgaben = this.getShopAusgaben({ artikelId: artikelId });
+
+        return ausgaben.find(a => {
+            if (empfaengerTyp === 'mitarbeiter') {
+                return a.empfaenger_typ === 'mitarbeiter' &&
+                       a.empfaenger_user_id == empfaengerId;
+            } else {
+                return a.empfaenger_typ === 'extern' &&
+                       (a.empfaenger_extern_id == empfaengerId ||
+                        a.empfaenger_extern_name === empfaengerId);
+            }
+        });
+    },
+
+    // Ausgaben-Historie fuer einen Artikel
+    getAusgabenForArtikel: function(artikelId) {
+        return this.getShopAusgaben({ artikelId: artikelId });
+    },
+
+    // --- Externe Empfaenger ---
+
+    getExterneEmpfaenger: function() {
+        return this.load(this.KEYS.SHOP_EXTERNE_EMPFAENGER) || [];
+    },
+
+    addExternerEmpfaenger: function(empfaenger) {
+        const liste = this.getExterneEmpfaenger();
+        const session = this.getSession();
+
+        empfaenger.id = Date.now();
+        empfaenger.createdAt = new Date().toISOString();
+        empfaenger.createdBy = session?.userId;
+
+        liste.push(empfaenger);
+        this.save(this.KEYS.SHOP_EXTERNE_EMPFAENGER, liste);
+
+        return empfaenger;
     },
 
     // --- Kassenabschluss ---

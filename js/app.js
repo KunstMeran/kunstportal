@@ -16521,6 +16521,9 @@ const App = {
                     case 'shop-kasse':
                         await this.loadShopKasse();
                         break;
+                    case 'shop-ausgaben':
+                        await this.loadShopAusgaben();
+                        break;
                 }
             });
         });
@@ -17856,6 +17859,330 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Kassenabschluss:', error);
             this.showToast('Fehler', 'Kassenabschluss fehlgeschlagen', 'error');
+        }
+    },
+
+    // ========================================
+    // SHOP - AUSGABEN (Publikationen an Mitarbeiter/Externe)
+    // ========================================
+
+    currentShopAusgaben: [],
+
+    loadShopAusgaben: async function() {
+        try {
+            const datumVon = document.getElementById('shop-ausgaben-datum-von')?.value;
+            const datumBis = document.getElementById('shop-ausgaben-datum-bis')?.value;
+            const typFilter = document.getElementById('shop-ausgaben-filter-typ')?.value;
+
+            const filter = {};
+            if (datumVon) filter.datumVon = datumVon;
+            if (datumBis) filter.datumBis = datumBis;
+            if (typFilter) filter.empfaengerTyp = typFilter;
+
+            const ausgaben = await DataManager.getShopAusgaben(filter);
+            this.currentShopAusgaben = ausgaben;
+            this.renderShopAusgabenTabelle(ausgaben);
+
+        } catch (error) {
+            console.error('Fehler beim Laden der Ausgaben:', error);
+            this.showToast('Fehler', 'Ausgaben konnten nicht geladen werden', 'error');
+        }
+    },
+
+    filterShopAusgaben: function() {
+        const suchtext = document.getElementById('shop-ausgaben-suche')?.value?.toLowerCase() || '';
+
+        let ausgaben = this.currentShopAusgaben || [];
+
+        if (suchtext) {
+            ausgaben = ausgaben.filter(a =>
+                (a.artikel_name || '').toLowerCase().includes(suchtext) ||
+                (a.empfaenger_name || '').toLowerCase().includes(suchtext) ||
+                (a.zweck || '').toLowerCase().includes(suchtext)
+            );
+        }
+
+        this.renderShopAusgabenTabelle(ausgaben);
+    },
+
+    renderShopAusgabenTabelle: function(ausgaben) {
+        const tbody = document.getElementById('shop-ausgaben-table-body');
+        if (!tbody) return;
+
+        if (ausgaben.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted" style="padding: 3rem;">
+                        Keine Ausgaben vorhanden. Klicken Sie auf "+ Neue Ausgabe" um eine Publikation auszugeben.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = ausgaben.map(a => {
+            const typBadge = a.empfaenger_typ === 'mitarbeiter'
+                ? '<span class="badge badge-primary">Mitarbeiter</span>'
+                : '<span class="badge badge-outline">Extern</span>';
+
+            return `
+                <tr>
+                    <td>${this.formatDate(a.datum)}</td>
+                    <td>
+                        <strong>${a.artikel_name || 'Unbekannt'}</strong>
+                        ${a.artikel_nr ? `<br><small class="text-muted">${a.artikel_nr}</small>` : ''}
+                    </td>
+                    <td class="text-center">${a.menge}</td>
+                    <td>
+                        <strong>${a.empfaenger_name || '-'}</strong>
+                        ${a.empfaenger_extern_notiz ? `<br><small class="text-muted">${a.empfaenger_extern_notiz}</small>` : ''}
+                    </td>
+                    <td>${typBadge}</td>
+                    <td>${a.zweck || '-'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-icon btn-sm" onclick="App.deleteShopAusgabe(${a.id})" title="Löschen">
+                                <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    showShopAusgabeForm: async function() {
+        try {
+            const heute = new Date().toISOString().split('T')[0];
+            document.getElementById('shop-ausgabe-datum').value = heute;
+
+            // Artikel-Dropdown befüllen
+            const artikel = await DataManager.getShopArtikel();
+            const artikelSelect = document.getElementById('shop-ausgabe-artikel');
+            artikelSelect.innerHTML = '<option value="">-- Artikel auswählen --</option>';
+            artikel.filter(a => a.is_active !== false && a.isActive !== false).forEach(a => {
+                const bestand = a.bestandAktuell ?? a.bestand_aktuell ?? 0;
+                artikelSelect.innerHTML += `<option value="${a.id}" data-bestand="${bestand}">${a.name} (Bestand: ${bestand})</option>`;
+            });
+
+            // Mitarbeiter-Dropdown befüllen
+            const users = await DataManager.getUsers();
+            const mitarbeiterSelect = document.getElementById('shop-ausgabe-mitarbeiter');
+            mitarbeiterSelect.innerHTML = '<option value="">-- Mitarbeiter auswählen --</option>';
+            users.forEach(u => {
+                mitarbeiterSelect.innerHTML += `<option value="${u.id}">${u.name || u.email || u.username}</option>`;
+            });
+
+            // Externe Empfänger laden
+            const externe = await DataManager.getExterneEmpfaenger();
+            const externSelect = document.getElementById('shop-ausgabe-extern-select');
+            externSelect.innerHTML = '<option value="">-- Bestehend auswählen --</option><option value="__NEU__">+ Neue Person erfassen</option>';
+            externe.forEach(e => {
+                externSelect.innerHTML += `<option value="${e.id}">${e.name}${e.notiz ? ' (' + e.notiz + ')' : ''}</option>`;
+            });
+
+            // Reset
+            document.getElementById('shop-ausgabe-menge').value = 1;
+            document.getElementById('shop-ausgabe-bestand').value = '';
+            document.getElementById('shop-ausgabe-zweck').value = '';
+            document.getElementById('shop-ausgabe-extern-name').value = '';
+            document.getElementById('shop-ausgabe-extern-notiz').value = '';
+            document.getElementById('shop-ausgabe-duplikat-warning').classList.add('hidden');
+            document.getElementById('extern-neu-section').classList.add('hidden');
+            this.toggleEmpfaengerTyp('mitarbeiter');
+
+            this.openModal('shop-ausgabe-modal');
+        } catch (error) {
+            console.error('Fehler beim Öffnen des Ausgabe-Formulars:', error);
+            this.showToast('Fehler', 'Formular konnte nicht geladen werden', 'error');
+        }
+    },
+
+    toggleEmpfaengerTyp: function(typ) {
+        const mitarbeiterBtn = document.getElementById('btn-empfaenger-mitarbeiter');
+        const externBtn = document.getElementById('btn-empfaenger-extern');
+        const mitarbeiterSection = document.getElementById('empfaenger-mitarbeiter-section');
+        const externSection = document.getElementById('empfaenger-extern-section');
+        const typInput = document.getElementById('shop-ausgabe-empfaenger-typ');
+        const mitarbeiterSelect = document.getElementById('shop-ausgabe-mitarbeiter');
+
+        if (typ === 'mitarbeiter') {
+            mitarbeiterBtn.classList.add('active');
+            mitarbeiterBtn.style.background = 'var(--primary)';
+            mitarbeiterBtn.style.color = 'white';
+            externBtn.classList.remove('active');
+            externBtn.style.background = '';
+            externBtn.style.color = '';
+            mitarbeiterSection.classList.remove('hidden');
+            externSection.classList.add('hidden');
+            mitarbeiterSelect.required = true;
+        } else {
+            mitarbeiterBtn.classList.remove('active');
+            mitarbeiterBtn.style.background = '';
+            mitarbeiterBtn.style.color = '';
+            externBtn.classList.add('active');
+            externBtn.style.background = 'var(--primary)';
+            externBtn.style.color = 'white';
+            mitarbeiterSection.classList.add('hidden');
+            externSection.classList.remove('hidden');
+            mitarbeiterSelect.required = false;
+        }
+
+        typInput.value = typ;
+
+        // Duplikat-Warnung zurücksetzen
+        document.getElementById('shop-ausgabe-duplikat-warning').classList.add('hidden');
+    },
+
+    onShopAusgabeArtikelSelect: function() {
+        const select = document.getElementById('shop-ausgabe-artikel');
+        const option = select.options[select.selectedIndex];
+        const bestand = option?.dataset?.bestand || '0';
+        document.getElementById('shop-ausgabe-bestand').value = bestand;
+
+        // Duplikat-Check wenn Empfänger bereits gewählt
+        this.checkAusgabeDuplikat();
+    },
+
+    onShopAusgabeEmpfaengerChange: function() {
+        this.checkAusgabeDuplikat();
+    },
+
+    onShopAusgabeExternSelect: function() {
+        const select = document.getElementById('shop-ausgabe-extern-select');
+        const neuSection = document.getElementById('extern-neu-section');
+        const nameInput = document.getElementById('shop-ausgabe-extern-name');
+
+        if (select.value === '__NEU__') {
+            neuSection.classList.remove('hidden');
+            nameInput.required = true;
+        } else {
+            neuSection.classList.add('hidden');
+            nameInput.required = false;
+        }
+
+        this.checkAusgabeDuplikat();
+    },
+
+    checkAusgabeDuplikat: async function() {
+        const artikelId = document.getElementById('shop-ausgabe-artikel').value;
+        const empfaengerTyp = document.getElementById('shop-ausgabe-empfaenger-typ').value;
+
+        let empfaengerId = null;
+        if (empfaengerTyp === 'mitarbeiter') {
+            empfaengerId = document.getElementById('shop-ausgabe-mitarbeiter').value;
+        } else {
+            const externSelect = document.getElementById('shop-ausgabe-extern-select').value;
+            if (externSelect && externSelect !== '__NEU__') {
+                empfaengerId = externSelect;
+            }
+        }
+
+        const warningEl = document.getElementById('shop-ausgabe-duplikat-warning');
+
+        if (!artikelId || !empfaengerId) {
+            warningEl.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const duplikat = await DataManager.checkDuplicateAusgabe(
+                parseInt(artikelId),
+                empfaengerTyp,
+                empfaengerId
+            );
+
+            if (duplikat) {
+                document.getElementById('shop-ausgabe-duplikat-datum').textContent = this.formatDate(duplikat.datum);
+                document.getElementById('shop-ausgabe-duplikat-menge').textContent = duplikat.menge;
+                warningEl.classList.remove('hidden');
+            } else {
+                warningEl.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Fehler beim Duplikat-Check:', error);
+        }
+    },
+
+    saveShopAusgabe: async function(event) {
+        event.preventDefault();
+
+        try {
+            const artikelId = parseInt(document.getElementById('shop-ausgabe-artikel').value);
+            const menge = parseInt(document.getElementById('shop-ausgabe-menge').value);
+            const bestand = parseInt(document.getElementById('shop-ausgabe-bestand').value || 0);
+
+            // Bestandsprüfung
+            if (menge > bestand) {
+                this.showToast('Fehler', `Nicht genügend Bestand (${bestand} verfügbar)`, 'error');
+                return;
+            }
+
+            const empfaengerTyp = document.getElementById('shop-ausgabe-empfaenger-typ').value;
+
+            const ausgabe = {
+                datum: document.getElementById('shop-ausgabe-datum').value,
+                artikelId: artikelId,
+                menge: menge,
+                empfaenger_typ: empfaengerTyp,
+                zweck: document.getElementById('shop-ausgabe-zweck').value || null
+            };
+
+            if (empfaengerTyp === 'mitarbeiter') {
+                const mitarbeiterId = document.getElementById('shop-ausgabe-mitarbeiter').value;
+                if (!mitarbeiterId) {
+                    this.showToast('Fehler', 'Bitte wählen Sie einen Mitarbeiter aus', 'error');
+                    return;
+                }
+                ausgabe.empfaenger_user_id = mitarbeiterId;
+            } else {
+                const externSelect = document.getElementById('shop-ausgabe-extern-select').value;
+                if (externSelect === '__NEU__') {
+                    const externName = document.getElementById('shop-ausgabe-extern-name').value.trim();
+                    if (!externName) {
+                        this.showToast('Fehler', 'Bitte geben Sie einen Namen ein', 'error');
+                        return;
+                    }
+                    // Zuerst neue externe Person anlegen
+                    const neuerExterner = await DataManager.addExternerEmpfaenger({
+                        name: externName,
+                        notiz: document.getElementById('shop-ausgabe-extern-notiz').value || null
+                    });
+                    ausgabe.empfaenger_extern_id = neuerExterner.id;
+                } else if (externSelect) {
+                    ausgabe.empfaenger_extern_id = parseInt(externSelect);
+                } else {
+                    this.showToast('Fehler', 'Bitte wählen Sie eine externe Person aus oder erfassen Sie eine neue', 'error');
+                    return;
+                }
+            }
+
+            await DataManager.addShopAusgabe(ausgabe);
+
+            this.showToast('Erfolg', 'Ausgabe erfasst', 'success');
+            this.closeModal('shop-ausgabe-modal');
+            await this.loadShopAusgaben();
+            await this.loadShopInventar(); // Bestand aktualisieren
+
+        } catch (error) {
+            console.error('Fehler beim Speichern der Ausgabe:', error);
+            this.showToast('Fehler', 'Ausgabe konnte nicht gespeichert werden', 'error');
+        }
+    },
+
+    deleteShopAusgabe: async function(id) {
+        if (!confirm('Möchten Sie diese Ausgabe wirklich löschen? Der Bestand wird wieder erhöht.')) {
+            return;
+        }
+
+        try {
+            await DataManager.deleteShopAusgabe(id);
+            this.showToast('Erfolg', 'Ausgabe gelöscht', 'success');
+            await this.loadShopAusgaben();
+            await this.loadShopInventar();
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
         }
     },
 
