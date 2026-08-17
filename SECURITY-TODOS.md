@@ -39,10 +39,17 @@
 **Problem:** Der Supabase `anonKey` ist im Frontend-Code sichtbar.
 **Risiko:** Mit dem Key kann jeder API-Anfragen stellen (Row Level Security schützt nur teilweise).
 **Behebung:**
-- [ ] RLS-Policies in Supabase prüfen und strikt konfigurieren
-- [ ] Prüfen, dass alle Tabellen RLS aktiviert haben
+- [x] RLS-Policies in Supabase prüfen und strikt konfigurieren **GEPRÜFT 2026-08-17**
+- [x] Prüfen, dass alle Tabellen RLS aktiviert haben **MIGRATIONS ERSTELLT**
 - [ ] Service-Role-Key niemals im Frontend verwenden
 - [ ] Nach Hetzner-Migration: Backend-Proxy für sensible Operationen
+
+**RLS-Audit Ergebnis (2026-08-17):**
+- 20+ Tabellen haben bereits RLS mit Workspace-Berechtigungen
+- Fehlende RLS für `projects`, `budget_items`, `costs` wurde hinzugefügt:
+  - `supabase-migrations/add-rls-projects.sql`
+  - `supabase-migrations/add-rls-legacy-tables.sql`
+- Alle Berechtigungen laufen zentral über Workspaces (`access_projekte`, `access_rechnungen`, etc.)
 
 ---
 
@@ -192,9 +199,10 @@ Diese Punkte können erst nach der Hetzner-Migration geprüft/behoben werden:
 
 ### Phase 1: Vor Hetzner-Migration (JETZT)
 - [ ] **KRITISCH:** Default-Passwörter aus Code entfernen (wird obsolet durch MS SSO)
-- [ ] **KRITISCH:** RLS-Policies in Supabase prüfen
+- [x] **KRITISCH:** RLS-Policies in Supabase prüfen **ERLEDIGT 2026-08-17**
 - [x] **HOCH:** XSS-Escaping implementieren **ERLEDIGT 2026-08-17**
 - [ ] **HOCH:** Rollen aus DB laden, nicht hardcoden (wird durch MS SSO vereinfacht)
+- [ ] **NEU:** RLS-Migrations auf Hetzner ausführen (`add-rls-projects.sql`, `add-rls-legacy-tables.sql`)
 
 ### Phase 2: Nach Hetzner-Migration
 - [ ] Server-Härtung (SSH, Firewall, Updates)

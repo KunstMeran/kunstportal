@@ -223,6 +223,64 @@ const SupabaseDataAdapter = {
         DataManager._addExternerEmpfaengerOriginal = DataManager.addExternerEmpfaenger;
         DataManager.addExternerEmpfaenger = this.addExternerEmpfaenger.bind(this);
 
+        // Shop-Artikel Funktionen
+        DataManager._getShopArtikelOriginal = DataManager.getShopArtikel;
+        DataManager.getShopArtikel = this.getShopArtikel.bind(this);
+
+        DataManager._getShopArtikelByIdOriginal = DataManager.getShopArtikelById;
+        DataManager.getShopArtikelById = this.getShopArtikelById.bind(this);
+
+        DataManager._saveShopArtikelOriginal = DataManager.saveShopArtikel;
+        DataManager.saveShopArtikel = this.saveShopArtikel.bind(this);
+
+        DataManager._deleteShopArtikelOriginal = DataManager.deleteShopArtikel;
+        DataManager.deleteShopArtikel = this.deleteShopArtikel.bind(this);
+
+        // Shop-Artikeltypen Funktionen
+        DataManager._getShopArtikeltypenOriginal = DataManager.getShopArtikeltypen;
+        DataManager.getShopArtikeltypen = this.getShopArtikeltypen.bind(this);
+
+        // Shop-Verkäufe Funktionen
+        DataManager._getShopVerkaeufeFOriginal = DataManager.getShopVerkaeufe;
+        DataManager.getShopVerkaeufe = this.getShopVerkaeufe.bind(this);
+
+        DataManager._addShopVerkaufOriginal = DataManager.addShopVerkauf;
+        DataManager.addShopVerkauf = this.addShopVerkauf.bind(this);
+
+        DataManager._stornoShopVerkaufOriginal = DataManager.stornoShopVerkauf;
+        DataManager.stornoShopVerkauf = this.stornoShopVerkauf.bind(this);
+
+        DataManager._updateShopVerkaufOriginal = DataManager.updateShopVerkauf;
+        DataManager.updateShopVerkauf = this.updateShopVerkauf.bind(this);
+
+        // Shop-Einkäufe Funktionen
+        DataManager._getShopEinkaeufeOriginal = DataManager.getShopEinkaeufe;
+        DataManager.getShopEinkaeufe = this.getShopEinkaeufe.bind(this);
+
+        DataManager._addShopEinkaufOriginal = DataManager.addShopEinkauf;
+        DataManager.addShopEinkauf = this.addShopEinkauf.bind(this);
+
+        DataManager._deleteShopEinkaufOriginal = DataManager.deleteShopEinkauf;
+        DataManager.deleteShopEinkauf = this.deleteShopEinkauf.bind(this);
+
+        // Kassen-Funktionen
+        DataManager._getKassenBewegungen = DataManager.getKassenBewegungen;
+        DataManager.getKassenBewegungen = this.getKassenBewegungen.bind(this);
+
+        DataManager._addKassenBewegungOriginal = DataManager.addKassenBewegung;
+        DataManager.addKassenBewegung = this.addKassenBewegung.bind(this);
+
+        DataManager._berechneKassensaldoOriginal = DataManager.berechneKassensaldo;
+        DataManager.berechneKassensaldo = this.berechneKassensaldo.bind(this);
+
+        // Eintritt-Kategorien
+        DataManager._getEintrittKategorienOriginal = DataManager.getEintrittKategorien;
+        DataManager.getEintrittKategorien = this.getEintrittKategorien.bind(this);
+
+        // Mitglied-Kategorien
+        DataManager._getMitgliedKategorienOriginal = DataManager.getMitgliedKategorien;
+        DataManager.getMitgliedKategorien = this.getMitgliedKategorien.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -4097,6 +4155,684 @@ const SupabaseDataAdapter = {
         } catch (error) {
             console.error('Fehler beim Anlegen externem Empfänger:', error);
             throw error;
+        }
+    },
+
+    // ========================================
+    // SHOP-ARTIKEL
+    // ========================================
+
+    async getShopArtikel() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_artikel')
+                .select('*')
+                .eq('is_active', true)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            return (data || []).map(a => ({
+                id: a.id,
+                artikelnr: a.artikelnr,
+                name: a.name,
+                beschreibung: a.beschreibung,
+                artikeltyp: a.artikeltyp,
+                hersteller: a.hersteller,
+                autor: a.autor,
+                einkaufsjahr: a.einkaufsjahr,
+                standort: a.standort,
+                einkaufspreis: a.einkaufspreis,
+                verkaufspreis: a.verkaufspreis,
+                mwstSatz: a.mwst_satz,
+                mwst_satz: a.mwst_satz,
+                bestandAktuell: a.bestand_aktuell,
+                bestand_aktuell: a.bestand_aktuell,
+                bestandMin: a.bestand_min,
+                durchschnittEK: a.durchschnitt_ek,
+                is_active: a.is_active,
+                isActive: a.is_active
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Artikel:', error);
+            return [];
+        }
+    },
+
+    async getShopArtikelById(id) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_artikel')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) throw error;
+            if (!data) return null;
+
+            return {
+                id: data.id,
+                artikelnr: data.artikelnr,
+                name: data.name,
+                beschreibung: data.beschreibung,
+                artikeltyp: data.artikeltyp,
+                hersteller: data.hersteller,
+                autor: data.autor,
+                einkaufsjahr: data.einkaufsjahr,
+                standort: data.standort,
+                einkaufspreis: data.einkaufspreis,
+                verkaufspreis: data.verkaufspreis,
+                mwstSatz: data.mwst_satz,
+                bestandAktuell: data.bestand_aktuell,
+                bestandMin: data.bestand_min,
+                durchschnittEK: data.durchschnitt_ek,
+                is_active: data.is_active
+            };
+        } catch (error) {
+            console.error('Fehler beim Laden des Artikels:', error);
+            return null;
+        }
+    },
+
+    async saveShopArtikel(artikel) {
+        try {
+            const isNew = !artikel.id;
+
+            const dbData = {
+                artikelnr: artikel.artikelnr,
+                name: artikel.name,
+                beschreibung: artikel.beschreibung,
+                artikeltyp: artikel.artikeltyp,
+                hersteller: artikel.hersteller,
+                autor: artikel.autor,
+                einkaufsjahr: artikel.einkaufsjahr,
+                standort: artikel.standort || 'Shop',
+                einkaufspreis: artikel.einkaufspreis || artikel.einkaufspreis,
+                verkaufspreis: artikel.verkaufspreis,
+                mwst_satz: artikel.mwstSatz || artikel.mwst_satz || '22',
+                bestand_aktuell: artikel.bestandAktuell ?? artikel.bestand_aktuell ?? 0,
+                bestand_min: artikel.bestandMin ?? artikel.bestand_min ?? 0,
+                durchschnitt_ek: artikel.durchschnittEK ?? artikel.durchschnitt_ek,
+                is_active: artikel.is_active !== false && artikel.isActive !== false
+            };
+
+            if (isNew) {
+                // Neue Artikelnummer generieren falls nicht vorhanden
+                if (!dbData.artikelnr) {
+                    const { data: maxNr } = await SupabaseService.client
+                        .from('shop_artikel')
+                        .select('artikelnr')
+                        .like('artikelnr', 'SHOP-%')
+                        .order('artikelnr', { ascending: false })
+                        .limit(1);
+
+                    let nextNr = 1;
+                    if (maxNr && maxNr.length > 0) {
+                        const match = maxNr[0].artikelnr.match(/SHOP-(\d+)/);
+                        if (match) nextNr = parseInt(match[1]) + 1;
+                    }
+                    dbData.artikelnr = `SHOP-${String(nextNr).padStart(4, '0')}`;
+                }
+
+                const withMeta = await this.addCreateMetadata(dbData);
+                const { data, error } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .insert(withMeta)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                console.log('✅ Artikel erstellt:', data);
+                return data;
+            } else {
+                const withMeta = await this.addUpdateMetadata(dbData);
+                const { data, error } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .update(withMeta)
+                    .eq('id', artikel.id)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                console.log('✅ Artikel aktualisiert:', data);
+                return data;
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern des Artikels:', error);
+            throw error;
+        }
+    },
+
+    async deleteShopArtikel(id) {
+        try {
+            // Soft-Delete
+            const { error } = await SupabaseService.client
+                .from('shop_artikel')
+                .update({ is_active: false })
+                .eq('id', id);
+
+            if (error) throw error;
+            console.log('✅ Artikel deaktiviert:', id);
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Löschen des Artikels:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // SHOP-ARTIKELTYPEN
+    // ========================================
+
+    async getShopArtikeltypen() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_artikeltypen')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+
+            return (data || []).map(t => ({
+                id: t.id,
+                code: t.code,
+                name: t.name,
+                is_active: t.is_active
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Artikeltypen:', error);
+            // Fallback auf Standardwerte
+            return [
+                { code: 'buch', name: 'Buch' },
+                { code: 'katalog', name: 'Katalog' },
+                { code: 'poster', name: 'Poster' },
+                { code: 'objekt', name: 'Objekt/Gadget' },
+                { code: 'schmuck', name: 'Schmuck' },
+                { code: 'sonstiges', name: 'Sonstiges' }
+            ];
+        }
+    },
+
+    // ========================================
+    // SHOP-VERKÄUFE
+    // ========================================
+
+    async getShopVerkaeufe(datum = null) {
+        try {
+            let query = SupabaseService.client
+                .from('shop_verkaeufe')
+                .select('*')
+                .eq('storniert', false)
+                .order('datum', { ascending: false })
+                .order('uhrzeit', { ascending: false });
+
+            if (datum) {
+                query = query.eq('datum', datum);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            return (data || []).map(v => ({
+                id: v.id,
+                datum: v.datum,
+                uhrzeit: v.uhrzeit,
+                typ: v.typ,
+                artikel_id: v.artikel_id,
+                artikelId: v.artikel_id,
+                eintritt_kategorie: v.eintritt_kategorie,
+                mitglied_kategorie: v.mitglied_kategorie,
+                mitglied_name: v.mitglied_name,
+                menge: v.menge,
+                einzelpreis: v.einzelpreis,
+                mwst_satz: v.mwst_satz,
+                mwstSatz: v.mwst_satz,
+                gesamtpreis: v.gesamtpreis,
+                zahlungsart: v.zahlungsart,
+                notizen: v.notizen,
+                storniert: v.storniert
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Verkäufe:', error);
+            return [];
+        }
+    },
+
+    async addShopVerkauf(verkauf) {
+        try {
+            const dbData = {
+                datum: verkauf.datum || new Date().toISOString().split('T')[0],
+                uhrzeit: verkauf.uhrzeit || new Date().toTimeString().split(' ')[0].substring(0, 5),
+                typ: verkauf.typ,
+                artikel_id: verkauf.artikel_id || verkauf.artikelId,
+                eintritt_kategorie: verkauf.eintritt_kategorie,
+                mitglied_kategorie: verkauf.mitglied_kategorie,
+                mitglied_name: verkauf.mitglied_name,
+                menge: verkauf.menge || 1,
+                einzelpreis: verkauf.einzelpreis,
+                mwst_satz: verkauf.mwst_satz || verkauf.mwstSatz,
+                gesamtpreis: verkauf.gesamtpreis || (verkauf.einzelpreis * (verkauf.menge || 1)),
+                zahlungsart: verkauf.zahlungsart || 'bar',
+                notizen: verkauf.notizen,
+                storniert: false
+            };
+
+            const withMeta = await this.addCreateMetadata(dbData);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .insert(withMeta)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Bestand reduzieren bei Artikel-Verkauf
+            if (verkauf.typ === 'artikel' && dbData.artikel_id) {
+                await SupabaseService.client
+                    .from('shop_artikel')
+                    .update({
+                        bestand_aktuell: SupabaseService.client.rpc('decrement_bestand', {
+                            artikel_id: dbData.artikel_id,
+                            menge: dbData.menge
+                        })
+                    });
+
+                // Alternative: Direktes Update
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell')
+                    .eq('id', dbData.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({ bestand_aktuell: (artikel.bestand_aktuell || 0) - dbData.menge })
+                        .eq('id', dbData.artikel_id);
+                }
+            }
+
+            console.log('✅ Verkauf erfasst:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Speichern des Verkaufs:', error);
+            throw error;
+        }
+    },
+
+    async stornoShopVerkauf(id) {
+        try {
+            // Verkauf laden
+            const { data: verkauf } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (!verkauf) throw new Error('Verkauf nicht gefunden');
+
+            // Stornieren
+            const { error } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .update({
+                    storniert: true,
+                    storniert_at: new Date().toISOString(),
+                    storniert_by: await this.getCurrentUserId()
+                })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // Bestand zurückgeben bei Artikel-Verkauf
+            if (verkauf.typ === 'artikel' && verkauf.artikel_id) {
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell')
+                    .eq('id', verkauf.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({ bestand_aktuell: (artikel.bestand_aktuell || 0) + verkauf.menge })
+                        .eq('id', verkauf.artikel_id);
+                }
+            }
+
+            console.log('✅ Verkauf storniert:', id);
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Stornieren:', error);
+            throw error;
+        }
+    },
+
+    async updateShopVerkauf(id, updates) {
+        try {
+            const withMeta = await this.addUpdateMetadata(updates);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .update(withMeta)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            console.log('✅ Verkauf aktualisiert:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Verkaufs:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // SHOP-EINKÄUFE
+    // ========================================
+
+    async getShopEinkaeufe() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_einkaeufe')
+                .select('*, artikel:shop_artikel(id, name, artikelnr)')
+                .order('datum', { ascending: false });
+
+            if (error) throw error;
+
+            return (data || []).map(e => ({
+                id: e.id,
+                artikel_id: e.artikel_id,
+                artikelId: e.artikel_id,
+                artikel_name: e.artikel?.name,
+                artikel_nr: e.artikel?.artikelnr,
+                datum: e.datum,
+                menge: e.menge,
+                einzelpreis: e.einzelpreis,
+                gesamtpreis: e.gesamtpreis,
+                lieferant_name: e.lieferant_name,
+                rechnung_nr: e.rechnung_nr
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Einkäufe:', error);
+            return [];
+        }
+    },
+
+    async addShopEinkauf(einkauf) {
+        try {
+            const dbData = {
+                artikel_id: einkauf.artikel_id || einkauf.artikelId,
+                datum: einkauf.datum || new Date().toISOString().split('T')[0],
+                menge: einkauf.menge || 1,
+                einzelpreis: einkauf.einzelpreis,
+                gesamtpreis: einkauf.gesamtpreis || (einkauf.einzelpreis * (einkauf.menge || 1)),
+                lieferant_name: einkauf.lieferant_name,
+                rechnung_nr: einkauf.rechnung_nr
+            };
+
+            const withMeta = await this.addCreateMetadata(dbData);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_einkaeufe')
+                .insert(withMeta)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Bestand erhöhen
+            if (dbData.artikel_id) {
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell, durchschnitt_ek')
+                    .eq('id', dbData.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    const neuerBestand = (artikel.bestand_aktuell || 0) + dbData.menge;
+                    // Durchschnitts-EK neu berechnen
+                    const alterWert = (artikel.bestand_aktuell || 0) * (artikel.durchschnitt_ek || 0);
+                    const neuerWert = dbData.menge * dbData.einzelpreis;
+                    const neuerDurchschnittEK = neuerBestand > 0 ? (alterWert + neuerWert) / neuerBestand : dbData.einzelpreis;
+
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({
+                            bestand_aktuell: neuerBestand,
+                            durchschnitt_ek: neuerDurchschnittEK
+                        })
+                        .eq('id', dbData.artikel_id);
+                }
+            }
+
+            console.log('✅ Einkauf erfasst:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Speichern des Einkaufs:', error);
+            throw error;
+        }
+    },
+
+    async deleteShopEinkauf(id) {
+        try {
+            // Einkauf laden für Bestandskorrektur
+            const { data: einkauf } = await SupabaseService.client
+                .from('shop_einkaeufe')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (einkauf && einkauf.artikel_id) {
+                // Bestand reduzieren
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell')
+                    .eq('id', einkauf.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({ bestand_aktuell: Math.max(0, (artikel.bestand_aktuell || 0) - einkauf.menge) })
+                        .eq('id', einkauf.artikel_id);
+                }
+            }
+
+            const { error } = await SupabaseService.client
+                .from('shop_einkaeufe')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            console.log('✅ Einkauf gelöscht:', id);
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Löschen des Einkaufs:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // KASSEN-BEWEGUNGEN
+    // ========================================
+
+    async getKassenBewegungen(datum = null) {
+        try {
+            let query = SupabaseService.client
+                .from('shop_kassen_bewegungen')
+                .select('*')
+                .order('datum', { ascending: false })
+                .order('uhrzeit', { ascending: false });
+
+            if (datum) {
+                query = query.eq('datum', datum);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            return (data || []).map(b => ({
+                id: b.id,
+                datum: b.datum,
+                uhrzeit: b.uhrzeit,
+                typ: b.typ,
+                betrag: b.betrag,
+                grund: b.grund,
+                storniert: b.storniert
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Kassenbewegungen:', error);
+            return [];
+        }
+    },
+
+    async addKassenBewegung(bewegung) {
+        try {
+            const dbData = {
+                datum: bewegung.datum || new Date().toISOString().split('T')[0],
+                uhrzeit: bewegung.uhrzeit || new Date().toTimeString().split(' ')[0].substring(0, 5),
+                typ: bewegung.typ,
+                betrag: bewegung.betrag,
+                grund: bewegung.grund,
+                storniert: false
+            };
+
+            const withMeta = await this.addCreateMetadata(dbData);
+
+            const { data, error } = await SupabaseService.client
+                .from('shop_kassen_bewegungen')
+                .insert(withMeta)
+                .select()
+                .single();
+
+            if (error) throw error;
+            console.log('✅ Kassenbewegung erfasst:', data);
+            return data;
+        } catch (error) {
+            console.error('Fehler beim Speichern der Kassenbewegung:', error);
+            throw error;
+        }
+    },
+
+    async berechneKassensaldo(datum) {
+        try {
+            const heute = datum || new Date().toISOString().split('T')[0];
+
+            // Verkäufe des Tages
+            const { data: verkaeufe } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .select('gesamtpreis, zahlungsart')
+                .eq('datum', heute)
+                .eq('storniert', false);
+
+            // Kassenbewegungen des Tages
+            const { data: bewegungen } = await SupabaseService.client
+                .from('shop_kassen_bewegungen')
+                .select('betrag, typ')
+                .eq('datum', heute)
+                .eq('storniert', false);
+
+            let einnahmenBar = 0;
+            let einnahmenPos = 0;
+
+            (verkaeufe || []).forEach(v => {
+                if (v.zahlungsart === 'bar') {
+                    einnahmenBar += v.gesamtpreis;
+                } else {
+                    einnahmenPos += v.gesamtpreis;
+                }
+            });
+
+            let entnahmen = 0;
+            let einlagen = 0;
+
+            (bewegungen || []).forEach(b => {
+                if (b.typ === 'entnahme') {
+                    entnahmen += Math.abs(b.betrag);
+                } else if (b.typ === 'einlage') {
+                    einlagen += Math.abs(b.betrag);
+                }
+            });
+
+            // Letzten Kassenabschluss holen für Anfangsbestand
+            const { data: letzterAbschluss } = await SupabaseService.client
+                .from('shop_kassenabschluss')
+                .select('endbestand_bar_ist')
+                .lt('datum', heute)
+                .order('datum', { ascending: false })
+                .limit(1);
+
+            const anfangsbestand = letzterAbschluss?.[0]?.endbestand_bar_ist || 0;
+
+            return {
+                einnahmenBar,
+                einnahmenPos,
+                entnahmen,
+                einlagen,
+                anfangsbestand,
+                saldoBar: anfangsbestand + einnahmenBar + einlagen - entnahmen
+            };
+        } catch (error) {
+            console.error('Fehler beim Berechnen des Kassensaldos:', error);
+            return { einnahmenBar: 0, einnahmenPos: 0, entnahmen: 0, einlagen: 0, anfangsbestand: 0, saldoBar: 0 };
+        }
+    },
+
+    // ========================================
+    // EINTRITT-KATEGORIEN
+    // ========================================
+
+    async getEintrittKategorien() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_eintritt_kategorien')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+
+            return (data || []).map(k => ({
+                id: k.id,
+                code: k.code,
+                name: k.name,
+                preis: k.preis,
+                mwst_satz: k.mwst_satz,
+                is_active: k.is_active
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Eintritt-Kategorien:', error);
+            return [];
+        }
+    },
+
+    // ========================================
+    // MITGLIED-KATEGORIEN
+    // ========================================
+
+    async getMitgliedKategorien() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_mitglied_kategorien')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+
+            return (data || []).map(k => ({
+                id: k.id,
+                code: k.code,
+                name: k.name,
+                preis: k.preis,
+                is_active: k.is_active
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Mitglied-Kategorien:', error);
+            return [];
         }
     }
 };
