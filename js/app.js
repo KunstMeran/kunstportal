@@ -18415,21 +18415,21 @@ const App = {
 
         if (typ === 'mitarbeiter') {
             mitarbeiterBtn.classList.add('active');
-            mitarbeiterBtn.style.background = 'var(--c-ink)';
-            mitarbeiterBtn.style.color = 'var(--c-paper)';
+            mitarbeiterBtn.style.background = '#000';
+            mitarbeiterBtn.style.color = '#fff';
             externBtn.classList.remove('active');
-            externBtn.style.background = '';
-            externBtn.style.color = '';
+            externBtn.style.background = '#fff';
+            externBtn.style.color = '#000';
             mitarbeiterSection.classList.remove('hidden');
             externSection.classList.add('hidden');
             mitarbeiterSelect.required = true;
         } else {
             mitarbeiterBtn.classList.remove('active');
-            mitarbeiterBtn.style.background = '';
-            mitarbeiterBtn.style.color = '';
+            mitarbeiterBtn.style.background = '#fff';
+            mitarbeiterBtn.style.color = '#000';
             externBtn.classList.add('active');
-            externBtn.style.background = 'var(--c-ink)';
-            externBtn.style.color = 'var(--c-paper)';
+            externBtn.style.background = '#000';
+            externBtn.style.color = '#fff';
             mitarbeiterSection.classList.add('hidden');
             externSection.classList.remove('hidden');
             mitarbeiterSelect.required = false;
