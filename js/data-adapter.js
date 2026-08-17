@@ -3937,16 +3937,22 @@ const SupabaseDataAdapter = {
             // Audit-Felder
             insertData = await this.addCreateMetadata(insertData);
 
+            console.log('📝 Shop-Ausgabe insert data:', insertData);
+
+            // Insert ohne .single() um 409 Conflict zu vermeiden
             const { data, error } = await SupabaseService.client
                 .from('shop_ausgaben')
                 .insert(insertData)
-                .select()
-                .single();
+                .select();
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Shop-Ausgabe Insert Fehler:', error);
+                throw error;
+            }
 
-            console.log('✅ Ausgabe erfasst:', data);
-            return data;
+            const result = data && data.length > 0 ? data[0] : insertData;
+            console.log('✅ Ausgabe erfasst:', result);
+            return result;
         } catch (error) {
             console.error('Fehler beim Speichern der Ausgabe:', error);
             throw error;
@@ -4037,16 +4043,17 @@ const SupabaseDataAdapter = {
 
             insertData = await this.addCreateMetadata(insertData);
 
+            // Insert ohne .single() um 409 Conflict zu vermeiden
             const { data, error } = await SupabaseService.client
                 .from('shop_externe_empfaenger')
                 .insert(insertData)
-                .select()
-                .single();
+                .select();
 
             if (error) throw error;
 
-            console.log('✅ Externer Empfänger angelegt:', data);
-            return data;
+            const result = data && data.length > 0 ? data[0] : insertData;
+            console.log('✅ Externer Empfänger angelegt:', result);
+            return result;
         } catch (error) {
             console.error('Fehler beim Anlegen externem Empfänger:', error);
             throw error;

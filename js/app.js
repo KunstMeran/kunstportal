@@ -3537,7 +3537,7 @@ const App = {
         if (projektSelect && projektSelect.options.length <= 1) {
             const projects = await DataManager.getProjects();
             projects.forEach(p => {
-                projektSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`;
+                projektSelect.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
             });
         }
 
@@ -3739,7 +3739,7 @@ const App = {
         const projects = allProjects.filter(p => p.status !== 'abgeschlossen');
         projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         projects.forEach(p => {
-            projectSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`;
+            projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
         });
 
         // Mitarbeiter-Dropdown befüllen
@@ -3749,7 +3749,7 @@ const App = {
         userSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         users.forEach(u => {
             const selected = currentUser && String(u.id) === String(currentUser.id) ? 'selected' : '';
-            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${escapeHtml(u.name || u.username || u.email)}</option>`;
+            userSelect.innerHTML += `<option value="${escapeHtml(u.id)}" ${selected}>${escapeHtml(u.name || u.username || u.email)}</option>`;
         });
 
         // Lieferanten-Dropdown befüllen
@@ -4464,7 +4464,7 @@ const App = {
         select.innerHTML = '<option value="">-- Keine Ansprechperson --</option>';
         users.forEach(u => {
             const selected = u.id === selectedUserId ? 'selected' : '';
-            select.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.email}</option>`;
+            select.innerHTML += `<option value="${escapeHtml(u.id)}" ${selected}>${escapeHtml(u.name || u.email)}</option>`;
         });
     },
 
@@ -4685,7 +4685,7 @@ const App = {
         select.innerHTML = '<option value="">-- Projekt wählen --</option>';
         if (projects && Array.isArray(projects)) {
             projects.forEach(p => {
-                select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                select.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
             });
         }
     },
@@ -4907,7 +4907,7 @@ const App = {
         projektSelect.innerHTML = '<option value="">Alle Projekte</option>';
         const projekte = DataManager.getAllKunstMeranProjekte();
         projekte.forEach(p => {
-            projektSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            projektSelect.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
         });
 
         // Lieferanten-Filter (async wegen Supabase)
@@ -4917,7 +4917,7 @@ const App = {
         if (Array.isArray(lieferanten)) {
             lieferanten.forEach(l => {
                 if (l.name) {
-                    lieferantSelect.innerHTML += `<option value="${l.partitaIva}">${l.name}</option>`;
+                    lieferantSelect.innerHTML += `<option value="${escapeHtml(l.partitaIva)}">${escapeHtml(l.name)}</option>`;
                 }
             });
         }
@@ -16976,7 +16976,7 @@ const App = {
         if (typFilter) {
             typFilter.innerHTML = '<option value="">Alle Typen</option>';
             artikeltypen.forEach(typ => {
-                typFilter.innerHTML += `<option value="${typ.code}">${typ.name}</option>`;
+                typFilter.innerHTML += `<option value="${escapeHtml(typ.code)}">${escapeHtml(typ.name)}</option>`;
             });
         }
     },
@@ -18369,7 +18369,7 @@ const App = {
             artikelSelect.innerHTML = '<option value="">-- Artikel auswählen --</option>';
             artikel.filter(a => a.is_active !== false && a.isActive !== false).forEach(a => {
                 const bestand = a.bestandAktuell ?? a.bestand_aktuell ?? 0;
-                artikelSelect.innerHTML += `<option value="${a.id}" data-bestand="${bestand}">${a.name} (Bestand: ${bestand})</option>`;
+                artikelSelect.innerHTML += `<option value="${escapeHtml(a.id)}" data-bestand="${escapeHtml(bestand)}">${escapeHtml(a.name)} (Bestand: ${escapeHtml(bestand)})</option>`;
             });
 
             // Mitarbeiter-Dropdown befüllen
@@ -18377,7 +18377,7 @@ const App = {
             const mitarbeiterSelect = document.getElementById('shop-ausgabe-mitarbeiter');
             mitarbeiterSelect.innerHTML = '<option value="">-- Mitarbeiter auswählen --</option>';
             users.forEach(u => {
-                mitarbeiterSelect.innerHTML += `<option value="${u.id}">${u.name || u.email || u.username}</option>`;
+                mitarbeiterSelect.innerHTML += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name || u.email || u.username)}</option>`;
             });
 
             // Externe Empfänger laden
@@ -18385,7 +18385,7 @@ const App = {
             const externSelect = document.getElementById('shop-ausgabe-extern-select');
             externSelect.innerHTML = '<option value="">-- Bestehend auswählen --</option><option value="__NEU__">+ Neue Person erfassen</option>';
             externe.forEach(e => {
-                externSelect.innerHTML += `<option value="${e.id}">${e.name}${e.notiz ? ' (' + e.notiz + ')' : ''}</option>`;
+                externSelect.innerHTML += `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${e.notiz ? ' (' + escapeHtml(e.notiz) + ')' : ''}</option>`;
             });
 
             // Reset
@@ -18415,8 +18415,8 @@ const App = {
 
         if (typ === 'mitarbeiter') {
             mitarbeiterBtn.classList.add('active');
-            mitarbeiterBtn.style.background = 'var(--primary)';
-            mitarbeiterBtn.style.color = 'white';
+            mitarbeiterBtn.style.background = 'var(--c-ink)';
+            mitarbeiterBtn.style.color = 'var(--c-paper)';
             externBtn.classList.remove('active');
             externBtn.style.background = '';
             externBtn.style.color = '';
@@ -18428,8 +18428,8 @@ const App = {
             mitarbeiterBtn.style.background = '';
             mitarbeiterBtn.style.color = '';
             externBtn.classList.add('active');
-            externBtn.style.background = 'var(--primary)';
-            externBtn.style.color = 'white';
+            externBtn.style.background = 'var(--c-ink)';
+            externBtn.style.color = 'var(--c-paper)';
             mitarbeiterSection.classList.add('hidden');
             externSection.classList.remove('hidden');
             mitarbeiterSelect.required = false;
