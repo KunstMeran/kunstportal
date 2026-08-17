@@ -1898,6 +1898,32 @@ textarea:focus,
     font-style: italic;
 }
 
+/* Anwesenheits-Kalender Zusatzstyles */
+.kalender-tag.wochenende {
+    background: var(--c-surface);
+    opacity: 0.6;
+}
+
+.kalender-tag.heute {
+    border: 2px solid var(--c-info) !important;
+    background: rgba(42, 78, 122, 0.08);
+}
+
+.kalender-tag.past {
+    opacity: 0.5;
+    background: var(--c-surface);
+}
+
+.kalender-tag.selected {
+    border: 2px solid var(--c-error) !important;
+    background: rgba(231, 76, 60, 0.08);
+}
+
+.kalender-tag.leer {
+    background: transparent;
+    min-height: auto;
+}
+
 /* Responsive Kalender */
 @media (max-width: 768px) {
     .kalender-tag {

@@ -3960,6 +3960,7 @@ const App = {
         this.renderMwstSaetze();
         this.loadSuppliers();
         await this.loadUsers();
+        await this.loadKurseKonfig();
         await this.loadShopKategorien();
         this.loadExportTab();
     },
@@ -4451,6 +4452,9 @@ const App = {
         // Partita IVA Feld aktivieren (bei neuem Lieferant editierbar)
         document.getElementById('supplier-partita-iva').disabled = false;
 
+        // Checkbox zuruecksetzen
+        document.getElementById('supplier-is-kursanbieter').checked = false;
+
         // Ansprechperson-Dropdown befüllen
         await this.populateSupplierContactDropdown(null);
 
@@ -4482,6 +4486,7 @@ const App = {
         document.getElementById('supplier-address').value = lieferant.address || '';
         document.getElementById('supplier-city').value = lieferant.city || '';
         document.getElementById('supplier-country').value = lieferant.country || 'IT';
+        document.getElementById('supplier-is-kursanbieter').checked = lieferant.isKursanbieter || false;
 
         // Ansprechperson-Dropdown befüllen
         await this.populateSupplierContactDropdown(lieferant.contactUserId);
@@ -4519,7 +4524,8 @@ const App = {
             address: document.getElementById('supplier-address').value.trim() || null,
             city: document.getElementById('supplier-city').value.trim() || null,
             country: document.getElementById('supplier-country').value || 'IT',
-            contactUserId: document.getElementById('supplier-contact-user').value || null
+            contactUserId: document.getElementById('supplier-contact-user').value || null,
+            isKursanbieter: document.getElementById('supplier-is-kursanbieter').checked
         };
 
         // Validierung: Partita IVA Pflichtfeld
@@ -17788,30 +17794,19 @@ const App = {
         const statusFilter = document.getElementById('shop-rechnungen-filter-status')?.value || '';
         const typFilter = document.getElementById('shop-rechnungen-filter-typ')?.value || '';
 
-        // Alle Rechnungen mit Kostenstelle 2699 (Shop) ODER Projekt "Shop" holen
-        const alleRechnungen = DataManager.getRechnungen ? DataManager.getRechnungen() : [];
+        // Alle Rechnungen laden (DATEV-Buchungen mit Status)
+        const alleRechnungen = await DataManager.getRechnungenMitStatus() || [];
         const einkaeufe = await DataManager.getShopEinkaeufe() || [];
 
-        // Projekte laden um "Shop" Projekt-ID zu finden
-        const projekte = DataManager.getProjekte ? DataManager.getProjekte() : [];
-        const shopProjekt = projekte.find(p =>
-            (p.name || '').toLowerCase() === 'shop' ||
-            (p.bezeichnung || '').toLowerCase() === 'shop' ||
-            String(p.id) === '2699' ||
-            String(p.nummer) === '2699'
-        );
-        const shopProjektId = shopProjekt ? shopProjekt.id : null;
+        console.log('📋 Shop-Rechnungen: Alle Rechnungen geladen:', alleRechnungen.length);
 
-        // Nach Kostenstelle 2699 ODER Projekt "Shop" filtern
+        // Nach projekt_id = '2699' filtern (Shop-Kostenstelle)
         let shopRechnungen = alleRechnungen.filter(r => {
-            const kostenstelle = r.kostenstelle || r.projektId || r.projekt_id;
-            const projektId = r.projektId || r.projekt_id || r.project_id;
-            const projektName = (r.projektName || r.projekt_name || '').toLowerCase();
-
-            return String(kostenstelle) === '2699' ||
-                   (shopProjektId && String(projektId) === String(shopProjektId)) ||
-                   projektName === 'shop';
+            const projektId = String(r.projektId || r.projekt_id || '');
+            return projektId === '2699';
         });
+
+        console.log('📋 Shop-Rechnungen gefiltert:', shopRechnungen.length);
 
         // Status-Filter
         if (statusFilter) {
@@ -18925,6 +18920,138 @@ const App = {
         }
     },
 
+    // ---- KURSKATEGORIEN (Konfiguration) ----
+
+    loadKurseKonfig: async function() {
+        await Promise.all([
+            this.loadKursKategorienKonfig(),
+            this.loadKursAnbieterKonfig()
+        ]);
+    },
+
+    loadKursKategorienKonfig: async function() {
+        const container = document.getElementById('kurs-kategorien-list');
+        if (!container) return;
+
+        try {
+            const kategorien = await DataManager.getKursKategorien();
+            if (kategorien.length === 0) {
+                container.innerHTML = '<p style="color: #666;">Keine Kategorien vorhanden</p>';
+                return;
+            }
+            container.innerHTML = kategorien.map(k => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="width: 16px; height: 16px; border-radius: 50%; background: ${k.farbe || '#3498db'};"></span>
+                        <strong>${escapeHtml(k.name)}</strong>
+                        <span class="text-muted" style="margin-left: 0.5rem;">(${escapeHtml(k.code)})</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <button class="btn btn-icon btn-sm" onclick="App.editKursKategorie(${k.id})" title="Bearbeiten">
+                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                        </button>
+                        <button class="btn btn-icon btn-sm" onclick="App.deleteKursKategorie(${k.id})" title="Loeschen">
+                            <img src="icons/12-delete.svg" alt="Loeschen" class="icon-sm">
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Fehler:', error);
+            container.innerHTML = '<p style="color: #c0392b;">Fehler beim Laden</p>';
+        }
+    },
+
+    loadKursAnbieterKonfig: async function() {
+        const container = document.getElementById('kurs-anbieter-list');
+        if (!container) return;
+
+        try {
+            const anbieter = await DataManager.getKursanbieter();
+            if (anbieter.length === 0) {
+                container.innerHTML = '<p style="color: #666;">Keine Kursanbieter vorhanden. Markieren Sie Lieferanten als Kursanbieter.</p>';
+                return;
+            }
+            container.innerHTML = anbieter.map(a => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                    <div>
+                        <strong>${escapeHtml(a.name || a.fornitore_name)}</strong>
+                        ${a.email ? `<span class="text-muted" style="margin-left: 0.5rem;">${escapeHtml(a.email)}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Fehler:', error);
+            container.innerHTML = '<p style="color: #c0392b;">Fehler beim Laden</p>';
+        }
+    },
+
+    showNewKursKategorieForm: function() {
+        this.currentKursKategorieId = null;
+        document.getElementById('kurs-kategorie-modal-title').textContent = 'Neue Kurskategorie';
+        document.getElementById('kurs-kategorie-form').reset();
+        document.getElementById('kurs-kategorie-farbe').value = '#3498db';
+        this.showModal('kurs-kategorie-modal');
+    },
+
+    editKursKategorie: async function(id) {
+        const kategorien = await DataManager.getKursKategorien();
+        const kat = kategorien.find(k => k.id === id);
+        if (!kat) return;
+
+        this.currentKursKategorieId = id;
+        document.getElementById('kurs-kategorie-modal-title').textContent = 'Kurskategorie bearbeiten';
+        document.getElementById('kurs-kategorie-code').value = kat.code || '';
+        document.getElementById('kurs-kategorie-name').value = kat.name || '';
+        document.getElementById('kurs-kategorie-beschreibung').value = kat.beschreibung || '';
+        document.getElementById('kurs-kategorie-farbe').value = kat.farbe || '#3498db';
+        this.showModal('kurs-kategorie-modal');
+    },
+
+    saveKursKategorie: async function(event) {
+        event.preventDefault();
+
+        const data = {
+            code: document.getElementById('kurs-kategorie-code').value.trim(),
+            name: document.getElementById('kurs-kategorie-name').value.trim(),
+            beschreibung: document.getElementById('kurs-kategorie-beschreibung').value.trim() || null,
+            farbe: document.getElementById('kurs-kategorie-farbe').value
+        };
+
+        if (!data.code || !data.name) {
+            this.showToast('Fehler', 'Code und Name sind erforderlich', 'error');
+            return;
+        }
+
+        try {
+            if (this.currentKursKategorieId) {
+                await DataManager.updateKursKategorie(this.currentKursKategorieId, data);
+                this.showToast('Erfolg', 'Kategorie aktualisiert', 'success');
+            } else {
+                await DataManager.addKursKategorie(data);
+                this.showToast('Erfolg', 'Kategorie erstellt', 'success');
+            }
+            this.hideModal('kurs-kategorie-modal');
+            await this.loadKursKategorienKonfig();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    deleteKursKategorie: async function(id) {
+        if (!confirm('Kategorie wirklich loeschen?')) return;
+
+        try {
+            await DataManager.deleteKursKategorie(id);
+            this.showToast('Erfolg', 'Kategorie geloescht', 'success');
+            await this.loadKursKategorienKonfig();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Loeschen fehlgeschlagen', 'error');
+        }
+    },
+
     // ---- SHOP KATEGORIEN (Konfiguration) ----
 
     loadShopKategorien: async function() {
@@ -19722,9 +19849,11 @@ const App = {
     // Anwesenheit-State
     anwesenheitState: {
         currentMonth: new Date(),
+        meineCurrentMonth: new Date(),
         planung: [],
         bestellungen: [],
-        heuteAnwesend: []
+        heuteAnwesend: [],
+        selectedDates: [] // Ausgewaehlte Tage fuer Musterauswahl
     },
 
     // Anwesenheit laden
@@ -19733,13 +19862,26 @@ const App = {
             const year = this.anwesenheitState.currentMonth.getFullYear();
             const month = this.anwesenheitState.currentMonth.getMonth();
 
-            // Titel setzen
+            // Titel setzen (Admin-Kalender)
             const monatNamen = ['Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            document.getElementById('anwesenheit-monat-titel').textContent = `${monatNamen[month]} ${year}`;
+            const adminTitel = document.getElementById('anwesenheit-monat-titel');
+            if (adminTitel) adminTitel.textContent = `${monatNamen[month]} ${year}`;
 
-            // Daten laden
-            const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-            const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+            // Titel setzen (User-Kalender)
+            const meineYear = this.anwesenheitState.meineCurrentMonth.getFullYear();
+            const meineMonth = this.anwesenheitState.meineCurrentMonth.getMonth();
+            const meineTitel = document.getElementById('meine-anwesenheit-monat-titel');
+            if (meineTitel) meineTitel.textContent = `${monatNamen[meineMonth]} ${meineYear}`;
+
+            // Daten laden - sowohl Admin-Monat als auch User-Monat abdecken
+            const adminStart = new Date(year, month, 1);
+            const adminEnd = new Date(year, month + 1, 0);
+            const userStart = new Date(meineYear, meineMonth, 1);
+            const userEnd = new Date(meineYear, meineMonth + 1, 0);
+
+            // Min/Max Datum fuer Query
+            const startDate = new Date(Math.min(adminStart.getTime(), userStart.getTime())).toISOString().split('T')[0];
+            const endDate = new Date(Math.max(adminEnd.getTime(), userEnd.getTime())).toISOString().split('T')[0];
 
             this.anwesenheitState.planung = await DataManager.getAnwesenheitRange(startDate, endDate);
             this.anwesenheitState.heuteAnwesend = await DataManager.getHeuteAnwesend();
@@ -19809,63 +19951,160 @@ const App = {
         container.innerHTML = html;
     },
 
-    // User: Meine Anwesenheit rendern
+    // User: Meine Anwesenheit als Monatskalender rendern
     renderMeineAnwesenheit: async function() {
-        const grid = document.getElementById('meine-anwesenheit-grid');
-        if (!grid) return;
+        const container = document.getElementById('meine-anwesenheit-kalender');
+        if (!container) return;
 
         const currentUserId = await DataManager.getCurrentPublicUserId();
         if (!currentUserId) return;
 
-        // Naechste 10 Werktage anzeigen
-        const tage = [];
-        let date = new Date();
-        while (tage.length < 10) {
-            if (date.getDay() !== 0 && date.getDay() !== 6) { // Kein Wochenende
-                tage.push(new Date(date));
-            }
-            date.setDate(date.getDate() + 1);
+        const year = this.anwesenheitState.meineCurrentMonth.getFullYear();
+        const month = this.anwesenheitState.meineCurrentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Montag = 0
+
+        let html = '';
+
+        // Leere Zellen vor dem 1.
+        for (let i = 0; i < startDayOfWeek; i++) {
+            html += '<div class="kalender-tag leer"></div>';
         }
 
-        const wochentagNamen = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-
-        grid.innerHTML = tage.map(tag => {
-            const datum = tag.toISOString().split('T')[0];
+        // Tage des Monats
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const datum = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const planung = this.anwesenheitState.planung.find(p => p.datum === datum && p.user_id === currentUserId);
+            const dateObj = new Date(year, month, day);
+            const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+            const isToday = datum === new Date().toISOString().split('T')[0];
+            const isSelected = this.anwesenheitState.selectedDates.includes(datum);
+            const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
 
-            let statusIcon = '?';
+            // Status bestimmen
+            let statusDot = '';
             let statusColor = '#bbb';
-            let statusText = 'Nicht geplant';
-
             if (planung) {
                 if (planung.im_buero && planung.mittagessen) {
-                    statusIcon = '🍽️';
+                    statusDot = '<span style="color: #27ae60; font-size: 1.5rem;">&#9679;</span>';
                     statusColor = '#27ae60';
-                    statusText = 'Buero + Essen';
                 } else if (planung.im_buero) {
-                    statusIcon = '🏢';
+                    statusDot = '<span style="color: #3498db; font-size: 1.5rem;">&#9679;</span>';
                     statusColor = '#3498db';
-                    statusText = 'Buero';
                 } else if (planung.abwesenheit_grund === 'homeoffice') {
-                    statusIcon = '🏠';
+                    statusDot = '<span style="color: #9b59b6; font-size: 1.5rem;">&#9679;</span>';
                     statusColor = '#9b59b6';
-                    statusText = 'Homeoffice';
                 } else {
-                    statusIcon = '✖';
-                    statusColor = '#e74c3c';
-                    statusText = planung.abwesenheit_grund || 'Abwesend';
+                    statusDot = '<span style="color: #95a5a6; font-size: 1.5rem;">&#9679;</span>';
+                    statusColor = '#95a5a6';
                 }
             }
 
-            return `
-                <div onclick="App.showAnwesenheitForm('${datum}')"
-                     style="background: #f5f5f5; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; border: 2px solid ${statusColor};">
-                    <div style="font-weight: 500; margin-bottom: 0.5rem;">${wochentagNamen[tag.getDay()]}, ${tag.getDate()}.${tag.getMonth() + 1}.</div>
-                    <div style="font-size: 2rem;">${statusIcon}</div>
-                    <div style="font-size: 0.75rem; color: ${statusColor};">${statusText}</div>
+            const clickAction = isWeekend || isPast ? '' : `onclick="App.toggleAnwesenheitSelection('${datum}', event)"`;
+            const dblClickAction = isWeekend || isPast ? '' : `ondblclick="App.showAnwesenheitForm('${datum}')"`;
+            const cursorStyle = isWeekend || isPast ? 'default' : 'pointer';
+
+            html += `
+                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}"
+                     ${clickAction} ${dblClickAction}
+                     style="cursor: ${cursorStyle}; ${isSelected ? 'border: 2px solid #e74c3c !important;' : ''}">
+                    <div class="kalender-tag-nummer">${day}</div>
+                    ${statusDot}
                 </div>
             `;
-        }).join('');
+        }
+
+        container.innerHTML = html;
+    },
+
+    // Tag-Auswahl toggeln
+    toggleAnwesenheitSelection: function(datum, event) {
+        event.stopPropagation();
+        const index = this.anwesenheitState.selectedDates.indexOf(datum);
+        if (index > -1) {
+            this.anwesenheitState.selectedDates.splice(index, 1);
+        } else {
+            this.anwesenheitState.selectedDates.push(datum);
+        }
+        this.renderMeineAnwesenheit();
+    },
+
+    // Muster auf ausgewaehlte Tage anwenden (MO/DO/FR etc.)
+    selectAnwesenheitPattern: function(weekdays) {
+        // weekdays: 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa, 0=So
+        const year = this.anwesenheitState.meineCurrentMonth.getFullYear();
+        const month = this.anwesenheitState.meineCurrentMonth.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        this.anwesenheitState.selectedDates = [];
+
+        for (let day = 1; day <= lastDay; day++) {
+            const dateObj = new Date(year, month, day);
+            if (dateObj >= today && weekdays.includes(dateObj.getDay())) {
+                const datum = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                this.anwesenheitState.selectedDates.push(datum);
+            }
+        }
+
+        this.renderMeineAnwesenheit();
+        this.showToast('Info', `${this.anwesenheitState.selectedDates.length} Tage ausgewaehlt`, 'success');
+    },
+
+    // Auswahl loeschen
+    clearAnwesenheitSelection: function() {
+        this.anwesenheitState.selectedDates = [];
+        this.renderMeineAnwesenheit();
+    },
+
+    // Muster auf ausgewaehlte Tage anwenden
+    applyAnwesenheitMuster: async function(muster) {
+        if (this.anwesenheitState.selectedDates.length === 0) {
+            this.showToast('Hinweis', 'Bitte zuerst Tage auswaehlen (klicken oder MO/DO/FR Button)', 'warning');
+            return;
+        }
+
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        try {
+            for (const datum of this.anwesenheitState.selectedDates) {
+                const planungData = {
+                    user_id: currentUserId,
+                    datum: datum,
+                    im_buero: muster === 'buero_essen' || muster === 'buero',
+                    mittagessen: muster === 'buero_essen',
+                    abwesenheit_grund: muster === 'homeoffice' ? 'homeoffice' : (muster === 'frei' ? 'sonstiges' : null)
+                };
+                await DataManager.upsertAnwesenheit(planungData);
+            }
+
+            const count = this.anwesenheitState.selectedDates.length;
+            this.anwesenheitState.selectedDates = [];
+            this.showToast('Erfolg', `${count} Tage aktualisiert`, 'success');
+            await this.loadAnwesenheit();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // User-Kalender Monat vor/zurueck
+    meineAnwesenheitPrevMonth: function() {
+        this.anwesenheitState.meineCurrentMonth.setMonth(this.anwesenheitState.meineCurrentMonth.getMonth() - 1);
+        this.anwesenheitState.selectedDates = [];
+        this.loadAnwesenheit();
+    },
+
+    meineAnwesenheitNextMonth: function() {
+        this.anwesenheitState.meineCurrentMonth.setMonth(this.anwesenheitState.meineCurrentMonth.getMonth() + 1);
+        this.anwesenheitState.selectedDates = [];
+        this.loadAnwesenheit();
     },
 
     // Heute anwesend rendern

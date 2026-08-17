@@ -365,7 +365,7 @@
                 </a>
                 <a href="#" class="nav-item" data-view="personal">
                     <img src="icons/23-user.svg" alt="" class="icon">
-                    <span>Personal</span>
+                    <span>Personal und Stundenverwaltung</span>
                 </a>
                 <a href="#" class="nav-item" data-view="inventar">
                     <img src="icons/30-inventory.svg" alt="" class="icon">
@@ -1271,22 +1271,61 @@
                         </div>
                     </div>
 
-                    <!-- User: Meine Wochenplanung -->
+                    <!-- User: Meine Monatsplanung -->
                     <div class="card" id="meine-anwesenheit-card">
-                        <div class="card-header">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <h3 class="card-title" style="margin: 0;">Meine Anwesenheitsplanung</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-outline btn-sm" onclick="App.meineAnwesenheitPrevMonth()">&larr;</button>
+                                <span id="meine-anwesenheit-monat-titel" style="min-width: 120px; text-align: center;">August 2026</span>
+                                <button class="btn btn-outline btn-sm" onclick="App.meineAnwesenheitNextMonth()">&rarr;</button>
+                            </div>
                         </div>
                         <div style="padding: 1rem;">
-                            <!-- Schnellauswahl -->
-                            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('buero_essen')">Ganze Woche: Buero + Mittagessen</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('buero')">Ganze Woche: Buero ohne Essen</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('homeoffice')">Ganze Woche: Homeoffice</button>
+                            <!-- Schnellauswahl fuer Muster -->
+                            <div style="margin-bottom: 1rem;">
+                                <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Schnellauswahl (auf alle ausgewaehlten Tage anwenden):</label>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('buero_essen')" title="Im Buero mit Mittagessen">
+                                        <span style="color: #27ae60;">&#9679;</span> Buero + Essen
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('buero')" title="Im Buero ohne Mittagessen">
+                                        <span style="color: #3498db;">&#9679;</span> Buero
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('homeoffice')" title="Homeoffice">
+                                        <span style="color: #9b59b6;">&#9679;</span> Homeoffice
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('frei')" title="Abwesend/Frei">
+                                        <span style="color: #95a5a6;">&#9679;</span> Abwesend
+                                    </button>
+                                    <span style="margin-left: 1rem; color: #666; font-size: 0.85rem;">|</span>
+                                    <button class="btn btn-outline btn-sm" onclick="App.selectAnwesenheitPattern([1,4,5])" title="Mo, Do, Fr auswaehlen">MO/DO/FR</button>
+                                    <button class="btn btn-outline btn-sm" onclick="App.selectAnwesenheitPattern([1,2,3,4,5])" title="Alle Werktage auswaehlen">MO-FR</button>
+                                    <button class="btn btn-outline btn-sm" onclick="App.clearAnwesenheitSelection()" title="Auswahl aufheben">Auswahl loeschen</button>
+                                </div>
                             </div>
 
-                            <!-- Wochenplanung Grid -->
-                            <div id="meine-anwesenheit-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
-                                <!-- Wird dynamisch generiert (Mo-Fr) -->
+                            <!-- Legende -->
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #666;">
+                                <span><span style="color: #27ae60;">&#9679;</span> Buero + Essen</span>
+                                <span><span style="color: #3498db;">&#9679;</span> Buero</span>
+                                <span><span style="color: #9b59b6;">&#9679;</span> Homeoffice</span>
+                                <span><span style="color: #95a5a6;">&#9679;</span> Frei/Abwesend</span>
+                                <span><span style="border: 2px solid #e74c3c; border-radius: 3px; padding: 0 3px;">&#9744;</span> Ausgewaehlt</span>
+                            </div>
+
+                            <!-- Monatskalender -->
+                            <div class="kalender-header">
+                                <div class="kalender-wochentag">Mo</div>
+                                <div class="kalender-wochentag">Di</div>
+                                <div class="kalender-wochentag">Mi</div>
+                                <div class="kalender-wochentag">Do</div>
+                                <div class="kalender-wochentag">Fr</div>
+                                <div class="kalender-wochentag">Sa</div>
+                                <div class="kalender-wochentag">So</div>
+                            </div>
+                            <div id="meine-anwesenheit-kalender" class="kalender-grid">
+                                <!-- Wird dynamisch generiert -->
                             </div>
                         </div>
                     </div>
@@ -2791,6 +2830,7 @@
                     <div class="tab" data-tab="mwst-saetze">MwSt-Sätze</div>
                     <div class="tab" data-tab="workspaces">Workspaces</div>
                     <div class="tab" data-tab="mitarbeiter">Mitarbeiter</div>
+                    <div class="tab" data-tab="kurse-konfig">Kurse</div>
                     <div class="tab" data-tab="shop-kategorien">Shop</div>
                     <div class="tab" data-tab="export">Datenexport</div>
                 </div>
@@ -2971,6 +3011,36 @@
                         </p>
                         <div id="users-list">
                             <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kurse Konfiguration Tab -->
+                <div id="tab-kurse-konfig" class="tab-content">
+                    <div class="grid-2">
+                        <!-- Kurskategorien -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Kurskategorien</h3>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewKursKategorieForm()">+ Neu</button>
+                            </div>
+                            <div id="kurs-kategorien-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                        </div>
+
+                        <!-- Kursanbieter (Lieferanten mit is_kursanbieter) -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Kursanbieter</h3>
+                            </div>
+                            <p style="padding: 0 1rem; color: #666; font-size: 0.875rem;">
+                                Kursanbieter werden aus den Lieferanten mit dem Flag "Kursanbieter" geladen.
+                                <br><a href="#" onclick="App.switchView('lieferanten'); return false;">Lieferanten verwalten</a>
+                            </p>
+                            <div id="kurs-anbieter-list" style="padding: 1rem;">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3805,6 +3875,13 @@
                             <!-- Wird dynamisch befüllt -->
                         </select>
                         <small class="form-hint" style="color: #666; font-size: 0.75rem;">Zuständig für Rechnungskontrolle bei Rechnungen ohne Projektzuweisung</small>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="supplier-is-kursanbieter">
+                            <span>Kursanbieter</span>
+                        </label>
+                        <small class="form-hint" style="color: #666; font-size: 0.75rem;">Kann als Anbieter fuer Schulungen/Kurse ausgewaehlt werden</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -5980,6 +6057,40 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="App.hideModal('kurs-termin-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Kurskategorie verwalten ==================== -->
+    <div id="kurs-kategorie-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="kurs-kategorie-modal-title">Neue Kurskategorie</h2>
+                <button class="modal-close" onclick="App.hideModal('kurs-kategorie-modal')">&times;</button>
+            </div>
+            <form id="kurs-kategorie-form" onsubmit="App.saveKursKategorie(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Code *</label>
+                        <input type="text" id="kurs-kategorie-code" class="form-control" placeholder="z.B. sicherheit" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Name *</label>
+                        <input type="text" id="kurs-kategorie-name" class="form-control" placeholder="z.B. Arbeitssicherheit" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="kurs-kategorie-beschreibung" class="form-control" rows="2" placeholder="Optional..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Farbe</label>
+                        <input type="color" id="kurs-kategorie-farbe" class="form-control" value="#3498db" style="height: 40px; padding: 4px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('kurs-kategorie-modal')">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>

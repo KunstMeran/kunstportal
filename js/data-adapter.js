@@ -307,6 +307,14 @@ const SupabaseDataAdapter = {
         DataManager.upsertEssensgutscheinBestellung = this.upsertEssensgutscheinBestellung.bind(this);
         DataManager.updateEssensgutscheinBestellung = this.updateEssensgutscheinBestellung.bind(this);
 
+        // Kurskategorien CRUD
+        DataManager.addKursKategorie = this.addKursKategorie.bind(this);
+        DataManager.updateKursKategorie = this.updateKursKategorie.bind(this);
+        DataManager.deleteKursKategorie = this.deleteKursKategorie.bind(this);
+
+        // Kursanbieter (aus suppliers)
+        DataManager.getKursanbieter = this.getKursanbieter.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -1597,6 +1605,7 @@ const SupabaseDataAdapter = {
                 city: s.city,
                 country: s.country,
                 contactUserId: s.contact_user_id || null,
+                isKursanbieter: s.is_kursanbieter || false,
                 // Audit-Felder für User-Tracking
                 created_at: s.created_at || null,
                 created_by: s.created_by || null,
@@ -1625,6 +1634,7 @@ const SupabaseDataAdapter = {
             if (updates.city !== undefined) supabaseUpdates.city = updates.city;
             if (updates.country !== undefined) supabaseUpdates.country = updates.country;
             if (updates.contactUserId !== undefined) supabaseUpdates.contact_user_id = updates.contactUserId;
+            if (updates.isKursanbieter !== undefined) supabaseUpdates.is_kursanbieter = updates.isKursanbieter;
 
             // Audit-Trail hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
@@ -1671,7 +1681,8 @@ const SupabaseDataAdapter = {
                 address: supplierData.address || null,
                 city: supplierData.city || null,
                 country: supplierData.country || 'IT',
-                contact_user_id: supplierData.contactUserId || null
+                contact_user_id: supplierData.contactUserId || null,
+                is_kursanbieter: supplierData.isKursanbieter || false
             };
 
             // Audit-Trail hinzufügen
@@ -5265,6 +5276,71 @@ const SupabaseDataAdapter = {
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Bestellung:', error);
             throw error;
+        }
+    },
+
+    // ==================== KURSKATEGORIEN CRUD ====================
+
+    async addKursKategorie(kategorieData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_kategorien')
+                .insert([kategorieData])
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Erstellen der Kurskategorie:', error);
+            throw error;
+        }
+    },
+
+    async updateKursKategorie(id, kategorieData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_kategorien')
+                .update(kategorieData)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren der Kurskategorie:', error);
+            throw error;
+        }
+    },
+
+    async deleteKursKategorie(id) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('kurs_kategorien')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Fehler beim Loeschen der Kurskategorie:', error);
+            throw error;
+        }
+    },
+
+    // ==================== KURSANBIETER (aus suppliers) ====================
+
+    async getKursanbieter() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('suppliers')
+                .select('id, fornitore_name, email, phone, address')
+                .eq('is_kursanbieter', true)
+                .order('fornitore_name', { ascending: true });
+            if (error) throw error;
+            return (data || []).map(s => ({
+                ...s,
+                name: s.fornitore_name
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Kursanbieter:', error);
+            return [];
         }
     }
 };
