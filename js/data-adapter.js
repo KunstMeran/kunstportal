@@ -684,11 +684,11 @@ const SupabaseDataAdapter = {
                 pl2: projectData.pl2 || null,
                 pl3: projectData.pl3 || null,
                 dropbox_link: projectData.dropboxLink || null,
-                hide_in_reporting: projectData.hideInReporting || false
+                hide_in_reporting: projectData.hideInReporting || false,
+                created_at: new Date().toISOString()
+                // HINWEIS: created_by wird nicht gesetzt wegen inkonsistenter FK-Referenz
+                // (projects.created_by zeigt möglicherweise auf public.users statt auth.users)
             };
-
-            // Audit-Trail: created_at und created_by hinzufügen
-            supabaseProject = await this.addCreateMetadata(supabaseProject);
 
             console.log('📝 addProject - insert data:', supabaseProject);
 
