@@ -18375,11 +18375,14 @@ const App = {
             });
 
             // Mitarbeiter-Dropdown befüllen
+            // Verwende auth_id (UUID) für empfaenger_user_id, nicht id (Integer)
             const users = await DataManager.getUsers();
             const mitarbeiterSelect = document.getElementById('shop-ausgabe-mitarbeiter');
             mitarbeiterSelect.innerHTML = '<option value="">-- Mitarbeiter auswählen --</option>';
             users.forEach(u => {
-                mitarbeiterSelect.innerHTML += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name || u.email || u.username)}</option>`;
+                // auth_id ist die UUID für den FK in shop_ausgaben
+                const userId = u.auth_id || u.id;
+                mitarbeiterSelect.innerHTML += `<option value="${escapeHtml(userId)}">${escapeHtml(u.name || u.email || u.username)}</option>`;
             });
 
             // Externe Empfänger laden

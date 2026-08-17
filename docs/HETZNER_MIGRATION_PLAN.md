@@ -1,5 +1,9 @@
 # Hetzner Server Migration Plan
 
+**Version:** 2.0
+**Aktualisiert:** 2026-08-17
+**Status:** Bereit für Migration
+
 ## Übersicht
 
 Migration von Supabase (Free Tier) zu eigenem Hetzner Server für bessere Performance und volle Kontrolle.
@@ -39,7 +43,7 @@ Ubuntu 24.04 LTS
 |------------|----------|-------|
 | Webserver | Nginx | Statische Dateien + Reverse Proxy |
 | Datenbank | PostgreSQL 16 | Daten (wie Supabase) |
-| Auth | Supabase Auth (self-hosted) ODER eigene JWT-Lösung |
+| Auth | Microsoft SSO (Azure AD) | Authentifizierung |
 | Storage | Filesystem + Nginx | PDF-Dateien |
 | SSL | Let's Encrypt (Certbot) | HTTPS |
 | Backup | Hetzner Backup + pg_dump | Datensicherung |
@@ -61,53 +65,175 @@ Ubuntu 24.04 LTS
 
 ---
 
-## 3. Migrations-Schritte
+## 3. Datenbank-Schema (Aktuell)
 
-### Phase 1: Server vorbereiten (1-2 Stunden)
-1. [ ] Hetzner Cloud Server erstellen
-2. [ ] SSH-Zugang einrichten
+### 3.1 Übersicht Tabellen (34 Tabellen)
+
+| Kategorie | Tabellen |
+|-----------|----------|
+| **Kern** | `projects`, `invoices`, `suppliers`, `datev_bookings` |
+| **Budget** | `budget_entries`, `budget_items`, `budget_notes`, `budget_konto_notes`, `chart_of_accounts` |
+| **Finanzen** | `costs`, `cost_types`, `funding_sources` |
+| **Berechtigungen** | `workspaces`, `user_workspaces`, `users` |
+| **Mitglieder** | `members`, `member_payments` |
+| **Shop** | `shop_artikel`, `shop_artikeltypen`, `shop_verkaeufe`, `shop_einkaeufe`, `shop_eintritt_kategorien`, `shop_mitglied_kategorien`, `shop_kassen_bewegungen`, `shop_kassenabschluss`, `shop_ausgaben` |
+| **Zeiterfassung** | `time_entries` |
+| **Externe** | `external_users` |
+
+### 3.2 Tabellen-Details
+
+#### Kern-Tabellen
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `projects` | Projekte/Ausstellungen | ✅ |
+| `invoices` | Rechnungen/PDFs | ✅ |
+| `suppliers` | Lieferanten-Stammdaten | ✅ |
+| `datev_bookings` | DATEV-Buchungen aus Excel-Import | ✅ |
+
+#### Budget-Tabellen
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `budget_entries` | Budgeteinträge pro Konto/Monat | ✅ |
+| `budget_items` | Budget-Positionen (Legacy) | ✅ |
+| `budget_notes` | Allgemeine Budget-Notizen | ✅ |
+| `budget_konto_notes` | Notizen zu einzelnen Konten | ✅ |
+| `chart_of_accounts` | Kontenplan mit Kategorien | ✅ |
+
+#### Finanz-Tabellen
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `costs` | Einzelkosten (Legacy) | ✅ |
+| `cost_types` | Kostenarten-Stammdaten | ✅ |
+| `funding_sources` | Förderquellen/Abgabestellen | ✅ |
+
+#### Berechtigungssystem
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `workspaces` | Berechtigungsgruppen (4-Stufen ENUM) | ✅ |
+| `user_workspaces` | User-Workspace Zuweisungen | ✅ |
+| `users` | User-Profile (mit user_type) | ✅ |
+
+**Berechtigungsstufen (ENUM `permission_level`):**
+- `none` - Kein Zugriff
+- `read` - Nur lesen
+- `write` - Bearbeiten
+- `delete` - Löschen
+
+**Workspace-Berechtigungen:**
+- `access_dashboard`, `access_projekte`, `access_rechnungen`
+- `access_bewegungen`, `access_lieferanten`, `access_mitglieder`
+- `access_einnahmen`, `access_konfiguration`, `access_inventar`
+- `access_reporting`, `access_zeiterfassung`, `access_rechnungen_bezahlt`
+
+#### Mitglieder-Modul
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `members` | Mitglieder-Stammdaten | ✅ |
+| `member_payments` | Mitgliedsbeitrags-Zahlungen | ✅ |
+
+#### Shop-Modul (NEU)
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `shop_artikel` | Shop-Artikel mit Lagerbestand | ✅ |
+| `shop_artikeltypen` | Kategorien (Buch, Katalog, etc.) | ✅ |
+| `shop_verkaeufe` | Verkäufe (Artikel, Eintritte, Mitglied) | ✅ |
+| `shop_einkaeufe` | Wareneinkäufe | ✅ |
+| `shop_eintritt_kategorien` | Eintrittspreise | ✅ |
+| `shop_mitglied_kategorien` | Mitgliedsbeitrags-Kategorien | ✅ |
+| `shop_kassen_bewegungen` | Kassenein-/ausgänge | ✅ |
+| `shop_kassenabschluss` | Tägliche Kassenabschlüsse | ✅ |
+| `shop_ausgaben` | Shop-Ausgaben | ✅ |
+
+#### Zeiterfassung (NEU)
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `time_entries` | Zeiterfassung (User + Lieferanten) | ✅ |
+
+#### Externe User
+| Tabelle | Beschreibung | RLS |
+|---------|--------------|-----|
+| `external_users` | Externe Empfänger für Rechnungen | ✅ |
+
+### 3.3 Views
+| View | Beschreibung |
+|------|--------------|
+| `user_permissions` | Aggregierte Berechtigungen pro User |
+
+### 3.4 Custom Types
+| Type | Beschreibung |
+|------|--------------|
+| `permission_level` | ENUM: 'none', 'read', 'write', 'delete' |
+
+### 3.5 Wichtige Indizes
+- `idx_unique_datev_booking_v2` - Unique Constraint für DATEV-Import
+- `idx_invoices_*` - Performance-Indizes für Rechnungen
+- `idx_shop_*` - Performance-Indizes für Shop
+- Siehe `002_performance_indexes.sql` für vollständige Liste
+
+---
+
+## 4. Migrations-Schritte
+
+### Phase 1: Server vorbereiten
+1. [ ] Hetzner Cloud Server erstellen (CX21)
+2. [ ] SSH-Zugang einrichten (nur Key-Auth)
 3. [ ] Firewall konfigurieren (nur 80, 443, 22)
 4. [ ] Ubuntu Updates installieren
-5. [ ] PostgreSQL installieren
-6. [ ] Nginx installieren
-7. [ ] SSL-Zertifikat einrichten
+5. [ ] Fail2ban installieren
+6. [ ] PostgreSQL 16 installieren
+7. [ ] Nginx installieren
+8. [ ] SSL-Zertifikat einrichten (Let's Encrypt)
 
-### Phase 2: Datenbank migrieren (1 Stunde)
-1. [ ] PostgreSQL-Datenbank erstellen
-2. [ ] Schema von Supabase exportieren
-3. [ ] Daten von Supabase exportieren (pg_dump)
-4. [ ] Daten auf Hetzner importieren
-5. [ ] Indexes erstellen
-6. [ ] Testen
+### Phase 2: Datenbank migrieren
+1. [ ] PostgreSQL-Datenbank `kunstmeran` erstellen
+2. [ ] Custom Type `permission_level` erstellen
+3. [ ] Schema von Supabase exportieren (pg_dump --schema-only)
+4. [ ] Daten von Supabase exportieren (pg_dump --data-only)
+5. [ ] Auf Hetzner importieren
+6. [ ] RLS Policies importieren (alle 34 Tabellen haben RLS)
+7. [ ] Indizes erstellen
+8. [ ] Triggers erstellen (updated_at, Bestandsverwaltung)
+9. [ ] Views erstellen (user_permissions)
+10. [ ] Testen
 
-### Phase 3: PDF-Dateien migrieren (30 Min - 2 Stunden)
+### Phase 3: PDF-Dateien migrieren
 1. [ ] Alle PDFs von Supabase Storage herunterladen
-2. [ ] Auf Hetzner Server hochladen
+2. [ ] Auf Hetzner Server hochladen (/var/www/kunstmeran/storage/invoices/)
 3. [ ] Nginx für PDF-Serving konfigurieren
-4. [ ] Zugriffsrechte prüfen
+4. [ ] Zugriffsrechte prüfen (www-data)
 
-### Phase 4: Backend-API erstellen (2-4 Stunden)
-Optionen:
-- **Option A:** PostgREST (wie Supabase, minimal Code-Änderungen)
-- **Option B:** Node.js/Express API (mehr Kontrolle)
-- **Option C:** Direkte PostgreSQL-Verbindung via pg-Bibliothek
+### Phase 4: Backend-API erstellen
+**Empfehlung:** PostgREST (wie Supabase, minimal Code-Änderungen)
 
-**Empfehlung:** PostgREST - dann funktioniert der bestehende Code fast unverändert.
+1. [ ] PostgREST installieren
+2. [ ] Konfiguration erstellen (DB-Verbindung, JWT-Secret)
+3. [ ] Nginx Reverse Proxy konfigurieren
+4. [ ] API testen
 
-### Phase 5: Frontend anpassen (1-2 Stunden)
-1. [ ] Supabase-URL zu Hetzner-URL ändern
+### Phase 5: Frontend anpassen
+1. [ ] Supabase-URL zu Hetzner-URL ändern (js/config.js)
 2. [ ] Storage-URLs anpassen
-3. [ ] Auth-System anpassen (falls nötig)
-4. [ ] Testen aller Funktionen
+3. [ ] Auth-System auf Microsoft SSO umstellen
+4. [ ] Testen aller 10+ Module:
+   - [ ] Dashboard
+   - [ ] Projekte
+   - [ ] Rechnungen
+   - [ ] Bewegungen (DATEV)
+   - [ ] Lieferanten
+   - [ ] Mitglieder
+   - [ ] Einnahmen/Förderquellen
+   - [ ] Shop & Kasse
+   - [ ] Zeiterfassung
+   - [ ] Konfiguration/Workspaces
 
-### Phase 6: DNS & Go-Live (30 Min)
+### Phase 6: DNS & Go-Live
 1. [ ] DNS auf Hetzner umstellen
 2. [ ] Alte Supabase-Verbindung trennen
 3. [ ] Monitoring einrichten
 
 ---
 
-## 4. Nginx Konfiguration
+## 5. Nginx Konfiguration
 
 ```nginx
 server {
@@ -116,6 +242,13 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/kunstmeran.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/kunstmeran.example.com/privkey.pem;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://login.microsoftonline.com; img-src 'self' data: https:; frame-ancestors 'none'" always;
 
     # Frontend
     root /var/www/kunstmeran/app;
@@ -136,49 +269,17 @@ server {
         proxy_pass http://localhost:3000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Rate Limiting
+        limit_req zone=api burst=20 nodelay;
     }
 }
+
+# Rate Limiting Zone (in http block)
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
 ```
-
----
-
-## 5. PDF-Speicherung auf Hetzner
-
-### Upload-Endpoint (Node.js Beispiel)
-```javascript
-// /api/upload-pdf.js
-const multer = require('multer');
-const path = require('path');
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const year = new Date().getFullYear();
-        cb(null, `/var/www/kunstmeran/storage/invoices/${year}/`);
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}_${file.originalname}`;
-        cb(null, uniqueName);
-    }
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/pdf') {
-            cb(null, true);
-        } else {
-            cb(new Error('Nur PDF-Dateien erlaubt'));
-        }
-    }
-});
-```
-
-### Vorteile gegenüber Supabase Storage
-- **Unbegrenzter Speicher** (nur durch SSD limitiert)
-- **Kein 1GB Limit**
-- **Schnellerer Zugriff** (kein CDN-Overhead)
-- **Volle Kontrolle** über Backup und Archivierung
 
 ---
 
@@ -197,7 +298,7 @@ const upload = multer({
 DATE=$(date +%Y%m%d)
 BACKUP_DIR=/var/www/kunstmeran/backups
 
-# Datenbank
+# Datenbank (34 Tabellen + Views + Custom Types)
 pg_dump kunstmeran > $BACKUP_DIR/db_$DATE.sql
 gzip $BACKUP_DIR/db_$DATE.sql
 
@@ -206,10 +307,13 @@ rsync -av /var/www/kunstmeran/storage/ $BACKUP_DIR/storage_$DATE/
 
 # Alte Backups löschen (älter als 30 Tage)
 find $BACKUP_DIR -mtime +30 -delete
+
+# Optional: Offsite-Backup
+# rclone sync $BACKUP_DIR remote:kunstmeran-backups
 ```
 
 ### Hetzner Backup-Service
-- +20% auf Server-Preis
+- +20% auf Server-Preis (~1€/Monat)
 - Automatische tägliche Snapshots
 - 7 Snapshots werden behalten
 
@@ -229,31 +333,71 @@ find $BACKUP_DIR -mtime +30 -delete
 
 ---
 
-## 8. Zeitplan
+## 8. Security-Checkliste
 
-| Phase | Dauer | Wer |
-|-------|-------|-----|
-| Server Setup | 2h | Claude/Dev |
-| DB Migration | 1h | Claude/Dev |
-| PDF Migration | 1-2h | Claude/Dev |
-| API Setup | 2-4h | Claude/Dev |
-| Frontend Anpassung | 1-2h | Claude/Dev |
-| Testing | 2h | Sophie + Team |
-| Go-Live | 30min | Claude/Dev |
-| **Gesamt** | **~10-14h** | |
+### Vor Migration (erledigt)
+- [x] XSS-Escaping implementiert
+- [x] RLS-Policies für alle 34 Tabellen geprüft
+- [x] RLS für Legacy-Tabellen (projects, budget_items, costs) hinzugefügt
 
----
-
-## 9. Nächste Schritte
-
-1. **Jetzt:** Supabase Indexes ausführen (siehe `002_performance_indexes.sql`)
-2. **Bald:** Hetzner Account erstellen und Server bestellen
-3. **Dann:** Migration durchführen (kann ich anleiten)
+### Nach Migration
+- [ ] SSH-Key-Only-Auth (keine Passwörter)
+- [ ] Fail2ban konfiguriert
+- [ ] UFW Firewall aktiv (nur 80, 443, 22)
+- [ ] TLS 1.3 erzwingen
+- [ ] CSP-Header konfiguriert
+- [ ] Rate-Limiting aktiv
+- [ ] PostgreSQL nur lokale Verbindungen
+- [ ] Regelmäßige Security-Updates
 
 ---
 
-## 10. Fragen?
+## 9. Microsoft SSO Integration
 
-- Welche Domain soll verwendet werden?
-- Soll Microsoft SSO weiterhin funktionieren?
-- Gibt es bestehende Hetzner-Zugangsdaten?
+Nach der Migration soll Microsoft SSO (Azure AD) für Authentifizierung genutzt werden.
+
+### Voraussetzungen
+1. Azure AD App-Registrierung
+2. Redirect-URI konfigurieren
+3. Client-ID und Tenant-ID im Frontend
+
+### Frontend-Änderungen
+```javascript
+// js/config.js - Nach Migration
+const AUTH_CONFIG = {
+    type: 'azure',
+    clientId: 'YOUR_CLIENT_ID',
+    tenantId: 'YOUR_TENANT_ID',
+    redirectUri: 'https://kunstmeran.example.com/callback'
+};
+```
+
+---
+
+## 10. Rollback-Plan
+
+Falls Probleme auftreten:
+
+1. **DNS zurücksetzen** auf Vercel/Supabase
+2. **Supabase-Daten** sind noch vorhanden (nicht löschen vor Go-Live)
+3. **Frontend** auf Git-Stand vor Migration zurücksetzen
+
+---
+
+## 11. Kontakt & Nächste Schritte
+
+### Vor Migration klären
+- [x] Security-Audit durchgeführt
+- [ ] Domain festlegen (kunstmeran.example.com?)
+- [ ] Hetzner Account vorhanden?
+- [ ] Azure AD App-Registrierung bereit?
+
+### Migrations-Reihenfolge
+1. Server bestellen und einrichten
+2. Datenbank migrieren (inkl. 34 Tabellen, Views, RLS)
+3. PDFs migrieren
+4. API einrichten (PostgREST)
+5. Frontend anpassen + Microsoft SSO
+6. Testen
+7. DNS umstellen
+8. Go-Live

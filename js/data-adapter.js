@@ -4026,17 +4026,31 @@ const SupabaseDataAdapter = {
             if (error) throw error;
 
             // User-Namen separat laden für Mitarbeiter-Ausgaben
+            // empfaenger_user_id ist ein UUID das auf public.users.id (UUID) verweist
             const userIds = [...new Set((data || [])
                 .filter(a => a.empfaenger_typ === 'mitarbeiter' && a.empfaenger_user_id)
                 .map(a => a.empfaenger_user_id))];
 
             let usersMap = {};
             if (userIds.length > 0) {
-                const { data: users } = await SupabaseService.client
+                // Versuche zuerst mit id (wenn public.users.id ein UUID ist)
+                let { data: users, error: usersError } = await SupabaseService.client
                     .from('users')
-                    .select('id, name, email')
+                    .select('id, name, email, auth_id')
                     .in('id', userIds);
-                (users || []).forEach(u => { usersMap[u.id] = u; });
+
+                // Falls das fehlschlägt, versuche mit auth_id
+                if (usersError || !users || users.length === 0) {
+                    const { data: usersAlt } = await SupabaseService.client
+                        .from('users')
+                        .select('id, name, email, auth_id')
+                        .in('auth_id', userIds);
+                    users = usersAlt;
+                    // Map mit auth_id als Key
+                    (users || []).forEach(u => { usersMap[u.auth_id] = u; });
+                } else {
+                    (users || []).forEach(u => { usersMap[u.id] = u; });
+                }
             }
 
             return (data || []).map(a => ({
@@ -4431,16 +4445,14 @@ const SupabaseDataAdapter = {
             const { data, error } = await SupabaseService.client
                 .from('shop_artikeltypen')
                 .select('*')
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true });
+                .order('name', { ascending: true });
 
             if (error) throw error;
 
             return (data || []).map(t => ({
                 id: t.id,
                 code: t.code,
-                name: t.name,
-                is_active: t.is_active
+                name: t.name
             }));
         } catch (error) {
             console.error('Fehler beim Laden der Artikeltypen:', error);
