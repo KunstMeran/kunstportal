@@ -5478,6 +5478,9 @@ const App = {
                 </td>
                 <td>
                     <div class="action-btn-group" style="display: flex; gap: 0.25rem;">
+                        ${r.pdfExists || r.filePath ?
+                            `<button class="btn btn-sm btn-outline" onclick="App.showPdfPreview('${r.partitaIva || ''}', '${r.dokumentNr || ''}', '${r.filePath || ''}')" title="PDF anzeigen">👁</button>` :
+                        ''}
                         ${r.workflowStatus === 'uploaded' ?
                             `<button class="btn btn-sm btn-primary" onclick="App.changeInvoiceStatus('${r.invoiceId}', 'kontrolliert')" title="Als kontrolliert markieren">${Icons.check}</button>` :
                         r.workflowStatus === 'kontrolliert' && DataManager.isAdmin() ?
