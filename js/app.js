@@ -9072,7 +9072,11 @@ const App = {
     },
 
     showModal: function(modalId) {
-        document.getElementById(modalId).classList.add('show');
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('show');
+        }
     },
 
     hideModal: function(modalId) {
