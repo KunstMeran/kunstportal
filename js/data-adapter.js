@@ -315,6 +315,9 @@ const SupabaseDataAdapter = {
         // Kursanbieter (aus suppliers)
         DataManager.getKursanbieter = this.getKursanbieter.bind(this);
 
+        // User-ID Funktion
+        DataManager.getCurrentPublicUserId = this.getCurrentPublicUserId.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 

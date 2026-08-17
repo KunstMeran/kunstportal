@@ -3320,7 +3320,7 @@ const App = {
             if (contentKurse) contentKurse.style.display = 'block';
             this.loadKurse();
             if (actionBtn) {
-                if (this.isAdmin()) {
+                if (Auth.isAdmin()) {
                     actionBtn.textContent = '+ Neuer Kurs';
                     actionBtn.onclick = () => this.showNewKursForm();
                     actionBtn.style.display = '';
@@ -19574,7 +19574,7 @@ const App = {
             // Ablaufende Zertifikate Warnung
             const warnungDiv = document.getElementById('kurse-ablauf-warnung');
             const anzahlSpan = document.getElementById('kurse-ablauf-anzahl');
-            if (warnungDiv && ablaufendCount > 0 && this.isAdmin()) {
+            if (warnungDiv && ablaufendCount > 0 && Auth.isAdmin()) {
                 warnungDiv.style.display = 'block';
                 if (anzahlSpan) anzahlSpan.textContent = ablaufendCount;
             } else if (warnungDiv) {
@@ -20027,7 +20027,7 @@ const App = {
             document.getElementById('stat-anwesenheit-homeoffice').textContent = heuteHomeoffice;
 
             // UI rendern
-            if (this.isAdmin()) {
+            if (Auth.isAdmin()) {
                 this.renderAnwesenheitKalenderAdmin();
             }
             this.renderMeineAnwesenheit();
