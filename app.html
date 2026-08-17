@@ -1186,7 +1186,7 @@
                                         <th>Kurs</th>
                                         <th>Kategorie</th>
                                         <th>Pflicht</th>
-                                        <th>Gueltigkeit</th>
+                                        <th>Faellig</th>
                                         <th style="text-align: center;">Termine</th>
                                         <th style="text-align: center;">Teilnehmer</th>
                                         <th style="text-align: right;">Aktionen</th>
@@ -1282,10 +1282,26 @@
                             </div>
                         </div>
                         <div style="padding: 1rem;">
-                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
-                                Klicke auf einen Tag um ihn als <strong style="color: #27ae60;">Anwesend + Mittagessen</strong> zu markieren.
-                                Nochmal klicken zum Abwaehlen.
-                            </p>
+                            <!-- Auswahlmodus-Leiste -->
+                            <div id="anwesenheit-auswahl-leiste" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+                                <span style="color: #666; font-size: 0.9rem;">Auswahl:</span>
+                                <select id="anwesenheit-auswahl-status" class="form-control" style="width: auto; min-width: 180px;">
+                                    <option value="buero_essen">Buero + Mittagessen</option>
+                                    <option value="buero_ohne_essen">Buero (ohne Essen)</option>
+                                    <option value="homeoffice">Homeoffice</option>
+                                    <option value="nicht_da">Nicht geplant</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="App.saveAnwesenheitAuswahl()">Auswahl speichern</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.clearAnwesenheitAuswahl()">Zuruecksetzen</button>
+                            </div>
+
+                            <!-- Legende -->
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; font-size: 0.8rem;">
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #27ae60; border-radius: 2px; margin-right: 4px;"></span>Buero + Essen</span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #3498db; border-radius: 2px; margin-right: 4px;"></span>Buero</span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #f39c12; border-radius: 2px; margin-right: 4px;"></span>Homeoffice</span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #9b59b6; border-radius: 2px; margin-right: 4px;"></span>Ausgewaehlt</span>
+                            </div>
 
                             <!-- Monatskalender -->
                             <div class="kalender-header">
@@ -5970,12 +5986,8 @@
                             </label>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Gueltigkeit (Monate)</label>
-                            <input type="number" id="kurs-gueltigkeit" class="form-control" min="1" placeholder="z.B. 24 (leer = unbegrenzt)">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Erinnerung (Tage vor Ablauf)</label>
-                            <input type="number" id="kurs-erinnerung" class="form-control" min="1" value="30">
+                            <label class="form-label">Faelligkeitsdatum</label>
+                            <input type="date" id="kurs-faelligkeit" class="form-control" placeholder="Optional">
                         </div>
                     </div>
                     <div class="form-row">

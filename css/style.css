@@ -1968,6 +1968,21 @@ textarea:focus,
     background: #d68910 !important;
 }
 
+/* Ausgewaehlt - Lila */
+.kalender-tag.ausgewaehlt {
+    background: #9b59b6 !important;
+    color: white;
+}
+
+.kalender-tag.ausgewaehlt .kalender-tag-nummer {
+    color: white;
+    font-weight: 600;
+}
+
+.kalender-tag.ausgewaehlt:hover {
+    background: #8e44ad !important;
+}
+
 /* Anwesenheit Modal Optionen */
 .anwesenheit-options {
     display: flex;

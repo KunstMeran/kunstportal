@@ -17919,6 +17919,12 @@ const App = {
             const status = DataManager.getRechnungStatus ? DataManager.getRechnungStatus(rechnungId) : {};
             const betrag = rechnung.betrag || rechnung.betragNetto || 0;
 
+            // Prüfe ob PDF vorhanden ist
+            const hasPdf = rechnung.pdfExists || rechnung.filePath || rechnung.pdfUrl;
+            const partitaIva = rechnung.partitaIva || rechnung.partita_iva || '';
+            const dokumentNr = rechnung.dokumentNr || rechnung.dokument_nr || '';
+            const filePath = rechnung.filePath || '';
+
             // Modal-Inhalt generieren
             const content = document.getElementById('shop-rechnung-details-content');
             content.innerHTML = `
@@ -17929,11 +17935,11 @@ const App = {
                     </div>
                     <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
                         <span style="color: var(--text-secondary);">Partita IVA</span>
-                        <span>${rechnung.partitaIva || rechnung.partita_iva || '-'}</span>
+                        <span>${partitaIva || '-'}</span>
                     </div>
                     <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
                         <span style="color: var(--text-secondary);">Dokument-Nr.</span>
-                        <span>${rechnung.dokumentNr || rechnung.dokument_nr || '-'}</span>
+                        <span>${dokumentNr || '-'}</span>
                     </div>
                     <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
                         <span style="color: var(--text-secondary);">Datum</span>
@@ -17959,12 +17965,15 @@ const App = {
                               '<span class="badge badge-secondary">Offen</span>'}
                         </span>
                     </div>
-                    ${rechnung.pdfUrl ? `
+                    ${hasPdf ? `
                     <div class="detail-row" style="padding: 0.5rem 0;">
-                        <a href="${rechnung.pdfUrl}" target="_blank" class="btn btn-outline" style="width: 100%;">
+                        <button onclick="App.closeModal('shop-rechnung-details-modal'); App.showPdfPreview('${partitaIva}', '${dokumentNr}', '${filePath}')" class="btn btn-primary" style="width: 100%;">
                             PDF anzeigen
-                        </a>
-                    </div>` : ''}
+                        </button>
+                    </div>` : `
+                    <div class="detail-row" style="padding: 0.5rem 0; text-align: center; color: var(--text-secondary);">
+                        <em>Kein PDF vorhanden</em>
+                    </div>`}
                 </div>
             `;
 
@@ -19552,7 +19561,7 @@ const App = {
         try {
             // Daten laden
             this.kurseState.kategorien = await DataManager.getKursKategorien();
-            this.kurseState.anbieter = await DataManager.getKursAnbieter();
+            this.kurseState.anbieter = await DataManager.getKursanbieter();
             this.kurseState.kurse = await DataManager.getKurse();
             this.kurseState.termine = await DataManager.getKursTermine();
             this.kurseState.teilnehmer = await DataManager.getKursTeilnehmer();
@@ -19635,7 +19644,7 @@ const App = {
                 return termin && termin.kurs_id === kurs.id;
             }).length;
 
-            const gueltigkeitText = kurs.gueltigkeit_monate ? `${kurs.gueltigkeit_monate} Monate` : 'Unbegrenzt';
+            const faelligkeitText = kurs.faelligkeit_datum ? new Date(kurs.faelligkeit_datum).toLocaleDateString('de-DE') : '-';
 
             return `
                 <tr>
@@ -19647,7 +19656,7 @@ const App = {
                         ${kategorie ? `<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: ${kategorie.farbe}20; color: ${kategorie.farbe}; font-size: 0.8rem;">${escapeHtml(kategorie.name)}</span>` : '-'}
                     </td>
                     <td>${kurs.ist_pflicht ? '<span style="color: #e74c3c;">Ja</span>' : 'Nein'}</td>
-                    <td>${gueltigkeitText}</td>
+                    <td>${faelligkeitText}</td>
                     <td style="text-align: center;">${termineCount}</td>
                     <td style="text-align: center;">${teilnehmerCount}</td>
                     <td style="text-align: right;">
@@ -19754,8 +19763,7 @@ const App = {
         document.getElementById('kurs-name').value = kurs.name || '';
         document.getElementById('kurs-beschreibung').value = kurs.beschreibung || '';
         document.getElementById('kurs-pflicht').checked = kurs.ist_pflicht || false;
-        document.getElementById('kurs-gueltigkeit').value = kurs.gueltigkeit_monate || '';
-        document.getElementById('kurs-erinnerung').value = kurs.erinnerung_tage || 30;
+        document.getElementById('kurs-faelligkeit').value = kurs.faelligkeit_datum || '';
         document.getElementById('kurs-dauer').value = kurs.dauer_stunden || '';
         document.getElementById('kurs-kosten-person').value = kurs.kosten_pro_person || '';
         document.getElementById('kurs-kosten-pauschal').value = kurs.kosten_pauschal || '';
@@ -19787,8 +19795,7 @@ const App = {
             kategorie_id: document.getElementById('kurs-kategorie').value || null,
             anbieter_id: document.getElementById('kurs-anbieter').value || null,
             ist_pflicht: document.getElementById('kurs-pflicht').checked,
-            gueltigkeit_monate: document.getElementById('kurs-gueltigkeit').value || null,
-            erinnerung_tage: document.getElementById('kurs-erinnerung').value || 30,
+            faelligkeit_datum: document.getElementById('kurs-faelligkeit').value || null,
             dauer_stunden: document.getElementById('kurs-dauer').value || null,
             kosten_pro_person: document.getElementById('kurs-kosten-person').value || null,
             kosten_pauschal: document.getElementById('kurs-kosten-pauschal').value || null
@@ -19895,7 +19902,7 @@ const App = {
     // Kurs-Anbieter Modal
     showKursAnbieterModal: async function() {
         const liste = document.getElementById('kurs-anbieter-liste');
-        const anbieter = await DataManager.getKursAnbieter();
+        const anbieter = await DataManager.getKursanbieter();
 
         if (anbieter.length === 0) {
             liste.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Anbieter vorhanden</p>';
@@ -20098,6 +20105,11 @@ const App = {
         const lastDay = new Date(year, month + 1, 0);
         const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Montag = 0
 
+        // Initialisiere selectedDates falls nicht vorhanden
+        if (!this.anwesenheitState.selectedDates) {
+            this.anwesenheitState.selectedDates = [];
+        }
+
         let html = '';
 
         // Leere Zellen vor dem 1.
@@ -20112,10 +20124,13 @@ const App = {
             const dateObj = new Date(year, month, day);
             const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
             const isToday = datum === new Date().toISOString().split('T')[0];
+            const isSelected = this.anwesenheitState.selectedDates.includes(datum);
 
             // Status ermitteln
             let statusClass = '';
-            if (planung) {
+            if (isSelected) {
+                statusClass = 'ausgewaehlt'; // Lila - ausgewaehlt
+            } else if (planung) {
                 if (planung.im_buero && planung.mittagessen) {
                     statusClass = 'anwesend'; // Gruen
                 } else if (planung.im_buero && !planung.mittagessen) {
@@ -20125,7 +20140,7 @@ const App = {
                 }
             }
 
-            const clickAction = `onclick="App.showAnwesenheitTagModal('${datum}')"`;
+            const clickAction = `onclick="App.toggleAnwesenheitAuswahl('${datum}')"`;
 
             html += `
                 <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${statusClass}"
@@ -20137,6 +20152,82 @@ const App = {
         }
 
         container.innerHTML = html;
+    },
+
+    // Tag zur Auswahl hinzufuegen/entfernen
+    toggleAnwesenheitAuswahl: function(datum) {
+        if (!this.anwesenheitState.selectedDates) {
+            this.anwesenheitState.selectedDates = [];
+        }
+
+        const index = this.anwesenheitState.selectedDates.indexOf(datum);
+        if (index > -1) {
+            this.anwesenheitState.selectedDates.splice(index, 1);
+        } else {
+            this.anwesenheitState.selectedDates.push(datum);
+        }
+
+        this.renderMeineAnwesenheit();
+    },
+
+    // Auswahl speichern
+    saveAnwesenheitAuswahl: async function() {
+        const selectedDates = this.anwesenheitState.selectedDates || [];
+        if (selectedDates.length === 0) {
+            this.showToast('Hinweis', 'Bitte waehle zuerst Tage aus', 'info');
+            return;
+        }
+
+        const status = document.getElementById('anwesenheit-auswahl-status').value;
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        try {
+            for (const datum of selectedDates) {
+                let data = {
+                    user_id: currentUserId,
+                    datum: datum,
+                    im_buero: false,
+                    mittagessen: false,
+                    abwesenheit_grund: null
+                };
+
+                switch(status) {
+                    case 'buero_essen':
+                        data.im_buero = true;
+                        data.mittagessen = true;
+                        break;
+                    case 'buero_ohne_essen':
+                        data.im_buero = true;
+                        data.mittagessen = false;
+                        break;
+                    case 'homeoffice':
+                        data.abwesenheit_grund = 'homeoffice';
+                        break;
+                    case 'nicht_da':
+                        // Alles false/null
+                        break;
+                }
+
+                await DataManager.upsertAnwesenheit(data);
+            }
+
+            this.anwesenheitState.selectedDates = [];
+            await this.loadAnwesenheit();
+            this.showToast('Gespeichert', `${selectedDates.length} Tage gespeichert`, 'success');
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Auswahl zuruecksetzen
+    clearAnwesenheitAuswahl: function() {
+        this.anwesenheitState.selectedDates = [];
+        this.renderMeineAnwesenheit();
     },
 
     // Einfacher Toggle: Klick = Anwesend/Nicht anwesend
