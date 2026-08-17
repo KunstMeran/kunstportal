@@ -14,7 +14,7 @@ CREATE POLICY "Users can view projects"
     TO authenticated
     USING (true);
 
--- 3. INSERT: Nur User mit access_projekte Berechtigung
+-- 3. INSERT: Nur User mit access_projekte >= 'write'
 CREATE POLICY "Users with access_projekte can insert projects"
     ON projects
     FOR INSERT
@@ -24,12 +24,12 @@ CREATE POLICY "Users with access_projekte can insert projects"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
--- 4. UPDATE: Nur User mit access_projekte Berechtigung
+-- 4. UPDATE: Nur User mit access_projekte >= 'write'
 CREATE POLICY "Users with access_projekte can update projects"
     ON projects
     FOR UPDATE
@@ -39,7 +39,7 @@ CREATE POLICY "Users with access_projekte can update projects"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte IN ('write', 'delete')
             AND w.is_active = true
         )
     )
@@ -48,12 +48,12 @@ CREATE POLICY "Users with access_projekte can update projects"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
--- 5. DELETE: Nur User mit access_projekte Berechtigung
+-- 5. DELETE: Nur User mit access_projekte = 'delete'
 CREATE POLICY "Users with access_projekte can delete projects"
     ON projects
     FOR DELETE
@@ -63,7 +63,7 @@ CREATE POLICY "Users with access_projekte can delete projects"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte = 'delete'
             AND w.is_active = true
         )
     );

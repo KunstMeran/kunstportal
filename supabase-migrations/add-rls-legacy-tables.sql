@@ -2,6 +2,7 @@
 -- Migration: RLS für Legacy-Tabellen (budget_items, costs)
 -- Datum: 2026-08-17
 -- Zweck: Workspace-basierte Berechtigungen
+-- HINWEIS: access_* Spalten sind ENUM (permission_level: none/read/write/delete)
 -- =====================================================
 
 -- =====================================================
@@ -17,7 +18,7 @@ CREATE POLICY "Users can view budget_items"
     TO authenticated
     USING (true);
 
--- INSERT/UPDATE/DELETE: Nur User mit access_projekte (Budget gehört zu Projekten)
+-- INSERT: Nur User mit access_projekte >= 'write'
 CREATE POLICY "Users with access_projekte can insert budget_items"
     ON budget_items
     FOR INSERT
@@ -27,11 +28,12 @@ CREATE POLICY "Users with access_projekte can insert budget_items"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
+-- UPDATE: Nur User mit access_projekte >= 'write'
 CREATE POLICY "Users with access_projekte can update budget_items"
     ON budget_items
     FOR UPDATE
@@ -41,11 +43,12 @@ CREATE POLICY "Users with access_projekte can update budget_items"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
+-- DELETE: Nur User mit access_projekte = 'delete'
 CREATE POLICY "Users with access_projekte can delete budget_items"
     ON budget_items
     FOR DELETE
@@ -55,7 +58,7 @@ CREATE POLICY "Users with access_projekte can delete budget_items"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_projekte = true
+            AND w.access_projekte = 'delete'
             AND w.is_active = true
         )
     );
@@ -73,7 +76,7 @@ CREATE POLICY "Users can view costs"
     TO authenticated
     USING (true);
 
--- INSERT/UPDATE/DELETE: Nur User mit access_rechnungen (Kosten gehören zu Rechnungen)
+-- INSERT: Nur User mit access_rechnungen >= 'write'
 CREATE POLICY "Users with access_rechnungen can insert costs"
     ON costs
     FOR INSERT
@@ -83,11 +86,12 @@ CREATE POLICY "Users with access_rechnungen can insert costs"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_rechnungen = true
+            AND w.access_rechnungen IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
+-- UPDATE: Nur User mit access_rechnungen >= 'write'
 CREATE POLICY "Users with access_rechnungen can update costs"
     ON costs
     FOR UPDATE
@@ -97,11 +101,12 @@ CREATE POLICY "Users with access_rechnungen can update costs"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_rechnungen = true
+            AND w.access_rechnungen IN ('write', 'delete')
             AND w.is_active = true
         )
     );
 
+-- DELETE: Nur User mit access_rechnungen = 'delete'
 CREATE POLICY "Users with access_rechnungen can delete costs"
     ON costs
     FOR DELETE
@@ -111,7 +116,7 @@ CREATE POLICY "Users with access_rechnungen can delete costs"
             SELECT 1 FROM user_workspaces uw
             JOIN workspaces w ON uw.workspace_id = w.id
             WHERE uw.user_id = auth.uid()
-            AND w.access_rechnungen = true
+            AND w.access_rechnungen = 'delete'
             AND w.is_active = true
         )
     );

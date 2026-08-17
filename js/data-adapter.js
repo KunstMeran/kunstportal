@@ -4108,6 +4108,25 @@ const SupabaseDataAdapter = {
             }
 
             const result = data && data.length > 0 ? data[0] : insertData;
+
+            // Bestand manuell reduzieren (falls Trigger nicht existiert)
+            if (insertData.artikel_id) {
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell')
+                    .eq('id', insertData.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    const neuerBestand = Math.max(0, (artikel.bestand_aktuell || 0) - (insertData.menge || 1));
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
+                        .eq('id', insertData.artikel_id);
+                    console.log('📦 Bestand nach Ausgabe reduziert:', artikel.bestand_aktuell, '->', neuerBestand);
+                }
+            }
+
             console.log('✅ Ausgabe erfasst:', result);
             return result;
         } catch (error) {
@@ -4117,17 +4136,41 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Löscht eine Shop-Ausgabe
-     * Der Datenbank-Trigger gibt automatisch den Bestand zurück
+     * Löscht eine Shop-Ausgabe und gibt den Bestand zurück
      */
     async deleteShopAusgabe(id) {
         try {
+            // Erst die Ausgabe laden um Artikel-ID und Menge zu bekommen
+            const { data: ausgabe } = await SupabaseService.client
+                .from('shop_ausgaben')
+                .select('artikel_id, menge')
+                .eq('id', id)
+                .single();
+
             const { error } = await SupabaseService.client
                 .from('shop_ausgaben')
                 .delete()
                 .eq('id', id);
 
             if (error) throw error;
+
+            // Bestand manuell zurückgeben (falls Trigger nicht existiert)
+            if (ausgabe && ausgabe.artikel_id) {
+                const { data: artikel } = await SupabaseService.client
+                    .from('shop_artikel')
+                    .select('bestand_aktuell')
+                    .eq('id', ausgabe.artikel_id)
+                    .single();
+
+                if (artikel) {
+                    const neuerBestand = (artikel.bestand_aktuell || 0) + (ausgabe.menge || 1);
+                    await SupabaseService.client
+                        .from('shop_artikel')
+                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
+                        .eq('id', ausgabe.artikel_id);
+                    console.log('📦 Bestand nach Ausgabe-Löschung erhöht:', artikel.bestand_aktuell, '->', neuerBestand);
+                }
+            }
 
             console.log('✅ Ausgabe gelöscht:', id);
             return true;
@@ -4526,16 +4569,6 @@ const SupabaseDataAdapter = {
 
             // Bestand reduzieren bei Artikel-Verkauf
             if (verkauf.typ === 'artikel' && dbData.artikel_id) {
-                await SupabaseService.client
-                    .from('shop_artikel')
-                    .update({
-                        bestand_aktuell: SupabaseService.client.rpc('decrement_bestand', {
-                            artikel_id: dbData.artikel_id,
-                            menge: dbData.menge
-                        })
-                    });
-
-                // Alternative: Direktes Update
                 const { data: artikel } = await SupabaseService.client
                     .from('shop_artikel')
                     .select('bestand_aktuell')
@@ -4543,10 +4576,12 @@ const SupabaseDataAdapter = {
                     .single();
 
                 if (artikel) {
+                    const neuerBestand = Math.max(0, (artikel.bestand_aktuell || 0) - dbData.menge);
                     await SupabaseService.client
                         .from('shop_artikel')
-                        .update({ bestand_aktuell: (artikel.bestand_aktuell || 0) - dbData.menge })
+                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
                         .eq('id', dbData.artikel_id);
+                    console.log('📦 Bestand reduziert:', artikel.bestand_aktuell, '->', neuerBestand);
                 }
             }
 
