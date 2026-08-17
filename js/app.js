@@ -20014,14 +20014,17 @@ const App = {
             if (meineTitel) meineTitel.textContent = `${monatNamen[meineMonth]} ${meineYear}`;
 
             // Daten laden - sowohl Admin-Monat als auch User-Monat abdecken
+            // Lokales Datum-Format verwenden um UTC-Konvertierungsprobleme zu vermeiden
+            const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
             const adminStart = new Date(year, month, 1);
             const adminEnd = new Date(year, month + 1, 0);
             const userStart = new Date(meineYear, meineMonth, 1);
             const userEnd = new Date(meineYear, meineMonth + 1, 0);
 
             // Min/Max Datum fuer Query
-            const startDate = new Date(Math.min(adminStart.getTime(), userStart.getTime())).toISOString().split('T')[0];
-            const endDate = new Date(Math.max(adminEnd.getTime(), userEnd.getTime())).toISOString().split('T')[0];
+            const startDate = formatDate(new Date(Math.min(adminStart.getTime(), userStart.getTime())));
+            const endDate = formatDate(new Date(Math.max(adminEnd.getTime(), userEnd.getTime())));
 
             this.anwesenheitState.planung = await DataManager.getAnwesenheitRange(startDate, endDate);
             this.anwesenheitState.heuteAnwesend = await DataManager.getHeuteAnwesend();
@@ -20137,6 +20140,8 @@ const App = {
                     statusClass = 'buero-ohne-essen'; // Blau
                 } else if (planung.abwesenheit_grund === 'homeoffice') {
                     statusClass = 'homeoffice'; // Orange
+                } else if (planung.abwesenheit_grund === 'urlaub') {
+                    statusClass = 'urlaub'; // Rot
                 }
             }
 
@@ -20208,6 +20213,9 @@ const App = {
                     break;
                 case 'homeoffice':
                     data.abwesenheit_grund = 'homeoffice';
+                    break;
+                case 'urlaub':
+                    data.abwesenheit_grund = 'urlaub';
                     break;
                 case 'nicht_da':
                     // Alles false/null
@@ -20364,6 +20372,9 @@ const App = {
                     break;
                 case 'homeoffice':
                     data.abwesenheit_grund = 'homeoffice';
+                    break;
+                case 'urlaub':
+                    data.abwesenheit_grund = 'urlaub';
                     break;
                 case 'nicht_da':
                     // Alles false/null

@@ -1983,6 +1983,21 @@ textarea:focus,
     background: #8e44ad !important;
 }
 
+/* Urlaub - Rot */
+.kalender-tag.urlaub {
+    background: #e74c3c !important;
+    color: white;
+}
+
+.kalender-tag.urlaub .kalender-tag-nummer {
+    color: white;
+    font-weight: 600;
+}
+
+.kalender-tag.urlaub:hover {
+    background: #c0392b !important;
+}
+
 /* Anwesenheit Modal Optionen */
 .anwesenheit-options {
     display: flex;
