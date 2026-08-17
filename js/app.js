@@ -20185,42 +20185,51 @@ const App = {
             return;
         }
 
-        try {
-            for (const datum of selectedDates) {
-                let data = {
-                    user_id: currentUserId,
-                    datum: datum,
-                    im_buero: false,
-                    mittagessen: false,
-                    abwesenheit_grund: null
-                };
+        let erfolg = 0;
+        let fehler = 0;
 
-                switch(status) {
-                    case 'buero_essen':
-                        data.im_buero = true;
-                        data.mittagessen = true;
-                        break;
-                    case 'buero_ohne_essen':
-                        data.im_buero = true;
-                        data.mittagessen = false;
-                        break;
-                    case 'homeoffice':
-                        data.abwesenheit_grund = 'homeoffice';
-                        break;
-                    case 'nicht_da':
-                        // Alles false/null
-                        break;
-                }
+        for (const datum of selectedDates) {
+            let data = {
+                user_id: currentUserId,
+                datum: datum,
+                im_buero: false,
+                mittagessen: false,
+                abwesenheit_grund: null
+            };
 
-                await DataManager.upsertAnwesenheit(data);
+            switch(status) {
+                case 'buero_essen':
+                    data.im_buero = true;
+                    data.mittagessen = true;
+                    break;
+                case 'buero_ohne_essen':
+                    data.im_buero = true;
+                    data.mittagessen = false;
+                    break;
+                case 'homeoffice':
+                    data.abwesenheit_grund = 'homeoffice';
+                    break;
+                case 'nicht_da':
+                    // Alles false/null
+                    break;
             }
 
-            this.anwesenheitState.selectedDates = [];
-            await this.loadAnwesenheit();
-            this.showToast('Gespeichert', `${selectedDates.length} Tage gespeichert`, 'success');
-        } catch (error) {
-            console.error('Fehler:', error);
-            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+            try {
+                await DataManager.upsertAnwesenheit(data);
+                erfolg++;
+            } catch (error) {
+                console.error('Fehler beim Speichern von', datum, ':', error);
+                fehler++;
+            }
+        }
+
+        this.anwesenheitState.selectedDates = [];
+        await this.loadAnwesenheit();
+
+        if (fehler > 0) {
+            this.showToast('Teilweise gespeichert', `${erfolg} OK, ${fehler} Fehler`, 'warning');
+        } else {
+            this.showToast('Gespeichert', `${erfolg} Tage gespeichert`, 'success');
         }
     },
 

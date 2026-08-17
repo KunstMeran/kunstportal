@@ -7,7 +7,13 @@
 -- 1. RLS aktivieren
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
--- 2. SELECT: Alle authentifizierten User können Projekte sehen
+-- 2. Alte Policies loeschen falls vorhanden
+DROP POLICY IF EXISTS "Users can view projects" ON projects;
+DROP POLICY IF EXISTS "Users with access_projekte can insert projects" ON projects;
+DROP POLICY IF EXISTS "Users with access_projekte can update projects" ON projects;
+DROP POLICY IF EXISTS "Users with access_projekte can delete projects" ON projects;
+
+-- 3. SELECT: Alle authentifizierten User können Projekte sehen
 CREATE POLICY "Users can view projects"
     ON projects
     FOR SELECT
