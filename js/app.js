@@ -17788,14 +17788,29 @@ const App = {
         const statusFilter = document.getElementById('shop-rechnungen-filter-status')?.value || '';
         const typFilter = document.getElementById('shop-rechnungen-filter-typ')?.value || '';
 
-        // Alle Rechnungen mit Kostenstelle 2699 (Shop) holen
+        // Alle Rechnungen mit Kostenstelle 2699 (Shop) ODER Projekt "Shop" holen
         const alleRechnungen = DataManager.getRechnungen ? DataManager.getRechnungen() : [];
         const einkaeufe = await DataManager.getShopEinkaeufe() || [];
 
-        // Nach Kostenstelle 2699 filtern
+        // Projekte laden um "Shop" Projekt-ID zu finden
+        const projekte = DataManager.getProjekte ? DataManager.getProjekte() : [];
+        const shopProjekt = projekte.find(p =>
+            (p.name || '').toLowerCase() === 'shop' ||
+            (p.bezeichnung || '').toLowerCase() === 'shop' ||
+            String(p.id) === '2699' ||
+            String(p.nummer) === '2699'
+        );
+        const shopProjektId = shopProjekt ? shopProjekt.id : null;
+
+        // Nach Kostenstelle 2699 ODER Projekt "Shop" filtern
         let shopRechnungen = alleRechnungen.filter(r => {
             const kostenstelle = r.kostenstelle || r.projektId || r.projekt_id;
-            return String(kostenstelle) === '2699';
+            const projektId = r.projektId || r.projekt_id || r.project_id;
+            const projektName = (r.projektName || r.projekt_name || '').toLowerCase();
+
+            return String(kostenstelle) === '2699' ||
+                   (shopProjektId && String(projektId) === String(shopProjektId)) ||
+                   projektName === 'shop';
         });
 
         // Status-Filter
