@@ -1938,6 +1938,82 @@ textarea:focus,
     background: #219a52 !important;
 }
 
+/* Buero ohne Essen - Blau */
+.kalender-tag.buero-ohne-essen {
+    background: #3498db !important;
+    color: white;
+}
+
+.kalender-tag.buero-ohne-essen .kalender-tag-nummer {
+    color: white;
+    font-weight: 600;
+}
+
+.kalender-tag.buero-ohne-essen:hover {
+    background: #2980b9 !important;
+}
+
+/* Homeoffice - Orange */
+.kalender-tag.homeoffice {
+    background: #f39c12 !important;
+    color: white;
+}
+
+.kalender-tag.homeoffice .kalender-tag-nummer {
+    color: white;
+    font-weight: 600;
+}
+
+.kalender-tag.homeoffice:hover {
+    background: #d68910 !important;
+}
+
+/* Anwesenheit Modal Optionen */
+.anwesenheit-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.anwesenheit-option {
+    display: block;
+    cursor: pointer;
+}
+
+.anwesenheit-option input[type="radio"] {
+    display: none;
+}
+
+.anwesenheit-option-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--c-border);
+    border-radius: var(--radius-m);
+    transition: all 0.15s ease;
+}
+
+.anwesenheit-option-content:hover {
+    border-color: var(--c-ink-muted);
+    background: var(--c-surface);
+}
+
+.anwesenheit-option input[type="radio"]:checked + .anwesenheit-option-content {
+    border-color: var(--c-ink);
+    background: var(--c-surface);
+}
+
+.anwesenheit-option-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.anwesenheit-option-text {
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
 /* Responsive Kalender */
 @media (max-width: 768px) {
     .kalender-tag {

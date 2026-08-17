@@ -4894,7 +4894,7 @@ const App = {
             return (a.name || '').localeCompare(b.name || '');
         });
 
-        let html = '<option value="">-- Projekt wählen --</option>';
+        let html = '<option value="">-- Kein Projekt --</option>';
 
         for (const project of sortedProjects) {
             const projektId = project.datevId || project.id;
@@ -6572,11 +6572,10 @@ const App = {
      * Projekt für eine DATEV-Buchung setzen
      */
     setProjektForRechnung: async function(rechnungId, projektId) {
-        if (!projektId) return;
-
         try {
             let query;
-            const updates = await addAuditMetadata({ projekt_id: projektId });
+            // Bei leerem projektId wird null gesetzt (Projekt entfernen)
+            const updates = await addAuditMetadata({ projekt_id: projektId || null });
 
             // Format 1: "id:123" - Datenbank-ID direkt
             if (rechnungId.startsWith('id:')) {
@@ -6600,7 +6599,11 @@ const App = {
             const { error } = await query;
             if (error) throw error;
 
-            this.showToast('success', 'Projekt gesetzt', `Projekt wurde zugewiesen`);
+            if (projektId) {
+                this.showToast('success', 'Projekt gesetzt', `Projekt wurde zugewiesen`);
+            } else {
+                this.showToast('success', 'Projekt entfernt', `Projektzuweisung wurde aufgehoben`);
+            }
 
             // Daten neu laden
             await DataManager.clearCache();
@@ -20107,16 +20110,24 @@ const App = {
             const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
             const isToday = datum === new Date().toISOString().split('T')[0];
 
-            // Anwesend = gruen markiert (im_buero && mittagessen)
-            const isAnwesend = planung && planung.im_buero && planung.mittagessen;
+            // Status ermitteln
+            let statusClass = '';
+            if (planung) {
+                if (planung.im_buero && planung.mittagessen) {
+                    statusClass = 'anwesend'; // Gruen
+                } else if (planung.im_buero && !planung.mittagessen) {
+                    statusClass = 'buero-ohne-essen'; // Blau
+                } else if (planung.abwesenheit_grund === 'homeoffice') {
+                    statusClass = 'homeoffice'; // Orange
+                }
+            }
 
-            const clickAction = isWeekend ? '' : `onclick="App.toggleAnwesenheitTag('${datum}')"`;
-            const cursorStyle = isWeekend ? 'default' : 'pointer';
+            const clickAction = `onclick="App.showAnwesenheitTagModal('${datum}')"`;
 
             html += `
-                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${isAnwesend ? 'anwesend' : ''}"
+                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${statusClass}"
                      ${clickAction}
-                     style="cursor: ${cursorStyle};">
+                     style="cursor: pointer;">
                     <div class="kalender-tag-nummer">${day}</div>
                 </div>
             `;
@@ -20160,6 +20171,106 @@ const App = {
 
             // Daten neu laden
             await this.loadAnwesenheit();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Modal fuer Tagesauswahl anzeigen
+    showAnwesenheitTagModal: async function(datum) {
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        // Aktuellen Status pruefen
+        const planung = this.anwesenheitState.planung.find(p => p.datum === datum && p.user_id === currentUserId);
+
+        // Datum formatieren
+        const dateObj = new Date(datum);
+        const wochentage = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+        const monate = ['Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        const datumFormatiert = `${wochentage[dateObj.getDay()]}, ${dateObj.getDate()}. ${monate[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+
+        // Status ermitteln
+        let currentStatus = 'nicht_da';
+        if (planung) {
+            if (planung.im_buero && planung.mittagessen) {
+                currentStatus = 'buero_essen';
+            } else if (planung.im_buero && !planung.mittagessen) {
+                currentStatus = 'buero_ohne_essen';
+            } else if (planung.abwesenheit_grund === 'homeoffice') {
+                currentStatus = 'homeoffice';
+            }
+        }
+
+        // Modal-Inhalt
+        const modal = document.getElementById('anwesenheit-tag-modal');
+        if (!modal) {
+            console.error('Modal anwesenheit-tag-modal nicht gefunden');
+            return;
+        }
+
+        document.getElementById('anwesenheit-tag-datum').textContent = datumFormatiert;
+        document.getElementById('anwesenheit-tag-datum-hidden').value = datum;
+
+        // Radio-Buttons setzen
+        const radios = document.getElementsByName('anwesenheit-status');
+        radios.forEach(r => {
+            r.checked = (r.value === currentStatus);
+        });
+
+        this.showModal('anwesenheit-tag-modal');
+    },
+
+    // Anwesenheit speichern aus Modal
+    saveAnwesenheitTag: async function() {
+        const datum = document.getElementById('anwesenheit-tag-datum-hidden').value;
+        const status = document.querySelector('input[name="anwesenheit-status"]:checked')?.value;
+
+        if (!datum || !status) {
+            this.showToast('Fehler', 'Bitte Status auswaehlen', 'error');
+            return;
+        }
+
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        try {
+            let data = {
+                user_id: currentUserId,
+                datum: datum,
+                im_buero: false,
+                mittagessen: false,
+                abwesenheit_grund: null
+            };
+
+            switch(status) {
+                case 'buero_essen':
+                    data.im_buero = true;
+                    data.mittagessen = true;
+                    break;
+                case 'buero_ohne_essen':
+                    data.im_buero = true;
+                    data.mittagessen = false;
+                    break;
+                case 'homeoffice':
+                    data.abwesenheit_grund = 'homeoffice';
+                    break;
+                case 'nicht_da':
+                    // Alles false/null
+                    break;
+            }
+
+            await DataManager.upsertAnwesenheit(data);
+            this.hideModal('anwesenheit-tag-modal');
+            await this.loadAnwesenheit();
+            this.showToast('Gespeichert', 'Anwesenheit gespeichert', 'success');
         } catch (error) {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');

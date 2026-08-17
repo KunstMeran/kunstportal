@@ -6285,6 +6285,53 @@
         </div>
     </div>
 
+    <!-- Anwesenheit Tag Modal -->
+    <div id="anwesenheit-tag-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('anwesenheit-tag-modal')">
+        <div class="modal" style="max-width: 380px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="anwesenheit-tag-datum">Tag</h2>
+                <button class="modal-close" onclick="App.hideModal('anwesenheit-tag-modal')">&times;</button>
+            </div>
+            <input type="hidden" id="anwesenheit-tag-datum-hidden">
+            <div class="modal-body">
+                <div class="anwesenheit-options">
+                    <label class="anwesenheit-option">
+                        <input type="radio" name="anwesenheit-status" value="buero_essen">
+                        <div class="anwesenheit-option-content">
+                            <span class="anwesenheit-option-icon" style="color: #27ae60;">&#9679;</span>
+                            <span class="anwesenheit-option-text">Im Buero + Mittagessen</span>
+                        </div>
+                    </label>
+                    <label class="anwesenheit-option">
+                        <input type="radio" name="anwesenheit-status" value="buero_ohne_essen">
+                        <div class="anwesenheit-option-content">
+                            <span class="anwesenheit-option-icon" style="color: #3498db;">&#9679;</span>
+                            <span class="anwesenheit-option-text">Im Buero (ohne Essen)</span>
+                        </div>
+                    </label>
+                    <label class="anwesenheit-option">
+                        <input type="radio" name="anwesenheit-status" value="homeoffice">
+                        <div class="anwesenheit-option-content">
+                            <span class="anwesenheit-option-icon" style="color: #f39c12;">&#9679;</span>
+                            <span class="anwesenheit-option-text">Homeoffice</span>
+                        </div>
+                    </label>
+                    <label class="anwesenheit-option">
+                        <input type="radio" name="anwesenheit-status" value="nicht_da" checked>
+                        <div class="anwesenheit-option-content">
+                            <span class="anwesenheit-option-icon" style="color: #95a5a6;">&#9679;</span>
+                            <span class="anwesenheit-option-text">Nicht geplant</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('anwesenheit-tag-modal')">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="App.saveAnwesenheitTag()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
     <div id="click-effect-container" class="click-effect-container"></div>
