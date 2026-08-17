@@ -692,15 +692,28 @@ const SupabaseDataAdapter = {
 
             console.log('📝 addProject - insert data:', supabaseProject);
 
-            // Insert ohne .single() um 409 Conflict zu vermeiden
-            const { data, error } = await SupabaseService.client
+            // Insert ohne .select() - RLS kann das Zurücklesen verhindern
+            const { error: insertError } = await SupabaseService.client
                 .from('projects')
-                .insert([supabaseProject])
-                .select();
+                .insert([supabaseProject]);
 
-            if (error) {
-                console.error('❌ addProject insert error:', error);
-                throw error;
+            if (insertError) {
+                console.error('❌ addProject insert error:', insertError);
+                console.error('❌ Error details:', JSON.stringify(insertError, null, 2));
+                throw insertError;
+            }
+
+            // Projekt separat laden (mit dem Namen als Filter)
+            const { data, error: selectError } = await SupabaseService.client
+                .from('projects')
+                .select('*')
+                .eq('name', supabaseProject.name)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (selectError) {
+                console.warn('⚠️ Projekt erstellt aber konnte nicht geladen werden:', selectError);
+                return { id: null, name: supabaseProject.name, ...supabaseProject };
             }
 
             const result = data && data.length > 0 ? data[0] : null;
