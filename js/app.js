@@ -17898,35 +17898,162 @@ const App = {
         }
     },
 
-    verknuepfeRechnungMitEinkauf: async function(rechnungId) {
-        // Einkäufe ohne Verknüpfung anzeigen
-        const einkaeufe = await DataManager.getShopEinkaeufe() || [];
-        const artikel = await DataManager.getShopArtikel() || [];
-        const unverknuepft = einkaeufe.filter(e => !e.rechnungId);
+    // Shop-Rechnungs-Details anzeigen
+    showRechnungDetails: async function(rechnungId) {
+        try {
+            // Rechnung aus Cache oder DB holen
+            const alleRechnungen = await DataManager.getRechnungenMitStatus() || [];
+            const rechnung = alleRechnungen.find(r => String(r.id) === String(rechnungId));
 
-        if (unverknuepft.length === 0) {
-            this.showToast('Info', 'Keine unverknüpften Einkäufe vorhanden', 'info');
-            return;
+            if (!rechnung) {
+                this.showToast('Fehler', 'Rechnung nicht gefunden', 'error');
+                return;
+            }
+
+            const status = DataManager.getRechnungStatus ? DataManager.getRechnungStatus(rechnungId) : {};
+            const betrag = rechnung.betrag || rechnung.betragNetto || 0;
+
+            // Modal-Inhalt generieren
+            const content = document.getElementById('shop-rechnung-details-content');
+            content.innerHTML = `
+                <div class="details-grid" style="display: grid; gap: 1rem;">
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Lieferant</span>
+                        <strong>${rechnung.fornitoreName || rechnung.fornitore_name || 'Unbekannt'}</strong>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Partita IVA</span>
+                        <span>${rechnung.partitaIva || rechnung.partita_iva || '-'}</span>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Dokument-Nr.</span>
+                        <span>${rechnung.dokumentNr || rechnung.dokument_nr || '-'}</span>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Datum</span>
+                        <span>${this.formatDate(rechnung.datum)}</span>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Betrag (Netto)</span>
+                        <strong style="${betrag < 0 ? 'color: var(--error-color);' : ''}">${this.formatCurrency(betrag)}</strong>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Projekt-ID</span>
+                        <span>${rechnung.projektId || rechnung.projekt_id || '-'}</span>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Beschreibung</span>
+                        <span>${rechnung.beschreibung || '-'}</span>
+                    </div>
+                    <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Status</span>
+                        <span>
+                            ${status.bezahlt ? '<span class="badge badge-success">Bezahlt</span>' :
+                              status.kontrolliert ? '<span class="badge badge-warning">Kontrolliert</span>' :
+                              '<span class="badge badge-secondary">Offen</span>'}
+                        </span>
+                    </div>
+                    ${rechnung.pdfUrl ? `
+                    <div class="detail-row" style="padding: 0.5rem 0;">
+                        <a href="${rechnung.pdfUrl}" target="_blank" class="btn btn-outline" style="width: 100%;">
+                            PDF anzeigen
+                        </a>
+                    </div>` : ''}
+                </div>
+            `;
+
+            this.showModal('shop-rechnung-details-modal');
+        } catch (error) {
+            console.error('Fehler beim Laden der Rechnungsdetails:', error);
+            this.showToast('Fehler', 'Rechnungsdetails konnten nicht geladen werden', 'error');
         }
+    },
 
-        // Einfacher Prompt mit Auswahl
-        const optionen = unverknuepft.map(e => {
-            const art = artikel.find(a => a.id === (e.artikelId || e.artikel_id));
-            return `${e.id}: ${art?.name || 'Unbekannt'} (${e.menge}x, ${this.formatDate(e.datum)})`;
-        }).join('\n');
+    // Verknüpfungs-Modal für Einkäufe anzeigen
+    verknuepfeRechnungMitEinkauf: async function(rechnungId) {
+        try {
+            // Rechnung laden
+            const alleRechnungen = await DataManager.getRechnungenMitStatus() || [];
+            const rechnung = alleRechnungen.find(r => String(r.id) === String(rechnungId));
 
-        const auswahl = prompt(`Welchen Einkauf verknüpfen?\n\n${optionen}\n\nEinkauf-ID eingeben:`);
+            if (!rechnung) {
+                this.showToast('Fehler', 'Rechnung nicht gefunden', 'error');
+                return;
+            }
 
-        if (auswahl) {
-            const einkaufId = parseInt(auswahl);
+            // Einkäufe und Artikel laden
+            const einkaeufe = await DataManager.getShopEinkaeufe() || [];
+            const artikel = await DataManager.getShopArtikel() || [];
+            const unverknuepft = einkaeufe.filter(e => !e.rechnungId && !e.rechnung_id);
+
+            if (unverknuepft.length === 0) {
+                this.showToast('Info', 'Keine unverknüpften Einkäufe vorhanden', 'info');
+                return;
+            }
+
+            // Rechnungs-Info anzeigen
+            const rechnungInfo = document.getElementById('shop-verknuepfung-rechnung-info');
+            const betrag = rechnung.betrag || rechnung.betragNetto || 0;
+            rechnungInfo.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${rechnung.fornitoreName || rechnung.fornitore_name || 'Unbekannt'}</strong>
+                        <br><small style="color: var(--text-secondary);">${rechnung.dokumentNr || rechnung.dokument_nr || ''} - ${this.formatDate(rechnung.datum)}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <strong style="${betrag < 0 ? 'color: var(--error-color);' : ''}">${this.formatCurrency(Math.abs(betrag))}</strong>
+                    </div>
+                </div>
+            `;
+
+            // Einkäufe-Liste generieren
+            const liste = document.getElementById('shop-verknuepfung-einkaeufe-liste');
+            liste.innerHTML = unverknuepft.map(e => {
+                const art = artikel.find(a => a.id === (e.artikelId || e.artikel_id));
+                const einkaufBetrag = (e.einzelpreis || e.preis || 0) * (e.menge || 1);
+                return `
+                    <div class="einkauf-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: var(--bg-secondary); border-radius: var(--radius-md); cursor: pointer; transition: background 0.2s;"
+                         onclick="App.doVerknuepfung('${rechnungId}', ${e.id})"
+                         onmouseover="this.style.background='var(--bg-tertiary)'"
+                         onmouseout="this.style.background='var(--bg-secondary)'">
+                        <div>
+                            <strong>${art?.name || 'Unbekannt'}</strong>
+                            <br><small style="color: var(--text-secondary);">${e.menge || 1}x - ${this.formatDate(e.datum)}</small>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>${this.formatCurrency(einkaufBetrag)}</strong>
+                            <br><button class="btn btn-primary btn-sm">Verknüpfen</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            this.showModal('shop-einkauf-verknuepfung-modal');
+        } catch (error) {
+            console.error('Fehler beim Öffnen des Verknüpfungs-Modals:', error);
+            this.showToast('Fehler', 'Modal konnte nicht geöffnet werden', 'error');
+        }
+    },
+
+    // Verknüpfung durchführen (wird vom Modal aufgerufen)
+    doVerknuepfung: async function(rechnungId, einkaufId) {
+        try {
+            const einkaeufe = await DataManager.getShopEinkaeufe() || [];
             const einkauf = einkaeufe.find(e => e.id === einkaufId);
+
             if (einkauf) {
                 einkauf.rechnungId = rechnungId;
+                einkauf.rechnung_id = rechnungId;
                 await DataManager.updateShopEinkauf(einkauf.id, einkauf);
+
+                this.closeModal('shop-einkauf-verknuepfung-modal');
                 this.showToast('Erfolg', 'Rechnung mit Einkauf verknüpft', 'success');
                 await this.loadShopRechnungen();
                 await this.loadShopEinkaeufe();
             }
+        } catch (error) {
+            console.error('Fehler beim Verknüpfen:', error);
+            this.showToast('Fehler', 'Verknüpfung fehlgeschlagen', 'error');
         }
     },
 

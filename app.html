@@ -5886,6 +5886,48 @@
         </div>
     </div>
 
+    <!-- Shop: Rechnungs-Details Modal -->
+    <div id="shop-rechnung-details-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Rechnungsdetails</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-rechnung-details-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="shop-rechnung-details-content">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-rechnung-details-modal')">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop: Einkauf-Verknüpfung Modal -->
+    <div id="shop-einkauf-verknuepfung-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Einkauf mit Rechnung verknüpfen</h2>
+                <button class="modal-close" onclick="App.closeModal('shop-einkauf-verknuepfung-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Wähle einen Einkauf aus, der mit dieser Rechnung verknüpft werden soll:</p>
+
+                <!-- Rechnungs-Info -->
+                <div id="shop-verknuepfung-rechnung-info" class="card" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-tertiary);">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+
+                <!-- Einkäufe-Liste -->
+                <div id="shop-verknuepfung-einkaeufe-liste" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-einkauf-verknuepfung-modal')">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== MODAL: Kurs erstellen/bearbeiten ==================== -->
     <div id="kurs-form-modal" class="modal-overlay">
         <div class="modal" style="max-width: 650px;">
