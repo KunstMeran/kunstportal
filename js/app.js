@@ -17080,13 +17080,13 @@ const App = {
         this.renderShopArtikelTabelle(artikel);
     },
 
-    showNewShopArtikelForm: function() {
+    showNewShopArtikelForm: async function() {
         document.getElementById('shop-artikel-modal-title').textContent = 'Neuer Artikel';
         document.getElementById('shop-artikel-form').reset();
         document.getElementById('shop-artikel-form-id').value = '';
 
         // Nächste Artikelnummer generieren
-        const artikel = DataManager.getShopArtikel() || [];
+        const artikel = await DataManager.getShopArtikel() || [];
         const maxNr = artikel.reduce((max, a) => {
             const match = (a.artikelnr || '').match(/SHOP-(\d+)/);
             return match ? Math.max(max, parseInt(match[1])) : max;
@@ -17101,8 +17101,8 @@ const App = {
         this.openModal('shop-artikel-form-modal');
     },
 
-    editShopArtikel: function(id) {
-        const artikel = DataManager.getShopArtikelById(id);
+    editShopArtikel: async function(id) {
+        const artikel = await DataManager.getShopArtikelById(id);
         if (!artikel) return;
 
         document.getElementById('shop-artikel-modal-title').textContent = 'Artikel bearbeiten';
@@ -17128,7 +17128,7 @@ const App = {
         this.openModal('shop-artikel-form-modal');
     },
 
-    saveShopArtikel: function(event) {
+    saveShopArtikel: async function(event) {
         if (event) event.preventDefault();
 
         const id = document.getElementById('shop-artikel-form-id').value;
@@ -17158,10 +17158,10 @@ const App = {
         }
 
         try {
-            DataManager.saveShopArtikel(artikelData);
+            await DataManager.saveShopArtikel(artikelData);
             this.closeModal('shop-artikel-form-modal');
             this.showToast('Erfolg', id ? 'Artikel aktualisiert' : 'Artikel erstellt', 'success');
-            this.loadShopInventar();
+            await this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Artikel konnte nicht gespeichert werden', 'error');
@@ -17275,7 +17275,7 @@ const App = {
         return kat ? kat.name : code;
     },
 
-    showShopVerkaufForm: function(typ) {
+    showShopVerkaufForm: async function(typ) {
         try {
             const heute = new Date().toISOString().split('T')[0];
 
@@ -17285,7 +17285,7 @@ const App = {
                 if (datumEl) datumEl.value = heute;
 
                 // Artikel-Dropdown befüllen
-                const artikel = DataManager.getShopArtikel() || [];
+                const artikel = await DataManager.getShopArtikel() || [];
                 const select = document.getElementById('shop-verkauf-artikel-select');
                 if (select) {
                     select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
@@ -17308,7 +17308,7 @@ const App = {
                 }
 
                 // Nur aktive Kategorien anzeigen
-                const alleKategorien = DataManager.getEintrittKategorien() || [];
+                const alleKategorien = await DataManager.getEintrittKategorien() || [];
                 const kategorien = alleKategorien.filter(k => k.is_active !== false);
                 const select = document.getElementById('shop-verkauf-eintritt-kat');
                 if (select) {
@@ -17326,7 +17326,7 @@ const App = {
                 if (datumEl) datumEl.value = heute;
 
                 // Nur aktive Kategorien anzeigen
-                const alleKategorien = DataManager.getMitgliedKategorien() || [];
+                const alleKategorien = await DataManager.getMitgliedKategorien() || [];
                 const kategorien = alleKategorien.filter(k => k.is_active !== false);
                 const select = document.getElementById('shop-verkauf-mitglied-kat');
                 if (select) {
@@ -17528,8 +17528,8 @@ const App = {
     },
 
     editShopVerkauf: async function(id) {
-        const verkaeufe = DataManager.getAllShopVerkaeufe ? DataManager.getAllShopVerkaeufe() : [];
-        const verkauf = verkaeufe.find(v => v.id === id);
+        // Verkauf direkt aus Supabase laden
+        const verkauf = await DataManager.getShopVerkaufById(id);
         if (!verkauf) {
             this.showToast('Fehler', 'Verkauf nicht gefunden', 'error');
             return;
@@ -17537,7 +17537,7 @@ const App = {
 
         // Je nach Typ das entsprechende Formular öffnen
         if (verkauf.typ === 'artikel') {
-            this.showShopVerkaufForm('artikel');
+            await this.showShopVerkaufForm('artikel');
             setTimeout(() => {
                 document.getElementById('shop-verkauf-artikel-datum').value = verkauf.datum || '';
                 document.getElementById('shop-verkauf-artikel-select').value = verkauf.artikel_id || verkauf.artikelId || '';
@@ -17548,7 +17548,7 @@ const App = {
             }, 100);
 
         } else if (verkauf.typ === 'eintritt') {
-            this.showShopVerkaufForm('eintritt');
+            await this.showShopVerkaufForm('eintritt');
             setTimeout(() => {
                 document.getElementById('shop-verkauf-eintritt-datum').value = verkauf.datum || '';
                 document.getElementById('shop-verkauf-eintritt-tageszeit').value = verkauf.tageszeit || 'vormittag';
@@ -17560,7 +17560,7 @@ const App = {
             }, 100);
 
         } else if (verkauf.typ === 'mitglied') {
-            this.showShopVerkaufForm('mitglied');
+            await this.showShopVerkaufForm('mitglied');
             setTimeout(() => {
                 document.getElementById('shop-verkauf-mitglied-datum').value = verkauf.datum || '';
                 document.getElementById('shop-verkauf-mitglied-kat').value = verkauf.mitglied_kategorie || '';
@@ -17577,13 +17577,14 @@ const App = {
     loadShopEinkaeufe: async function() {
         try {
             const einkaeufe = await DataManager.getShopEinkaeufe();
-            this.renderShopEinkaeufeTabelle(einkaeufe);
+            const artikel = await DataManager.getShopArtikel() || [];
+            this.renderShopEinkaeufeTabelle(einkaeufe, artikel);
         } catch (error) {
             console.error('Fehler beim Laden der Einkäufe:', error);
         }
     },
 
-    renderShopEinkaeufeTabelle: function(einkaeufe) {
+    renderShopEinkaeufeTabelle: function(einkaeufe, artikel) {
         const tbody = document.getElementById('shop-einkaeufe-table-body');
         if (!tbody) return;
 
@@ -17598,13 +17599,13 @@ const App = {
             return;
         }
 
-        // Artikel-Namen holen
-        const artikel = DataManager.getAllShopArtikel ? DataManager.getAllShopArtikel() : [];
+        // Artikel als Parameter erhalten
+        const artikelListe = artikel || [];
 
         tbody.innerHTML = einkaeufe.map(e => {
             // Artikel-ID kann artikelId oder artikel_id sein
             const artId = e.artikelId || e.artikel_id;
-            const art = artikel.find(a => a.id === artId);
+            const art = artikelListe.find(a => a.id === artId);
             const artikelName = art ? art.name : (e.artikel_name || `Artikel #${artId}`);
 
             return `
@@ -17631,8 +17632,8 @@ const App = {
         }).join('');
     },
 
-    showShopEinkaufForm: function() {
-        const artikel = DataManager.getShopArtikel() || [];
+    showShopEinkaufForm: async function() {
+        const artikel = await DataManager.getShopArtikel() || [];
         const select = document.getElementById('shop-einkauf-artikel');
         if (select) {
             select.innerHTML = '<option value="">-- Artikel wählen --</option>' +
@@ -17648,7 +17649,7 @@ const App = {
         this.openModal('shop-einkauf-form-modal');
     },
 
-    saveShopEinkauf: function(event) {
+    saveShopEinkauf: async function(event) {
         if (event) event.preventDefault();
 
         const form = document.getElementById('shop-einkauf-form');
@@ -17670,7 +17671,7 @@ const App = {
         try {
             if (editId) {
                 // Update bestehenden Einkauf
-                DataManager.updateShopEinkauf(editId, {
+                await DataManager.updateShopEinkauf(editId, {
                     artikelId: parseInt(artikelId),
                     datum: datum,
                     menge: menge,
@@ -17683,7 +17684,7 @@ const App = {
                 this.showToast('Erfolg', 'Einkauf aktualisiert', 'success');
             } else {
                 // Neuen Einkauf anlegen
-                DataManager.addShopEinkauf({
+                await DataManager.addShopEinkauf({
                     artikelId: parseInt(artikelId),
                     datum: datum,
                     menge: menge,
@@ -17700,16 +17701,16 @@ const App = {
             if (form) delete form.dataset.editId;
 
             this.closeModal('shop-einkauf-form-modal');
-            this.loadShopEinkaeufe();
-            this.loadShopInventar();
+            await this.loadShopEinkaeufe();
+            await this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
             this.showToast('Fehler', 'Einkauf konnte nicht erfasst werden', 'error');
         }
     },
 
-    editShopEinkauf: function(id) {
-        const einkaeufe = DataManager.getShopEinkaeufe() || [];
+    editShopEinkauf: async function(id) {
+        const einkaeufe = await DataManager.getShopEinkaeufe() || [];
         const einkauf = einkaeufe.find(e => e.id === id);
         if (!einkauf) {
             this.showToast('Fehler', 'Einkauf nicht gefunden', 'error');
@@ -17717,7 +17718,7 @@ const App = {
         }
 
         // Formular befüllen
-        this.showShopEinkaufForm();
+        await this.showShopEinkaufForm();
 
         // Werte setzen
         document.getElementById('shop-einkauf-datum').value = einkauf.datum || '';
@@ -17732,14 +17733,14 @@ const App = {
         document.getElementById('shop-einkauf-form').dataset.editId = id;
     },
 
-    deleteShopEinkauf: function(id) {
+    deleteShopEinkauf: async function(id) {
         if (!confirm('Möchten Sie diesen Einkauf wirklich löschen? Der Bestand wird entsprechend angepasst.')) return;
 
         try {
-            DataManager.deleteShopEinkauf(id);
+            await DataManager.deleteShopEinkauf(id);
             this.showToast('Erfolg', 'Einkauf gelöscht', 'success');
-            this.loadShopEinkaeufe();
-            this.loadShopInventar();
+            await this.loadShopEinkaeufe();
+            await this.loadShopInventar();
         } catch (error) {
             console.error('Fehler beim Löschen:', error);
             this.showToast('Fehler', 'Einkauf konnte nicht gelöscht werden', 'error');
@@ -17748,13 +17749,13 @@ const App = {
 
     // ---- SHOP RECHNUNGEN ----
 
-    loadShopRechnungen: function() {
+    loadShopRechnungen: async function() {
         const statusFilter = document.getElementById('shop-rechnungen-filter-status')?.value || '';
         const typFilter = document.getElementById('shop-rechnungen-filter-typ')?.value || '';
 
         // Alle Rechnungen mit Kostenstelle 2699 (Shop) holen
         const alleRechnungen = DataManager.getRechnungen ? DataManager.getRechnungen() : [];
-        const einkaeufe = DataManager.getShopEinkaeufe ? DataManager.getShopEinkaeufe() : [];
+        const einkaeufe = await DataManager.getShopEinkaeufe() || [];
 
         // Nach Kostenstelle 2699 filtern
         let shopRechnungen = alleRechnungen.filter(r => {
@@ -17852,9 +17853,10 @@ const App = {
         }
     },
 
-    verknuepfeRechnungMitEinkauf: function(rechnungId) {
+    verknuepfeRechnungMitEinkauf: async function(rechnungId) {
         // Einkäufe ohne Verknüpfung anzeigen
-        const einkaeufe = DataManager.getShopEinkaeufe ? DataManager.getShopEinkaeufe() : [];
+        const einkaeufe = await DataManager.getShopEinkaeufe() || [];
+        const artikel = await DataManager.getShopArtikel() || [];
         const unverknuepft = einkaeufe.filter(e => !e.rechnungId);
 
         if (unverknuepft.length === 0) {
@@ -17864,8 +17866,8 @@ const App = {
 
         // Einfacher Prompt mit Auswahl
         const optionen = unverknuepft.map(e => {
-            const artikel = DataManager.getShopArtikelById ? DataManager.getShopArtikelById(e.artikelId) : null;
-            return `${e.id}: ${artikel?.name || 'Unbekannt'} (${e.menge}x, ${this.formatDate(e.datum)})`;
+            const art = artikel.find(a => a.id === (e.artikelId || e.artikel_id));
+            return `${e.id}: ${art?.name || 'Unbekannt'} (${e.menge}x, ${this.formatDate(e.datum)})`;
         }).join('\n');
 
         const auswahl = prompt(`Welchen Einkauf verknüpfen?\n\n${optionen}\n\nEinkauf-ID eingeben:`);
@@ -17875,10 +17877,10 @@ const App = {
             const einkauf = einkaeufe.find(e => e.id === einkaufId);
             if (einkauf) {
                 einkauf.rechnungId = rechnungId;
-                DataManager.saveShopEinkauf(einkauf);
+                await DataManager.updateShopEinkauf(einkauf.id, einkauf);
                 this.showToast('Erfolg', 'Rechnung mit Einkauf verknüpft', 'success');
-                this.loadShopRechnungen();
-                this.loadShopEinkaeufe();
+                await this.loadShopRechnungen();
+                await this.loadShopEinkaeufe();
             }
         }
     },

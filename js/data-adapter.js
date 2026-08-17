@@ -244,6 +244,9 @@ const SupabaseDataAdapter = {
         DataManager._getShopVerkaeufeFOriginal = DataManager.getShopVerkaeufe;
         DataManager.getShopVerkaeufe = this.getShopVerkaeufe.bind(this);
 
+        DataManager._getShopVerkaufByIdOriginal = DataManager.getShopVerkaufById;
+        DataManager.getShopVerkaufById = this.getShopVerkaufById.bind(this);
+
         DataManager._addShopVerkaufOriginal = DataManager.addShopVerkauf;
         DataManager.addShopVerkauf = this.addShopVerkauf.bind(this);
 
@@ -4452,6 +4455,43 @@ const SupabaseDataAdapter = {
         } catch (error) {
             console.error('Fehler beim Laden der Verkäufe:', error);
             return [];
+        }
+    },
+
+    async getShopVerkaufById(id) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('shop_verkaeufe')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) throw error;
+            if (!data) return null;
+
+            return {
+                id: data.id,
+                datum: data.datum,
+                uhrzeit: data.uhrzeit,
+                typ: data.typ,
+                artikel_id: data.artikel_id,
+                artikelId: data.artikel_id,
+                eintritt_kategorie: data.eintritt_kategorie,
+                mitglied_kategorie: data.mitglied_kategorie,
+                mitglied_name: data.mitglied_name,
+                menge: data.menge,
+                einzelpreis: data.einzelpreis,
+                mwst_satz: data.mwst_satz,
+                mwstSatz: data.mwst_satz,
+                gesamtpreis: data.gesamtpreis,
+                zahlungsart: data.zahlungsart,
+                notizen: data.notizen,
+                storniert: data.storniert,
+                tageszeit: data.tageszeit
+            };
+        } catch (error) {
+            console.error('Fehler beim Laden des Verkaufs:', error);
+            return null;
         }
     },
 
