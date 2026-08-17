@@ -55,3 +55,8 @@ build/
 
 # Claude Code
 .claude/
+
+# Migration files (temporary, contains sensitive data)
+*.zip
+supabase_data.sql
+supabase/
