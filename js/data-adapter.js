@@ -69,6 +69,7 @@ const SupabaseDataAdapter = {
         DataManager._getDatevLieferantenOriginal = DataManager.getDatevLieferanten;
         DataManager.getDatevLieferanten = this.getSuppliers.bind(this);
         DataManager.updateSupplier = this.updateSupplier.bind(this);
+        DataManager.addSupplier = this.addSupplier.bind(this);
 
         // Zeiterfassungs-Funktionen überschreiben
         DataManager._getTimeEntriesOriginal = DataManager.getTimeEntries;
@@ -231,22 +232,15 @@ const SupabaseDataAdapter = {
      * Wird bei allen Update-Operationen verwendet für Audit-Trail
      */
     /**
-     * Hilfsfunktion: Holt die User-ID aus der users-Tabelle (nicht auth.users)
-     * Die users-Tabelle hat eigene IDs, nicht die Supabase Auth UIDs
+     * Hilfsfunktion: Holt die Auth-User-ID aus auth.users
+     * WICHTIG: Foreign Keys wie created_by/updated_by referenzieren auth.users(id),
+     * daher muss hier die Supabase Auth UID verwendet werden, nicht public.users.id
      */
     async getCurrentUserId() {
         try {
             const authUser = (await SupabaseService.client.auth.getUser()).data.user;
-            if (!authUser?.email) return null;
-
-            // Suche den User in der users-Tabelle anhand der Email
-            const { data: dbUser } = await SupabaseService.client
-                .from('users')
-                .select('id')
-                .eq('email', authUser.email)
-                .single();
-
-            return dbUser?.id || null;
+            // Direkt die Auth-User-ID zurückgeben (für Foreign Key Constraints)
+            return authUser?.id || null;
         } catch (error) {
             console.warn('⚠️ Konnte User-ID nicht ermitteln:', error);
             return null;
@@ -1469,6 +1463,59 @@ const SupabaseDataAdapter = {
             };
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Lieferanten:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Erstellt einen neuen Lieferanten
+     * WICHTIG: Partita IVA ist Pflichtfeld (unique constraint)
+     */
+    async addSupplier(supplierData) {
+        try {
+            // Partita IVA validieren
+            if (!supplierData.partitaIva || supplierData.partitaIva.trim() === '') {
+                throw new Error('Partita IVA ist ein Pflichtfeld');
+            }
+
+            let insertData = {
+                partita_iva: supplierData.partitaIva.trim().toUpperCase(),
+                fornitore_name: supplierData.name,
+                fornitore_nr: supplierData.fornitoreNr || null,
+                address: supplierData.address || null,
+                city: supplierData.city || null,
+                country: supplierData.country || 'IT',
+                contact_user_id: supplierData.contactUserId || null
+            };
+
+            // Audit-Trail hinzufügen
+            insertData = await this.addCreateMetadata(insertData);
+
+            const { data, error } = await SupabaseService.client
+                .from('suppliers')
+                .insert([insertData])
+                .select()
+                .single();
+
+            if (error) {
+                // Duplikat-Fehler behandeln
+                if (error.code === '23505') {
+                    throw new Error('Ein Lieferant mit dieser Partita IVA existiert bereits');
+                }
+                throw error;
+            }
+
+            return {
+                partitaIva: data.partita_iva,
+                name: data.fornitore_name,
+                fornitoreNr: data.fornitore_nr,
+                address: data.address,
+                city: data.city,
+                country: data.country,
+                contactUserId: data.contact_user_id || null
+            };
+        } catch (error) {
+            console.error('Fehler beim Erstellen des Lieferanten:', error);
             throw error;
         }
     },

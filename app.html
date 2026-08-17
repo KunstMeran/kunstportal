@@ -3415,44 +3415,61 @@
     </div>
 
     <!-- Lieferant-Formular Modal -->
-    <div id="supplier-form-modal" class="modal-overlay">
-        <div class="modal" style="max-width: 500px;">
+    <div id="supplier-form-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('supplier-form-modal')">
+        <div class="modal" style="max-width: 550px;">
             <div class="modal-header">
                 <h2 class="modal-title" id="supplier-modal-title">Neuer Lieferant</h2>
                 <button class="modal-close" onclick="App.hideModal('supplier-form-modal')">&times;</button>
             </div>
-            <form id="supplier-form" onsubmit="App.saveSupplier(event)">
-                <input type="hidden" id="supplier-form-id">
+            <form id="supplier-form" onsubmit="App.saveSupplierForm(event)">
+                <input type="hidden" id="supplier-form-partita-iva-original">
+                <input type="hidden" id="supplier-form-is-edit" value="false">
                 <div class="modal-body">
                     <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Name *</label>
-                            <input type="text" id="supplier-name" class="form-control" required placeholder="z.B. Musterfirma GmbH">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Partita IVA *</label>
+                            <input type="text" id="supplier-partita-iva" class="form-control" required
+                                   placeholder="z.B. IT01234567890"
+                                   pattern="[A-Z]{2}[0-9]{11}|[0-9]{11}"
+                                   title="Format: IT + 11 Ziffern (z.B. IT01234567890) oder 11 Ziffern">
+                            <small class="form-hint" style="color: #666; font-size: 0.75rem;">Pflichtfeld - Format: IT + 11 Ziffern</small>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Externe ID</label>
-                            <input type="text" id="supplier-external-id" class="form-control" placeholder="z.B. LF-005 (auto)">
+                        <div class="form-group" style="flex: 0 0 120px;">
+                            <label class="form-label">Lieferanten-Nr.</label>
+                            <input type="text" id="supplier-fornitore-nr" class="form-control" placeholder="z.B. 70001">
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Typ/Kategorie</label>
-                            <select id="supplier-type" class="form-control">
-                                <!-- Wird dynamisch geladen -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Steuernummer/MwSt-Nr.</label>
-                            <input type="text" id="supplier-taxid" class="form-control" placeholder="z.B. IT01234567890">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">Name *</label>
+                        <input type="text" id="supplier-name" class="form-control" required placeholder="z.B. Musterfirma GmbH">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Adresse</label>
-                        <input type="text" id="supplier-address" class="form-control" placeholder="Straße, PLZ Ort">
+                        <input type="text" id="supplier-address" class="form-control" placeholder="Straße und Hausnummer">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Stadt</label>
+                            <input type="text" id="supplier-city" class="form-control" placeholder="z.B. Meran">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Land</label>
+                            <select id="supplier-country" class="form-control">
+                                <option value="IT" selected>Italien</option>
+                                <option value="DE">Deutschland</option>
+                                <option value="AT">Österreich</option>
+                                <option value="CH">Schweiz</option>
+                                <option value="EU">EU (andere)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Notizen</label>
-                        <textarea id="supplier-notes" class="form-control" rows="2" placeholder="Interne Notizen..."></textarea>
+                        <label class="form-label">Ansprechperson (intern)</label>
+                        <select id="supplier-contact-user" class="form-control">
+                            <option value="">-- Keine Ansprechperson --</option>
+                            <!-- Wird dynamisch befüllt -->
+                        </select>
+                        <small class="form-hint" style="color: #666; font-size: 0.75rem;">Zuständig für Rechnungskontrolle bei Rechnungen ohne Projektzuweisung</small>
                     </div>
                 </div>
                 <div class="modal-footer">

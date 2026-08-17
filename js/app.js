@@ -3997,70 +3997,124 @@ const App = {
         });
     },
 
-    showNewSupplierForm: function() {
+    /**
+     * Zeigt das Formular für einen neuen Lieferanten
+     */
+    showNewSupplierForm: async function() {
         document.getElementById('supplier-form').reset();
-        document.getElementById('supplier-form-id').value = '';
+        document.getElementById('supplier-form-partita-iva-original').value = '';
+        document.getElementById('supplier-form-is-edit').value = 'false';
         document.getElementById('supplier-modal-title').textContent = 'Neuer Lieferant';
-        document.getElementById('supplier-external-id').value = '';
-        document.getElementById('supplier-taxid').value = '';
-        document.getElementById('supplier-address').value = '';
-        document.getElementById('supplier-notes').value = '';
 
-        // Typ-Dropdown befüllen
-        const typeSelect = document.getElementById('supplier-type');
-        const costTypes = DataManager.getActiveCostTypes();
-        typeSelect.innerHTML = '<option value="">-- Keine Kategorie --</option>';
-        costTypes.forEach(ct => {
-            typeSelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
-        });
+        // Partita IVA Feld aktivieren (bei neuem Lieferant editierbar)
+        document.getElementById('supplier-partita-iva').disabled = false;
+
+        // Ansprechperson-Dropdown befüllen
+        await this.populateSupplierContactDropdown(null);
 
         this.showModal('supplier-form-modal');
     },
 
-    editSupplier: function(id) {
-        const supplier = DataManager.getSupplierById(id);
-        if (!supplier) return;
-
-        // Typ-Dropdown befüllen
-        const typeSelect = document.getElementById('supplier-type');
-        const costTypes = DataManager.getActiveCostTypes();
-        typeSelect.innerHTML = '<option value="">-- Keine Kategorie --</option>';
-        costTypes.forEach(ct => {
-            typeSelect.innerHTML += `<option value="${ct.name}" ${ct.name === supplier.type ? 'selected' : ''}>${ct.name}</option>`;
-        });
-
-        document.getElementById('supplier-form-id').value = supplier.id;
-        document.getElementById('supplier-name').value = supplier.name;
-        document.getElementById('supplier-external-id').value = supplier.externalId || '';
-        document.getElementById('supplier-taxid').value = supplier.taxId || '';
-        document.getElementById('supplier-address').value = supplier.address || '';
-        document.getElementById('supplier-notes').value = supplier.notes || '';
-
-        document.getElementById('supplier-modal-title').textContent = 'Lieferant bearbeiten';
-        this.showModal('supplier-form-modal');
-    },
-
-    saveSupplier: function(event) {
-        event.preventDefault();
-
-        const id = document.getElementById('supplier-form-id').value;
-        const supplierData = {
-            name: document.getElementById('supplier-name').value,
-            type: document.getElementById('supplier-type').value,
-            externalId: document.getElementById('supplier-external-id').value || undefined,
-            taxId: document.getElementById('supplier-taxid').value,
-            address: document.getElementById('supplier-address').value,
-            notes: document.getElementById('supplier-notes').value
-        };
-
-        if (id) {
-            DataManager.updateSupplier(parseInt(id), supplierData);
-        } else {
-            DataManager.addSupplier(supplierData);
+    /**
+     * Öffnet das Bearbeitungsmodal für einen Lieferanten
+     * Ersetzt die alte editLieferantName Funktion mit prompt()
+     */
+    editLieferant: async function(partitaIva) {
+        // Lieferant in Cache suchen
+        const lieferant = this.allLieferanten.find(l => l.partitaIva === partitaIva);
+        if (!lieferant) {
+            this.showToast('error', 'Fehler', 'Lieferant nicht gefunden');
+            return;
         }
 
-        this.hideModal('supplier-form-modal');
-        this.loadSuppliers();
+        document.getElementById('supplier-form').reset();
+        document.getElementById('supplier-form-partita-iva-original').value = partitaIva;
+        document.getElementById('supplier-form-is-edit').value = 'true';
+        document.getElementById('supplier-modal-title').textContent = 'Lieferant bearbeiten';
+
+        // Felder befüllen
+        document.getElementById('supplier-partita-iva').value = partitaIva;
+        document.getElementById('supplier-partita-iva').disabled = true; // Partita IVA nicht änderbar
+        document.getElementById('supplier-fornitore-nr').value = lieferant.fornitoreNr || '';
+        document.getElementById('supplier-name').value = lieferant.name || '';
+        document.getElementById('supplier-address').value = lieferant.address || '';
+        document.getElementById('supplier-city').value = lieferant.city || '';
+        document.getElementById('supplier-country').value = lieferant.country || 'IT';
+
+        // Ansprechperson-Dropdown befüllen
+        await this.populateSupplierContactDropdown(lieferant.contactUserId);
+
+        this.showModal('supplier-form-modal');
+    },
+
+    /**
+     * Befüllt das Ansprechperson-Dropdown im Lieferanten-Modal
+     */
+    populateSupplierContactDropdown: async function(selectedUserId) {
+        const select = document.getElementById('supplier-contact-user');
+        const users = this.allUsers || await DataManager.getUsers();
+
+        select.innerHTML = '<option value="">-- Keine Ansprechperson --</option>';
+        users.forEach(u => {
+            const selected = u.id === selectedUserId ? 'selected' : '';
+            select.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.email}</option>`;
+        });
+    },
+
+    /**
+     * Speichert das Lieferanten-Formular (Neu oder Bearbeiten)
+     */
+    saveSupplierForm: async function(event) {
+        event.preventDefault();
+
+        const isEdit = document.getElementById('supplier-form-is-edit').value === 'true';
+        const originalPartitaIva = document.getElementById('supplier-form-partita-iva-original').value;
+
+        const supplierData = {
+            partitaIva: document.getElementById('supplier-partita-iva').value.trim().toUpperCase(),
+            name: document.getElementById('supplier-name').value.trim(),
+            fornitoreNr: document.getElementById('supplier-fornitore-nr').value.trim() || null,
+            address: document.getElementById('supplier-address').value.trim() || null,
+            city: document.getElementById('supplier-city').value.trim() || null,
+            country: document.getElementById('supplier-country').value || 'IT',
+            contactUserId: document.getElementById('supplier-contact-user').value || null
+        };
+
+        // Validierung: Partita IVA Pflichtfeld
+        if (!supplierData.partitaIva) {
+            this.showToast('error', 'Fehler', 'Partita IVA ist ein Pflichtfeld');
+            return;
+        }
+
+        // Validierung: Name Pflichtfeld
+        if (!supplierData.name) {
+            this.showToast('error', 'Fehler', 'Name ist ein Pflichtfeld');
+            return;
+        }
+
+        try {
+            if (isEdit) {
+                // Bearbeiten
+                await DataManager.updateSupplier(originalPartitaIva, supplierData);
+                this.showToast('success', 'Gespeichert', 'Lieferant wurde aktualisiert');
+            } else {
+                // Neu anlegen
+                await DataManager.addSupplier(supplierData);
+                this.showToast('success', 'Gespeichert', 'Lieferant wurde angelegt');
+            }
+
+            this.hideModal('supplier-form-modal');
+            // Lieferantenliste neu laden
+            await this.loadLieferanten();
+
+            // Auch Rechnungsliste aktualisieren falls sichtbar
+            if (document.getElementById('view-rechnungen')?.classList.contains('active')) {
+                this.filterRechnungen();
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern des Lieferanten:', error);
+            this.showToast('error', 'Fehler', error.message || 'Lieferant konnte nicht gespeichert werden');
+        }
     },
 
     deleteSupplier: function(id) {
@@ -7726,18 +7780,13 @@ const App = {
         `;
     },
 
+    /**
+     * Öffnet das Bearbeitungsmodal für einen Lieferanten (Alias für editLieferant)
+     * Wird von den Bearbeiten-Buttons in der Lieferanten-Tabelle aufgerufen
+     */
     editLieferantName: function(partitaIva) {
-        const currentName = DataManager.getLieferantName(partitaIva) || '';
-        const newName = prompt('Lieferantenname für ' + partitaIva + ':', currentName);
-
-        if (newName !== null && newName.trim() !== '') {
-            DataManager.setLieferantName(partitaIva, newName.trim());
-            this.loadLieferanten();
-            // Auch Rechnungsliste aktualisieren falls sichtbar
-            if (document.getElementById('view-rechnungen').classList.contains('active')) {
-                this.filterRechnungen();
-            }
-        }
+        // Verwendet jetzt das neue Modal statt prompt()
+        this.editLieferant(partitaIva);
     },
 
     /**
