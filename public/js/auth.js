@@ -1,179 +1,187 @@
 /**
  * PROJEKTSOFTWARE KUNST MERAN - AUTH MODULE
- * Login/Logout Funktionalität mit Supabase
- * Version: 2.0.0
+ * Microsoft SSO Authentifizierung mit MSAL
+ * Version: 3.0.0 - Hetzner Migration
  */
 
 const Auth = {
+    msalInstance: null,
+
     /**
-     * Login-Formular verarbeiten
+     * MSAL initialisieren
      */
-    handleLogin: async function(event) {
-        event.preventDefault();
-
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorElement = document.getElementById('login-error');
-
-        // Supabase nutzen falls aktiviert
-        if (Config.features.useSupabase) {
-            try {
-                // Supabase erwartet E-Mail, nicht Username
-                // Username als E-Mail formatieren (falls noch nicht)
-                const email = username.includes('@') ? username : `${username}@kunstmeran.local`;
-
-                const result = await SupabaseService.signIn(email, password);
-
-                // Session erstellen
-                DataManager.setSession({
-                    id: result.user.id,
-                    email: result.user.email,
-                    username: result.user.email.split('@')[0],
-                    role: 'Admin' // TODO: Von user_metadata oder users-Tabelle laden
-                });
-
-                // Weiterleitung zur App
-                window.location.href = 'app.html';
-            } catch (error) {
-                console.error('Login Error:', error);
-                errorElement.textContent = 'Ungültiger Benutzername oder Passwort';
-                errorElement.classList.add('show');
-                document.getElementById('password').value = '';
-            }
-        } else {
-            // Fallback: localStorage-basierte Auth
-            const user = DataManager.validateLogin(username, password);
-
-            if (user) {
-                DataManager.setSession(user);
-                window.location.href = 'app.html';
-            } else {
-                errorElement.textContent = 'Ungültiger Benutzername oder Passwort';
-                errorElement.classList.add('show');
-                document.getElementById('password').value = '';
-            }
+    init() {
+        if (!Config.microsoftSSO.enabled) {
+            console.log('Microsoft SSO deaktiviert');
+            return;
         }
+
+        // Prüfen ob Client ID konfiguriert ist
+        if (Config.microsoftSSO.clientId === 'PLACEHOLDER_CLIENT_ID') {
+            console.warn('Microsoft SSO: Client ID noch nicht konfiguriert');
+            return;
+        }
+
+        const msalConfig = {
+            auth: {
+                clientId: Config.microsoftSSO.clientId,
+                authority: `https://login.microsoftonline.com/${Config.microsoftSSO.tenantId}`,
+                redirectUri: Config.microsoftSSO.redirectUri,
+            },
+            cache: {
+                cacheLocation: 'sessionStorage',
+                storeAuthStateInCookie: false,
+            },
+        };
+
+        this.msalInstance = new msal.PublicClientApplication(msalConfig);
+        console.log('🔐 MSAL initialisiert');
     },
 
     /**
-     * Microsoft SSO Login starten
+     * Microsoft Login starten
      */
     handleMicrosoftLogin: async function() {
-        if (!Config.features.useSupabase) {
-            console.error('Microsoft Login erfordert Supabase');
+        if (!this.msalInstance) {
+            this.init();
+        }
+
+        if (!this.msalInstance) {
+            console.error('MSAL nicht verfügbar');
             const errorElement = document.getElementById('login-error');
             if (errorElement) {
-                errorElement.textContent = 'Microsoft-Anmeldung ist nicht verfügbar';
+                errorElement.textContent = 'Microsoft-Anmeldung ist nicht konfiguriert. Bitte kontaktiere den Administrator.';
                 errorElement.classList.add('show');
             }
             return;
         }
 
         try {
-            // OAuth-Flow starten - Redirect zu Microsoft
-            await SupabaseService.signInWithMicrosoft();
-            // Nach erfolgreichem OAuth wird automatisch zu app.html weitergeleitet
+            const loginRequest = {
+                scopes: ['openid', 'profile', 'email'],
+            };
+
+            // Popup-Login für bessere UX
+            const response = await this.msalInstance.loginPopup(loginRequest);
+            console.log('Microsoft Login erfolgreich:', response.account.username);
+
+            // Token an Backend senden für Session
+            await this.createBackendSession(response);
+
         } catch (error) {
             console.error('Microsoft Login Error:', error);
             const errorElement = document.getElementById('login-error');
             if (errorElement) {
-                errorElement.textContent = error.message || 'Microsoft-Anmeldung fehlgeschlagen';
+                if (error.errorCode === 'user_cancelled') {
+                    errorElement.textContent = 'Anmeldung abgebrochen';
+                } else {
+                    errorElement.textContent = error.message || 'Microsoft-Anmeldung fehlgeschlagen';
+                }
                 errorElement.classList.add('show');
             }
         }
     },
 
     /**
-     * OAuth-Callback verarbeiten (wird beim Zurückkommen von Microsoft aufgerufen)
+     * Backend-Session erstellen nach Microsoft Login
      */
-    handleOAuthCallback: async function() {
+    createBackendSession: async function(msalResponse) {
         try {
-            const session = await SupabaseService.handleOAuthCallback();
+            const account = msalResponse.account;
 
-            if (session) {
-                // Session erstellen wie bei normalem Login
+            // Login an Backend senden
+            const result = await ApiClient.login(
+                account.username, // E-Mail
+                account.name,
+                account.localAccountId // Microsoft ID
+            );
+
+            if (result.success) {
+                // Session lokal speichern
                 DataManager.setSession({
-                    id: session.user.id,
-                    email: session.user.email,
-                    username: session.user.email.split('@')[0],
-                    role: 'User',
-                    authProvider: 'microsoft'
+                    id: result.user.id,
+                    email: result.user.email,
+                    username: result.user.name || result.user.email.split('@')[0],
+                    role: result.user.user_type,
+                    permissions: result.user.permissions
                 });
 
-                return true;
+                // Weiterleitung zur App
+                window.location.href = 'app.html';
+            } else {
+                throw new Error('Backend-Session konnte nicht erstellt werden');
             }
+
         } catch (error) {
-            console.error('OAuth Callback Error:', error);
-            // Bei Fehler zur Login-Seite mit Fehlermeldung
-            window.location.href = 'index.html?error=' + encodeURIComponent(error.message);
+            console.error('Backend Session Error:', error);
+            throw error;
         }
-        return false;
     },
 
     /**
      * Logout durchführen
      */
     logout: async function() {
-        if (Config.features.useSupabase) {
-            try {
-                await SupabaseService.signOut();
-            } catch (error) {
-                console.error('Logout Error:', error);
+        try {
+            // Backend-Session beenden
+            await ApiClient.logout();
+        } catch (error) {
+            console.error('Backend Logout Error:', error);
+        }
+
+        // MSAL Logout (optional - räumt nur den lokalen Cache auf)
+        if (this.msalInstance) {
+            const accounts = this.msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                this.msalInstance.clearCache();
             }
         }
+
+        // Lokale Session löschen
         DataManager.clearSession();
         window.location.href = 'index.html';
     },
 
     /**
      * Prüft ob Benutzer eingeloggt ist
-     * Leitet zur Login-Seite um wenn nicht
      */
     checkAuth: async function() {
-        if (Config.features.useSupabase) {
-            try {
-                const session = await SupabaseService.getSession();
-                if (!session) {
-                    window.location.href = 'index.html';
-                    return false;
-                }
-                return true;
-            } catch (error) {
-                console.error('Auth Check Error:', error);
+        try {
+            const session = await ApiClient.getSession();
+            if (!session) {
                 window.location.href = 'index.html';
                 return false;
             }
-        } else {
-            if (!DataManager.isLoggedIn()) {
-                window.location.href = 'index.html';
-                return false;
-            }
+
+            // Session lokal speichern für schnellen Zugriff
+            DataManager.setSession({
+                id: session.id,
+                email: session.email,
+                username: session.name || session.email.split('@')[0],
+                role: session.user_type,
+                permissions: session.permissions
+            });
+
             return true;
+        } catch (error) {
+            console.error('Auth Check Error:', error);
+            window.location.href = 'index.html';
+            return false;
         }
     },
 
     /**
      * Prüft ob bereits eingeloggt (für Login-Seite)
-     * Leitet zur App um wenn bereits eingeloggt
      */
     checkAlreadyLoggedIn: async function() {
-        if (Config.features.useSupabase) {
-            try {
-                const session = await SupabaseService.getSession();
-                if (session) {
-                    window.location.href = 'app.html';
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.error('Session Check Error:', error);
-                return false;
-            }
-        } else {
-            if (DataManager.isLoggedIn()) {
+        try {
+            const session = await ApiClient.getSession();
+            if (session) {
                 window.location.href = 'app.html';
                 return true;
             }
+            return false;
+        } catch (error) {
             return false;
         }
     },
@@ -182,21 +190,21 @@ const Auth = {
      * Aktuelle Benutzerinfo laden
      */
     getCurrentUser: async function() {
-        if (Config.features.useSupabase) {
-            try {
-                const user = await SupabaseService.getCurrentUser();
+        try {
+            const session = await ApiClient.getSession();
+            if (session) {
                 return {
-                    id: user.id,
-                    email: user.email,
-                    username: user.email.split('@')[0],
-                    role: 'Admin' // TODO: Von Datenbank laden
+                    id: session.id,
+                    email: session.email,
+                    username: session.name || session.email.split('@')[0],
+                    role: session.user_type,
+                    permissions: session.permissions
                 };
-            } catch (error) {
-                console.error('Get User Error:', error);
-                return null;
             }
-        } else {
-            return DataManager.getSession();
+            return null;
+        } catch (error) {
+            console.error('Get User Error:', error);
+            return null;
         }
     },
 
@@ -205,5 +213,21 @@ const Auth = {
      */
     isAdmin: function() {
         return DataManager.isAdmin();
+    },
+
+    /**
+     * Legacy: Login-Formular Handler
+     */
+    handleLogin: async function(event) {
+        event.preventDefault();
+        // Immer Microsoft SSO verwenden
+        await Auth.handleMicrosoftLogin();
     }
 };
+
+// MSAL initialisieren wenn Config geladen
+if (typeof Config !== 'undefined' && Config.microsoftSSO && Config.microsoftSSO.enabled) {
+    Auth.init();
+}
+
+console.log('🔐 Auth Module geladen (MSAL)');

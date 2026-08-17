@@ -2,36 +2,48 @@
  * Configuration File
  * Environment-abhängige Konfiguration
  *
- * WICHTIG: Ersetze SUPABASE_URL_PLACEHOLDER und SUPABASE_KEY_PLACEHOLDER
- * mit deinen echten Werten vor dem Deployment!
+ * Version: 3.0.0 - Hetzner Migration
  */
 
 const Config = {
-    // Supabase Konfiguration
+    // API Konfiguration (Hetzner Server)
+    api: {
+        baseUrl: 'https://portal.kunstmeranoarte.org/api/v1',
+        timeout: 30000
+    },
+
+    // Storage Konfiguration
+    storage: {
+        baseUrl: 'https://portal.kunstmeranoarte.org/storage'
+    },
+
+    // Legacy: Supabase Konfiguration (nicht mehr verwendet)
     supabase: {
-        url: 'https://adhzwaxzozujmaeexyej.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkaHp3YXh6b3p1am1hZWV4eWVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDIyNDQsImV4cCI6MjA5OTIxODI0NH0.u8Or_AdeNHVMoAlj98h7aykau2QQhFyjsP4PImDCYDg'
+        url: null,
+        anonKey: null
     },
 
     // App Konfiguration
     app: {
         name: 'Projektsoftware Kunst Meran',
-        version: '2.0.0',
+        version: '3.0.0',
         environment: 'production'
     },
 
     // Feature Flags
     features: {
-        useSupabase: true, // Auf false setzen für lokalen localStorage-Modus
-        enableRealtime: false, // Erstmal deaktiviert
+        useSupabase: false, // Deaktiviert - nutze eigene API
+        useHetznerAPI: true, // Neue Hetzner API
+        enableRealtime: false,
         enableBackups: true
     },
 
-    // Microsoft SSO Konfiguration (aktivieren nach Hetzner-Migration)
+    // Microsoft SSO Konfiguration
     microsoftSSO: {
-        enabled: false,
-        allowedDomain: 'kunstmeranoarte.org', // Nur diese Domain darf sich mit Microsoft anmelden
-        providerName: 'azure' // Supabase Provider-Name für Azure AD
+        enabled: true,
+        clientId: 'PLACEHOLDER_CLIENT_ID', // Von Ruben
+        tenantId: 'PLACEHOLDER_TENANT_ID', // Von Ruben
+        redirectUri: 'https://portal.kunstmeranoarte.org/callback'
     }
 };
 

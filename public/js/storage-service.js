@@ -1,40 +1,24 @@
 /**
  * STORAGE SERVICE
- * Verwaltung von Datei-Uploads zu Supabase Storage
- * Projektsoftware Kunst Meran
+ * Verwaltung von Datei-Uploads zum Hetzner Server
+ * Projektsoftware Kunst Meran v3.0
  */
 
 const StorageService = {
-    bucketName: 'invoices',
-
     /**
      * Upload einer Datei (z.B. Rechnung)
      */
-    async uploadFile(file, projectId, costId = null) {
+    async uploadFile(file, folder = 'invoices', customFilename = null) {
         try {
-            // Dateiname generieren: projektId/costId_originalname.pdf
-            const timestamp = Date.now();
-            const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const fileName = costId
-                ? `${projectId}/${costId}_${timestamp}_${sanitizedName}`
-                : `${projectId}/${timestamp}_${sanitizedName}`;
+            console.log('📤 Uploading file:', file.name);
 
-            console.log('📤 Uploading file:', fileName);
+            const result = await ApiClient.uploadFile(folder, file, customFilename);
 
-            const { data, error } = await SupabaseService.client.storage
-                .from(this.bucketName)
-                .upload(fileName, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (error) throw error;
-
-            console.log('✅ File uploaded:', data.path);
+            console.log('✅ File uploaded:', result.path);
             return {
-                path: data.path,
-                fullPath: data.fullPath || data.path,
-                url: this.getPublicUrl(data.path)
+                path: result.path,
+                fullPath: result.path,
+                url: this.getFileUrl(result.path)
             };
 
         } catch (error) {
@@ -44,32 +28,17 @@ const StorageService = {
     },
 
     /**
-     * Download-URL für eine Datei generieren
+     * URL für eine Datei generieren
      */
-    getPublicUrl(filePath) {
-        const { data } = SupabaseService.client.storage
-            .from(this.bucketName)
-            .getPublicUrl(filePath);
-
-        return data.publicUrl;
+    getFileUrl(filePath) {
+        return `${Config.storage.baseUrl}/${filePath}`;
     },
 
     /**
-     * Signierte URL für privaten Download (24h gültig)
+     * Public URL (alias für Kompatibilität)
      */
-    async getSignedUrl(filePath) {
-        try {
-            const { data, error } = await SupabaseService.client.storage
-                .from(this.bucketName)
-                .createSignedUrl(filePath, 86400); // 24 Stunden
-
-            if (error) throw error;
-            return data.signedUrl;
-
-        } catch (error) {
-            console.error('❌ Fehler beim Generieren der URL:', error);
-            throw error;
-        }
+    getPublicUrl(filePath) {
+        return this.getFileUrl(filePath);
     },
 
     /**
@@ -77,11 +46,11 @@ const StorageService = {
      */
     async deleteFile(filePath) {
         try {
-            const { error } = await SupabaseService.client.storage
-                .from(this.bucketName)
-                .remove([filePath]);
+            const parts = filePath.split('/');
+            const filename = parts.pop();
+            const folder = parts.join('/') || 'invoices';
 
-            if (error) throw error;
+            await ApiClient.deleteFile(folder, filename);
             console.log('🗑️ File deleted:', filePath);
             return true;
 
@@ -92,18 +61,12 @@ const StorageService = {
     },
 
     /**
-     * Alle Dateien eines Projekts auflisten
+     * Alle Dateien eines Ordners auflisten
      */
-    async listProjectFiles(projectId) {
+    async listFiles(folder = 'invoices') {
         try {
-            const { data, error } = await SupabaseService.client.storage
-                .from(this.bucketName)
-                .list(projectId, {
-                    sortBy: { column: 'created_at', order: 'desc' }
-                });
-
-            if (error) throw error;
-            return data || [];
+            const files = await ApiClient.listFiles(folder);
+            return files || [];
 
         } catch (error) {
             console.error('❌ Fehler beim Auflisten:', error);
@@ -112,29 +75,45 @@ const StorageService = {
     },
 
     /**
+     * Alias für Kompatibilität
+     */
+    async listProjectFiles(projectId) {
+        return this.listFiles(`invoices/${projectId}`);
+    },
+
+    /**
      * Datei herunterladen
      */
     async downloadFile(filePath) {
         try {
-            const { data, error } = await SupabaseService.client.storage
-                .from(this.bucketName)
-                .download(filePath);
+            const url = this.getFileUrl(filePath);
+            const response = await fetch(url, { credentials: 'include' });
 
-            if (error) throw error;
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
 
-            // Blob URL erstellen für Download
-            const url = URL.createObjectURL(data);
+            const blob = await response.blob();
+            const downloadUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
+            a.href = downloadUrl;
             a.download = filePath.split('/').pop();
             a.click();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(downloadUrl);
 
         } catch (error) {
             console.error('❌ Download-Fehler:', error);
             throw error;
         }
+    },
+
+    /**
+     * PDF in neuem Tab öffnen
+     */
+    openFile(filePath) {
+        const url = this.getFileUrl(filePath);
+        window.open(url, '_blank');
     }
 };
 
-console.log('📦 Storage Service geladen');
+console.log('📦 Storage Service geladen (Hetzner)');

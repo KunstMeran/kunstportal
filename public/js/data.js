@@ -1401,7 +1401,7 @@ const DataManager = {
 
     /**
      * Prüft welche archivierten Jahre verfügbar sind
-     * Holt Jahre aus Supabase datev_bookings Tabelle
+     * Holt Jahre aus der API datev_bookings Tabelle
      * @returns {Promise<Array>} Array mit verfügbaren Jahren
      */
     getAvailableYears: async function() {
@@ -1409,14 +1409,11 @@ const DataManager = {
         const currentYear = new Date().getFullYear();
 
         try {
-            // Jahre aus Supabase laden
-            if (typeof SupabaseService !== 'undefined' && SupabaseService.client) {
-                const { data, error } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .select('import_year')
-                    .not('import_year', 'is', null);
+            // Jahre über API laden
+            if (typeof ApiClient !== 'undefined') {
+                const data = await ApiClient.getDatevYears();
 
-                if (!error && data) {
+                if (data && Array.isArray(data)) {
                     const years = [...new Set(data.map(b => b.import_year))].sort((a, b) => b - a);
 
                     years.forEach(year => {
@@ -1429,7 +1426,7 @@ const DataManager = {
                 }
             }
         } catch (e) {
-            console.warn('Fehler beim Laden der Jahre aus Supabase:', e);
+            console.warn('Fehler beim Laden der Jahre:', e);
         }
 
         // Falls keine Jahre gefunden, aktuelles Jahr hinzufügen
