@@ -1,12 +1,14 @@
+# =====================================================
+# Kunstmeran App - .gitignore
+# Hetzner Deployment
+# =====================================================
+
 # Environment variables
 .env
 .env.local
 .env.production
 
-# Supabase
-.supabase/
-
-# Node modules (falls später benötigt)
+# Node modules
 node_modules/
 
 # Logs
@@ -28,36 +30,28 @@ desktop.ini
 *.backup
 *~
 
-# Local data backups
-data/backups/
+# Archive folder (legacy files, not needed in repo)
+archive/
 
-# Legacy data files (now in Supabase)
-data/buchungen.json
-data/sample_data.json
+# Local data (not in repo)
+data/
 
-# DATEV Exporte (lokale Daten)
+# DATEV Exporte (lokale Daten, sensibel)
 DATEV Exporte/
 
-# EK-Rechnungen (PDFs in Supabase Storage)
-EK-Rechnungen/
-
-# Lokale Scripte
+# Local scripts (VBS, etc.)
 scripts/
 
-
-# Sonstige lokale Dateien
-Monatsbilanz_Master.xlsx
-Hetzner*.pdf
-Hetzner*.html
-_ul
-
-# Excel temporäre Dateien
+# Excel temporaere Dateien
 ~$*.xlsx
 ~$*.xls
 
-# OneDrive temporäre Dateien
+# OneDrive temporaere Dateien
 ~*
 
-# Build output (falls später benötigt)
+# Build output
 dist/
 build/
+
+# Claude Code
+.claude/
