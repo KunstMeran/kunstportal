@@ -64,6 +64,38 @@ function formatAuditInfo(createdBy, createdAt, updatedBy, updatedAt) {
     return parts.join(' | ') || '';
 }
 
+/**
+ * XSS-Schutz: Escaped HTML-Sonderzeichen in Benutzereingaben
+ * Verhindert Script-Injection bei innerHTML-Verwendung
+ * @param {string} text - Zu escapender Text
+ * @returns {string} - HTML-escaped Text
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const str = String(text);
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+/**
+ * Escaped ein Objekt rekursiv (für JSON-Daten die in HTML angezeigt werden)
+ * @param {any} obj - Zu escapendes Objekt
+ * @returns {any} - Objekt mit escaped Strings
+ */
+function escapeHtmlObject(obj) {
+    if (typeof obj === 'string') return escapeHtml(obj);
+    if (Array.isArray(obj)) return obj.map(escapeHtmlObject);
+    if (obj && typeof obj === 'object') {
+        const escaped = {};
+        for (const key in obj) {
+            escaped[key] = escapeHtmlObject(obj[key]);
+        }
+        return escaped;
+    }
+    return obj;
+}
+
 // Icon Helper - liefert SVG-Icon als HTML
 const Icons = {
     document: '<img src="icons/01-document.svg" alt="" class="icon">',
@@ -2158,7 +2190,7 @@ const App = {
         const costTypes = DataManager.getActiveCostTypes();
         select.innerHTML = '<option value="">Kostentyp zuweisen...</option>';
         costTypes.forEach(ct => {
-            select.innerHTML += `<option value="${ct.id || ct.name}">${ct.name}</option>`;
+            select.innerHTML += `<option value="${escapeHtml(ct.id || ct.name)}">${escapeHtml(ct.name)}</option>`;
         });
     },
 
@@ -2357,14 +2389,14 @@ const App = {
         const categorySelect = document.getElementById('fp-filter-category');
         categorySelect.innerHTML = '<option value="">Alle Kategorien</option>';
         costTypes.forEach(ct => {
-            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+            categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}">${escapeHtml(ct.name)}</option>`;
         });
 
         // Lieferant-Filter
         const supplierSelect = document.getElementById('fp-filter-supplier');
         supplierSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
         suppliers.forEach(s => {
-            supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            supplierSelect.innerHTML += `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`;
         });
     },
 
@@ -2717,7 +2749,7 @@ const App = {
         const projects = DataManager.getProjects();
         projectSelect.innerHTML = '<option value="">Alle Projekte</option>';
         projects.forEach(p => {
-            projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
         });
 
         // Kategorie-Dropdown befüllen
@@ -2725,7 +2757,7 @@ const App = {
         const costTypes = DataManager.getActiveCostTypes();
         categorySelect.innerHTML = '<option value="">Alle Kategorien</option>';
         costTypes.forEach(ct => {
-            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+            categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}">${escapeHtml(ct.name)}</option>`;
         });
 
         // Lieferant-Dropdown befüllen
@@ -2733,7 +2765,7 @@ const App = {
         const suppliers = DataManager.getActiveSuppliers();
         supplierSelect.innerHTML = '<option value="">Alle Lieferanten</option>';
         suppliers.forEach(s => {
-            supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            supplierSelect.innerHTML += `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`;
         });
 
         this.filterCosts();
@@ -2808,7 +2840,7 @@ const App = {
         projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         projects.forEach(p => {
             const selected = preselectedProjectId && String(p.id) === String(preselectedProjectId) ? 'selected' : '';
-            projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+            projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}" ${selected}>${escapeHtml(p.name)}</option>`;
         });
 
         // Kategorie-Dropdown befüllen
@@ -2816,7 +2848,7 @@ const App = {
         const costTypes = DataManager.getActiveCostTypes();
         categorySelect.innerHTML = '';
         costTypes.forEach(ct => {
-            categorySelect.innerHTML += `<option value="${ct.name}">${ct.name}</option>`;
+            categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}">${escapeHtml(ct.name)}</option>`;
         });
 
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
@@ -2830,7 +2862,7 @@ const App = {
         if (datevLieferanten.length > 0) {
             supplierSelect.innerHTML += '<optgroup label="DATEV-Lieferanten">';
             datevLieferanten.forEach(l => {
-                supplierSelect.innerHTML += `<option value="datev_${l.partitaIva}">${l.name} (${l.partitaIva})</option>`;
+                supplierSelect.innerHTML += `<option value="datev_${escapeHtml(l.partitaIva)}">${escapeHtml(l.name)} (${escapeHtml(l.partitaIva)})</option>`;
             });
             supplierSelect.innerHTML += '</optgroup>';
         }
@@ -2839,7 +2871,7 @@ const App = {
         if (suppliers.length > 0) {
             supplierSelect.innerHTML += '<optgroup label="Manuelle Lieferanten">';
             suppliers.forEach(s => {
-                supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                supplierSelect.innerHTML += `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`;
             });
             supplierSelect.innerHTML += '</optgroup>';
         }
@@ -2863,7 +2895,7 @@ const App = {
         const projects = DataManager.getProjects();
         projectSelect.innerHTML = '';
         projects.forEach(p => {
-            projectSelect.innerHTML += `<option value="${p.id}" ${p.id === cost.projectId ? 'selected' : ''}>${p.name}</option>`;
+            projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}" ${p.id === cost.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`;
         });
 
         // Kategorie-Dropdown befüllen
@@ -2871,7 +2903,7 @@ const App = {
         const costTypes = DataManager.getActiveCostTypes();
         categorySelect.innerHTML = '';
         costTypes.forEach(ct => {
-            categorySelect.innerHTML += `<option value="${ct.name}" ${ct.name === cost.category ? 'selected' : ''}>${ct.name}</option>`;
+            categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}" ${ct.name === cost.category ? 'selected' : ''}>${escapeHtml(ct.name)}</option>`;
         });
 
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
@@ -2885,9 +2917,9 @@ const App = {
         if (datevLieferanten.length > 0) {
             supplierSelect.innerHTML += '<optgroup label="DATEV-Lieferanten">';
             datevLieferanten.forEach(l => {
-                const value = `datev_${l.partitaIva}`;
+                const value = `datev_${escapeHtml(l.partitaIva)}`;
                 const selected = cost.supplierId === value ? 'selected' : '';
-                supplierSelect.innerHTML += `<option value="${value}" ${selected}>${l.name} (${l.partitaIva})</option>`;
+                supplierSelect.innerHTML += `<option value="${value}" ${selected}>${escapeHtml(l.name)} (${escapeHtml(l.partitaIva)})</option>`;
             });
             supplierSelect.innerHTML += '</optgroup>';
         }
@@ -2897,7 +2929,7 @@ const App = {
             supplierSelect.innerHTML += '<optgroup label="Manuelle Lieferanten">';
             suppliers.forEach(s => {
                 const selected = cost.supplierId === s.id ? 'selected' : '';
-                supplierSelect.innerHTML += `<option value="${s.id}" ${selected}>${s.name}</option>`;
+                supplierSelect.innerHTML += `<option value="${escapeHtml(s.id)}" ${selected}>${escapeHtml(s.name)}</option>`;
             });
             supplierSelect.innerHTML += '</optgroup>';
         }
@@ -3246,20 +3278,26 @@ const App = {
     switchTimeTab: function(tab) {
         const tabEintraege = document.querySelector('[data-tab="zeit-eintraege"]');
         const tabExterne = document.querySelector('[data-tab="zeit-externe"]');
+        const tabKalender = document.querySelector('[data-tab="zeit-kalender"]');
         const contentEintraege = document.getElementById('tab-zeit-eintraege');
         const contentExterne = document.getElementById('tab-zeit-externe');
+        const contentKalender = document.getElementById('tab-zeit-kalender');
+
+        // Alle Tabs deaktivieren
+        [tabEintraege, tabExterne, tabKalender].forEach(t => t?.classList.remove('active'));
+        [contentEintraege, contentExterne, contentKalender].forEach(c => { if (c) c.style.display = 'none'; });
 
         if (tab === 'eintraege') {
-            tabEintraege.classList.add('active');
-            tabExterne.classList.remove('active');
-            contentEintraege.style.display = 'block';
-            contentExterne.style.display = 'none';
+            tabEintraege?.classList.add('active');
+            if (contentEintraege) contentEintraege.style.display = 'block';
         } else if (tab === 'externe') {
-            tabEintraege.classList.remove('active');
-            tabExterne.classList.add('active');
-            contentEintraege.style.display = 'none';
-            contentExterne.style.display = 'block';
+            tabExterne?.classList.add('active');
+            if (contentExterne) contentExterne.style.display = 'block';
             this.loadExterneAuswertung();
+        } else if (tab === 'kalender') {
+            tabKalender?.classList.add('active');
+            if (contentKalender) contentKalender.style.display = 'block';
+            this.loadKalender();
         }
     },
 
@@ -3279,13 +3317,13 @@ const App = {
 
         if (userSelect && userSelect.options.length <= 1) {
             externeUsers.forEach(u => {
-                userSelect.innerHTML += `<option value="${u.id}">${u.name}</option>`;
+                userSelect.innerHTML += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`;
             });
         }
 
         if (projectSelect && projectSelect.options.length <= 1) {
             projects.forEach(p => {
-                projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`;
             });
         }
 
@@ -3391,10 +3429,309 @@ const App = {
         this.loadExterneAuswertung();
     },
 
+    // ==========================================
+    // KALENDER-FUNKTIONEN
+    // ==========================================
+
+    // Kalender-State
+    kalenderCurrentYear: new Date().getFullYear(),
+    kalenderCurrentMonth: new Date().getMonth(), // 0-basiert
+    kalenderEntries: [],
+
+    /**
+     * Lädt den Wartungskalender
+     */
+    loadKalender: async function() {
+        // Filter-Dropdowns initialisieren (falls noch nicht geschehen)
+        await this.initKalenderFilters();
+
+        // Monat aus Filter oder aktuellen State
+        const monthInput = document.getElementById('kalender-filter-monat');
+        if (monthInput && monthInput.value) {
+            const [year, month] = monthInput.value.split('-').map(Number);
+            this.kalenderCurrentYear = year;
+            this.kalenderCurrentMonth = month - 1; // 0-basiert
+        } else if (monthInput) {
+            // Standard: aktueller Monat
+            monthInput.value = `${this.kalenderCurrentYear}-${String(this.kalenderCurrentMonth + 1).padStart(2, '0')}`;
+        }
+
+        // Alle Zeiteinträge laden
+        const allEntries = await DataManager.getTimeEntries();
+        const projects = await DataManager.getProjects();
+        const users = await DataManager.getUsers();
+        const suppliers = await DataManager.getDatevLieferanten();
+
+        // Filter anwenden
+        const filterProjekt = document.getElementById('kalender-filter-projekt')?.value || '';
+        const filterTyp = document.getElementById('kalender-filter-typ')?.value || '';
+        const filterLieferant = document.getElementById('kalender-filter-lieferant')?.value || '';
+
+        // Einträge für aktuellen Monat filtern
+        const year = this.kalenderCurrentYear;
+        const month = this.kalenderCurrentMonth;
+        const startDate = new Date(year, month, 1);
+        const endDate = new Date(year, month + 1, 0);
+
+        let filteredEntries = allEntries.filter(e => {
+            const entryDate = new Date(e.date);
+            return entryDate >= startDate && entryDate <= endDate;
+        });
+
+        // Projekt-Filter
+        if (filterProjekt) {
+            filteredEntries = filteredEntries.filter(e => String(e.projectId) === filterProjekt);
+        }
+
+        // Typ-Filter (Mitarbeiter/Lieferant)
+        if (filterTyp === 'mitarbeiter') {
+            filteredEntries = filteredEntries.filter(e => !e.isSupplierEntry && !e.supplierPartitaIva);
+        } else if (filterTyp === 'lieferant') {
+            filteredEntries = filteredEntries.filter(e => e.isSupplierEntry || e.supplierPartitaIva);
+        }
+
+        // Lieferanten-Filter
+        if (filterLieferant) {
+            filteredEntries = filteredEntries.filter(e => e.supplierPartitaIva === filterLieferant);
+        }
+
+        // Einträge mit Namen anreichern
+        this.kalenderEntries = filteredEntries.map(e => {
+            let personName = '';
+            if (e.supplierPartitaIva) {
+                const supplier = suppliers.find(s => s.partitaIva === e.supplierPartitaIva);
+                personName = supplier?.name || e.supplierPartitaIva;
+            } else if (e.userId) {
+                const user = users.find(u => String(u.id) === String(e.userId));
+                personName = user?.name || user?.email || 'Unbekannt';
+            }
+            const project = projects.find(p => String(p.id) === String(e.projectId));
+            return {
+                ...e,
+                personName,
+                projectName: project?.name || 'Unbekannt'
+            };
+        });
+
+        // Statistiken aktualisieren
+        this.updateKalenderStatistiken();
+
+        // Titel aktualisieren
+        const monatNamen = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                           'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        document.getElementById('kalender-monat-titel').textContent =
+            `${monatNamen[month]} ${year}`;
+
+        // Kalender rendern
+        this.renderKalender();
+    },
+
+    /**
+     * Initialisiert die Kalender-Filter-Dropdowns
+     */
+    initKalenderFilters: async function() {
+        const projektSelect = document.getElementById('kalender-filter-projekt');
+        const lieferantSelect = document.getElementById('kalender-filter-lieferant');
+
+        // Nur einmal initialisieren
+        if (projektSelect && projektSelect.options.length <= 1) {
+            const projects = await DataManager.getProjects();
+            projects.forEach(p => {
+                projektSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`;
+            });
+        }
+
+        if (lieferantSelect && lieferantSelect.options.length <= 1) {
+            const suppliers = await DataManager.getDatevLieferanten();
+            suppliers.forEach(s => {
+                const displayName = s.name || s.partitaIva;
+                lieferantSelect.innerHTML += `<option value="${escapeHtml(s.partitaIva)}">${escapeHtml(displayName)}</option>`;
+            });
+        }
+    },
+
+    /**
+     * Aktualisiert die Kalender-Statistiken
+     */
+    updateKalenderStatistiken: function() {
+        const entries = this.kalenderEntries;
+        const totalEntries = entries.length;
+        const totalHours = entries.reduce((sum, e) => sum + (e.hours || 0), 0);
+        const supplierHours = entries
+            .filter(e => e.isSupplierEntry || e.supplierPartitaIva)
+            .reduce((sum, e) => sum + (e.hours || 0), 0);
+
+        document.getElementById('stat-kalender-eintraege').textContent = totalEntries;
+        document.getElementById('stat-kalender-stunden').textContent = totalHours.toFixed(1);
+        document.getElementById('stat-kalender-lieferanten').textContent = supplierHours.toFixed(1);
+    },
+
+    /**
+     * Rendert den Monatskalender
+     */
+    renderKalender: function() {
+        const container = document.getElementById('kalender-container');
+        if (!container) return;
+
+        const year = this.kalenderCurrentYear;
+        const month = this.kalenderCurrentMonth;
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+        // Erster Tag des Monats
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+
+        // Wochentag des ersten Tages (0=So, 1=Mo, ... 6=Sa)
+        // Umrechnen auf Mo=0, Di=1, ... So=6
+        let startDayOfWeek = firstDay.getDay() - 1;
+        if (startDayOfWeek < 0) startDayOfWeek = 6;
+
+        // Einträge nach Tag gruppieren
+        const entriesByDay = {};
+        this.kalenderEntries.forEach(e => {
+            const day = new Date(e.date).getDate();
+            if (!entriesByDay[day]) entriesByDay[day] = [];
+            entriesByDay[day].push(e);
+        });
+
+        // HTML generieren
+        let html = '';
+
+        // Leere Zellen vor dem ersten Tag
+        for (let i = 0; i < startDayOfWeek; i++) {
+            html += '<div class="kalender-tag kalender-tag-leer"></div>';
+        }
+
+        // Tage des Monats
+        for (let day = 1; day <= daysInMonth; day++) {
+            const isToday = isCurrentMonth && today.getDate() === day;
+            const dayEntries = entriesByDay[day] || [];
+            const hasSupplierEntry = dayEntries.some(e => e.isSupplierEntry || e.supplierPartitaIva);
+            const totalHours = dayEntries.reduce((sum, e) => sum + (e.hours || 0), 0);
+
+            let tagClass = 'kalender-tag';
+            if (isToday) tagClass += ' kalender-tag-heute';
+            if (dayEntries.length > 0) tagClass += ' kalender-tag-mit-eintraegen';
+
+            html += `<div class="${tagClass}" onclick="App.showKalenderTagDetails(${year}, ${month + 1}, ${day})">`;
+            html += `<div class="kalender-tag-nummer">${day}</div>`;
+
+            if (dayEntries.length > 0) {
+                html += `<div class="kalender-tag-stunden">${totalHours.toFixed(1)}h</div>`;
+
+                // Max 3 Einträge anzeigen
+                const displayEntries = dayEntries.slice(0, 3);
+                displayEntries.forEach(e => {
+                    const entryClass = (e.isSupplierEntry || e.supplierPartitaIva) ? 'kalender-eintrag lieferant' : 'kalender-eintrag';
+                    html += `<div class="${entryClass}" title="${escapeHtml(e.description)}">${escapeHtml(e.personName)}</div>`;
+                });
+
+                if (dayEntries.length > 3) {
+                    html += `<div class="kalender-mehr">+${dayEntries.length - 3} weitere</div>`;
+                }
+            }
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    },
+
+    /**
+     * Zeigt Details für einen bestimmten Tag
+     */
+    showKalenderTagDetails: function(year, month, day) {
+        const entries = this.kalenderEntries.filter(e => {
+            const d = new Date(e.date);
+            return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
+        });
+
+        if (entries.length === 0) return;
+
+        // Modal mit Tagesdetails
+        const dateStr = `${day}.${month}.${year}`;
+        let detailsHtml = entries.map(e => {
+            const typeLabel = (e.isSupplierEntry || e.supplierPartitaIva)
+                ? '<span class="badge badge-warning">Lieferant</span>'
+                : '<span class="badge badge-primary">Mitarbeiter</span>';
+            return `
+                <div class="kalender-detail-eintrag" style="padding: 0.75rem; border-bottom: 1px solid #eee;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong>${escapeHtml(e.personName)}</strong>
+                        ${typeLabel}
+                    </div>
+                    <div style="color: #666; font-size: 0.85rem; margin-top: 0.25rem;">${escapeHtml(e.projectName)}</div>
+                    <div style="margin-top: 0.5rem;">${escapeHtml(e.description)}</div>
+                    <div style="margin-top: 0.5rem; font-weight: 500;">${e.hours} Stunden</div>
+                </div>
+            `;
+        }).join('');
+
+        // Temporäres Modal erstellen
+        const existingModal = document.getElementById('kalender-detail-modal');
+        if (existingModal) existingModal.remove();
+
+        const modalHtml = `
+            <div id="kalender-detail-modal" class="modal-overlay show" onclick="if(event.target === this) this.remove()">
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">${dateStr}</h3>
+                        <button class="modal-close" onclick="document.getElementById('kalender-detail-modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 0; max-height: 400px; overflow-y: auto;">
+                        ${detailsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Vorheriger Monat im Kalender
+     */
+    kalenderPrevMonth: function() {
+        this.kalenderCurrentMonth--;
+        if (this.kalenderCurrentMonth < 0) {
+            this.kalenderCurrentMonth = 11;
+            this.kalenderCurrentYear--;
+        }
+        // Monat-Input aktualisieren
+        const monthInput = document.getElementById('kalender-filter-monat');
+        if (monthInput) {
+            monthInput.value = `${this.kalenderCurrentYear}-${String(this.kalenderCurrentMonth + 1).padStart(2, '0')}`;
+        }
+        this.loadKalender();
+    },
+
+    /**
+     * Nächster Monat im Kalender
+     */
+    kalenderNextMonth: function() {
+        this.kalenderCurrentMonth++;
+        if (this.kalenderCurrentMonth > 11) {
+            this.kalenderCurrentMonth = 0;
+            this.kalenderCurrentYear++;
+        }
+        // Monat-Input aktualisieren
+        const monthInput = document.getElementById('kalender-filter-monat');
+        if (monthInput) {
+            monthInput.value = `${this.kalenderCurrentYear}-${String(this.kalenderCurrentMonth + 1).padStart(2, '0')}`;
+        }
+        this.loadKalender();
+    },
+
     showNewTimeEntryForm: async function() {
         document.getElementById('time-form').reset();
         document.getElementById('time-form-id').value = '';
+        document.getElementById('time-form-type').value = 'mitarbeiter';
         document.getElementById('time-modal-title').textContent = 'Zeit erfassen';
+
+        // Typ auf Mitarbeiter setzen (Standard)
+        this.switchTimeEntryType('mitarbeiter');
 
         // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('time-project');
@@ -3402,7 +3739,7 @@ const App = {
         const projects = allProjects.filter(p => p.status !== 'abgeschlossen');
         projectSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         projects.forEach(p => {
-            projectSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            projectSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`;
         });
 
         // Mitarbeiter-Dropdown befüllen
@@ -3412,8 +3749,11 @@ const App = {
         userSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         users.forEach(u => {
             const selected = currentUser && String(u.id) === String(currentUser.id) ? 'selected' : '';
-            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.username || u.email}</option>`;
+            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${escapeHtml(u.name || u.username || u.email)}</option>`;
         });
+
+        // Lieferanten-Dropdown befüllen
+        await this.populateTimeSupplierDropdown();
 
         // Heutiges Datum als Standard
         document.getElementById('time-date').value = new Date().toISOString().split('T')[0];
@@ -3421,10 +3761,62 @@ const App = {
         this.showModal('time-form-modal');
     },
 
+    /**
+     * Wechselt zwischen Mitarbeiter- und Lieferanten-Modus im Zeiteintrag-Formular
+     */
+    switchTimeEntryType: function(type) {
+        const userGroup = document.getElementById('time-user-group');
+        const supplierGroup = document.getElementById('time-supplier-group');
+        const userSelect = document.getElementById('time-user');
+        const supplierSelect = document.getElementById('time-supplier');
+        const btnMitarbeiter = document.getElementById('time-type-mitarbeiter');
+        const btnLieferant = document.getElementById('time-type-lieferant');
+
+        document.getElementById('time-form-type').value = type;
+
+        if (type === 'lieferant') {
+            // Lieferanten-Modus
+            userGroup.style.display = 'none';
+            supplierGroup.style.display = 'block';
+            userSelect.removeAttribute('required');
+            supplierSelect.setAttribute('required', 'required');
+            btnMitarbeiter.classList.remove('active');
+            btnLieferant.classList.add('active');
+        } else {
+            // Mitarbeiter-Modus (Standard)
+            userGroup.style.display = 'block';
+            supplierGroup.style.display = 'none';
+            userSelect.setAttribute('required', 'required');
+            supplierSelect.removeAttribute('required');
+            btnMitarbeiter.classList.add('active');
+            btnLieferant.classList.remove('active');
+        }
+    },
+
+    /**
+     * Befüllt das Lieferanten-Dropdown im Zeiteintrag-Formular
+     */
+    populateTimeSupplierDropdown: async function(selectedPartitaIva = null) {
+        const select = document.getElementById('time-supplier');
+        if (!select) return;
+
+        const suppliers = await DataManager.getDatevLieferanten();
+        select.innerHTML = '<option value="">Bitte wählen...</option>';
+        suppliers.forEach(s => {
+            const displayName = s.name || s.partitaIva;
+            const selected = s.partitaIva === selectedPartitaIva ? 'selected' : '';
+            select.innerHTML += `<option value="${escapeHtml(s.partitaIva)}" ${selected}>${escapeHtml(displayName)}</option>`;
+        });
+    },
+
     editTimeEntry: async function(entryId) {
         const allEntries = await DataManager.getTimeEntries();
         const entry = allEntries.find(e => e.id === entryId);
         if (!entry) return;
+
+        // Typ bestimmen (Mitarbeiter oder Lieferant)
+        const isSupplierEntry = entry.isSupplierEntry || !!entry.supplierPartitaIva;
+        this.switchTimeEntryType(isSupplierEntry ? 'lieferant' : 'mitarbeiter');
 
         // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('time-project');
@@ -3432,17 +3824,20 @@ const App = {
         projectSelect.innerHTML = '';
         projects.forEach(p => {
             const selected = String(p.id) === String(entry.projectId) ? 'selected' : '';
-            projectSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+            projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}" ${selected}>${escapeHtml(p.name)}</option>`;
         });
 
         // Mitarbeiter-Dropdown befüllen
         const userSelect = document.getElementById('time-user');
         const users = await DataManager.getUsers();
-        userSelect.innerHTML = '';
+        userSelect.innerHTML = '<option value="">Bitte wählen...</option>';
         users.forEach(u => {
             const selected = String(u.id) === String(entry.userId) ? 'selected' : '';
-            userSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.name || u.username || u.email}</option>`;
+            userSelect.innerHTML += `<option value="${escapeHtml(u.id)}" ${selected}>${escapeHtml(u.name || u.username || u.email)}</option>`;
         });
+
+        // Lieferanten-Dropdown befüllen
+        await this.populateTimeSupplierDropdown(entry.supplierPartitaIva);
 
         document.getElementById('time-form-id').value = entry.id;
         document.getElementById('time-date').value = entry.date;
@@ -3457,13 +3852,24 @@ const App = {
         event.preventDefault();
 
         const id = document.getElementById('time-form-id').value;
+        const entryType = document.getElementById('time-form-type').value;
+        const isSupplierEntry = entryType === 'lieferant';
+
         const entryData = {
-            projectId: document.getElementById('time-project').value, // UUID
-            userId: document.getElementById('time-user').value, // Mitarbeiter-ID
+            projectId: document.getElementById('time-project').value,
             date: document.getElementById('time-date').value,
             hours: parseFloat(document.getElementById('time-hours').value) || 0,
             description: document.getElementById('time-description').value
         };
+
+        // Je nach Typ: Mitarbeiter oder Lieferant
+        if (isSupplierEntry) {
+            entryData.supplierPartitaIva = document.getElementById('time-supplier').value;
+            entryData.userId = null;
+        } else {
+            entryData.userId = document.getElementById('time-user').value;
+            entryData.supplierPartitaIva = null;
+        }
 
         try {
             if (id) {
@@ -3474,9 +3880,10 @@ const App = {
 
             this.hideModal('time-form-modal');
             this.loadTimeTracking();
+            this.showToast('success', 'Gespeichert', 'Zeiteintrag wurde gespeichert');
         } catch (error) {
             console.error('Fehler beim Speichern:', error);
-            alert('Fehler beim Speichern des Zeiteintrags');
+            this.showToast('error', 'Fehler', 'Fehler beim Speichern des Zeiteintrags');
         }
     },
 

@@ -1795,3 +1795,136 @@ textarea:focus,
     outline: 2px solid var(--c-ink);
     outline-offset: 2px;
 }
+
+/* ===========================================
+   KALENDER-STYLES
+   Wartungskalender für Zeiterfassung
+   =========================================== */
+
+.kalender-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+}
+
+.kalender-wochentag {
+    padding: 0.5rem;
+    text-align: center;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--c-graphite);
+}
+
+.kalender-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: var(--c-border);
+}
+
+.kalender-tag {
+    min-height: 100px;
+    padding: 0.5rem;
+    background: var(--c-paper);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.kalender-tag:hover {
+    background: var(--c-surface);
+}
+
+.kalender-tag-leer {
+    background: var(--c-surface);
+    cursor: default;
+}
+
+.kalender-tag-leer:hover {
+    background: var(--c-surface);
+}
+
+.kalender-tag-heute {
+    background: rgba(42, 78, 122, 0.08);
+    border: 2px solid var(--c-info);
+}
+
+.kalender-tag-heute:hover {
+    background: rgba(42, 78, 122, 0.12);
+}
+
+.kalender-tag-mit-eintraegen {
+    background: rgba(47, 107, 79, 0.05);
+}
+
+.kalender-tag-nummer {
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    color: var(--c-ink);
+}
+
+.kalender-tag-heute .kalender-tag-nummer {
+    color: var(--c-info);
+}
+
+.kalender-tag-stunden {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--c-success);
+    margin-bottom: 0.25rem;
+}
+
+.kalender-eintrag {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    border-radius: 2px;
+    background: rgba(42, 78, 122, 0.12);
+    color: var(--c-info);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kalender-eintrag.lieferant {
+    background: rgba(176, 116, 26, 0.15);
+    color: var(--c-warning);
+}
+
+.kalender-mehr {
+    font-size: 0.7rem;
+    color: var(--c-graphite);
+    font-style: italic;
+}
+
+/* Responsive Kalender */
+@media (max-width: 768px) {
+    .kalender-tag {
+        min-height: 60px;
+        padding: 0.25rem;
+    }
+
+    .kalender-tag-nummer {
+        font-size: 0.8rem;
+    }
+
+    .kalender-eintrag {
+        display: none;
+    }
+
+    .kalender-tag-stunden {
+        font-size: 0.65rem;
+    }
+}
+
+/* Button-Gruppe für Toggle */
+.btn-group .btn.active {
+    background: var(--c-ink);
+    color: var(--c-paper);
+    border-color: var(--c-ink);
+}
+
+.btn-group .btn:not(.active):hover {
+    background: var(--c-surface);
+}

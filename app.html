@@ -905,6 +905,7 @@
                 <div class="tabs" style="margin-bottom: 1rem;">
                     <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchTimeTab('eintraege')">Zeiteintraege</div>
                     <div class="tab" data-tab="zeit-externe" onclick="App.switchTimeTab('externe')">Externe Auswertung</div>
+                    <div class="tab" data-tab="zeit-kalender" onclick="App.switchTimeTab('kalender')">Kalender</div>
                 </div>
 
                 <!-- Tab: Zeiteinträge -->
@@ -1025,6 +1026,84 @@
                                     <!-- Wird dynamisch geladen -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Kalender -->
+                <div id="tab-zeit-kalender" class="tab-content" style="display: none;">
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0;">Wartungskalender</h3>
+                        </div>
+                        <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Monat</label>
+                                <input type="month" id="kalender-filter-monat" class="form-control" onchange="App.loadKalender()">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Projekt</label>
+                                <select id="kalender-filter-projekt" class="form-control" onchange="App.loadKalender()">
+                                    <option value="">Alle Projekte</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Typ</label>
+                                <select id="kalender-filter-typ" class="form-control" onchange="App.loadKalender()">
+                                    <option value="">Alle</option>
+                                    <option value="mitarbeiter">Nur Mitarbeiter</option>
+                                    <option value="lieferant">Nur Lieferanten</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Lieferant</label>
+                                <select id="kalender-filter-lieferant" class="form-control" onchange="App.loadKalender()">
+                                    <option value="">Alle Lieferanten</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kalender Navigation -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <button class="btn btn-outline btn-sm" onclick="App.kalenderPrevMonth()">
+                            &larr; Vorheriger Monat
+                        </button>
+                        <h2 id="kalender-monat-titel" style="margin: 0;">August 2026</h2>
+                        <button class="btn btn-outline btn-sm" onclick="App.kalenderNextMonth()">
+                            Nächster Monat &rarr;
+                        </button>
+                    </div>
+
+                    <!-- Kalender Statistiken -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1rem;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-kalender-eintraege">0</div>
+                            <div class="stat-label">Einträge im Monat</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="stat-kalender-stunden">0</div>
+                            <div class="stat-label">Stunden gesamt</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value" id="stat-kalender-lieferanten">0</div>
+                            <div class="stat-label">Lieferanten-Stunden</div>
+                        </div>
+                    </div>
+
+                    <!-- Kalender Grid -->
+                    <div class="card">
+                        <div class="kalender-header">
+                            <div class="kalender-wochentag">Mo</div>
+                            <div class="kalender-wochentag">Di</div>
+                            <div class="kalender-wochentag">Mi</div>
+                            <div class="kalender-wochentag">Do</div>
+                            <div class="kalender-wochentag">Fr</div>
+                            <div class="kalender-wochentag">Sa</div>
+                            <div class="kalender-wochentag">So</div>
+                        </div>
+                        <div id="kalender-container" class="kalender-grid">
+                            <!-- Wird dynamisch generiert -->
                         </div>
                     </div>
                 </div>
@@ -3326,15 +3405,29 @@
     </div>
 
     <!-- Zeiterfassung-Formular Modal -->
-    <div id="time-form-modal" class="modal-overlay">
-        <div class="modal">
+    <div id="time-form-modal" class="modal-overlay" onclick="if(event.target === this) App.hideModal('time-form-modal')">
+        <div class="modal" style="max-width: 550px;">
             <div class="modal-header">
                 <h2 class="modal-title" id="time-modal-title">Zeit erfassen</h2>
                 <button class="modal-close" onclick="App.hideModal('time-form-modal')">&times;</button>
             </div>
             <form id="time-form" onsubmit="App.saveTimeEntry(event)">
                 <input type="hidden" id="time-form-id">
+                <input type="hidden" id="time-form-type" value="mitarbeiter">
                 <div class="modal-body">
+                    <!-- Typ-Auswahl: Mitarbeiter oder Lieferant -->
+                    <div class="form-group">
+                        <label class="form-label">Typ</label>
+                        <div class="btn-group" style="display: flex; gap: 0;">
+                            <button type="button" id="time-type-mitarbeiter" class="btn btn-outline active" style="flex: 1; border-radius: 4px 0 0 4px;" onclick="App.switchTimeEntryType('mitarbeiter')">
+                                Mitarbeiter
+                            </button>
+                            <button type="button" id="time-type-lieferant" class="btn btn-outline" style="flex: 1; border-radius: 0 4px 4px 0;" onclick="App.switchTimeEntryType('lieferant')">
+                                Lieferant
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Projekt *</label>
@@ -3342,9 +3435,17 @@
                                 <option value="">Bitte wählen...</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                        <!-- Mitarbeiter-Dropdown (Standard) -->
+                        <div class="form-group" id="time-user-group">
                             <label class="form-label">Mitarbeiter *</label>
                             <select id="time-user" class="form-control" required>
+                                <option value="">Bitte wählen...</option>
+                            </select>
+                        </div>
+                        <!-- Lieferanten-Dropdown (hidden) -->
+                        <div class="form-group" id="time-supplier-group" style="display: none;">
+                            <label class="form-label">Lieferant *</label>
+                            <select id="time-supplier" class="form-control">
                                 <option value="">Bitte wählen...</option>
                             </select>
                         </div>
@@ -3361,7 +3462,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Beschreibung *</label>
-                        <textarea id="time-description" class="form-control" required placeholder="Was haben Sie gemacht?"></textarea>
+                        <textarea id="time-description" class="form-control" required placeholder="Was wurde gemacht? (z.B. Wartung Heizung, Elektroinstallation...)"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">

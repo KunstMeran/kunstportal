@@ -1581,22 +1581,30 @@ const SupabaseDataAdapter = {
 
     async addTimeEntry(entryData) {
         try {
-            // user_id verweist auf public.users(id) - UUID
-            let userId = entryData.userId;
+            // Unterscheidung: Mitarbeiter-Eintrag oder Lieferanten-Eintrag
+            const isSupplierEntry = !!entryData.supplierPartitaIva;
 
-            if (!userId) {
-                // Fallback: aktuell eingeloggter User - finde dessen public.users.id
-                const currentAuthUser = await Auth.getCurrentUser();
-                if (currentAuthUser) {
-                    const users = this.getUsers();
-                    const publicUser = users.find(u => u.auth_id === currentAuthUser.id);
-                    userId = publicUser?.id || null;
+            let userId = null;
+
+            if (!isSupplierEntry) {
+                // Mitarbeiter-Eintrag: user_id verweist auf public.users(id) - UUID
+                userId = entryData.userId;
+
+                if (!userId) {
+                    // Fallback: aktuell eingeloggter User - finde dessen public.users.id
+                    const currentAuthUser = await Auth.getCurrentUser();
+                    if (currentAuthUser) {
+                        const users = this.getUsers();
+                        const publicUser = users.find(u => u.auth_id === currentAuthUser.id);
+                        userId = publicUser?.id || null;
+                    }
                 }
             }
 
             const supabaseEntry = {
                 project_id: entryData.projectId,
-                user_id: userId,
+                user_id: isSupplierEntry ? null : userId,
+                supplier_partita_iva: isSupplierEntry ? entryData.supplierPartitaIva : null,
                 date: entryData.date,
                 hours: entryData.hours,
                 description: entryData.description || '',
@@ -1621,14 +1629,25 @@ const SupabaseDataAdapter = {
 
     async updateTimeEntry(id, updates) {
         try {
+            // Unterscheidung: Mitarbeiter-Eintrag oder Lieferanten-Eintrag
+            const isSupplierEntry = !!updates.supplierPartitaIva;
+
             let supabaseUpdates = {
                 project_id: updates.projectId,
-                user_id: updates.userId,
                 date: updates.date,
                 hours: updates.hours,
                 description: updates.description,
                 activity_type: updates.activityType
             };
+
+            // Bei Wechsel zwischen Mitarbeiter/Lieferant müssen beide Felder gesetzt werden
+            if (isSupplierEntry) {
+                supabaseUpdates.user_id = null;
+                supabaseUpdates.supplier_partita_iva = updates.supplierPartitaIva;
+            } else if (updates.userId !== undefined) {
+                supabaseUpdates.user_id = updates.userId;
+                supabaseUpdates.supplier_partita_iva = null;
+            }
 
             // Nur definierte Werte übernehmen
             Object.keys(supabaseUpdates).forEach(key => {
@@ -1682,6 +1701,8 @@ const SupabaseDataAdapter = {
             id: supabaseEntry.id,
             projectId: supabaseEntry.project_id,
             userId: supabaseEntry.user_id,
+            supplierPartitaIva: supabaseEntry.supplier_partita_iva || null,
+            isSupplierEntry: !!supabaseEntry.supplier_partita_iva,
             date: supabaseEntry.date,
             hours: parseFloat(supabaseEntry.hours) || 0,
             description: supabaseEntry.description || '',
