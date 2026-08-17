@@ -4025,33 +4025,15 @@ const SupabaseDataAdapter = {
             const { data, error } = await query;
             if (error) throw error;
 
-            // User-Namen separat laden für Mitarbeiter-Ausgaben
-            // empfaenger_user_id ist ein UUID das auf public.users.id (UUID) verweist
-            const userIds = [...new Set((data || [])
-                .filter(a => a.empfaenger_typ === 'mitarbeiter' && a.empfaenger_user_id)
-                .map(a => a.empfaenger_user_id))];
-
+            // User-Namen aus Cache holen (bereits geladen via loadUsersFromSupabase)
+            // empfaenger_user_id ist eine auth_id (UUID)
+            const cachedUsers = this.usersCache || [];
             let usersMap = {};
-            if (userIds.length > 0) {
-                // Versuche zuerst mit id (wenn public.users.id ein UUID ist)
-                let { data: users, error: usersError } = await SupabaseService.client
-                    .from('users')
-                    .select('id, name, email, auth_id')
-                    .in('id', userIds);
-
-                // Falls das fehlschlägt, versuche mit auth_id
-                if (usersError || !users || users.length === 0) {
-                    const { data: usersAlt } = await SupabaseService.client
-                        .from('users')
-                        .select('id, name, email, auth_id')
-                        .in('auth_id', userIds);
-                    users = usersAlt;
-                    // Map mit auth_id als Key
-                    (users || []).forEach(u => { usersMap[u.auth_id] = u; });
-                } else {
-                    (users || []).forEach(u => { usersMap[u.id] = u; });
-                }
-            }
+            cachedUsers.forEach(u => {
+                // Map sowohl mit auth_id als auch mit id als Key
+                if (u.auth_id) usersMap[u.auth_id] = u;
+                if (u.id) usersMap[u.id] = u;
+            });
 
             return (data || []).map(a => ({
                 id: a.id,

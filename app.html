@@ -363,9 +363,9 @@
                     <img src="icons/05-company.svg" alt="" class="icon">
                     <span>Lieferanten</span>
                 </a>
-                <a href="#" class="nav-item" data-view="zeiterfassung">
-                    <img src="icons/22-calendar.svg" alt="" class="icon">
-                    <span>Zeiterfassung</span>
+                <a href="#" class="nav-item" data-view="personal">
+                    <img src="icons/23-user.svg" alt="" class="icon">
+                    <span>Personal</span>
                 </a>
                 <a href="#" class="nav-item" data-view="inventar">
                     <img src="icons/30-inventory.svg" alt="" class="icon">
@@ -892,20 +892,22 @@
                 </div>
             </div>
 
-            <!-- ==================== ZEITERFASSUNG ==================== -->
-            <div id="view-zeiterfassung" class="view-content hidden">
+            <!-- ==================== PERSONAL ==================== -->
+            <div id="view-personal" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Zeiterfassung</h1>
-                    <button class="btn btn-primary" onclick="App.showNewTimeEntryForm()">
+                    <h1 class="page-title">Personal</h1>
+                    <button class="btn btn-primary" id="btn-personal-action" onclick="App.showNewTimeEntryForm()">
                         + Zeit erfassen
                     </button>
                 </div>
 
-                <!-- Tabs für Zeiterfassung -->
+                <!-- Tabs für Personal -->
                 <div class="tabs" style="margin-bottom: 1rem;">
-                    <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchTimeTab('eintraege')">Zeiteintraege</div>
-                    <div class="tab" data-tab="zeit-externe" onclick="App.switchTimeTab('externe')">Externe Auswertung</div>
-                    <div class="tab" data-tab="zeit-kalender" onclick="App.switchTimeTab('kalender')">Kalender</div>
+                    <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchPersonalTab('eintraege')">Zeiteintraege</div>
+                    <div class="tab" data-tab="zeit-externe" onclick="App.switchPersonalTab('externe')">Externe</div>
+                    <div class="tab" data-tab="zeit-kalender" onclick="App.switchPersonalTab('kalender')">Kalender</div>
+                    <div class="tab" data-tab="zeit-kurse" onclick="App.switchPersonalTab('kurse')">Kurse</div>
+                    <div class="tab" data-tab="zeit-anwesenheit" onclick="App.switchPersonalTab('anwesenheit')">Anwesenheit</div>
                 </div>
 
                 <!-- Tab: Zeiteinträge -->
@@ -1104,6 +1106,198 @@
                         </div>
                         <div id="kalender-container" class="kalender-grid">
                             <!-- Wird dynamisch generiert -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Kurse -->
+                <div id="tab-zeit-kurse" class="tab-content" style="display: none;">
+                    <!-- Admin: Ablaufende Zertifikate Warnung -->
+                    <div id="kurse-ablauf-warnung" class="alert alert-warning admin-only" style="display: none; margin-bottom: 1rem;">
+                        <strong>Achtung:</strong> <span id="kurse-ablauf-anzahl">0</span> Zertifikate laufen in den naechsten 90 Tagen ab.
+                        <button class="btn btn-sm btn-outline" onclick="App.showAblaufendeZertifikate()" style="margin-left: 1rem;">Details anzeigen</button>
+                    </div>
+
+                    <!-- Kurse Statistiken -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-kurse-gesamt">0</div>
+                            <div class="stat-label">Kurse gesamt</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value" id="stat-kurse-pflicht">0</div>
+                            <div class="stat-label">Pflichtkurse</div>
+                        </div>
+                        <div class="stat-card error">
+                            <div class="stat-value" id="stat-kurse-ablaufend">0</div>
+                            <div class="stat-label">Ablaufend (90 Tage)</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="stat-kurse-geplant">0</div>
+                            <div class="stat-label">Geplante Termine</div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Filter -->
+                    <div id="kurse-admin-filter" class="card admin-only" style="margin-bottom: 1rem;">
+                        <div class="card-header">
+                            <h3 class="card-title" style="margin: 0;">Filter</h3>
+                        </div>
+                        <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Kategorie</label>
+                                <select id="kurse-filter-kategorie" class="form-control" onchange="App.loadKurse()">
+                                    <option value="">Alle Kategorien</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Typ</label>
+                                <select id="kurse-filter-typ" class="form-control" onchange="App.loadKurse()">
+                                    <option value="">Alle</option>
+                                    <option value="pflicht">Nur Pflicht</option>
+                                    <option value="freiwillig">Nur Freiwillig</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Status</label>
+                                <select id="kurse-filter-status" class="form-control" onchange="App.loadKurse()">
+                                    <option value="">Alle</option>
+                                    <option value="aktiv">Nur aktive</option>
+                                    <option value="inaktiv">Nur inaktive</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetKurseFilters()">Filter zuruecksetzen</button>
+                        </div>
+                    </div>
+
+                    <!-- Kursliste (Admin) -->
+                    <div class="card admin-only" style="margin-bottom: 1rem;">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0;">Kurse verwalten</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-outline btn-sm" onclick="App.showKursAnbieterModal()">Anbieter</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewKursForm()">+ Neuer Kurs</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Kurs</th>
+                                        <th>Kategorie</th>
+                                        <th>Pflicht</th>
+                                        <th>Gueltigkeit</th>
+                                        <th style="text-align: center;">Termine</th>
+                                        <th style="text-align: center;">Teilnehmer</th>
+                                        <th style="text-align: right;">Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kurse-liste">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Meine Kurse (User) -->
+                    <div class="card" id="meine-kurse-card">
+                        <div class="card-header">
+                            <h3 class="card-title" style="margin: 0;">Meine Kurse & Zertifikate</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Kurs</th>
+                                        <th>Kategorie</th>
+                                        <th>Termin</th>
+                                        <th>Status</th>
+                                        <th>Zertifikat bis</th>
+                                        <th style="text-align: right;">Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="meine-kurse-liste">
+                                    <!-- Wird dynamisch geladen -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Anwesenheit -->
+                <div id="tab-zeit-anwesenheit" class="tab-content" style="display: none;">
+                    <!-- Statistiken (Admin) -->
+                    <div class="stats-grid admin-only" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-anwesenheit-heute">0</div>
+                            <div class="stat-label">Heute im Buero</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="stat-anwesenheit-essen-heute">0</div>
+                            <div class="stat-label">Mittagessen heute</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value" id="stat-anwesenheit-essen-monat">0</div>
+                            <div class="stat-label">Mittagessen Monat</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-anwesenheit-homeoffice">0</div>
+                            <div class="stat-label">Homeoffice heute</div>
+                        </div>
+                    </div>
+
+                    <!-- Admin: Monatskalender mit Essensgutschein-Anzahl -->
+                    <div class="card admin-only" style="margin-bottom: 1rem;">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0;">Anwesenheit & Essensgutscheine</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-outline btn-sm" onclick="App.anwesenheitPrevMonth()">&larr;</button>
+                                <span id="anwesenheit-monat-titel" style="min-width: 120px; text-align: center;">August 2026</span>
+                                <button class="btn btn-outline btn-sm" onclick="App.anwesenheitNextMonth()">&rarr;</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showBestellungModal()" style="margin-left: 1rem;">Bestellungen</button>
+                            </div>
+                        </div>
+                        <div class="kalender-header">
+                            <div class="kalender-wochentag">Mo</div>
+                            <div class="kalender-wochentag">Di</div>
+                            <div class="kalender-wochentag">Mi</div>
+                            <div class="kalender-wochentag">Do</div>
+                            <div class="kalender-wochentag">Fr</div>
+                            <div class="kalender-wochentag">Sa</div>
+                            <div class="kalender-wochentag">So</div>
+                        </div>
+                        <div id="anwesenheit-kalender-container" class="kalender-grid">
+                            <!-- Wird dynamisch generiert -->
+                        </div>
+                    </div>
+
+                    <!-- User: Meine Wochenplanung -->
+                    <div class="card" id="meine-anwesenheit-card">
+                        <div class="card-header">
+                            <h3 class="card-title" style="margin: 0;">Meine Anwesenheitsplanung</h3>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <!-- Schnellauswahl -->
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('buero_essen')">Ganze Woche: Buero + Mittagessen</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('buero')">Ganze Woche: Buero ohne Essen</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.setAnwesenheitWoche('homeoffice')">Ganze Woche: Homeoffice</button>
+                            </div>
+
+                            <!-- Wochenplanung Grid -->
+                            <div id="meine-anwesenheit-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
+                                <!-- Wird dynamisch generiert (Mo-Fr) -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Wer ist heute da? (fuer alle sichtbar) -->
+                    <div class="card" style="margin-top: 1rem;">
+                        <div class="card-header">
+                            <h3 class="card-title" style="margin: 0;">Heute anwesend</h3>
+                        </div>
+                        <div id="heute-anwesend-liste" style="padding: 1rem;">
+                            <!-- Wird dynamisch geladen -->
                         </div>
                     </div>
                 </div>
@@ -5638,6 +5832,329 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="App.closeModal('shop-import-modal')">Schließen</button>
                 <button type="button" class="btn btn-primary" id="shop-import-btn" onclick="App.executeShopImport()" disabled>Importieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Kurs erstellen/bearbeiten ==================== -->
+    <div id="kurs-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 650px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="kurs-modal-title">Neuer Kurs</h2>
+                <button class="modal-close" onclick="App.hideModal('kurs-form-modal')">&times;</button>
+            </div>
+            <form id="kurs-form" onsubmit="App.saveKurs(event)">
+                <input type="hidden" id="kurs-form-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Kursname *</label>
+                            <input type="text" id="kurs-name" class="form-control" required placeholder="z.B. Arbeitssicherheit Grundkurs">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Kategorie</label>
+                            <select id="kurs-kategorie" class="form-control">
+                                <option value="">-- Waehlen --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Anbieter</label>
+                            <select id="kurs-anbieter" class="form-control">
+                                <option value="">-- Kein Anbieter --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Dauer (Stunden)</label>
+                            <input type="number" id="kurs-dauer" class="form-control" step="0.5" min="0" placeholder="z.B. 8">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="kurs-pflicht" style="margin-right: 0.5rem;">
+                                Pflichtkurs
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gueltigkeit (Monate)</label>
+                            <input type="number" id="kurs-gueltigkeit" class="form-control" min="1" placeholder="z.B. 24 (leer = unbegrenzt)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Erinnerung (Tage vor Ablauf)</label>
+                            <input type="number" id="kurs-erinnerung" class="form-control" min="1" value="30">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Kosten pro Person</label>
+                            <input type="number" id="kurs-kosten-person" class="form-control" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kosten Pauschal</label>
+                            <input type="number" id="kurs-kosten-pauschal" class="form-control" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="kurs-beschreibung" class="form-control" rows="2" placeholder="Kursbeschreibung..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('kurs-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Kurs-Termin mit Teilnehmern ==================== -->
+    <div id="kurs-termin-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="kurs-termin-modal-title">Neuer Termin</h2>
+                <button class="modal-close" onclick="App.hideModal('kurs-termin-modal')">&times;</button>
+            </div>
+            <form id="kurs-termin-form" onsubmit="App.saveKursTermin(event)">
+                <input type="hidden" id="kurs-termin-form-id">
+                <input type="hidden" id="kurs-termin-kurs-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Datum *</label>
+                            <input type="date" id="kurs-termin-datum" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Von</label>
+                            <input type="time" id="kurs-termin-von" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bis</label>
+                            <input type="time" id="kurs-termin-bis" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Ort</label>
+                            <input type="text" id="kurs-termin-ort" class="form-control" placeholder="z.B. Seminarraum A">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">
+                                <input type="checkbox" id="kurs-termin-online" style="margin-right: 0.5rem;" onchange="App.toggleKursOnline()">
+                                Online
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group" id="kurs-termin-online-link-group" style="display: none;">
+                        <label class="form-label">Online-Link</label>
+                        <input type="url" id="kurs-termin-online-link" class="form-control" placeholder="https://...">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Kosten (gesamt)</label>
+                            <input type="number" id="kurs-termin-kosten" class="form-control" step="0.01" min="0" placeholder="Ueberschreibt Kurs-Kosten">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select id="kurs-termin-status" class="form-control">
+                                <option value="geplant">Geplant</option>
+                                <option value="bestaetigt">Bestaetigt</option>
+                                <option value="abgeschlossen">Abgeschlossen</option>
+                                <option value="abgesagt">Abgesagt</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notizen</label>
+                        <textarea id="kurs-termin-notizen" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <!-- Teilnehmer -->
+                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #1565c0;">Teilnehmer</h4>
+                        <div id="kurs-termin-teilnehmer-liste" style="max-height: 200px; overflow-y: auto;">
+                            <!-- Checkboxen fuer Mitarbeiter -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('kurs-termin-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Anwesenheit planen ==================== -->
+    <div id="anwesenheit-form-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="anwesenheit-modal-title">Anwesenheit planen</h2>
+                <button class="modal-close" onclick="App.hideModal('anwesenheit-form-modal')">&times;</button>
+            </div>
+            <form id="anwesenheit-form" onsubmit="App.saveAnwesenheit(event)">
+                <input type="hidden" id="anwesenheit-form-datum">
+                <div class="modal-body">
+                    <p id="anwesenheit-datum-display" style="font-weight: 500; margin-bottom: 1rem;"></p>
+
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                                <input type="radio" name="anwesenheit-status" value="buero_essen" checked>
+                                <span>Im Buero + Mittagessen</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                                <input type="radio" name="anwesenheit-status" value="buero">
+                                <span>Im Buero (ohne Essen)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                                <input type="radio" name="anwesenheit-status" value="homeoffice">
+                                <span>Homeoffice</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #f5f5f5; border-radius: 6px; cursor: pointer;">
+                                <input type="radio" name="anwesenheit-status" value="abwesend">
+                                <span>Abwesend</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="anwesenheit-grund-group" style="display: none;">
+                        <label class="form-label">Grund</label>
+                        <select id="anwesenheit-grund" class="form-control">
+                            <option value="urlaub">Urlaub</option>
+                            <option value="krank">Krank</option>
+                            <option value="dienstreise">Dienstreise</option>
+                            <option value="sonstiges">Sonstiges</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="anwesenheit-notiz-group" style="display: none;">
+                        <label class="form-label">Notiz</label>
+                        <input type="text" id="anwesenheit-notiz" class="form-control" placeholder="Optional...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="App.hideModal('anwesenheit-form-modal')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Kurs-Anbieter verwalten ==================== -->
+    <div id="kurs-anbieter-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Kurs-Anbieter</h2>
+                <button class="modal-close" onclick="App.hideModal('kurs-anbieter-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Neuen Anbieter hinzufuegen -->
+                <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem;">Neuen Anbieter hinzufuegen</h4>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2; margin-bottom: 0;">
+                            <input type="text" id="neuer-anbieter-name" class="form-control" placeholder="Firmenname *">
+                        </div>
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="App.addKursAnbieter()">Hinzufuegen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liste vorhandener Anbieter -->
+                <div id="kurs-anbieter-liste" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Wird dynamisch geladen -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('kurs-anbieter-modal')">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Essensgutschein-Bestellungen ==================== -->
+    <div id="bestellung-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Essensgutschein-Bestellungen</h2>
+                <button class="modal-close" onclick="App.hideModal('bestellung-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Neue Bestellung -->
+                <div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #2e7d32;">Neue Bestellung erfassen</h4>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Monat</label>
+                            <input type="month" id="bestellung-monat" class="form-control">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Anzahl bestellt</label>
+                            <input type="number" id="bestellung-anzahl" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="App.saveBestellung()">Speichern</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bestelluebersicht -->
+                <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Monat</th>
+                                <th style="text-align: right;">Geplant</th>
+                                <th style="text-align: right;">Bestellt</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bestellungen-liste">
+                            <!-- Wird dynamisch geladen -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('bestellung-modal')">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: Ablaufende Zertifikate ==================== -->
+    <div id="ablaufende-zertifikate-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Ablaufende Zertifikate (90 Tage)</h2>
+                <button class="modal-close" onclick="App.hideModal('ablaufende-zertifikate-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mitarbeiter</th>
+                                <th>Kurs</th>
+                                <th>Kategorie</th>
+                                <th>Pflicht</th>
+                                <th>Zertifikat vom</th>
+                                <th>Ablauf</th>
+                                <th style="text-align: right;">Tage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ablaufende-zertifikate-liste">
+                            <!-- Wird dynamisch geladen -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideModal('ablaufende-zertifikate-modal')">Schliessen</button>
             </div>
         </div>
     </div>

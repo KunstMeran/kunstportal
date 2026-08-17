@@ -3274,30 +3274,65 @@ const App = {
         this.loadTimeTracking();
     },
 
-    // Tab-Wechsel in Zeiterfassung
+    // Tab-Wechsel in Zeiterfassung (Legacy-Alias)
     switchTimeTab: function(tab) {
+        this.switchPersonalTab(tab);
+    },
+
+    // Tab-Wechsel in Personal-Bereich
+    switchPersonalTab: function(tab) {
         const tabEintraege = document.querySelector('[data-tab="zeit-eintraege"]');
         const tabExterne = document.querySelector('[data-tab="zeit-externe"]');
         const tabKalender = document.querySelector('[data-tab="zeit-kalender"]');
+        const tabKurse = document.querySelector('[data-tab="zeit-kurse"]');
+        const tabAnwesenheit = document.querySelector('[data-tab="zeit-anwesenheit"]');
         const contentEintraege = document.getElementById('tab-zeit-eintraege');
         const contentExterne = document.getElementById('tab-zeit-externe');
         const contentKalender = document.getElementById('tab-zeit-kalender');
+        const contentKurse = document.getElementById('tab-zeit-kurse');
+        const contentAnwesenheit = document.getElementById('tab-zeit-anwesenheit');
+        const actionBtn = document.getElementById('btn-personal-action');
 
         // Alle Tabs deaktivieren
-        [tabEintraege, tabExterne, tabKalender].forEach(t => t?.classList.remove('active'));
-        [contentEintraege, contentExterne, contentKalender].forEach(c => { if (c) c.style.display = 'none'; });
+        [tabEintraege, tabExterne, tabKalender, tabKurse, tabAnwesenheit].forEach(t => t?.classList.remove('active'));
+        [contentEintraege, contentExterne, contentKalender, contentKurse, contentAnwesenheit].forEach(c => { if (c) c.style.display = 'none'; });
 
         if (tab === 'eintraege') {
             tabEintraege?.classList.add('active');
             if (contentEintraege) contentEintraege.style.display = 'block';
+            if (actionBtn) {
+                actionBtn.textContent = '+ Zeit erfassen';
+                actionBtn.onclick = () => this.showNewTimeEntryForm();
+                actionBtn.style.display = '';
+            }
         } else if (tab === 'externe') {
             tabExterne?.classList.add('active');
             if (contentExterne) contentExterne.style.display = 'block';
             this.loadExterneAuswertung();
+            if (actionBtn) actionBtn.style.display = 'none';
         } else if (tab === 'kalender') {
             tabKalender?.classList.add('active');
             if (contentKalender) contentKalender.style.display = 'block';
             this.loadKalender();
+            if (actionBtn) actionBtn.style.display = 'none';
+        } else if (tab === 'kurse') {
+            tabKurse?.classList.add('active');
+            if (contentKurse) contentKurse.style.display = 'block';
+            this.loadKurse();
+            if (actionBtn) {
+                if (this.isAdmin()) {
+                    actionBtn.textContent = '+ Neuer Kurs';
+                    actionBtn.onclick = () => this.showNewKursForm();
+                    actionBtn.style.display = '';
+                } else {
+                    actionBtn.style.display = 'none';
+                }
+            }
+        } else if (tab === 'anwesenheit') {
+            tabAnwesenheit?.classList.add('active');
+            if (contentAnwesenheit) contentAnwesenheit.style.display = 'block';
+            this.loadAnwesenheit();
+            if (actionBtn) actionBtn.style.display = 'none';
         }
     },
 
