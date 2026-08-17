@@ -17884,7 +17884,7 @@ const App = {
                         <div style="display: flex; gap: 0.25rem;">
                             ${!status.kontrolliert ? `<button class="btn btn-outline btn-sm" onclick="App.setShopRechnungKontrolliert('${r.id}')" title="Als kontrolliert markieren">✓</button>` : ''}
                             ${!status.bezahlt ? `<button class="btn btn-outline btn-sm" onclick="App.setShopRechnungBezahlt('${r.id}')" title="Als bezahlt markieren">€</button>` : ''}
-                            <button class="btn btn-outline btn-sm" onclick="App.showRechnungDetails('${r.id}')" title="Details">👁</button>
+                            ${r.pdfExists || r.filePath ? `<button class="btn btn-outline btn-sm" onclick="App.showPdfPreview('${r.partitaIva || ''}', '${r.dokumentNr || ''}', '${r.filePath || ''}')" title="PDF anzeigen">👁</button>` : ''}
                         </div>
                     </td>
                 </tr>
