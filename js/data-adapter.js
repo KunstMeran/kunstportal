@@ -313,18 +313,62 @@ const SupabaseDataAdapter = {
      * WICHTIG: Foreign Keys wie created_by/updated_by referenzieren auth.users(id),
      * daher muss hier die Supabase Auth UID verwendet werden, nicht public.users.id
      */
-    async getCurrentUserId() {
+    /**
+     * Holt die Auth-User-ID (auth.users.id)
+     * Für FKs die auf auth.users zeigen (z.B. funding_sources, time_entries)
+     */
+    async getCurrentAuthUserId() {
         try {
             const result = await SupabaseService.client.auth.getUser();
             const authUser = result?.data?.user;
-            const userId = authUser?.id || null;
-            console.log('🔑 getCurrentUserId:', { hasUser: !!authUser, userId });
-            // Direkt die Auth-User-ID zurückgeben (für Foreign Key Constraints)
-            return userId;
+            return authUser?.id || null;
         } catch (error) {
-            console.warn('⚠️ Konnte User-ID nicht ermitteln:', error);
+            console.warn('⚠️ Konnte Auth-User-ID nicht ermitteln:', error);
             return null;
         }
+    },
+
+    /**
+     * Holt die Public-User-ID (public.users.id)
+     * Für FKs die auf public.users zeigen (z.B. projects, costs)
+     */
+    async getCurrentPublicUserId() {
+        try {
+            const authUserId = await this.getCurrentAuthUserId();
+            if (!authUserId) return null;
+
+            // Finde public.users Eintrag mit dieser auth_id
+            const users = this.getUsers();
+            const publicUser = users.find(u => u.auth_id === authUserId);
+
+            if (publicUser) {
+                return publicUser.id;
+            }
+
+            // Fallback: Lade direkt aus DB
+            const { data, error } = await SupabaseService.client
+                .from('users')
+                .select('id')
+                .eq('auth_id', authUserId)
+                .single();
+
+            if (error || !data) {
+                console.warn('⚠️ Kein public.users Eintrag für auth_id:', authUserId);
+                return null;
+            }
+
+            return data.id;
+        } catch (error) {
+            console.warn('⚠️ Konnte Public-User-ID nicht ermitteln:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Holt die User-ID für auth.users FKs (Standard)
+     */
+    async getCurrentUserId() {
+        return this.getCurrentAuthUserId();
     },
 
     async addUpdateMetadata(updates) {
@@ -729,6 +773,9 @@ const SupabaseDataAdapter = {
 
     async addProject(projectData) {
         try {
+            // public.users.id für FK (projects.created_by -> public.users)
+            const publicUserId = await this.getCurrentPublicUserId();
+
             let supabaseProject = {
                 name: projectData.name,
                 description: projectData.description || '',
@@ -744,9 +791,12 @@ const SupabaseDataAdapter = {
                 dropbox_link: projectData.dropboxLink || null,
                 hide_in_reporting: projectData.hideInReporting || false,
                 created_at: new Date().toISOString()
-                // HINWEIS: created_by wird nicht gesetzt wegen inkonsistenter FK-Referenz
-                // (projects.created_by zeigt möglicherweise auf public.users statt auth.users)
             };
+
+            // created_by nur setzen wenn public.users.id gefunden
+            if (publicUserId) {
+                supabaseProject.created_by = publicUserId;
+            }
 
             console.log('📝 addProject - insert data:', supabaseProject);
 
@@ -879,6 +929,9 @@ const SupabaseDataAdapter = {
 
     async addCost(costData) {
         try {
+            // public.users.id für FK (costs.created_by -> public.users)
+            const publicUserId = await this.getCurrentPublicUserId();
+
             let supabaseCost = {
                 project_id: costData.projectId,
                 category: this.mapCategoryToSupabase(costData.category),
@@ -888,21 +941,24 @@ const SupabaseDataAdapter = {
                 date: costData.date || new Date().toISOString().split('T')[0],
                 supplier: costData.supplier || null,
                 invoice_number: costData.invoiceNumber || null,
-                file_path: costData.filePath || null
+                file_path: costData.filePath || null,
+                created_at: new Date().toISOString()
             };
 
-            // Audit-Trail: created_at und created_by hinzufügen
-            supabaseCost = await this.addCreateMetadata(supabaseCost);
+            // created_by nur setzen wenn public.users.id gefunden
+            if (publicUserId) {
+                supabaseCost.created_by = publicUserId;
+            }
 
             const { data, error } = await SupabaseService.client
                 .from('costs')
                 .insert([supabaseCost])
-                .select()
-                .single();
+                .select();
 
             if (error) throw error;
 
-            return this.convertCostFromSupabase(data);
+            const result = data && data.length > 0 ? data[0] : null;
+            return result ? this.convertCostFromSupabase(result) : null;
         } catch (error) {
             console.error('Fehler beim Erstellen der Kosten:', error);
             return DataManager._addCostOriginal(costData);
