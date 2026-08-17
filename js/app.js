@@ -16964,7 +16964,7 @@ const App = {
                         await this.loadShopEinkaeufe();
                         break;
                     case 'shop-rechnungen':
-                        this.loadShopRechnungen();
+                        await this.loadShopRechnungen();
                         break;
                     case 'shop-kasse':
                         await this.loadShopKasse();
