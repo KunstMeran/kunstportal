@@ -293,11 +293,16 @@ const SupabaseDataAdapter = {
     async addCreateMetadata(data) {
         try {
             const userId = await this.getCurrentUserId();
-            return {
+            console.log('📝 addCreateMetadata - userId:', userId);
+            const result = {
                 ...data,
-                created_at: new Date().toISOString(),
-                created_by: userId
+                created_at: new Date().toISOString()
             };
+            // Nur created_by setzen wenn userId vorhanden (sonst FK-Constraint Fehler)
+            if (userId) {
+                result.created_by = userId;
+            }
+            return result;
         } catch (error) {
             console.warn('⚠️ Konnte Create-Metadaten nicht hinzufügen:', error);
             return {
