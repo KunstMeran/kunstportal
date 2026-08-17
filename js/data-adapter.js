@@ -284,6 +284,29 @@ const SupabaseDataAdapter = {
         DataManager._getMitgliedKategorienOriginal = DataManager.getMitgliedKategorien;
         DataManager.getMitgliedKategorien = this.getMitgliedKategorien.bind(this);
 
+        // Kursverwaltung
+        DataManager.getKursKategorien = this.getKursKategorien.bind(this);
+        DataManager.getKursAnbieter = this.getKursAnbieter.bind(this);
+        DataManager.addKursAnbieter = this.addKursAnbieter.bind(this);
+        DataManager.deleteKursAnbieter = this.deleteKursAnbieter.bind(this);
+        DataManager.getKurse = this.getKurse.bind(this);
+        DataManager.addKurs = this.addKurs.bind(this);
+        DataManager.updateKurs = this.updateKurs.bind(this);
+        DataManager.getKursTermine = this.getKursTermine.bind(this);
+        DataManager.addKursTermin = this.addKursTermin.bind(this);
+        DataManager.updateKursTermin = this.updateKursTermin.bind(this);
+        DataManager.getKursTeilnehmer = this.getKursTeilnehmer.bind(this);
+        DataManager.addKursTeilnehmer = this.addKursTeilnehmer.bind(this);
+        DataManager.getAblaufendeZertifikate = this.getAblaufendeZertifikate.bind(this);
+
+        // Anwesenheitsplanung
+        DataManager.getAnwesenheitRange = this.getAnwesenheitRange.bind(this);
+        DataManager.getHeuteAnwesend = this.getHeuteAnwesend.bind(this);
+        DataManager.upsertAnwesenheit = this.upsertAnwesenheit.bind(this);
+        DataManager.getEssensgutscheinBestellungen = this.getEssensgutscheinBestellungen.bind(this);
+        DataManager.upsertEssensgutscheinBestellung = this.upsertEssensgutscheinBestellung.bind(this);
+        DataManager.updateEssensgutscheinBestellung = this.updateEssensgutscheinBestellung.bind(this);
+
         console.log('✅ Supabase Data Adapter aktiviert');
     },
 
@@ -4958,6 +4981,290 @@ const SupabaseDataAdapter = {
         } catch (error) {
             console.error('Fehler beim Laden der Mitglied-Kategorien:', error);
             return [];
+        }
+    },
+
+    // ==================== KURSVERWALTUNG ====================
+
+    async getKursKategorien() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_kategorien')
+                .select('*')
+                .order('sortierung', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurs-Kategorien:', error);
+            return [];
+        }
+    },
+
+    async getKursAnbieter() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_anbieter')
+                .select('*')
+                .order('name', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurs-Anbieter:', error);
+            return [];
+        }
+    },
+
+    async addKursAnbieter(anbieterData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_anbieter')
+                .insert([anbieterData])
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Hinzufuegen des Anbieters:', error);
+            throw error;
+        }
+    },
+
+    async deleteKursAnbieter(id) {
+        try {
+            const { error } = await SupabaseService.client
+                .from('kurs_anbieter')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Fehler beim Loeschen des Anbieters:', error);
+            throw error;
+        }
+    },
+
+    async getKurse() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurse')
+                .select('*')
+                .order('name', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurse:', error);
+            return [];
+        }
+    },
+
+    async addKurs(kursData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurse')
+                .insert([kursData])
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Hinzufuegen des Kurses:', error);
+            throw error;
+        }
+    },
+
+    async updateKurs(id, kursData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurse')
+                .update(kursData)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Kurses:', error);
+            throw error;
+        }
+    },
+
+    async getKursTermine() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_termine')
+                .select('*')
+                .order('datum', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurs-Termine:', error);
+            return [];
+        }
+    },
+
+    async addKursTermin(terminData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_termine')
+                .insert([terminData])
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Hinzufuegen des Termins:', error);
+            throw error;
+        }
+    },
+
+    async updateKursTermin(id, terminData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_termine')
+                .update(terminData)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren des Termins:', error);
+            throw error;
+        }
+    },
+
+    async getKursTeilnehmer() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_teilnehmer')
+                .select('*');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurs-Teilnehmer:', error);
+            return [];
+        }
+    },
+
+    async addKursTeilnehmer(teilnehmerData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('kurs_teilnehmer')
+                .insert([teilnehmerData])
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            // Ignoriere Duplikat-Fehler (UNIQUE constraint)
+            if (error.code === '23505') {
+                console.log('Teilnehmer bereits vorhanden');
+                return null;
+            }
+            console.error('Fehler beim Hinzufuegen des Teilnehmers:', error);
+            throw error;
+        }
+    },
+
+    async getAblaufendeZertifikate() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('v_ablaufende_zertifikate')
+                .select('*');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der ablaufenden Zertifikate:', error);
+            return [];
+        }
+    },
+
+    // ==================== ANWESENHEITSPLANUNG ====================
+
+    async getAnwesenheitRange(startDate, endDate) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('anwesenheit_planung')
+                .select('*, users:user_id(username, email)')
+                .gte('datum', startDate)
+                .lte('datum', endDate)
+                .order('datum', { ascending: true });
+            if (error) throw error;
+            return (data || []).map(a => ({
+                ...a,
+                username: a.users?.username || a.users?.email
+            }));
+        } catch (error) {
+            console.error('Fehler beim Laden der Anwesenheit:', error);
+            return [];
+        }
+    },
+
+    async getHeuteAnwesend() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('v_heute_anwesend')
+                .select('*');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der heutigen Anwesenheit:', error);
+            return [];
+        }
+    },
+
+    async upsertAnwesenheit(planungData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('anwesenheit_planung')
+                .upsert([planungData], {
+                    onConflict: 'user_id,datum'
+                })
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Speichern der Anwesenheit:', error);
+            throw error;
+        }
+    },
+
+    async getEssensgutscheinBestellungen() {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('essensgutschein_bestellungen')
+                .select('*')
+                .order('jahr', { ascending: false })
+                .order('monat', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Bestellungen:', error);
+            return [];
+        }
+    },
+
+    async upsertEssensgutscheinBestellung(bestellungData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('essensgutschein_bestellungen')
+                .upsert([bestellungData], {
+                    onConflict: 'jahr,monat'
+                })
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Speichern der Bestellung:', error);
+            throw error;
+        }
+    },
+
+    async updateEssensgutscheinBestellung(id, bestellungData) {
+        try {
+            const { data, error } = await SupabaseService.client
+                .from('essensgutschein_bestellungen')
+                .update(bestellungData)
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return data?.[0];
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren der Bestellung:', error);
+            throw error;
         }
     }
 };

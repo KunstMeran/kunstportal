@@ -19258,6 +19258,838 @@ const App = {
             console.error('Fehler:', error);
             this.showToast('Fehler', 'Löschen fehlgeschlagen', 'error');
         }
+    },
+
+    // ==================== KURSVERWALTUNG ====================
+
+    // Kurse-State
+    kurseState: {
+        kategorien: [],
+        anbieter: [],
+        kurse: [],
+        termine: [],
+        teilnehmer: [],
+        ablaufend: []
+    },
+
+    // Kurse laden
+    loadKurse: async function() {
+        try {
+            // Daten laden
+            this.kurseState.kategorien = await DataManager.getKursKategorien();
+            this.kurseState.anbieter = await DataManager.getKursAnbieter();
+            this.kurseState.kurse = await DataManager.getKurse();
+            this.kurseState.termine = await DataManager.getKursTermine();
+            this.kurseState.teilnehmer = await DataManager.getKursTeilnehmer();
+            this.kurseState.ablaufend = await DataManager.getAblaufendeZertifikate();
+
+            // Filter-Dropdown befuellen
+            const kategorieSelect = document.getElementById('kurse-filter-kategorie');
+            if (kategorieSelect && kategorieSelect.options.length <= 1) {
+                this.kurseState.kategorien.forEach(k => {
+                    kategorieSelect.innerHTML += `<option value="${k.id}">${escapeHtml(k.name)}</option>`;
+                });
+            }
+
+            // Statistiken
+            const kurseGesamt = this.kurseState.kurse.filter(k => k.is_active !== false).length;
+            const pflichtkurse = this.kurseState.kurse.filter(k => k.ist_pflicht && k.is_active !== false).length;
+            const geplantTermine = this.kurseState.termine.filter(t => t.status === 'geplant' || t.status === 'bestaetigt').length;
+            const ablaufendCount = this.kurseState.ablaufend.length;
+
+            document.getElementById('stat-kurse-gesamt').textContent = kurseGesamt;
+            document.getElementById('stat-kurse-pflicht').textContent = pflichtkurse;
+            document.getElementById('stat-kurse-geplant').textContent = geplantTermine;
+            document.getElementById('stat-kurse-ablaufend').textContent = ablaufendCount;
+
+            // Ablaufende Zertifikate Warnung
+            const warnungDiv = document.getElementById('kurse-ablauf-warnung');
+            const anzahlSpan = document.getElementById('kurse-ablauf-anzahl');
+            if (warnungDiv && ablaufendCount > 0 && this.isAdmin()) {
+                warnungDiv.style.display = 'block';
+                if (anzahlSpan) anzahlSpan.textContent = ablaufendCount;
+            } else if (warnungDiv) {
+                warnungDiv.style.display = 'none';
+            }
+
+            // Listen rendern
+            this.renderKursliste();
+            this.renderMeineKurse();
+        } catch (error) {
+            console.error('Fehler beim Laden der Kurse:', error);
+            this.showToast('Fehler', 'Kurse konnten nicht geladen werden', 'error');
+        }
+    },
+
+    // Kursliste rendern (Admin)
+    renderKursliste: function() {
+        const tbody = document.getElementById('kurse-liste');
+        if (!tbody) return;
+
+        // Filter anwenden
+        const filterKategorie = document.getElementById('kurse-filter-kategorie')?.value;
+        const filterTyp = document.getElementById('kurse-filter-typ')?.value;
+        const filterStatus = document.getElementById('kurse-filter-status')?.value;
+
+        let kurse = [...this.kurseState.kurse];
+
+        if (filterKategorie) {
+            kurse = kurse.filter(k => k.kategorie_id == filterKategorie);
+        }
+        if (filterTyp === 'pflicht') {
+            kurse = kurse.filter(k => k.ist_pflicht);
+        } else if (filterTyp === 'freiwillig') {
+            kurse = kurse.filter(k => !k.ist_pflicht);
+        }
+        if (filterStatus === 'aktiv') {
+            kurse = kurse.filter(k => k.is_active !== false);
+        } else if (filterStatus === 'inaktiv') {
+            kurse = kurse.filter(k => k.is_active === false);
+        }
+
+        if (kurse.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">Keine Kurse vorhanden</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = kurse.map(kurs => {
+            const kategorie = this.kurseState.kategorien.find(k => k.id === kurs.kategorie_id);
+            const termineCount = this.kurseState.termine.filter(t => t.kurs_id === kurs.id).length;
+            const teilnehmerCount = this.kurseState.teilnehmer.filter(t => {
+                const termin = this.kurseState.termine.find(te => te.id === t.termin_id);
+                return termin && termin.kurs_id === kurs.id;
+            }).length;
+
+            const gueltigkeitText = kurs.gueltigkeit_monate ? `${kurs.gueltigkeit_monate} Monate` : 'Unbegrenzt';
+
+            return `
+                <tr>
+                    <td>
+                        <strong>${escapeHtml(kurs.name)}</strong>
+                        ${kurs.beschreibung ? `<br><small style="color: #666;">${escapeHtml(kurs.beschreibung.substring(0, 50))}...</small>` : ''}
+                    </td>
+                    <td>
+                        ${kategorie ? `<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: ${kategorie.farbe}20; color: ${kategorie.farbe}; font-size: 0.8rem;">${escapeHtml(kategorie.name)}</span>` : '-'}
+                    </td>
+                    <td>${kurs.ist_pflicht ? '<span style="color: #e74c3c;">Ja</span>' : 'Nein'}</td>
+                    <td>${gueltigkeitText}</td>
+                    <td style="text-align: center;">${termineCount}</td>
+                    <td style="text-align: center;">${teilnehmerCount}</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-outline btn-sm" onclick="App.showNewKursTerminForm(${kurs.id})" title="Termin hinzufuegen">+ Termin</button>
+                        <button class="btn btn-outline btn-sm" onclick="App.editKurs(${kurs.id})" title="Bearbeiten">Bearbeiten</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    // Meine Kurse rendern (User)
+    renderMeineKurse: async function() {
+        const tbody = document.getElementById('meine-kurse-liste');
+        if (!tbody) return;
+
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Nicht eingeloggt</td></tr>';
+            return;
+        }
+
+        const meineTeilnahmen = this.kurseState.teilnehmer.filter(t => t.user_id === currentUserId);
+
+        if (meineTeilnahmen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Keine Kursteilnahmen vorhanden</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = meineTeilnahmen.map(teilnahme => {
+            const termin = this.kurseState.termine.find(t => t.id === teilnahme.termin_id);
+            const kurs = termin ? this.kurseState.kurse.find(k => k.id === termin.kurs_id) : null;
+            const kategorie = kurs ? this.kurseState.kategorien.find(k => k.id === kurs.kategorie_id) : null;
+
+            if (!kurs || !termin) return '';
+
+            const statusBadge = {
+                'angemeldet': '<span class="badge" style="background: #3498db;">Angemeldet</span>',
+                'teilgenommen': '<span class="badge" style="background: #27ae60;">Teilgenommen</span>',
+                'nicht_erschienen': '<span class="badge" style="background: #e74c3c;">Nicht erschienen</span>',
+                'abgesagt': '<span class="badge" style="background: #95a5a6;">Abgesagt</span>'
+            }[teilnahme.status] || teilnahme.status;
+
+            const ablaufText = teilnahme.zertifikat_ablauf
+                ? new Date(teilnahme.zertifikat_ablauf).toLocaleDateString('de-DE')
+                : '-';
+
+            const isAblaufend = teilnahme.zertifikat_ablauf && new Date(teilnahme.zertifikat_ablauf) <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(kurs.name)}</strong></td>
+                    <td>
+                        ${kategorie ? `<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: ${kategorie.farbe}20; color: ${kategorie.farbe}; font-size: 0.8rem;">${escapeHtml(kategorie.name)}</span>` : '-'}
+                    </td>
+                    <td>${new Date(termin.datum).toLocaleDateString('de-DE')}</td>
+                    <td>${statusBadge}</td>
+                    <td style="${isAblaufend ? 'color: #e74c3c; font-weight: 500;' : ''}">${ablaufText}</td>
+                    <td style="text-align: right;">
+                        ${teilnahme.zertifikat_datei ? `<button class="btn btn-outline btn-sm" onclick="App.downloadZertifikat('${teilnahme.zertifikat_datei}')">Zertifikat</button>` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    // Filter zuruecksetzen
+    resetKurseFilters: function() {
+        document.getElementById('kurse-filter-kategorie').value = '';
+        document.getElementById('kurse-filter-typ').value = '';
+        document.getElementById('kurse-filter-status').value = '';
+        this.renderKursliste();
+    },
+
+    // Neuen Kurs erstellen
+    showNewKursForm: function() {
+        document.getElementById('kurs-modal-title').textContent = 'Neuer Kurs';
+        document.getElementById('kurs-form').reset();
+        document.getElementById('kurs-form-id').value = '';
+
+        // Dropdowns befuellen
+        const kategorieSelect = document.getElementById('kurs-kategorie');
+        kategorieSelect.innerHTML = '<option value="">-- Waehlen --</option>';
+        this.kurseState.kategorien.forEach(k => {
+            kategorieSelect.innerHTML += `<option value="${k.id}">${escapeHtml(k.name)}</option>`;
+        });
+
+        const anbieterSelect = document.getElementById('kurs-anbieter');
+        anbieterSelect.innerHTML = '<option value="">-- Kein Anbieter --</option>';
+        this.kurseState.anbieter.filter(a => a.is_active !== false).forEach(a => {
+            anbieterSelect.innerHTML += `<option value="${a.id}">${escapeHtml(a.name)}</option>`;
+        });
+
+        this.showModal('kurs-form-modal');
+    },
+
+    // Kurs bearbeiten
+    editKurs: function(kursId) {
+        const kurs = this.kurseState.kurse.find(k => k.id === kursId);
+        if (!kurs) return;
+
+        document.getElementById('kurs-modal-title').textContent = 'Kurs bearbeiten';
+        document.getElementById('kurs-form-id').value = kurs.id;
+        document.getElementById('kurs-name').value = kurs.name || '';
+        document.getElementById('kurs-beschreibung').value = kurs.beschreibung || '';
+        document.getElementById('kurs-pflicht').checked = kurs.ist_pflicht || false;
+        document.getElementById('kurs-gueltigkeit').value = kurs.gueltigkeit_monate || '';
+        document.getElementById('kurs-erinnerung').value = kurs.erinnerung_tage || 30;
+        document.getElementById('kurs-dauer').value = kurs.dauer_stunden || '';
+        document.getElementById('kurs-kosten-person').value = kurs.kosten_pro_person || '';
+        document.getElementById('kurs-kosten-pauschal').value = kurs.kosten_pauschal || '';
+
+        // Dropdowns befuellen und Wert setzen
+        const kategorieSelect = document.getElementById('kurs-kategorie');
+        kategorieSelect.innerHTML = '<option value="">-- Waehlen --</option>';
+        this.kurseState.kategorien.forEach(k => {
+            kategorieSelect.innerHTML += `<option value="${k.id}" ${k.id === kurs.kategorie_id ? 'selected' : ''}>${escapeHtml(k.name)}</option>`;
+        });
+
+        const anbieterSelect = document.getElementById('kurs-anbieter');
+        anbieterSelect.innerHTML = '<option value="">-- Kein Anbieter --</option>';
+        this.kurseState.anbieter.filter(a => a.is_active !== false).forEach(a => {
+            anbieterSelect.innerHTML += `<option value="${a.id}" ${a.id === kurs.anbieter_id ? 'selected' : ''}>${escapeHtml(a.name)}</option>`;
+        });
+
+        this.showModal('kurs-form-modal');
+    },
+
+    // Kurs speichern
+    saveKurs: async function(event) {
+        event.preventDefault();
+
+        const kursId = document.getElementById('kurs-form-id').value;
+        const kursData = {
+            name: document.getElementById('kurs-name').value.trim(),
+            beschreibung: document.getElementById('kurs-beschreibung').value.trim() || null,
+            kategorie_id: document.getElementById('kurs-kategorie').value || null,
+            anbieter_id: document.getElementById('kurs-anbieter').value || null,
+            ist_pflicht: document.getElementById('kurs-pflicht').checked,
+            gueltigkeit_monate: document.getElementById('kurs-gueltigkeit').value || null,
+            erinnerung_tage: document.getElementById('kurs-erinnerung').value || 30,
+            dauer_stunden: document.getElementById('kurs-dauer').value || null,
+            kosten_pro_person: document.getElementById('kurs-kosten-person').value || null,
+            kosten_pauschal: document.getElementById('kurs-kosten-pauschal').value || null
+        };
+
+        try {
+            if (kursId) {
+                await DataManager.updateKurs(kursId, kursData);
+                this.showToast('Erfolg', 'Kurs aktualisiert', 'success');
+            } else {
+                await DataManager.addKurs(kursData);
+                this.showToast('Erfolg', 'Kurs erstellt', 'success');
+            }
+            this.hideModal('kurs-form-modal');
+            await this.loadKurse();
+        } catch (error) {
+            console.error('Fehler beim Speichern des Kurses:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Kurs-Termin erstellen
+    showNewKursTerminForm: async function(kursId) {
+        const kurs = this.kurseState.kurse.find(k => k.id === kursId);
+        if (!kurs) return;
+
+        document.getElementById('kurs-termin-modal-title').textContent = `Neuer Termin: ${kurs.name}`;
+        document.getElementById('kurs-termin-form').reset();
+        document.getElementById('kurs-termin-form-id').value = '';
+        document.getElementById('kurs-termin-kurs-id').value = kursId;
+
+        // Teilnehmer-Checkboxen erstellen
+        const users = await DataManager.getUsers();
+        const interneUsers = users.filter(u => u.userType !== 'extern' && u.is_active !== false);
+        const teilnehmerListe = document.getElementById('kurs-termin-teilnehmer-liste');
+        teilnehmerListe.innerHTML = interneUsers.map(u => `
+            <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #fff; border-radius: 4px; margin-bottom: 0.25rem;">
+                <input type="checkbox" name="teilnehmer" value="${u.id}">
+                <span>${escapeHtml(u.username || u.email || u.name)}</span>
+            </label>
+        `).join('');
+
+        this.showModal('kurs-termin-modal');
+    },
+
+    // Online-Link Toggle
+    toggleKursOnline: function() {
+        const isOnline = document.getElementById('kurs-termin-online').checked;
+        document.getElementById('kurs-termin-online-link-group').style.display = isOnline ? 'block' : 'none';
+    },
+
+    // Kurs-Termin speichern
+    saveKursTermin: async function(event) {
+        event.preventDefault();
+
+        const terminId = document.getElementById('kurs-termin-form-id').value;
+        const kursId = document.getElementById('kurs-termin-kurs-id').value;
+
+        const terminData = {
+            kurs_id: kursId,
+            datum: document.getElementById('kurs-termin-datum').value,
+            uhrzeit_von: document.getElementById('kurs-termin-von').value || null,
+            uhrzeit_bis: document.getElementById('kurs-termin-bis').value || null,
+            ort: document.getElementById('kurs-termin-ort').value.trim() || null,
+            online: document.getElementById('kurs-termin-online').checked,
+            online_link: document.getElementById('kurs-termin-online-link').value.trim() || null,
+            kosten_gesamt: document.getElementById('kurs-termin-kosten').value || null,
+            status: document.getElementById('kurs-termin-status').value,
+            notizen: document.getElementById('kurs-termin-notizen').value.trim() || null
+        };
+
+        // Teilnehmer sammeln
+        const teilnehmerCheckboxes = document.querySelectorAll('#kurs-termin-teilnehmer-liste input[name="teilnehmer"]:checked');
+        const teilnehmerIds = Array.from(teilnehmerCheckboxes).map(cb => cb.value);
+
+        try {
+            let newTerminId;
+            if (terminId) {
+                await DataManager.updateKursTermin(terminId, terminData);
+                newTerminId = terminId;
+            } else {
+                const result = await DataManager.addKursTermin(terminData);
+                newTerminId = result.id;
+            }
+
+            // Teilnehmer hinzufuegen
+            for (const userId of teilnehmerIds) {
+                await DataManager.addKursTeilnehmer({
+                    termin_id: newTerminId,
+                    user_id: userId,
+                    status: 'angemeldet'
+                });
+            }
+
+            this.showToast('Erfolg', 'Termin gespeichert', 'success');
+            this.hideModal('kurs-termin-modal');
+            await this.loadKurse();
+        } catch (error) {
+            console.error('Fehler beim Speichern des Termins:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Kurs-Anbieter Modal
+    showKursAnbieterModal: async function() {
+        const liste = document.getElementById('kurs-anbieter-liste');
+        const anbieter = await DataManager.getKursAnbieter();
+
+        if (anbieter.length === 0) {
+            liste.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Anbieter vorhanden</p>';
+        } else {
+            liste.innerHTML = anbieter.map(a => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #fff; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid #e0e0e0;">
+                    <div>
+                        <strong>${escapeHtml(a.name)}</strong>
+                        ${a.email ? `<br><small style="color: #666;">${escapeHtml(a.email)}</small>` : ''}
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="App.deleteKursAnbieter(${a.id})" style="color: #e74c3c;">Loeschen</button>
+                </div>
+            `).join('');
+        }
+
+        this.showModal('kurs-anbieter-modal');
+    },
+
+    // Anbieter hinzufuegen
+    addKursAnbieter: async function() {
+        const nameInput = document.getElementById('neuer-anbieter-name');
+        const name = nameInput.value.trim();
+        if (!name) {
+            this.showToast('Fehler', 'Bitte Name eingeben', 'error');
+            return;
+        }
+
+        try {
+            await DataManager.addKursAnbieter({ name });
+            nameInput.value = '';
+            this.showToast('Erfolg', 'Anbieter hinzugefuegt', 'success');
+            this.showKursAnbieterModal(); // Liste neu laden
+            await this.loadKurse(); // Kurse-Dropdowns aktualisieren
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Hinzufuegen fehlgeschlagen', 'error');
+        }
+    },
+
+    // Anbieter loeschen
+    deleteKursAnbieter: async function(id) {
+        if (!confirm('Anbieter wirklich loeschen?')) return;
+
+        try {
+            await DataManager.deleteKursAnbieter(id);
+            this.showToast('Erfolg', 'Anbieter geloescht', 'success');
+            this.showKursAnbieterModal();
+            await this.loadKurse();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Loeschen fehlgeschlagen', 'error');
+        }
+    },
+
+    // Ablaufende Zertifikate anzeigen
+    showAblaufendeZertifikate: function() {
+        const tbody = document.getElementById('ablaufende-zertifikate-liste');
+        if (!tbody) return;
+
+        tbody.innerHTML = this.kurseState.ablaufend.map(z => {
+            const tageBisAblauf = z.tage_bis_ablauf;
+            const dringendClass = tageBisAblauf <= 14 ? 'color: #e74c3c; font-weight: 600;' : (tageBisAblauf <= 30 ? 'color: #e67e22;' : '');
+
+            return `
+                <tr>
+                    <td>${escapeHtml(z.username || '-')}</td>
+                    <td>${escapeHtml(z.kurs_name)}</td>
+                    <td>
+                        ${z.kategorie ? `<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: ${z.kategorie_farbe}20; color: ${z.kategorie_farbe}; font-size: 0.8rem;">${escapeHtml(z.kategorie)}</span>` : '-'}
+                    </td>
+                    <td>${z.ist_pflicht ? '<span style="color: #e74c3c;">Ja</span>' : 'Nein'}</td>
+                    <td>${z.zertifikat_datum ? new Date(z.zertifikat_datum).toLocaleDateString('de-DE') : '-'}</td>
+                    <td>${new Date(z.zertifikat_ablauf).toLocaleDateString('de-DE')}</td>
+                    <td style="text-align: right; ${dringendClass}">${tageBisAblauf} Tage</td>
+                </tr>
+            `;
+        }).join('');
+
+        this.showModal('ablaufende-zertifikate-modal');
+    },
+
+    // ==================== ANWESENHEITSPLANUNG ====================
+
+    // Anwesenheit-State
+    anwesenheitState: {
+        currentMonth: new Date(),
+        planung: [],
+        bestellungen: [],
+        heuteAnwesend: []
+    },
+
+    // Anwesenheit laden
+    loadAnwesenheit: async function() {
+        try {
+            const year = this.anwesenheitState.currentMonth.getFullYear();
+            const month = this.anwesenheitState.currentMonth.getMonth();
+
+            // Titel setzen
+            const monatNamen = ['Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('anwesenheit-monat-titel').textContent = `${monatNamen[month]} ${year}`;
+
+            // Daten laden
+            const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+            const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+            this.anwesenheitState.planung = await DataManager.getAnwesenheitRange(startDate, endDate);
+            this.anwesenheitState.heuteAnwesend = await DataManager.getHeuteAnwesend();
+
+            // Statistiken berechnen (Admin)
+            const heute = new Date().toISOString().split('T')[0];
+            const heutePlanung = this.anwesenheitState.planung.filter(p => p.datum === heute);
+            const heuteImBuero = heutePlanung.filter(p => p.im_buero).length;
+            const heuteEssen = heutePlanung.filter(p => p.mittagessen).length;
+            const monatEssen = this.anwesenheitState.planung.filter(p => p.mittagessen).length;
+            const heuteHomeoffice = heutePlanung.filter(p => p.abwesenheit_grund === 'homeoffice').length;
+
+            document.getElementById('stat-anwesenheit-heute').textContent = heuteImBuero;
+            document.getElementById('stat-anwesenheit-essen-heute').textContent = heuteEssen;
+            document.getElementById('stat-anwesenheit-essen-monat').textContent = monatEssen;
+            document.getElementById('stat-anwesenheit-homeoffice').textContent = heuteHomeoffice;
+
+            // UI rendern
+            if (this.isAdmin()) {
+                this.renderAnwesenheitKalenderAdmin();
+            }
+            this.renderMeineAnwesenheit();
+            this.renderHeuteAnwesend();
+        } catch (error) {
+            console.error('Fehler beim Laden der Anwesenheit:', error);
+            this.showToast('Fehler', 'Anwesenheit konnte nicht geladen werden', 'error');
+        }
+    },
+
+    // Admin: Monatskalender rendern
+    renderAnwesenheitKalenderAdmin: function() {
+        const container = document.getElementById('anwesenheit-kalender-container');
+        if (!container) return;
+
+        const year = this.anwesenheitState.currentMonth.getFullYear();
+        const month = this.anwesenheitState.currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Montag = 0
+
+        let html = '';
+
+        // Leere Zellen vor dem 1.
+        for (let i = 0; i < startDayOfWeek; i++) {
+            html += '<div class="kalender-tag leer"></div>';
+        }
+
+        // Tage des Monats
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const datum = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const tagesPlanung = this.anwesenheitState.planung.filter(p => p.datum === datum);
+            const essenCount = tagesPlanung.filter(p => p.mittagessen).length;
+            const bueroCount = tagesPlanung.filter(p => p.im_buero).length;
+
+            const isWeekend = new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6;
+            const isToday = datum === new Date().toISOString().split('T')[0];
+
+            html += `
+                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''}" onclick="App.showAnwesenheitDetails('${datum}')">
+                    <div class="kalender-tag-nummer">${day}</div>
+                    ${essenCount > 0 ? `<div style="font-size: 0.7rem; color: #27ae60;"><strong>${essenCount}</strong> Essen</div>` : ''}
+                    ${bueroCount > 0 ? `<div style="font-size: 0.7rem; color: #3498db;">${bueroCount} im Buero</div>` : ''}
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+    },
+
+    // User: Meine Anwesenheit rendern
+    renderMeineAnwesenheit: async function() {
+        const grid = document.getElementById('meine-anwesenheit-grid');
+        if (!grid) return;
+
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) return;
+
+        // Naechste 10 Werktage anzeigen
+        const tage = [];
+        let date = new Date();
+        while (tage.length < 10) {
+            if (date.getDay() !== 0 && date.getDay() !== 6) { // Kein Wochenende
+                tage.push(new Date(date));
+            }
+            date.setDate(date.getDate() + 1);
+        }
+
+        const wochentagNamen = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+        grid.innerHTML = tage.map(tag => {
+            const datum = tag.toISOString().split('T')[0];
+            const planung = this.anwesenheitState.planung.find(p => p.datum === datum && p.user_id === currentUserId);
+
+            let statusIcon = '?';
+            let statusColor = '#bbb';
+            let statusText = 'Nicht geplant';
+
+            if (planung) {
+                if (planung.im_buero && planung.mittagessen) {
+                    statusIcon = '🍽️';
+                    statusColor = '#27ae60';
+                    statusText = 'Buero + Essen';
+                } else if (planung.im_buero) {
+                    statusIcon = '🏢';
+                    statusColor = '#3498db';
+                    statusText = 'Buero';
+                } else if (planung.abwesenheit_grund === 'homeoffice') {
+                    statusIcon = '🏠';
+                    statusColor = '#9b59b6';
+                    statusText = 'Homeoffice';
+                } else {
+                    statusIcon = '✖';
+                    statusColor = '#e74c3c';
+                    statusText = planung.abwesenheit_grund || 'Abwesend';
+                }
+            }
+
+            return `
+                <div onclick="App.showAnwesenheitForm('${datum}')"
+                     style="background: #f5f5f5; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; border: 2px solid ${statusColor};">
+                    <div style="font-weight: 500; margin-bottom: 0.5rem;">${wochentagNamen[tag.getDay()]}, ${tag.getDate()}.${tag.getMonth() + 1}.</div>
+                    <div style="font-size: 2rem;">${statusIcon}</div>
+                    <div style="font-size: 0.75rem; color: ${statusColor};">${statusText}</div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    // Heute anwesend rendern
+    renderHeuteAnwesend: function() {
+        const container = document.getElementById('heute-anwesend-liste');
+        if (!container) return;
+
+        if (this.anwesenheitState.heuteAnwesend.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center;">Keine Anwesenheiten fuer heute geplant</p>';
+            return;
+        }
+
+        const imBuero = this.anwesenheitState.heuteAnwesend.filter(a => a.im_buero);
+        const homeoffice = this.anwesenheitState.heuteAnwesend.filter(a => a.abwesenheit_grund === 'homeoffice');
+
+        let html = '';
+
+        if (imBuero.length > 0) {
+            html += '<div style="margin-bottom: 1rem;"><strong>Im Buero:</strong><br>';
+            html += imBuero.map(a => `
+                <span style="display: inline-block; padding: 4px 12px; background: ${a.mittagessen ? '#e8f5e9' : '#e3f2fd'}; border-radius: 20px; margin: 4px 4px 0 0; font-size: 0.9rem;">
+                    ${escapeHtml(a.username || a.email)}
+                    ${a.mittagessen ? '🍽️' : ''}
+                </span>
+            `).join('');
+            html += '</div>';
+        }
+
+        if (homeoffice.length > 0) {
+            html += '<div><strong>Homeoffice:</strong><br>';
+            html += homeoffice.map(a => `
+                <span style="display: inline-block; padding: 4px 12px; background: #f3e5f5; border-radius: 20px; margin: 4px 4px 0 0; font-size: 0.9rem;">
+                    ${escapeHtml(a.username || a.email)} 🏠
+                </span>
+            `).join('');
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    },
+
+    // Anwesenheit-Formular oeffnen
+    showAnwesenheitForm: function(datum) {
+        document.getElementById('anwesenheit-form-datum').value = datum;
+        const dateObj = new Date(datum);
+        const wochentagNamen = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+        document.getElementById('anwesenheit-datum-display').textContent = `${wochentagNamen[dateObj.getDay()]}, ${dateObj.toLocaleDateString('de-DE')}`;
+
+        // Radio-Buttons Event-Listener
+        document.querySelectorAll('input[name="anwesenheit-status"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const isAbwesend = radio.value === 'abwesend';
+                document.getElementById('anwesenheit-grund-group').style.display = isAbwesend ? 'block' : 'none';
+                document.getElementById('anwesenheit-notiz-group').style.display = isAbwesend ? 'block' : 'none';
+            });
+        });
+
+        this.showModal('anwesenheit-form-modal');
+    },
+
+    // Anwesenheit speichern
+    saveAnwesenheit: async function(event) {
+        event.preventDefault();
+
+        const datum = document.getElementById('anwesenheit-form-datum').value;
+        const status = document.querySelector('input[name="anwesenheit-status"]:checked').value;
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        const planungData = {
+            user_id: currentUserId,
+            datum: datum,
+            im_buero: status === 'buero_essen' || status === 'buero',
+            mittagessen: status === 'buero_essen',
+            abwesenheit_grund: status === 'abwesend' ? document.getElementById('anwesenheit-grund').value : (status === 'homeoffice' ? 'homeoffice' : null),
+            abwesenheit_notiz: status === 'abwesend' ? document.getElementById('anwesenheit-notiz').value : null
+        };
+
+        try {
+            await DataManager.upsertAnwesenheit(planungData);
+            this.showToast('Erfolg', 'Anwesenheit gespeichert', 'success');
+            this.hideModal('anwesenheit-form-modal');
+            await this.loadAnwesenheit();
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Schnellauswahl: Ganze Woche setzen
+    setAnwesenheitWoche: async function(typ) {
+        const currentUserId = await DataManager.getCurrentPublicUserId();
+        if (!currentUserId) {
+            this.showToast('Fehler', 'Nicht eingeloggt', 'error');
+            return;
+        }
+
+        // Naechste 5 Werktage
+        const tage = [];
+        let date = new Date();
+        while (tage.length < 5) {
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                tage.push(date.toISOString().split('T')[0]);
+            }
+            date.setDate(date.getDate() + 1);
+        }
+
+        try {
+            for (const datum of tage) {
+                const planungData = {
+                    user_id: currentUserId,
+                    datum: datum,
+                    im_buero: typ === 'buero_essen' || typ === 'buero',
+                    mittagessen: typ === 'buero_essen',
+                    abwesenheit_grund: typ === 'homeoffice' ? 'homeoffice' : null
+                };
+                await DataManager.upsertAnwesenheit(planungData);
+            }
+            this.showToast('Erfolg', 'Woche geplant', 'success');
+            await this.loadAnwesenheit();
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Planung fehlgeschlagen', 'error');
+        }
+    },
+
+    // Monat vor/zurueck
+    anwesenheitPrevMonth: function() {
+        this.anwesenheitState.currentMonth.setMonth(this.anwesenheitState.currentMonth.getMonth() - 1);
+        this.loadAnwesenheit();
+    },
+
+    anwesenheitNextMonth: function() {
+        this.anwesenheitState.currentMonth.setMonth(this.anwesenheitState.currentMonth.getMonth() + 1);
+        this.loadAnwesenheit();
+    },
+
+    // Bestellungen Modal
+    showBestellungModal: async function() {
+        const bestellungen = await DataManager.getEssensgutscheinBestellungen();
+        const tbody = document.getElementById('bestellungen-liste');
+
+        // Aktuellen Monat setzen
+        const jetzt = new Date();
+        document.getElementById('bestellung-monat').value = `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, '0')}`;
+
+        if (bestellungen.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #666;">Keine Bestellungen vorhanden</td></tr>';
+        } else {
+            tbody.innerHTML = bestellungen.map(b => {
+                const monatNamen = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+                const statusBadge = {
+                    'offen': '<span class="badge" style="background: #3498db;">Offen</span>',
+                    'bestellt': '<span class="badge" style="background: #e67e22;">Bestellt</span>',
+                    'geliefert': '<span class="badge" style="background: #27ae60;">Geliefert</span>'
+                }[b.status] || b.status;
+
+                return `
+                    <tr>
+                        <td>${monatNamen[b.monat - 1]} ${b.jahr}</td>
+                        <td style="text-align: right;">${b.anzahl_geplant || 0}</td>
+                        <td style="text-align: right;">${b.anzahl_bestellt}</td>
+                        <td>${statusBadge}</td>
+                        <td style="text-align: right;">
+                            <select onchange="App.updateBestellungStatus(${b.id}, this.value)" class="form-control" style="width: auto; padding: 0.25rem;">
+                                <option value="offen" ${b.status === 'offen' ? 'selected' : ''}>Offen</option>
+                                <option value="bestellt" ${b.status === 'bestellt' ? 'selected' : ''}>Bestellt</option>
+                                <option value="geliefert" ${b.status === 'geliefert' ? 'selected' : ''}>Geliefert</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        this.showModal('bestellung-modal');
+    },
+
+    // Bestellung speichern
+    saveBestellung: async function() {
+        const monatInput = document.getElementById('bestellung-monat').value;
+        const anzahl = document.getElementById('bestellung-anzahl').value;
+
+        if (!monatInput) {
+            this.showToast('Fehler', 'Bitte Monat waehlen', 'error');
+            return;
+        }
+
+        const [jahr, monat] = monatInput.split('-').map(Number);
+
+        try {
+            await DataManager.upsertEssensgutscheinBestellung({
+                jahr,
+                monat,
+                anzahl_bestellt: anzahl,
+                status: 'offen'
+            });
+            this.showToast('Erfolg', 'Bestellung gespeichert', 'success');
+            this.showBestellungModal(); // Liste aktualisieren
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Speichern fehlgeschlagen', 'error');
+        }
+    },
+
+    // Bestellungs-Status aendern
+    updateBestellungStatus: async function(id, status) {
+        try {
+            await DataManager.updateEssensgutscheinBestellung(id, { status });
+            this.showToast('Erfolg', 'Status aktualisiert', 'success');
+        } catch (error) {
+            console.error('Fehler:', error);
+            this.showToast('Fehler', 'Aktualisierung fehlgeschlagen', 'error');
+        }
+    },
+
+    // Anwesenheit Details anzeigen (Admin)
+    showAnwesenheitDetails: function(datum) {
+        const tagesPlanung = this.anwesenheitState.planung.filter(p => p.datum === datum);
+        if (tagesPlanung.length === 0) {
+            this.showToast('Info', 'Keine Planungen fuer diesen Tag', 'info');
+            return;
+        }
+
+        let message = `${new Date(datum).toLocaleDateString('de-DE')}:\n\n`;
+        tagesPlanung.forEach(p => {
+            const name = p.username || p.user_id;
+            let status = 'Unbekannt';
+            if (p.im_buero && p.mittagessen) status = 'Buero + Essen';
+            else if (p.im_buero) status = 'Buero';
+            else if (p.abwesenheit_grund) status = p.abwesenheit_grund;
+            message += `${name}: ${status}\n`;
+        });
+
+        alert(message);
     }
 };
 
