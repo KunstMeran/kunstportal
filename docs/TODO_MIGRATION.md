@@ -1,7 +1,7 @@
 # Migration TODO - Hetzner
 
 **Server IP:** 2.28.22.217
-**Domain:** app.kunstmeranoarte.org (DNS pending bei Giraffentoast)
+**Domain:** portal.kunstmeranoarte.org (DNS pending bei Giraffentoast)
 **Datum:** 2026-08-17
 
 ---
@@ -30,9 +30,9 @@
 
 ## Kontakte
 
-- [x] **Giraffentoast:** DNS A-Record `app.kunstmeranoarte.org` -> `2.28.22.217` (angefragt)
+- [x] **Giraffentoast:** DNS A-Record `portal.kunstmeranoarte.org` -> `2.28.22.217` (angefragt)
 - [ ] **Ruben:** Azure AD App-Registrierung (sobald DNS funktioniert)
-  - Redirect URI: `https://app.kunstmeranoarte.org/callback`
+  - Redirect URI: `https://portal.kunstmeranoarte.org/callback`
 
 ---
 
@@ -130,7 +130,7 @@
 
 ## Phase 5: Frontend anpassen
 
-- [ ] `config.js` - API-URL aendern zu `https://app.kunstmeranoarte.org/api/v1`
+- [ ] `config.js` - API-URL aendern zu `https://portal.kunstmeranoarte.org/api/v1`
 - [ ] `data-adapter.js` - Supabase-Client durch fetch() ersetzen
 - [ ] `auth.js` - Microsoft SSO implementieren
 - [ ] `storage-service.js` - Storage-URLs anpassen
