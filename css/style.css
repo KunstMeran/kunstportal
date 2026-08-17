@@ -1924,6 +1924,20 @@ textarea:focus,
     min-height: auto;
 }
 
+.kalender-tag.anwesend {
+    background: #27ae60 !important;
+    color: white;
+}
+
+.kalender-tag.anwesend .kalender-tag-nummer {
+    color: white;
+    font-weight: 600;
+}
+
+.kalender-tag.anwesend:hover {
+    background: #219a52 !important;
+}
+
 /* Responsive Kalender */
 @media (max-width: 768px) {
     .kalender-tag {

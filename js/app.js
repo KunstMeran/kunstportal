@@ -19979,38 +19979,18 @@ const App = {
             const dateObj = new Date(year, month, day);
             const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
             const isToday = datum === new Date().toISOString().split('T')[0];
-            const isSelected = this.anwesenheitState.selectedDates.includes(datum);
-            const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
 
-            // Status bestimmen
-            let statusDot = '';
-            let statusColor = '#bbb';
-            if (planung) {
-                if (planung.im_buero && planung.mittagessen) {
-                    statusDot = '<span style="color: #27ae60; font-size: 1.5rem;">&#9679;</span>';
-                    statusColor = '#27ae60';
-                } else if (planung.im_buero) {
-                    statusDot = '<span style="color: #3498db; font-size: 1.5rem;">&#9679;</span>';
-                    statusColor = '#3498db';
-                } else if (planung.abwesenheit_grund === 'homeoffice') {
-                    statusDot = '<span style="color: #9b59b6; font-size: 1.5rem;">&#9679;</span>';
-                    statusColor = '#9b59b6';
-                } else {
-                    statusDot = '<span style="color: #95a5a6; font-size: 1.5rem;">&#9679;</span>';
-                    statusColor = '#95a5a6';
-                }
-            }
+            // Anwesend = gruen markiert (im_buero && mittagessen)
+            const isAnwesend = planung && planung.im_buero && planung.mittagessen;
 
-            const clickAction = isWeekend || isPast ? '' : `onclick="App.toggleAnwesenheitSelection('${datum}', event)"`;
-            const dblClickAction = isWeekend || isPast ? '' : `ondblclick="App.showAnwesenheitForm('${datum}')"`;
-            const cursorStyle = isWeekend || isPast ? 'default' : 'pointer';
+            const clickAction = isWeekend ? '' : `onclick="App.toggleAnwesenheitTag('${datum}')"`;
+            const cursorStyle = isWeekend ? 'default' : 'pointer';
 
             html += `
-                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}"
-                     ${clickAction} ${dblClickAction}
-                     style="cursor: ${cursorStyle}; ${isSelected ? 'border: 2px solid #e74c3c !important;' : ''}">
+                <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''} ${isAnwesend ? 'anwesend' : ''}"
+                     ${clickAction}
+                     style="cursor: ${cursorStyle};">
                     <div class="kalender-tag-nummer">${day}</div>
-                    ${statusDot}
                 </div>
             `;
         }
@@ -20018,75 +19998,40 @@ const App = {
         container.innerHTML = html;
     },
 
-    // Tag-Auswahl toggeln
-    toggleAnwesenheitSelection: function(datum, event) {
-        event.stopPropagation();
-        const index = this.anwesenheitState.selectedDates.indexOf(datum);
-        if (index > -1) {
-            this.anwesenheitState.selectedDates.splice(index, 1);
-        } else {
-            this.anwesenheitState.selectedDates.push(datum);
-        }
-        this.renderMeineAnwesenheit();
-    },
-
-    // Muster auf ausgewaehlte Tage anwenden (MO/DO/FR etc.)
-    selectAnwesenheitPattern: function(weekdays) {
-        // weekdays: 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa, 0=So
-        const year = this.anwesenheitState.meineCurrentMonth.getFullYear();
-        const month = this.anwesenheitState.meineCurrentMonth.getMonth();
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const today = new Date();
-        today.setHours(0,0,0,0);
-
-        this.anwesenheitState.selectedDates = [];
-
-        for (let day = 1; day <= lastDay; day++) {
-            const dateObj = new Date(year, month, day);
-            if (dateObj >= today && weekdays.includes(dateObj.getDay())) {
-                const datum = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                this.anwesenheitState.selectedDates.push(datum);
-            }
-        }
-
-        this.renderMeineAnwesenheit();
-        this.showToast('Info', `${this.anwesenheitState.selectedDates.length} Tage ausgewaehlt`, 'success');
-    },
-
-    // Auswahl loeschen
-    clearAnwesenheitSelection: function() {
-        this.anwesenheitState.selectedDates = [];
-        this.renderMeineAnwesenheit();
-    },
-
-    // Muster auf ausgewaehlte Tage anwenden
-    applyAnwesenheitMuster: async function(muster) {
-        if (this.anwesenheitState.selectedDates.length === 0) {
-            this.showToast('Hinweis', 'Bitte zuerst Tage auswaehlen (klicken oder MO/DO/FR Button)', 'warning');
-            return;
-        }
-
+    // Einfacher Toggle: Klick = Anwesend/Nicht anwesend
+    toggleAnwesenheitTag: async function(datum) {
         const currentUserId = await DataManager.getCurrentPublicUserId();
         if (!currentUserId) {
             this.showToast('Fehler', 'Nicht eingeloggt', 'error');
             return;
         }
 
+        // Aktuellen Status pruefen
+        const planung = this.anwesenheitState.planung.find(p => p.datum === datum && p.user_id === currentUserId);
+        const istAnwesend = planung && planung.im_buero && planung.mittagessen;
+
         try {
-            for (const datum of this.anwesenheitState.selectedDates) {
-                const planungData = {
+            if (istAnwesend) {
+                // Abwaehlen: Eintrag loeschen oder auf nicht-anwesend setzen
+                await DataManager.upsertAnwesenheit({
                     user_id: currentUserId,
                     datum: datum,
-                    im_buero: muster === 'buero_essen' || muster === 'buero',
-                    mittagessen: muster === 'buero_essen',
-                    abwesenheit_grund: muster === 'homeoffice' ? 'homeoffice' : (muster === 'frei' ? 'sonstiges' : null)
-                };
-                await DataManager.upsertAnwesenheit(planungData);
+                    im_buero: false,
+                    mittagessen: false,
+                    abwesenheit_grund: null
+                });
+            } else {
+                // Anwaehlen: Buero + Mittagessen
+                await DataManager.upsertAnwesenheit({
+                    user_id: currentUserId,
+                    datum: datum,
+                    im_buero: true,
+                    mittagessen: true,
+                    abwesenheit_grund: null
+                });
             }
 
-            const count = this.anwesenheitState.selectedDates.length;
-            this.anwesenheitState.selectedDates = [];
-            this.showToast('Erfolg', `${count} Tage aktualisiert`, 'success');
+            // Daten neu laden
             await this.loadAnwesenheit();
         } catch (error) {
             console.error('Fehler:', error);

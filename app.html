@@ -1282,37 +1282,10 @@
                             </div>
                         </div>
                         <div style="padding: 1rem;">
-                            <!-- Schnellauswahl fuer Muster -->
-                            <div style="margin-bottom: 1rem;">
-                                <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Schnellauswahl (auf alle ausgewaehlten Tage anwenden):</label>
-                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('buero_essen')" title="Im Buero mit Mittagessen">
-                                        <span style="color: #27ae60;">&#9679;</span> Buero + Essen
-                                    </button>
-                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('buero')" title="Im Buero ohne Mittagessen">
-                                        <span style="color: #3498db;">&#9679;</span> Buero
-                                    </button>
-                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('homeoffice')" title="Homeoffice">
-                                        <span style="color: #9b59b6;">&#9679;</span> Homeoffice
-                                    </button>
-                                    <button class="btn btn-outline btn-sm" onclick="App.applyAnwesenheitMuster('frei')" title="Abwesend/Frei">
-                                        <span style="color: #95a5a6;">&#9679;</span> Abwesend
-                                    </button>
-                                    <span style="margin-left: 1rem; color: #666; font-size: 0.85rem;">|</span>
-                                    <button class="btn btn-outline btn-sm" onclick="App.selectAnwesenheitPattern([1,4,5])" title="Mo, Do, Fr auswaehlen">MO/DO/FR</button>
-                                    <button class="btn btn-outline btn-sm" onclick="App.selectAnwesenheitPattern([1,2,3,4,5])" title="Alle Werktage auswaehlen">MO-FR</button>
-                                    <button class="btn btn-outline btn-sm" onclick="App.clearAnwesenheitSelection()" title="Auswahl aufheben">Auswahl loeschen</button>
-                                </div>
-                            </div>
-
-                            <!-- Legende -->
-                            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #666;">
-                                <span><span style="color: #27ae60;">&#9679;</span> Buero + Essen</span>
-                                <span><span style="color: #3498db;">&#9679;</span> Buero</span>
-                                <span><span style="color: #9b59b6;">&#9679;</span> Homeoffice</span>
-                                <span><span style="color: #95a5a6;">&#9679;</span> Frei/Abwesend</span>
-                                <span><span style="border: 2px solid #e74c3c; border-radius: 3px; padding: 0 3px;">&#9744;</span> Ausgewaehlt</span>
-                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+                                Klicke auf einen Tag um ihn als <strong style="color: #27ae60;">Anwesend + Mittagessen</strong> zu markieren.
+                                Nochmal klicken zum Abwaehlen.
+                            </p>
 
                             <!-- Monatskalender -->
                             <div class="kalender-header">
