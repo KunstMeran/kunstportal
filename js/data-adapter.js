@@ -257,9 +257,12 @@ const SupabaseDataAdapter = {
      */
     async getCurrentUserId() {
         try {
-            const authUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const result = await SupabaseService.client.auth.getUser();
+            const authUser = result?.data?.user;
+            const userId = authUser?.id || null;
+            console.log('🔑 getCurrentUserId:', { hasUser: !!authUser, userId });
             // Direkt die Auth-User-ID zurückgeben (für Foreign Key Constraints)
-            return authUser?.id || null;
+            return userId;
         } catch (error) {
             console.warn('⚠️ Konnte User-ID nicht ermitteln:', error);
             return null;
@@ -682,16 +685,22 @@ const SupabaseDataAdapter = {
             // Audit-Trail: created_at und created_by hinzufügen
             supabaseProject = await this.addCreateMetadata(supabaseProject);
 
+            console.log('📝 addProject - insert data:', supabaseProject);
+
+            // Insert ohne .single() um 409 Conflict zu vermeiden
             const { data, error } = await SupabaseService.client
                 .from('projects')
                 .insert([supabaseProject])
-                .select()
-                .single();
+                .select();
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ addProject insert error:', error);
+                throw error;
+            }
 
-            console.log('✅ Projekt erstellt:', data);
-            return this.convertProjectFromSupabase(data);
+            const result = data && data.length > 0 ? data[0] : null;
+            console.log('✅ Projekt erstellt:', result);
+            return result ? this.convertProjectFromSupabase(result) : null;
         } catch (error) {
             console.error('❌ Fehler beim Erstellen des Projekts:', error);
             // Fehler werfen statt stillschweigend fallback
@@ -3854,7 +3863,6 @@ const SupabaseDataAdapter = {
                 .select(`
                     *,
                     artikel:shop_artikel(id, name, artikelnr),
-                    user:users!empfaenger_user_id(id, name, email),
                     externer:shop_externe_empfaenger(id, name, notiz)
                 `)
                 .order('datum', { ascending: false })
@@ -3882,6 +3890,20 @@ const SupabaseDataAdapter = {
             const { data, error } = await query;
             if (error) throw error;
 
+            // User-Namen separat laden für Mitarbeiter-Ausgaben
+            const userIds = [...new Set((data || [])
+                .filter(a => a.empfaenger_typ === 'mitarbeiter' && a.empfaenger_user_id)
+                .map(a => a.empfaenger_user_id))];
+
+            let usersMap = {};
+            if (userIds.length > 0) {
+                const { data: users } = await SupabaseService.client
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', userIds);
+                (users || []).forEach(u => { usersMap[u.id] = u; });
+            }
+
             return (data || []).map(a => ({
                 id: a.id,
                 datum: a.datum,
@@ -3895,7 +3917,7 @@ const SupabaseDataAdapter = {
                 empfaenger_user_id: a.empfaenger_user_id,
                 empfaenger_extern_id: a.empfaenger_extern_id,
                 empfaenger_name: a.empfaenger_typ === 'mitarbeiter'
-                    ? (a.user?.name || a.user?.email)
+                    ? (usersMap[a.empfaenger_user_id]?.name || usersMap[a.empfaenger_user_id]?.email || 'Unbekannt')
                     : (a.externer?.name || a.empfaenger_extern_name),
                 empfaenger_extern_notiz: a.externer?.notiz || a.empfaenger_extern_notiz,
                 zweck: a.zweck,
