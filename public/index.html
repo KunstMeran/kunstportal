@@ -12,25 +12,7 @@
             <img src="logo.png" alt="Kunst Meran" class="login-logo-img">
             <p class="login-subtitle">Projektverwaltung</p>
 
-            <form id="login-form" class="login-form">
-                <div class="form-group">
-                    <label for="username">Benutzername</label>
-                    <input type="text" id="username" name="username" required autocomplete="username">
-                </div>
-
-                <div class="form-group">
-                    <label for="password">Passwort</label>
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
-                </div>
-
-                <div id="login-error" class="login-error"></div>
-
-                <button type="submit" class="btn btn-black btn-block">Anmelden</button>
-            </form>
-
-            <div class="login-divider">
-                <span>oder</span>
-            </div>
+            <div id="login-error" class="login-error"></div>
 
             <button type="button" class="btn btn-microsoft btn-block" onclick="Auth.handleMicrosoftLogin()">
                 <svg viewBox="0 0 21 21" width="21" height="21" style="margin-right: 8px;">
@@ -62,9 +44,6 @@
         (async () => {
             await Auth.checkAlreadyLoggedIn();
         })();
-
-        // Login-Formular Event
-        document.getElementById('login-form').addEventListener('submit', Auth.handleLogin);
 
         // OAuth-Fehler aus URL-Parameter anzeigen
         (function() {
