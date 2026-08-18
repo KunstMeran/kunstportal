@@ -41,8 +41,8 @@ const Config = {
     // Microsoft SSO Konfiguration
     microsoftSSO: {
         enabled: true,
-        clientId: 'PLACEHOLDER_CLIENT_ID', // Von Ruben
-        tenantId: 'PLACEHOLDER_TENANT_ID', // Von Ruben
+        clientId: '93c31057-015b-4c34-87c4-dd5bae1d4e90',
+        tenantId: '801f19ef-56c9-4e5f-ae6d-e851ac1141d8',
         redirectUri: 'https://portal.kunstmeranoarte.org/callback'
     }
 };
