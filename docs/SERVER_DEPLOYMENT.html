@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Deployment & Wartung - Kunsthaus Meran Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-left: 10px;
+            border-left: 4px solid #3498db;
+        }
+
+        h3 {
+            color: #2c3e50;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .meta-info {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+
+        .meta-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #e74c3c;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: transparent;
+            color: #f8f8f2;
+            padding: 0;
+        }
+
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 30px 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin: 10px 0;
+        }
+
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .file-tree {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 15px 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+
+            pre {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ Server Deployment & Wartung - Kunsthaus Meran Portal</h1>
+
+        <div class="meta-info">
+            <p><strong>Version:</strong> 3.0.0</p>
+            <p><strong>Server:</strong> Hetzner VPS CX21</p>
+            <p><strong>Domain:</strong> <a href="https://portal.kunstmeranoarte.org">https://portal.kunstmeranoarte.org</a></p>
+            <p><strong>Letzte Aktualisierung:</strong> 20. August 2026</p>
+        </div>
+
+        <hr>
+
+        <div class="toc">
+            <h2>📋 Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#server-info">Server-Informationen</a></li>
+                <li><a href="#directories">Wichtige Verzeichnisse</a></li>
+                <li><a href="#ssh">SSH-Zugang</a></li>
+                <li><a href="#deployment">Deployment-Prozess</a></li>
+                <li><a href="#pm2">Backend-Verwaltung (pm2)</a></li>
+                <li><a href="#database">Datenbank-Zugriff</a></li>
+                <li><a href="#commands">Wichtige Befehle</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                <li><a href="#backup">Backup & Restore</a></li>
+            </ul>
+        </div>
+
+        <h2 id="server-info">🖥️ Server-Informationen</h2>
+
+        <h3>Hetzner VPS Details</h3>
+        <table>
+            <tr>
+                <th>Eigenschaft</th>
+                <th>Wert</th>
+            </tr>
+            <tr>
+                <td>Server-Typ</td>
+                <td>CX21</td>
+            </tr>
+            <tr>
+                <td>RAM</td>
+                <td>4 GB</td>
+            </tr>
+            <tr>
+                <td>CPU</td>
+                <td>2 vCPU</td>
+            </tr>
+            <tr>
+                <td>Storage</td>
+                <td>40 GB SSD</td>
+            </tr>
+            <tr>
+                <td>Betriebssystem</td>
+                <td>Ubuntu Server 22.04 LTS</td>
+            </tr>
+        </table>
+
+        <h3>Software-Stack</h3>
+        <ul>
+            <li><strong>Webserver:</strong> Caddy (Reverse Proxy mit Auto-SSL)</li>
+            <li><strong>Backend:</strong> Node.js 22.23.2 + Express.js</li>
+            <li><strong>Prozess-Manager:</strong> PM2</li>
+            <li><strong>Datenbank:</strong> PostgreSQL 16</li>
+            <li><strong>Authentifizierung:</strong> Microsoft SSO (Azure AD)</li>
+        </ul>
+
+        <h2 id="directories">📂 Wichtige Verzeichnisse</h2>
+
+        <div class="file-tree">
+/var/www/kunstmeran/
+├── app/                          # Haupt-Repository (Git)
+│   ├── public/                   # Frontend (HTML, CSS, JS)
+│   │   ├── js/                   # JavaScript Module
+│   │   │   ├── api-client.js     # API Client
+│   │   │   ├── auth.js           # Microsoft SSO
+│   │   │   ├── data.js           # Data Manager
+│   │   │   ├── app.js            # Haupt-App Logik
+│   │   │   └── ...
+│   │   └── css/                  # Stylesheets
+│   ├── api/                      # Backend API
+│   │   ├── server.js             # Express Server
+│   │   ├── routes/               # API Routes
+│   │   │   ├── datev.js          # DATEV Buchungen
+│   │   │   ├── auth.js           # Authentifizierung
+│   │   │   ├── projects.js       # Projekte
+│   │   │   └── ...
+│   │   ├── middleware/           # Auth & CRUD Middleware
+│   │   ├── .env                  # Umgebungsvariablen (NICHT in Git!)
+│   │   └── package.json
+│   ├── database/                 # Datenbank-Migrations
+│   │   └── migrations/
+│   └── docs/                     # Dokumentation
+└── api/                          # LEGACY (nicht mehr verwendet)
+        </div>
+
+        <h2 id="ssh">🔑 SSH-Zugang</h2>
+
+        <h3>Mit Server verbinden</h3>
+        <pre><code>ssh kunstmeran@portal.kunstmeranoarte.org</code></pre>
+
+        <div class="warning">
+            <strong>⚠️ Wichtig:</strong> Immer als User <code>kunstmeran</code> arbeiten, nur bei System-Operationen <code>sudo</code> verwenden!
+        </div>
+
+        <h2 id="deployment">🚀 Deployment-Prozess</h2>
+
+        <h3>Standard Deployment (Empfohlen)</h3>
+        <pre><code># 1. Lokal: Änderungen committen und pushen
+git add .
+git commit -m "Beschreibung der Änderungen"
+git push origin main
+
+# 2. Auf dem Server: SSH verbinden
+ssh kunstmeran@portal.kunstmeranoarte.org
+
+# 3. Zum Projekt-Verzeichnis
+cd /var/www/kunstmeran/app
+
+# 4. Neueste Änderungen holen
+git pull origin main
+
+# 5. Backend neu starten
+pm2 restart kunstmeran-api
+
+# 6. Status prüfen
+pm2 status</code></pre>
+
+        <h3>Bei Git-Konflikten</h3>
+        <pre><code># Lokale Änderungen verwerfen (VORSICHT!)
+git reset --hard HEAD
+git pull origin main
+pm2 restart kunstmeran-api</code></pre>
+
+        <div class="info">
+            <strong>💡 Info:</strong> Frontend-Updates benötigen <strong>keinen</strong> Server-Neustart - einfach Hard-Refresh im Browser: <code>Strg + Shift + R</code>
+        </div>
+
+        <h2 id="pm2">⚙️ Backend-Verwaltung (pm2)</h2>
+
+        <h3>PM2 Status & Monitoring</h3>
+        <pre><code># Status aller Prozesse anzeigen
+pm2 status
+
+# Detaillierte Infos zu kunstmeran-api
+pm2 describe kunstmeran-api
+
+# Live-Monitoring (CPU, Memory)
+pm2 monit</code></pre>
+
+        <h3>Backend starten/stoppen/neu starten</h3>
+        <pre><code># Backend neu starten
+pm2 restart kunstmeran-api
+
+# Backend stoppen
+pm2 stop kunstmeran-api
+
+# Backend komplett neu deployen
+pm2 delete kunstmeran-api
+pm2 start /var/www/kunstmeran/app/api/server.js --name kunstmeran-api
+pm2 save</code></pre>
+
+        <h3>Logs anzeigen</h3>
+        <pre><code># Live-Logs (Strg + C zum Beenden)
+pm2 logs kunstmeran-api
+
+# Letzte 50 Zeilen
+pm2 logs kunstmeran-api --lines 50
+
+# Nur einmal anzeigen (nicht live)
+pm2 logs kunstmeran-api --lines 20 --nostream</code></pre>
+
+        <h2 id="database">🗄️ Datenbank-Zugriff</h2>
+
+        <h3>PostgreSQL verbinden</h3>
+        <pre><code># Direkt zur Datenbank
+sudo -u postgres psql -d kunstmeran_db
+
+# Oder von kunstmeran User
+psql -U postgres -d kunstmeran_db</code></pre>
+
+        <h3>Wichtige PostgreSQL Befehle</h3>
+        <pre><code>-- Alle Tabellen anzeigen
+\dt
+
+-- Tabellen-Struktur anzeigen
+\d datev_bookings
+
+-- Erste 10 Buchungen anzeigen
+SELECT * FROM datev_bookings LIMIT 10;
+
+-- Anzahl der Buchungen
+SELECT COUNT(*) FROM datev_bookings;
+
+-- PostgreSQL verlassen
+\q</code></pre>
+
+        <h2 id="troubleshooting">🔍 Troubleshooting</h2>
+
+        <h3>Problem: Backend startet nicht</h3>
+        <pre><code># 1. Logs prüfen
+pm2 logs kunstmeran-api --lines 50
+
+# 2. .env Datei prüfen
+ls -la /var/www/kunstmeran/app/api/.env
+
+# 3. Dependencies installieren
+cd /var/www/kunstmeran/app/api
+npm install
+
+# 4. Backend neu starten
+pm2 restart kunstmeran-api</code></pre>
+
+        <h3>Problem: "Environment: undefined"</h3>
+        <div class="warning">
+            <strong>Ursache:</strong> .env Datei fehlt oder wird nicht geladen
+        </div>
+        <pre><code># .env Datei prüfen
+ls -la /var/www/kunstmeran/app/api/.env
+
+# Falls fehlend, vom alten Pfad kopieren
+sudo cp /var/www/kunstmeran/api/.env /var/www/kunstmeran/app/api/.env
+sudo chown kunstmeran:kunstmeran /var/www/kunstmeran/app/api/.env
+
+pm2 restart kunstmeran-api</code></pre>
+
+        <h3>Problem: Git pull schlägt fehl</h3>
+        <pre><code># Option 1: Lokale Änderungen verwerfen
+git reset --hard HEAD
+git pull origin main
+
+# Option 2: Stash (Änderungen temporär speichern)
+git stash
+git pull origin main
+git stash pop</code></pre>
+
+        <h2 id="backup">💾 Backup & Restore</h2>
+
+        <h3>Manuelles Datenbank-Backup</h3>
+        <pre><code># Datenbank Backup erstellen
+sudo -u postgres pg_dump kunstmeran_db | gzip > ~/kunstmeran_backup_$(date +%Y%m%d_%H%M%S).sql.gz
+
+# Backup herunterladen (lokal ausführen)
+scp kunstmeran@portal.kunstmeranoarte.org:~/kunstmeran_backup_*.sql.gz ./</code></pre>
+
+        <h3>Datenbank Restore</h3>
+        <pre><code># Restore aus Backup
+gunzip -c kunstmeran_backup_20260820.sql.gz | sudo -u postgres psql kunstmeran_db</code></pre>
+
+        <div class="success">
+            <strong>✅ Empfehlung:</strong> Automatisches tägliches Backup via Cron-Job einrichten (siehe Markdown-Dokumentation)
+        </div>
+
+        <hr style="margin: 40px 0;">
+
+        <h2>📞 Support & Kontakt</h2>
+        <p><strong>Entwickler:</strong> Claude Sonnet 4.5 (via Controlling Solutions)</p>
+        <p><strong>Kunde:</strong> Kunsthaus Meran</p>
+        <p><strong>GitHub:</strong> <a href="https://github.com/KunstMeran/kunstportal">https://github.com/KunstMeran/kunstportal</a></p>
+
+        <h2>📝 Changelog</h2>
+        <h3>Version 3.0.0 (20. August 2026)</h3>
+        <ul>
+            <li>✅ Migration von Supabase zu Hetzner VPS</li>
+            <li>✅ PostgreSQL 16 Installation</li>
+            <li>✅ Microsoft SSO Integration (Azure AD)</li>
+            <li>✅ Backend API mit Express.js</li>
+            <li>✅ PM2 Prozess-Management</li>
+            <li>✅ Caddy Reverse Proxy mit Auto-SSL</li>
+            <li>✅ Git-basierter Deployment-Prozess</li>
+        </ul>
+
+        <div class="warning">
+            <h3>Bekannte Issues</h3>
+            <ul>
+                <li>⚠️ 9 High-Severity Dependencies (siehe Dependabot)</li>
+                <li>⚠️ Frontend: SupabaseService Referenzen müssen entfernt werden</li>
+            </ul>
+        </div>
+
+        <hr style="margin: 40px 0;">
+        <p style="text-align: center; color: #7f8c8d; font-size: 14px;">
+            📌 Diese Dokumentation wird regelmäßig aktualisiert. Letzte Änderung: 20.08.2026
+        </p>
+    </div>
+</body>
+</html>
