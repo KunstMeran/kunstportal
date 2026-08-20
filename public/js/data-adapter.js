@@ -582,55 +582,27 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * DATEV-Buchungen aus Supabase laden
+     * DATEV-Buchungen aus PostgreSQL laden (via API Client)
      * Ersetzt loadBuchungenJSON() - lädt aus datev_bookings Tabelle
      * Reichert Buchungen mit Lieferantennamen aus suppliers-Tabelle an
      */
     async loadBuchungenFromSupabase(jahr = null) {
         try {
-            console.log('📤 Lade DATEV-Buchungen aus Supabase...');
+            console.log('📤 Lade DATEV-Buchungen aus PostgreSQL...');
 
-            // Alle Buchungen mit Pagination laden (Supabase Standard-Limit ist 1000)
-            let allBookings = [];
-            let from = 0;
-            const pageSize = 1000;
-            let hasMore = true;
-
-            while (hasMore) {
-                const { data, error } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .select('*')
-                    .or('archived.is.null,archived.eq.false')
-                    .order('datum', { ascending: false })
-                    .range(from, from + pageSize - 1);
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    allBookings = allBookings.concat(data);
-                    from += pageSize;
-                    hasMore = data.length === pageSize;
-                    console.log(`📊 ${allBookings.length} Buchungen geladen...`);
-                } else {
-                    hasMore = false;
-                }
-            }
+            // Alle Buchungen über API Client laden
+            const filters = jahr ? { year: jahr } : {};
+            const allBookings = await ApiClient.getDatevBookings(filters);
 
             console.log(`✅ Insgesamt ${allBookings.length} DATEV-Buchungen geladen`);
 
             // Lieferanten laden
-            const suppliersResult = await SupabaseService.client
-                .from('suppliers')
-                .select('partita_iva, fornitore_name');
-
-            const bookingsResult = { data: allBookings, error: null };
-
-            if (bookingsResult.error) throw bookingsResult.error;
+            const suppliers = await ApiClient.getSuppliers();
 
             // Lieferanten-Map erstellen für schnellen Lookup
             const supplierMap = new Map();
-            if (suppliersResult.data) {
-                suppliersResult.data.forEach(s => {
+            if (suppliers) {
+                suppliers.forEach(s => {
                     if (s.partita_iva && s.fornitore_name) {
                         supplierMap.set(s.partita_iva, s.fornitore_name);
                     }
@@ -639,7 +611,7 @@ const SupabaseDataAdapter = {
             console.log(`📇 ${supplierMap.size} Lieferanten für Namen-Lookup geladen`);
 
             // Konvertieren zu lokalem Format mit Lieferantennamen-Anreicherung
-            this.datevBuchungenCache = (bookingsResult.data || []).map(b => {
+            this.datevBuchungenCache = (allBookings || []).map(b => {
                 // Lieferantenname: Aus Buchung oder aus suppliers-Tabelle
                 let fornitoreName = b.fornitore_name || '';
                 if ((!fornitoreName || fornitoreName === 'Unbekannt') && b.partita_iva) {
@@ -2182,19 +2154,10 @@ const SupabaseDataAdapter = {
 
     async getFundingSources(year = null) {
         try {
-            let query = SupabaseService.client
-                .from('funding_sources')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('code', { ascending: true });
+            const filters = {};
+            if (year) filters.year = year;
 
-            if (year) {
-                query = query.eq('year', year);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
+            const data = await ApiClient.getFundingSources(filters);
 
             this.fundingSourcesCache = data.map(fs => ({
                 id: fs.id,
@@ -2220,14 +2183,7 @@ const SupabaseDataAdapter = {
 
     async getFundingSourceById(id) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('funding_sources')
-                .select('*')
-                .eq('id', id)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .single();
-
-            if (error) throw error;
+            const data = await ApiClient.getFundingSourceById(id);
 
             return {
                 id: data.id,
@@ -2258,7 +2214,7 @@ const SupabaseDataAdapter = {
             }
             console.log('addFundingSource - year:', fiscalYear);
 
-            let insertData = {
+            const insertData = {
                 code: fundingSource.code,
                 name: fundingSource.name,
                 source: fundingSource.source || null,
@@ -2270,16 +2226,7 @@ const SupabaseDataAdapter = {
                 document_path: fundingSource.documentPath || null
             };
 
-            // Audit-Trail: created_at und created_by hinzufügen
-            insertData = await this.addCreateMetadata(insertData);
-
-            const { data, error } = await SupabaseService.client
-                .from('funding_sources')
-                .insert(insertData)
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await ApiClient.createFundingSource(insertData);
 
             // Cache invalidieren
             this.fundingSourcesCache = null;
@@ -2304,28 +2251,18 @@ const SupabaseDataAdapter = {
 
     async updateFundingSource(id, updates) {
         try {
-            let supabaseUpdates = {};
-            if (updates.code !== undefined) supabaseUpdates.code = updates.code;
-            if (updates.name !== undefined) supabaseUpdates.name = updates.name;
-            if (updates.source !== undefined) supabaseUpdates.source = updates.source;
-            if (updates.amount !== undefined) supabaseUpdates.amount = updates.amount;
-            if (updates.year !== undefined) supabaseUpdates.year = updates.year;
-            if (updates.isAbgabestelle !== undefined) supabaseUpdates.is_abgabestelle = updates.isAbgabestelle;
-            if (updates.status !== undefined) supabaseUpdates.status = updates.status;
-            if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
-            if (updates.documentPath !== undefined) supabaseUpdates.document_path = updates.documentPath;
+            let apiUpdates = {};
+            if (updates.code !== undefined) apiUpdates.code = updates.code;
+            if (updates.name !== undefined) apiUpdates.name = updates.name;
+            if (updates.source !== undefined) apiUpdates.source = updates.source;
+            if (updates.amount !== undefined) apiUpdates.amount = updates.amount;
+            if (updates.year !== undefined) apiUpdates.year = updates.year;
+            if (updates.isAbgabestelle !== undefined) apiUpdates.is_abgabestelle = updates.isAbgabestelle;
+            if (updates.status !== undefined) apiUpdates.status = updates.status;
+            if (updates.notes !== undefined) apiUpdates.notes = updates.notes;
+            if (updates.documentPath !== undefined) apiUpdates.document_path = updates.documentPath;
 
-            // Audit-Trail: updated_at und updated_by hinzufügen
-            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
-
-            const { data, error } = await SupabaseService.client
-                .from('funding_sources')
-                .update(supabaseUpdates)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await ApiClient.updateFundingSource(id, apiUpdates);
 
             // Cache invalidieren
             this.fundingSourcesCache = null;
@@ -2350,8 +2287,7 @@ const SupabaseDataAdapter = {
 
     async deleteFundingSource(id) {
         try {
-            // Soft-Delete: Einnahme als gelöscht markieren statt entfernen
-            await this.softDelete('funding_sources', id);
+            await ApiClient.deleteFundingSource(id);
 
             // Cache invalidieren
             this.fundingSourcesCache = null;
@@ -2368,19 +2304,7 @@ const SupabaseDataAdapter = {
      */
     async getActiveAbgabestellen(year = null) {
         try {
-            let query = SupabaseService.client
-                .from('funding_sources')
-                .select('*')
-                .eq('is_abgabestelle', true)
-                .order('code', { ascending: true });
-
-            if (year) {
-                query = query.eq('year', year);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
+            const data = await ApiClient.getActiveAbgabestellen(year);
 
             return data.map(fs => ({
                 id: fs.id,
@@ -2399,75 +2323,12 @@ const SupabaseDataAdapter = {
 
     /**
      * Berechnet die Ausgaben für eine Funding Source
-     * Sucht nach:
-     * 1. Buchungen in datev_bookings mit abgabestelle = 'funding:ID'
-     * 2. Unverknüpfte PDFs in invoices mit funding_source_id = ID
+     * Ruft die Backend-API auf
      */
     async getFundingSourceExpenses(fundingSourceId) {
         try {
-            const abgabestelleValue = `funding:${fundingSourceId}`;
-            let allInvoices = [];
-            let totalBrutto = 0;
-
-            // 1. DATEV-Buchungen mit dieser Abgabestelle
-            const { data: datevData, error: datevError } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('id, betrag, fornitore_name, dokument_nr, datum')
-                .eq('abgabestelle', abgabestelleValue);
-
-            if (datevError) {
-                console.error('Fehler beim Laden der DATEV-Buchungen:', datevError);
-            } else if (datevData) {
-                datevData.forEach(b => {
-                    const betrag = Math.abs(parseFloat(b.betrag) || 0);
-                    totalBrutto += betrag;
-                    allInvoices.push({
-                        id: b.id,
-                        betrag_netto: betrag * 0.82,
-                        betrag_gesamt: betrag,
-                        lieferant_name: b.fornitore_name,
-                        dokument_nr: b.dokument_nr,
-                        datum: b.datum,
-                        source: 'datev'
-                    });
-                });
-            }
-
-            // 2. Unverknüpfte PDFs (invoices ohne linked_booking_id) mit dieser funding_source_id
-            const { data: invoiceData, error: invoiceError } = await SupabaseService.client
-                .from('invoices')
-                .select('id, file_name, created_at, amount')
-                .eq('funding_source_id', fundingSourceId)
-                .is('linked_booking_id', null);
-
-            if (invoiceError) {
-                console.error('Fehler beim Laden der unverknüpften Invoices:', invoiceError);
-            } else if (invoiceData) {
-                invoiceData.forEach(inv => {
-                    // Unverknüpfte PDFs haben normalerweise keinen Betrag - aber falls doch
-                    const betrag = Math.abs(parseFloat(inv.amount) || 0);
-                    totalBrutto += betrag;
-                    allInvoices.push({
-                        id: inv.id,
-                        betrag_netto: betrag * 0.82,
-                        betrag_gesamt: betrag,
-                        lieferant_name: inv.file_name || 'PDF',
-                        dokument_nr: '-',
-                        datum: inv.created_at ? inv.created_at.split('T')[0] : null,
-                        source: 'invoice'
-                    });
-                });
-            }
-
-            // Netto schätzen (ca. 82% von Brutto bei 22% MwSt in Italien)
-            const totalNetto = totalBrutto * 0.82;
-
-            return {
-                count: allInvoices.length,
-                totalNetto,
-                totalBrutto,
-                invoices: allInvoices
-            };
+            const result = await ApiClient.getFundingSourceExpenses(fundingSourceId);
+            return result;
         } catch (error) {
             console.error('Fehler beim Berechnen der Ausgaben:', error);
             return { count: 0, totalNetto: 0, totalBrutto: 0, invoices: [] };
@@ -2479,20 +2340,8 @@ const SupabaseDataAdapter = {
      */
     async updateInvoiceFundingSource(invoiceId, fundingSourceId) {
         try {
-            let updates = { funding_source_id: fundingSourceId };
-            // Audit-Trail: updated_at und updated_by hinzufügen
-            updates = await this.addUpdateMetadata(updates);
-
-            const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .update(updates)
-                .eq('id', invoiceId)
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            return data;
+            const result = await ApiClient.updateInvoiceFundingSource(invoiceId, fundingSourceId);
+            return result;
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Abgabestelle:', error);
             throw error;

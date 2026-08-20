@@ -1349,26 +1349,97 @@ const DataManager = {
     // ==========================================
 
     /**
-     * Lädt die buchungen.json Datei (aktuelles Jahr oder Archiv)
+     * Lädt DATEV-Buchungen aus PostgreSQL (via API Client)
      * @param {number|null} jahr - Jahr zum Laden (null = aktuelles Jahr)
-     * @returns {Promise<Object>} Buchungsdaten
+     * @returns {Promise<Object>} Buchungsdaten im kompatiblen Format
      */
     loadBuchungenJSON: async function(jahr = null) {
         try {
-            // Dateiname bestimmen: buchungen.json oder buchungen_JAHR.json
-            const filename = jahr ? `data/buchungen_${jahr}.json` : this.PATHS.BUCHUNGEN_JSON;
-            const response = await fetch(filename + '?t=' + Date.now());
-            if (!response.ok) {
-                console.log('Keine ' + filename + ' gefunden');
-                return null;
+            console.log('📤 Lade DATEV-Buchungen aus PostgreSQL' + (jahr ? ` (Jahr ${jahr})` : '') + '...');
+
+            if (typeof ApiClient === 'undefined') {
+                console.error('ApiClient nicht verfügbar');
+                return this.load(this.KEYS.DATEV_BUCHUNGEN);
             }
-            const data = await response.json();
+
+            // Buchungen über API Client laden
+            const filters = {};
+            if (jahr) {
+                filters.import_year = jahr;
+            }
+            const allBookings = await ApiClient.getDatevBookings(filters);
+
+            console.log(`✅ ${allBookings.length} DATEV-Buchungen geladen`);
+
+            // Lieferanten laden für Namen-Anreicherung
+            const suppliers = await ApiClient.getSuppliers();
+            const supplierMap = new Map();
+            if (suppliers) {
+                suppliers.forEach(s => {
+                    if (s.partita_iva && s.fornitore_name) {
+                        supplierMap.set(s.partita_iva, s.fornitore_name);
+                    }
+                });
+            }
+
+            // Konvertiere zu lokalem Format (kompatibel mit bestehender App-Logik)
+            const buchungen = (allBookings || []).map(b => ({
+                id: b.id,
+                partitaIva: b.partita_iva || '',
+                partitaIvaCliente: b.partita_iva_cliente || '',
+                fornitoreNr: b.fornitore_nr || '',
+                fornitoreName: b.fornitore_name || supplierMap.get(b.partita_iva) || '',
+                dokumentNr: b.dokument_nr || '',
+                dokumentTyp: b.dokument_typ || 'F',
+                istGutschrift: b.ist_gutschrift || false,
+                betrag: parseFloat(b.betrag) || 0,
+                mwstRate: b.mwst_rate !== null ? parseFloat(b.mwst_rate) : 22,
+                betragNetto: parseFloat(b.betrag) || 0,
+                betragMwst: parseFloat(b.betrag) * ((b.mwst_rate || 22) / 100),
+                betragGesamt: parseFloat(b.betrag) * (1 + ((b.mwst_rate || 22) / 100)),
+                mwstTyp: b.mwst_typ || null,
+                datum: b.datum,
+                projektId: b.projekt_id || null,
+                beschreibung: b.beschreibung || '',
+                kategorie: b.kategorie || '',
+                konto: b.konto_nr || null,
+                workflowStatus: b.workflow_status || 'neu',
+                kontrolliertAm: b.kontrolled_at || null,
+                kontrolliertVon: b.kontrolled_by || null,
+                bezahltAm: b.bezahlt_am || b.paid_at || null,
+                bezahltVon: b.paid_by || null,
+                abgabestelle: b.abgabestelle || null,
+                abgabestelleAm: b.abgabestelle_am || null,
+                kostentyp: b.kostentyp || '',
+                kostentypAm: b.kostentyp_am || null,
+                kostentypVon: b.kostentyp_von || null,
+                notizen: b.notizen || '',
+                updatedAt: b.updated_at || null,
+                created_at: b.created_at || null,
+                created_by: b.created_by || null,
+                updated_at: b.updated_at || null,
+                updated_by: b.updated_by || null,
+                rechnungId: b.dokument_nr ? `${b.partita_iva || ''}_${b.dokument_nr}` : `id:${b.id}`,
+                importYear: b.import_year,
+                linkedInvoiceId: b.linked_invoice_id
+            }));
+
+            // Kompatibilitäts-Objekt zurückgeben
+            const compatData = {
+                buchungen: buchungen,
+                lieferanten: [],
+                projekte: {},
+                lastUpdate: new Date().toISOString()
+            };
+
             // In localStorage speichern für Offline-Zugriff
-            this.save(this.KEYS.DATEV_BUCHUNGEN, data);
+            this.save(this.KEYS.DATEV_BUCHUNGEN, compatData);
             this.currentYear = jahr;
-            return data;
+
+            return compatData;
+
         } catch (error) {
-            console.error('Fehler beim Laden der buchungen.json:', error);
+            console.error('Fehler beim Laden der DATEV-Buchungen:', error);
             // Fallback auf localStorage
             return this.load(this.KEYS.DATEV_BUCHUNGEN);
         }
@@ -1442,6 +1513,23 @@ const DataManager = {
      */
     getCurrentLoadedYear: function() {
         return this.currentYear;
+    },
+
+    /**
+     * Holt aktive Abgabestellen (Funding Sources)
+     * @param {number|null} year - Optional: Jahr filtern
+     * @returns {Promise<Array>} Array mit Abgabestellen
+     */
+    getActiveAbgabestellen: async function(year = null) {
+        try {
+            if (typeof ApiClient !== 'undefined') {
+                return await ApiClient.getActiveAbgabestellen(year);
+            }
+            return [];
+        } catch (error) {
+            console.error('Fehler beim Laden der Abgabestellen:', error);
+            return [];
+        }
     },
 
     /**
