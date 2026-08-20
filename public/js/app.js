@@ -187,6 +187,9 @@ const App = {
         const isAuthenticated = await Auth.checkAuth();
         if (!isAuthenticated) return;
 
+        // Basisdaten aus PostgreSQL laden (Projekte, Lieferanten, etc.)
+        await DataManager.loadInitialData();
+
         // Benutzerinfo laden
         await this.loadUserInfo();
 

@@ -3461,6 +3461,47 @@ const DataManager = {
         });
 
         return { importiert, aktualisiert };
+    },
+
+    /**
+     * Lädt alle Basisdaten aus der PostgreSQL-Datenbank
+     * Wird beim App-Start aufgerufen
+     */
+    loadInitialData: async function() {
+        console.log('📦 Lade Basisdaten aus PostgreSQL...');
+
+        try {
+            // Projekte laden
+            if (typeof ApiClient !== 'undefined' && ApiClient.getProjects) {
+                const projects = await ApiClient.getProjects();
+                if (projects && projects.length > 0) {
+                    // Projekte in LocalStorage speichern für Offline-Zugriff
+                    this.save(this.KEYS.PROJECTS, projects);
+                    console.log(`✅ ${projects.length} Projekte geladen`);
+                }
+            }
+
+            // Lieferanten laden
+            if (typeof ApiClient !== 'undefined' && ApiClient.getSuppliers) {
+                const suppliers = await ApiClient.getSuppliers();
+                if (suppliers && suppliers.length > 0) {
+                    // Konvertiere zu lokalem Format
+                    const localSuppliers = suppliers.map(s => ({
+                        id: s.id,
+                        name: s.fornitore_name,
+                        externalId: s.partita_iva,
+                        type: 'Lieferant',
+                        active: true
+                    }));
+                    this.save(this.KEYS.SUPPLIERS, localSuppliers);
+                    console.log(`✅ ${suppliers.length} Lieferanten geladen`);
+                }
+            }
+
+            console.log('✅ Basisdaten erfolgreich geladen');
+        } catch (error) {
+            console.error('❌ Fehler beim Laden der Basisdaten:', error);
+        }
     }
 };
 
