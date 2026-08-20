@@ -292,7 +292,7 @@
         <h2 id="ssh">🔑 SSH-Zugang</h2>
 
         <h3>Mit Server verbinden</h3>
-        <pre><code>ssh kunstmeran@portal.kunstmeranoarte.org</code></pre>
+        <pre><code>ssh kunstmeran@2.58.22.217</code></pre>
 
         <div class="warning">
             <strong>⚠️ Wichtig:</strong> Immer als User <code>kunstmeran</code> arbeiten, nur bei System-Operationen <code>sudo</code> verwenden!
@@ -307,7 +307,7 @@ git commit -m "Beschreibung der Änderungen"
 git push origin main
 
 # 2. Auf dem Server: SSH verbinden
-ssh kunstmeran@portal.kunstmeranoarte.org
+ssh kunstmeran@2.58.22.217
 
 # 3. Zum Projekt-Verzeichnis
 cd /var/www/kunstmeran/app
@@ -436,7 +436,7 @@ git stash pop</code></pre>
 sudo -u postgres pg_dump kunstmeran_db | gzip > ~/kunstmeran_backup_$(date +%Y%m%d_%H%M%S).sql.gz
 
 # Backup herunterladen (lokal ausführen)
-scp kunstmeran@portal.kunstmeranoarte.org:~/kunstmeran_backup_*.sql.gz ./</code></pre>
+scp kunstmeran@2.58.22.217:~/kunstmeran_backup_*.sql.gz ./</code></pre>
 
         <h3>Datenbank Restore</h3>
         <pre><code># Restore aus Backup
