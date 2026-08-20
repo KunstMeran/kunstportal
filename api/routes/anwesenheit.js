@@ -1,0 +1,140 @@
+const express = require("express");
+const router = express.Router();
+const { requireAuth, requirePermission } = require("../middleware/auth");
+
+// GET anwesenheit planung
+router.get("/planung", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { user_id, monat, jahr } = req.query;
+
+    try {
+        let query = "SELECT * FROM anwesenheit_planung WHERE 1=1";
+        const values = [];
+
+        if (user_id) {
+            values.push(user_id);
+            query += ` AND user_id = $${values.length}`;
+        }
+        if (monat) {
+            values.push(parseInt(monat));
+            query += ` AND monat = $${values.length}`;
+        }
+        if (jahr) {
+            values.push(parseInt(jahr));
+            query += ` AND jahr = $${values.length}`;
+        }
+
+        query += " ORDER BY jahr DESC, monat DESC";
+        const result = await pool.query(query, values);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET v_heute_anwesend view
+router.get("/heute", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    try {
+        const result = await pool.query("SELECT * FROM v_heute_anwesend");
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST/PUT upsert anwesenheit planung
+router.post("/planung", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { user_id, monat, jahr, tage } = req.body;
+
+    try {
+        const result = await pool.query(`
+            INSERT INTO anwesenheit_planung (user_id, monat, jahr, tage)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (user_id, monat, jahr)
+            DO UPDATE SET tage = EXCLUDED.tage, updated_at = NOW()
+            RETURNING *
+        `, [user_id, monat, jahr, JSON.stringify(tage)]);
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT update specific day
+router.put("/planung/:id", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const data = req.body;
+
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(", ");
+        values.push(req.params.id);
+
+        const result = await pool.query(
+            `UPDATE anwesenheit_planung SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+            values
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Entry not found" });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE anwesenheit planung
+router.delete("/planung/:id", requireAuth, requirePermission("zeiterfassung", "delete"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    try {
+        const result = await pool.query("DELETE FROM anwesenheit_planung WHERE id = $1 RETURNING *", [req.params.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Entry not found" });
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET summary by month
+router.get("/summary", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { monat, jahr } = req.query;
+
+    try {
+        let query = `
+            SELECT
+                ap.user_id,
+                u.name as user_name,
+                ap.monat,
+                ap.jahr,
+                ap.tage
+            FROM anwesenheit_planung ap
+            JOIN users u ON ap.user_id = u.id
+            WHERE 1=1
+        `;
+        const values = [];
+
+        if (monat) {
+            values.push(parseInt(monat));
+            query += ` AND ap.monat = $${values.length}`;
+        }
+        if (jahr) {
+            values.push(parseInt(jahr));
+            query += ` AND ap.jahr = $${values.length}`;
+        }
+
+        query += " ORDER BY u.name, ap.jahr, ap.monat";
+        const result = await pool.query(query, values);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = router;
