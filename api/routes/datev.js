@@ -22,11 +22,11 @@ router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req
         }
         if (year) {
             values.push(parseInt(year));
-            conditions.push(`EXTRACT(YEAR FROM belegdatum) = $${values.length}`);
+            conditions.push(`EXTRACT(YEAR FROM datum) = $${values.length}`);
         }
         if (month) {
             values.push(parseInt(month));
-            conditions.push(`EXTRACT(MONTH FROM belegdatum) = $${values.length}`);
+            conditions.push(`EXTRACT(MONTH FROM datum) = $${values.length}`);
         }
         if (kostentyp_id) {
             values.push(kostentyp_id);
@@ -41,7 +41,7 @@ router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req
             query += ' WHERE ' + conditions.join(' AND ');
         }
 
-        query += ` ORDER BY belegdatum DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        query += ` ORDER BY datum DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
         values.push(limit, offset);
 
         const result = await pool.query(query, values);
@@ -73,11 +73,11 @@ router.get('/aggregated', requireAuth, requirePermission('bewegungen', 'read'), 
 
     try {
         let query = `
-            SELECT 
+            SELECT
                 konto,
                 SUM(betrag) as total,
                 COUNT(*) as count,
-                EXTRACT(MONTH FROM belegdatum) as monat
+                EXTRACT(MONTH FROM datum) as monat
             FROM datev_bookings
             WHERE 1=1
         `;
@@ -85,14 +85,14 @@ router.get('/aggregated', requireAuth, requirePermission('bewegungen', 'read'), 
 
         if (year) {
             values.push(parseInt(year));
-            query += ` AND EXTRACT(YEAR FROM belegdatum) = $${values.length}`;
+            query += ` AND EXTRACT(YEAR FROM datum) = $${values.length}`;
         }
         if (projekt_id) {
             values.push(projekt_id);
             query += ` AND projekt_id = $${values.length}`;
         }
 
-        query += ' GROUP BY konto, EXTRACT(MONTH FROM belegdatum) ORDER BY konto, monat';
+        query += ' GROUP BY konto, EXTRACT(MONTH FROM datum) ORDER BY konto, monat';
 
         const result = await pool.query(query, values);
         res.json(result.rows);
