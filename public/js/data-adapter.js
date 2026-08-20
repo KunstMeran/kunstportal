@@ -6,8 +6,8 @@
 
 /**
  * SUPABASE SERVICE STUB
- * Da app.js noch direkt SupabaseService verwendet, erstellen wir einen Stub
- * der alle Aufrufe auf die neue API umleitet
+ * Da data-adapter.js noch direkt SupabaseService verwendet, erstellen wir einen Stub
+ * der alle Aufrufe abfängt und leere Ergebnisse zurückgibt (Daten kommen aus ApiClient)
  */
 const SupabaseService = {
     client: {
@@ -19,25 +19,32 @@ const SupabaseService = {
             }
         },
         from(table) {
-            console.warn(`⚠️ Legacy Supabase-Aufruf: .from('${table}') - wird ignoriert. Nutze stattdessen DataManager/ApiClient!`);
-            // Dummy-Objekt zurückgeben um Fehler zu vermeiden
-            return {
-                select: () => this,
-                insert: () => this,
-                update: () => this,
-                delete: () => this,
-                eq: () => this,
-                neq: () => this,
-                in: () => this,
-                order: () => this,
-                limit: () => this,
-                single: () => Promise.resolve({ data: null, error: { message: 'SupabaseService ist deaktiviert' } }),
-                then: (resolve) => resolve({ data: null, error: { message: 'SupabaseService ist deaktiviert' } })
+            console.warn(`⚠️ Legacy Supabase-Aufruf: .from('${table}') - wird ignoriert. Daten kommen aus ApiClient/DataManager!`);
+            // Chainable Query Builder Stub - gibt immer leere Ergebnisse zurück
+            const stub = {
+                select: function() { return this; },
+                insert: function() { return this; },
+                update: function() { return this; },
+                delete: function() { return this; },
+                eq: function() { return this; },
+                neq: function() { return this; },
+                in: function() { return this; },
+                is: function() { return this; },
+                or: function() { return this; },
+                order: function() { return this; },
+                limit: function() { return this; },
+                range: function() { return this; },
+                single: function() { return Promise.resolve({ data: null, error: { message: 'Nutze ApiClient statt Supabase' } }); },
+                // Default Promise-Rückgabe für await
+                then: function(resolve) {
+                    return resolve({ data: [], error: null, count: 0 });
+                }
             };
+            return stub;
         },
         storage: {
             from(bucket) {
-                console.warn(`⚠️ Legacy Supabase-Storage-Aufruf: storage.from('${bucket}') - nutze stattdessen StorageService!`);
+                console.warn(`⚠️ Legacy Supabase-Storage-Aufruf: storage.from('${bucket}') - nutze StorageService!`);
                 return {
                     upload: () => Promise.resolve({ data: null, error: { message: 'Nutze StorageService.uploadFile()' } }),
                     remove: () => Promise.resolve({ data: null, error: { message: 'Nutze StorageService.deleteFile()' } }),
@@ -52,7 +59,10 @@ const SupabaseService = {
     }
 };
 
-console.log('🔄 SupabaseService Stub geladen (leitet auf ApiClient um)');
+// supabaseClient Alias für Legacy-Code
+const supabaseClient = SupabaseService.client;
+
+console.log('🔄 SupabaseService Stub geladen (gibt leere Ergebnisse zurück)');
 
 const SupabaseDataAdapter = {
     /**
