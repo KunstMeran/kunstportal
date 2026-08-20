@@ -279,6 +279,53 @@ const ApiClient = {
         });
     },
 
+    // ========== FUNDING SOURCES ==========
+
+    async getFundingSources(filters = {}) {
+        const params = new URLSearchParams(filters).toString();
+        return await this.request(`/funding-sources${params ? '?' + params : ''}`);
+    },
+
+    async getFundingSourceById(id) {
+        return await this.request(`/funding-sources/${id}`);
+    },
+
+    async getActiveAbgabestellen(year = null) {
+        const filters = { is_abgabestelle: 'true' };
+        if (year) filters.year = year;
+        const params = new URLSearchParams(filters).toString();
+        return await this.request(`/funding-sources${params ? '?' + params : ''}`);
+    },
+
+    async createFundingSource(data) {
+        return await this.request('/funding-sources', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateFundingSource(id, data) {
+        return await this.request(`/funding-sources/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteFundingSource(id) {
+        return await this.request(`/funding-sources/${id}`, { method: 'DELETE' });
+    },
+
+    async getFundingSourceExpenses(fundingSourceId) {
+        return await this.request(`/funding-sources/${fundingSourceId}/expenses`);
+    },
+
+    async updateInvoiceFundingSource(invoiceId, fundingSourceId) {
+        return await this.request(`/invoices/${invoiceId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ funding_source_id: fundingSourceId }),
+        });
+    },
+
     // ========== BUDGET ==========
 
     async getBudgetEntries(filters = {}) {

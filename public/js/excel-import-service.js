@@ -97,11 +97,10 @@ const ExcelImportService = {
             // ============================================
             // SCHRITT 2: Lieferanten für Matching laden
             // ============================================
-            const { data: suppliers, error: supplierError } = await SupabaseService.client
-                .from('suppliers')
-                .select('fornitore_name, partita_iva, fornitore_nr');
-
-            if (supplierError) {
+            let suppliers = [];
+            try {
+                suppliers = await ApiClient.getSuppliers();
+            } catch (supplierError) {
                 console.warn('⚠️ Lieferanten konnten nicht geladen werden:', supplierError);
             }
 
@@ -131,29 +130,19 @@ const ExcelImportService = {
             let totalLoaded = 0;
             let hasMore = true;
 
-            while (hasMore) {
-                const { data: existingBookings, error: existingError } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .select('dokument_nr, datum, betrag, konto_nr')
-                    .range(offset, offset + pageSize - 1);
-
-                if (existingError) {
-                    console.warn('⚠️ Existierende Buchungen konnten nicht geladen werden:', existingError);
-                    break;
-                }
-
+            try {
+                // Alle existierenden Buchungen laden
+                const existingBookings = await ApiClient.getDatevBookings();
                 if (existingBookings && existingBookings.length > 0) {
                     existingBookings.forEach(b => {
                         const key = this.generateBookingKey(b);
                         existingKeys.add(key);
                     });
-                    totalLoaded += existingBookings.length;
-                    console.log(`📚 ${totalLoaded} Buchungen geladen...`);
+                    totalLoaded = existingBookings.length;
+                    console.log(`📚 ${totalLoaded} Buchungen geladen`);
                 }
-
-                // Prüfen ob es weitere Seiten gibt
-                hasMore = existingBookings && existingBookings.length === pageSize;
-                offset += pageSize;
+            } catch (existingError) {
+                console.warn('⚠️ Existierende Buchungen konnten nicht geladen werden:', existingError);
             }
 
             if (existingKeys.size > 0) {
@@ -271,23 +260,23 @@ const ExcelImportService = {
                 const progressPercent = 60 + Math.floor((chunkIndex / totalChunks) * 35);
                 onProgress(progressPercent, `Importiere Chunk ${chunkIndex + 1} von ${totalChunks}...`);
 
-                const { data: insertedData, error: insertError } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .insert(chunk)
-                    .select('id');
-
-                if (insertError) {
+                try {
+                    const result = await ApiClient.importDatevBookings(chunk);
+                    if (result && result.imported) {
+                        successCount += result.imported;
+                    } else {
+                        successCount += chunk.length;
+                    }
+                } catch (insertError) {
                     console.error(`❌ Fehler bei Chunk ${chunkIndex + 1}:`, insertError);
 
                     // Bei Fehler: Einzeln versuchen um zu sehen welche Zeilen fehlschlagen
                     for (let i = 0; i < chunk.length; i++) {
                         const singleBooking = chunk[i];
-                        const { data: singleResult, error: singleError } = await SupabaseService.client
-                            .from('datev_bookings')
-                            .insert(singleBooking)
-                            .select('id');
-
-                        if (singleError) {
+                        try {
+                            await ApiClient.createDatevBooking(singleBooking);
+                            successCount++;
+                        } catch (singleError) {
                             const rowInfo = importedRows[start + i];
                             importErrors.push({
                                 rowNumber: rowInfo?.rowNumber || '?',
@@ -308,12 +297,8 @@ const ExcelImportService = {
                                     datum: singleBooking.datum
                                 }
                             });
-                        } else {
-                            successCount++;
                         }
                     }
-                } else {
-                    successCount += chunk.length;
                 }
             }
 
@@ -650,42 +635,31 @@ const ExcelImportService = {
             console.log(`🔄 ${suppliers.length - uniqueSuppliers.length} Duplikate entfernt`);
             onProgress(50, 'Speichere in Datenbank...');
 
-            // Upsert
-            const { data: upsertedData, error: upsertError } = await SupabaseService.client
-                .from('suppliers')
-                .upsert(uniqueSuppliers, {
-                    onConflict: 'partita_iva',
-                    ignoreDuplicates: true
-                })
-                .select();
-
-            if (upsertError) throw upsertError;
-
-            console.log(`✅ ${upsertedData.length} Lieferanten importiert/aktualisiert`);
-            onProgress(80, 'Aktualisiere DATEV-Buchungen...');
-
-            // DATEV-Buchungen mit Lieferantennamen aktualisieren
-            let updatedBookings = 0;
+            // Lieferanten einzeln importieren
+            let importedCount = 0;
             for (const supplier of uniqueSuppliers) {
-                const { data: updated, error: updateError } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .update({ fornitore_name: supplier.fornitore_name })
-                    .eq('partita_iva', supplier.partita_iva)
-                    .select('id');
-
-                if (!updateError && updated) {
-                    updatedBookings += updated.length;
+                try {
+                    await ApiClient.createSupplier(supplier);
+                    importedCount++;
+                } catch (err) {
+                    // Bei Duplikat updaten
+                    try {
+                        await ApiClient.updateSupplier(supplier.partita_iva, supplier);
+                        importedCount++;
+                    } catch (updateErr) {
+                        console.warn('⚠️ Lieferant konnte nicht importiert werden:', supplier.fornitore_name, updateErr);
+                    }
                 }
             }
 
-            console.log(`🔄 ${updatedBookings} DATEV-Buchungen aktualisiert`);
+            console.log(`✅ ${importedCount} Lieferanten importiert/aktualisiert`);
             onProgress(100, 'Fertig');
 
             return {
                 success: true,
-                imported: upsertedData.length,
-                updatedBookings: updatedBookings,
-                message: `${upsertedData.length} Lieferanten importiert, ${updatedBookings} Buchungen aktualisiert`
+                imported: importedCount,
+                updatedBookings: 0,
+                message: `${importedCount} Lieferanten importiert`
             };
 
         } catch (error) {
@@ -858,16 +832,8 @@ const ExcelImportService = {
      */
     async getAvailableYears() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('import_year')
-                .order('import_year', { ascending: false });
-
-            if (error) throw error;
-
-            const years = [...new Set(data.map(b => b.import_year).filter(y => y))];
-            return years;
-
+            const years = await ApiClient.getDatevYears();
+            return years || [];
         } catch (error) {
             console.error('❌ Fehler beim Laden der Jahre:', error);
             return [];

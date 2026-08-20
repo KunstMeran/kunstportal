@@ -4,17 +4,64 @@
  * Projektsoftware Kunst Meran
  */
 
+/**
+ * SUPABASE SERVICE STUB
+ * Da app.js noch direkt SupabaseService verwendet, erstellen wir einen Stub
+ * der alle Aufrufe auf die neue API umleitet
+ */
+const SupabaseService = {
+    client: {
+        auth: {
+            async getUser() {
+                // Holt aktuellen User über API
+                const session = await ApiClient.getSession();
+                return { data: { user: session ? { id: session.id, email: session.email } : null }, error: null };
+            }
+        },
+        from(table) {
+            console.warn(`⚠️ Legacy Supabase-Aufruf: .from('${table}') - wird ignoriert. Nutze stattdessen DataManager/ApiClient!`);
+            // Dummy-Objekt zurückgeben um Fehler zu vermeiden
+            return {
+                select: () => this,
+                insert: () => this,
+                update: () => this,
+                delete: () => this,
+                eq: () => this,
+                neq: () => this,
+                in: () => this,
+                order: () => this,
+                limit: () => this,
+                single: () => Promise.resolve({ data: null, error: { message: 'SupabaseService ist deaktiviert' } }),
+                then: (resolve) => resolve({ data: null, error: { message: 'SupabaseService ist deaktiviert' } })
+            };
+        },
+        storage: {
+            from(bucket) {
+                console.warn(`⚠️ Legacy Supabase-Storage-Aufruf: storage.from('${bucket}') - nutze stattdessen StorageService!`);
+                return {
+                    upload: () => Promise.resolve({ data: null, error: { message: 'Nutze StorageService.uploadFile()' } }),
+                    remove: () => Promise.resolve({ data: null, error: { message: 'Nutze StorageService.deleteFile()' } }),
+                    getPublicUrl: (path) => ({ data: { publicUrl: `/storage/${bucket}/${path}` } })
+                };
+            }
+        }
+    },
+    async getAllUsers() {
+        // Nutzt die neue API
+        return await ApiClient.getUsers();
+    }
+};
+
+console.log('🔄 SupabaseService Stub geladen (leitet auf ApiClient um)');
+
 const SupabaseDataAdapter = {
     /**
      * DataManager mit Supabase-Funktionen erweitern
      */
     init: function() {
-        if (!Config.features.useSupabase) {
-            console.log('Supabase deaktiviert - nutze localStorage');
-            return;
-        }
-
-        console.log('🔄 Aktiviere Supabase Data Adapter...');
+        // WICHTIG: Auch wenn Supabase deaktiviert ist, müssen wir die neuen API-Methoden registrieren
+        // da app.js diese Methoden verwendet (getMembers, getFundingSources, etc.)
+        console.log('🔄 Aktiviere API Data Adapter (Hetzner Backend)...');
 
         // Projekte-Funktionen überschreiben
         DataManager._getProjectsOriginal = DataManager.getProjects;
@@ -5197,13 +5244,12 @@ const SupabaseDataAdapter = {
     }
 };
 
-// Automatisch initialisieren wenn Supabase aktiviert ist
+// Automatisch initialisieren (immer, nicht nur bei Supabase)
+// WICHTIG: Muss immer initialisiert werden, da app.js die Methoden benötigt
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
-        if (Config.features.useSupabase) {
-            SupabaseDataAdapter.init();
-        }
+        SupabaseDataAdapter.init();
     });
 }
 
-console.log('📦 Supabase Data Adapter geladen');
+console.log('📦 API Data Adapter geladen (Hetzner Backend)');

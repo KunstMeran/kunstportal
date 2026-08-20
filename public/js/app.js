@@ -841,7 +841,7 @@ const App = {
                 const istTotal = projektRechnungen.reduce((sum, r) => sum + (r.betrag || 0), 0);
 
                 // Budget aus Projekt (falls vorhanden)
-                const budget = project.budget || 0;
+                const budget = parseFloat(project.budget) || 0;
 
                 return {
                     project: project,
@@ -3413,7 +3413,7 @@ const App = {
         tbody.innerHTML = '';
 
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666; padding: 2rem;">Keine Eintraege gefunden</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666; padding: 2rem;">Keine Einträge gefunden</td></tr>';
         } else {
             rows.forEach(row => {
                 const user = users.find(u => String(u.id) === String(row.userId));
@@ -20000,7 +20000,7 @@ const App = {
         planung: [],
         bestellungen: [],
         heuteAnwesend: [],
-        selectedDates: [] // Ausgewaehlte Tage fuer Musterauswahl
+        selectedDates: [] // Ausgewählte Tage für Musterauswahl
     },
 
     // Anwesenheit laden
@@ -20093,7 +20093,7 @@ const App = {
                 <div class="kalender-tag ${isWeekend ? 'wochenende' : ''} ${isToday ? 'heute' : ''}" onclick="App.showAnwesenheitDetails('${datum}')">
                     <div class="kalender-tag-nummer">${day}</div>
                     ${essenCount > 0 ? `<div style="font-size: 0.7rem; color: #27ae60;"><strong>${essenCount}</strong> Essen</div>` : ''}
-                    ${bueroCount > 0 ? `<div style="font-size: 0.7rem; color: #3498db;">${bueroCount} im Buero</div>` : ''}
+                    ${bueroCount > 0 ? `<div style="font-size: 0.7rem; color: #3498db;">${bueroCount} im Büro</div>` : ''}
                 </div>
             `;
         }
@@ -20139,7 +20139,7 @@ const App = {
             // Status ermitteln
             let statusClass = '';
             if (isSelected) {
-                statusClass = 'ausgewaehlt'; // Lila - ausgewaehlt
+                statusClass = 'ausgewählt'; // Lila - ausgewählt
             } else if (planung) {
                 if (planung.im_buero && planung.mittagessen) {
                     statusClass = 'anwesend'; // Gruen
@@ -20427,7 +20427,7 @@ const App = {
         let html = '';
 
         if (imBuero.length > 0) {
-            html += '<div style="margin-bottom: 1rem;"><strong>Im Buero:</strong><br>';
+            html += '<div style="margin-bottom: 1rem;"><strong>Im Büro:</strong><br>';
             html += imBuero.map(a => `
                 <span style="display: inline-block; padding: 4px 12px; background: ${a.mittagessen ? '#e8f5e9' : '#e3f2fd'}; border-radius: 20px; margin: 4px 4px 0 0; font-size: 0.9rem;">
                     ${escapeHtml(a.username || a.email)}
@@ -20438,7 +20438,7 @@ const App = {
         }
 
         if (homeoffice.length > 0) {
-            html += '<div><strong>Homeoffice:</strong><br>';
+            html += '<div><strong>Home Office:</strong><br>';
             html += homeoffice.map(a => `
                 <span style="display: inline-block; padding: 4px 12px; background: #f3e5f5; border-radius: 20px; margin: 4px 4px 0 0; font-size: 0.9rem;">
                     ${escapeHtml(a.username || a.email)} 🏠
@@ -20641,8 +20641,8 @@ const App = {
         tagesPlanung.forEach(p => {
             const name = p.username || p.user_id;
             let status = 'Unbekannt';
-            if (p.im_buero && p.mittagessen) status = 'Buero + Essen';
-            else if (p.im_buero) status = 'Buero';
+            if (p.im_buero && p.mittagessen) status = 'Büro + Essen';
+            else if (p.im_buero) status = 'Büro';
             else if (p.abwesenheit_grund) status = p.abwesenheit_grund;
             message += `${name}: ${status}\n`;
         });
