@@ -1,7 +1,7 @@
 # Migration TODO - Hetzner
 
 **Server IP:** 2.28.22.217
-**Domain:** portal.kunstmeranoarte.org (DNS pending bei Giraffentoast)
+**Domain:** portal.kunstmeranoarte.org (DNS pending bei Giraffentoast/Hetzner DNS)
 **Datum:** 2026-08-17
 
 ---
@@ -21,16 +21,19 @@
 - [ ] Root-Login deaktivieren (nach Go-Live)
 
 **Server-Zugangsdaten:**
-- SSH: `ssh -i ~/.ssh/id_hetzner root@2.28.22.217`
+- SSH: `ssh kunstmeran@2.28.22.217` (Root-Login funktioniert nicht mehr!)
 - User: `kunstmeran` (mit sudo)
 - PostgreSQL User: `kunstmeran_app`
 - PostgreSQL DB: `kunstmeran`
+
+**Hinweis:** Root-Passwort (`ControllArt26.`) funktioniert nicht mehr fuer SSH/su.
+Nutze User `kunstmeran` mit sudo.
 
 ---
 
 ## Kontakte
 
-- [x] **Giraffentoast:** DNS A-Record `portal.kunstmeranoarte.org` -> `2.28.22.217` (angefragt)
+- [x] **Giraffentoast:** DNS A-Record `portal.kunstmeranoarte.org` -> `2.28.22.217` (eingetragen in Hetzner DNS, TTL 7200)
 - [ ] **Ruben:** Azure AD App-Registrierung (sobald DNS funktioniert)
   - Redirect URI: `https://portal.kunstmeranoarte.org/callback`
 
@@ -94,6 +97,7 @@
 - [x] Caddy Reverse Proxy konfigurieren
 - [x] PM2 fuer Prozess-Management installieren
 - [x] API testen - Health-Check erfolgreich
+- [x] `/datev/years` Endpunkt hinzugefuegt (fuer Jahr-Auswahl)
 
 **Installierte Pakete:**
 - express 4.18.2
@@ -110,7 +114,7 @@
 ├── users/          # User-Verwaltung (CRUD)
 ├── projects/       # Projekte (CRUD)
 ├── invoices/       # Rechnungen (CRUD + Filter)
-├── datev/          # DATEV-Buchungen (CRUD + Import + Aggregation)
+├── datev/          # DATEV-Buchungen (CRUD + Import + Aggregation + Years)
 ├── suppliers/      # Lieferanten (CRUD)
 ├── members/        # Mitglieder + Zahlungen
 ├── budget/         # Budget-Eintraege, Notizen, Kontenplan
@@ -128,14 +132,47 @@
 
 ---
 
-## Phase 5: Frontend anpassen
+## Phase 5: Frontend anpassen ✅ ABGESCHLOSSEN
 
-- [ ] `config.js` - API-URL aendern zu `https://portal.kunstmeranoarte.org/api/v1`
-- [ ] `data-adapter.js` - Supabase-Client durch fetch() ersetzen
-- [ ] `auth.js` - Microsoft SSO implementieren
-- [ ] `storage-service.js` - Storage-URLs anpassen
-- [ ] Frontend auf Server deployen nach `/var/www/kunstmeran/app/`
-- [ ] Alle Module testen:
+- [x] `config.js` - API-URL geaendert zu Hetzner Backend
+- [x] `api-client.js` - NEU: Fetch-basierter API-Client (ersetzt Supabase-Client)
+- [x] `auth.js` - Microsoft SSO mit MSAL.js implementiert
+- [x] `storage-service.js` - Storage-URLs angepasst fuer Hetzner
+- [x] `data.js` - Supabase-Referenzen entfernt, nutzt jetzt ApiClient
+- [x] `app.html` + `index.html` - Script-Tags aktualisiert (MSAL statt Supabase)
+- [x] Frontend auf Server deployed via Git Clone
+
+**Geaenderte Dateien:**
+| Datei | Aenderung |
+|-------|-----------|
+| `public/js/config.js` | API-URLs fuer Hetzner, Microsoft SSO Platzhalter |
+| `public/js/api-client.js` | **NEU** - 500+ Zeilen, alle API-Aufrufe |
+| `public/js/auth.js` | MSAL.js Integration fuer Microsoft SSO |
+| `public/js/storage-service.js` | Hetzner Storage-URLs |
+| `public/js/data.js` | `getAvailableYears()` nutzt jetzt ApiClient |
+| `public/app.html` | MSAL-Script statt Supabase, api-client.js hinzugefuegt |
+| `public/index.html` | MSAL-Script statt Supabase, api-client.js hinzugefuegt |
+
+**Git Commit:**
+```
+94c7f73 - Phase 5: Frontend für Hetzner API angepasst
+```
+
+**Deployment:**
+- Repository: https://github.com/KunstMeran/kunstportal (privat)
+- Geklont nach `/var/www/kunstmeran/app/` via Git
+- Rechte: `www-data:www-data`
+
+---
+
+## Phase 6: Go-Live 🔄 IN ARBEIT
+
+- [ ] DNS-Propagation abwarten (eingetragen bei Hetzner DNS, TTL 7200)
+- [ ] SSL-Zertifikat pruefen (Caddy macht das automatisch sobald DNS aktiv)
+- [ ] Azure AD Credentials von Ruben eintragen:
+  - [ ] `config.js` auf Server: clientId und tenantId eintragen
+  - [ ] Auf GitHub pushen und auf Server pullen
+- [ ] Finale Tests mit echten Usern:
   - [ ] Dashboard
   - [ ] Projekte
   - [ ] Rechnungen
@@ -145,17 +182,15 @@
   - [ ] Shop & Kasse
   - [ ] Zeiterfassung
   - [ ] Konfiguration
-
----
-
-## Phase 6: Go-Live
-
-- [ ] DNS-Propagation abwarten (bis zu 24h)
-- [ ] SSL-Zertifikat pruefen (Caddy macht das automatisch)
-- [ ] Finale Tests mit echten Usern
 - [ ] Root-Login auf Server deaktivieren
 - [ ] Supabase-Projekt archivieren (nicht loeschen!)
 - [ ] Monitoring einrichten (optional)
+
+**DNS Status pruefen:**
+```powershell
+nslookup portal.kunstmeranoarte.org 8.8.8.8
+```
+Oder: https://dnschecker.org/#A/portal.kunstmeranoarte.org
 
 ---
 
@@ -164,14 +199,23 @@
 ```
 /var/www/kunstmeran/
 ├── app/                    # Frontend (HTML, JS, CSS)
-│   ├── index.html
-│   ├── app.html
+│   ├── index.html          # Login-Seite
+│   ├── app.html            # Haupt-App
 │   ├── css/
 │   ├── js/
+│   │   ├── config.js       # Konfiguration
+│   │   ├── api-client.js   # NEU: API-Client
+│   │   ├── auth.js         # Microsoft SSO
+│   │   ├── storage-service.js
+│   │   ├── data.js
+│   │   └── ...
 │   └── assets/
 ├── api/                    # Backend (Express.js)
 │   ├── server.js
 │   ├── routes/
+│   │   ├── auth.js
+│   │   ├── datev.js        # inkl. /years Endpunkt
+│   │   └── ...
 │   ├── middleware/
 │   └── package.json
 ├── storage/                # Dateien
@@ -182,11 +226,44 @@
 
 ---
 
+## Caddy-Konfiguration
+
+Aktuelle `/etc/caddy/Caddyfile`:
+```
+portal.kunstmeranoarte.org, :80 {
+    root * /var/www/kunstmeran/app
+    file_server
+
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+
+    handle /storage/* {
+        root * /var/www/kunstmeran
+        file_server
+    }
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+    }
+
+    try_files {path} /index.html
+
+    log {
+        output file /var/log/caddy/kunstmeran.log
+    }
+}
+```
+
+---
+
 ## Wichtige Befehle
 
 ```bash
-# SSH zum Server
-ssh -i ~/.ssh/id_hetzner root@2.28.22.217
+# SSH zum Server (NICHT root, sondern kunstmeran!)
+ssh kunstmeran@2.28.22.217
 
 # PostgreSQL
 sudo -u postgres psql -d kunstmeran
@@ -201,6 +278,9 @@ pm2 status
 pm2 logs kunstmeran-api
 pm2 restart kunstmeran-api
 
+# Caddy neu laden (nach Caddyfile-Aenderung)
+sudo systemctl reload caddy
+
 # Logs
 journalctl -u caddy -f
 journalctl -u postgresql -f
@@ -208,8 +288,26 @@ tail -f /var/log/caddy/kunstmeran.log
 
 # API Test
 curl http://localhost:3000/api/v1/health
+
+# Frontend aktualisieren (nach Git Push)
+cd /var/www/kunstmeran/app
+sudo git pull
+sudo chown -R www-data:www-data .
 ```
 
 ---
 
-**Zuletzt aktualisiert:** 2026-08-17 15:20
+## Zugangsdaten (siehe auch archive/ssh_key.txt)
+
+| Was | Wert |
+|-----|------|
+| Server IP | 2.28.22.217 |
+| SSH User | kunstmeran |
+| PostgreSQL DB | kunstmeran |
+| PostgreSQL User | kunstmeran_app |
+| GitHub Repo | https://github.com/KunstMeran/kunstportal |
+| GitHub Token | Fine-grained (nur kunstportal, read-only) |
+
+---
+
+**Zuletzt aktualisiert:** 2026-08-17 17:00
