@@ -547,8 +547,8 @@ table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
 }
 
 .nav-item .icon {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
     filter: brightness(0) invert(1); /* Icons weiß machen */
 }
