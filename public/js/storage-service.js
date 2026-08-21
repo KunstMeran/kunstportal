@@ -113,6 +113,16 @@ const StorageService = {
     openFile(filePath) {
         const url = this.getFileUrl(filePath);
         window.open(url, '_blank');
+    },
+
+    /**
+     * Signierte URL für Datei generieren
+     * (Bei Hetzner einfach die direkte URL - Authentifizierung über Session-Cookie)
+     */
+    async getSignedUrl(filePath) {
+        // Bei selbst-gehostetem Storage keine signierte URL nötig
+        // Die Authentifizierung erfolgt über Session-Cookie
+        return this.getFileUrl(filePath);
     }
 };
 

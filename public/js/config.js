@@ -14,7 +14,7 @@ const Config = {
 
     // Storage Konfiguration
     storage: {
-        baseUrl: 'https://portal.kunstmeranoarte.org/storage'
+        baseUrl: 'https://portal.kunstmeranoarte.org/api/v1/storage'
     },
 
     // Legacy: Supabase Konfiguration (nicht mehr verwendet)
