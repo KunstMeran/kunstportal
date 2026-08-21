@@ -632,8 +632,8 @@ const SupabaseDataAdapter = {
         try {
             console.log('📤 Lade DATEV-Buchungen aus PostgreSQL...');
 
-            // Alle Buchungen über API Client laden
-            const filters = jahr ? { year: jahr } : {};
+            // Alle Buchungen über API Client laden (Limit auf 10000 erhöht für alle Jahre)
+            const filters = jahr ? { year: jahr, limit: 10000 } : { limit: 10000 };
             const allBookings = await ApiClient.getDatevBookings(filters);
 
             console.log(`✅ Insgesamt ${allBookings.length} DATEV-Buchungen geladen`);
