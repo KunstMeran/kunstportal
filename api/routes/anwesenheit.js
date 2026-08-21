@@ -3,7 +3,7 @@ const router = express.Router();
 const { requireAuth, requirePermission } = require("../middleware/auth");
 
 // GET anwesenheit planung
-router.get("/planung", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+router.get("/planung", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     const { user_id, monat, jahr } = req.query;
 
@@ -33,7 +33,7 @@ router.get("/planung", requireAuth, requirePermission("zeiterfassung", "read"), 
 });
 
 // GET v_heute_anwesend view
-router.get("/heute", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+router.get("/heute", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     try {
         const result = await pool.query("SELECT * FROM v_heute_anwesend");
@@ -44,7 +44,7 @@ router.get("/heute", requireAuth, requirePermission("zeiterfassung", "read"), as
 });
 
 // POST/PUT upsert anwesenheit planung
-router.post("/planung", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+router.post("/planung", requireAuth, requirePermission("projekte", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
     const { user_id, monat, jahr, tage } = req.body;
 
@@ -64,7 +64,7 @@ router.post("/planung", requireAuth, requirePermission("zeiterfassung", "write")
 });
 
 // PUT update specific day
-router.put("/planung/:id", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+router.put("/planung/:id", requireAuth, requirePermission("projekte", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
     const data = req.body;
 
@@ -88,7 +88,7 @@ router.put("/planung/:id", requireAuth, requirePermission("zeiterfassung", "writ
 });
 
 // DELETE anwesenheit planung
-router.delete("/planung/:id", requireAuth, requirePermission("zeiterfassung", "delete"), async (req, res) => {
+router.delete("/planung/:id", requireAuth, requirePermission("projekte", "delete"), async (req, res) => {
     const pool = req.app.locals.pool;
     try {
         const result = await pool.query("DELETE FROM anwesenheit_planung WHERE id = $1 RETURNING *", [req.params.id]);
@@ -102,7 +102,7 @@ router.delete("/planung/:id", requireAuth, requirePermission("zeiterfassung", "d
 });
 
 // GET summary by month
-router.get("/summary", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+router.get("/summary", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     const { monat, jahr } = req.query;
 

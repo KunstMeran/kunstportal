@@ -403,9 +403,8 @@ const SupabaseDataAdapter = {
      */
     async getCurrentAuthUserId() {
         try {
-            const result = await SupabaseService.client.auth.getUser();
-            const authUser = result?.data?.user;
-            return authUser?.id || null;
+            const currentUser = await Auth.getCurrentUser();
+            return currentUser?.id || null;
         } catch (error) {
             console.warn('⚠️ Konnte Auth-User-ID nicht ermitteln:', error);
             return null;
@@ -429,19 +428,15 @@ const SupabaseDataAdapter = {
                 return publicUser.id;
             }
 
-            // Fallback: Lade direkt aus DB
-            const { data, error } = await SupabaseService.client
-                .from('users')
-                .select('id')
-                .eq('auth_id', authUserId)
-                .single();
-
-            if (error || !data) {
+            // Fallback: Lade aus API
+            try {
+                const allUsers = await ApiClient.getUsers();
+                const user = (allUsers || []).find(u => u.auth_id === authUserId);
+                return user?.id || null;
+            } catch (e) {
                 console.warn('⚠️ Kein public.users Eintrag für auth_id:', authUserId);
                 return null;
             }
-
-            return data.id;
         } catch (error) {
             console.warn('⚠️ Konnte Public-User-ID nicht ermitteln:', error);
             return null;
@@ -4766,17 +4761,14 @@ const SupabaseDataAdapter = {
 
     async getAnwesenheitRange(startDate, endDate) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('anwesenheit_planung')
-                .select('*, users:user_id(username, email)')
-                .gte('datum', startDate)
-                .lte('datum', endDate)
-                .order('datum', { ascending: true });
-            if (error) throw error;
-            return (data || []).map(a => ({
-                ...a,
-                username: a.users?.username || a.users?.email
-            }));
+            // Parse dates to get month/year for API
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const data = await ApiClient.getAnwesenheitPlanung({
+                monat: start.getMonth() + 1,
+                jahr: start.getFullYear()
+            });
+            return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Anwesenheit:', error);
             return [];
@@ -4785,10 +4777,7 @@ const SupabaseDataAdapter = {
 
     async getHeuteAnwesend() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('v_heute_anwesend')
-                .select('*');
-            if (error) throw error;
+            const data = await ApiClient.getHeuteAnwesend();
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der heutigen Anwesenheit:', error);
@@ -4798,14 +4787,8 @@ const SupabaseDataAdapter = {
 
     async upsertAnwesenheit(planungData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('anwesenheit_planung')
-                .upsert([planungData], {
-                    onConflict: 'user_id,datum'
-                })
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            const data = await ApiClient.upsertAnwesenheitPlanung(planungData);
+            return data;
         } catch (error) {
             console.error('Fehler beim Speichern der Anwesenheit:', error);
             throw error;
