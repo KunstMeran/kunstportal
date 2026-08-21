@@ -2345,20 +2345,11 @@ const SupabaseDataAdapter = {
      */
     async getMembers(activeOnly = true) {
         try {
-            let query = SupabaseService.client
-                .from('members')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('last_name', { ascending: true });
-
+            const params = {};
             if (activeOnly) {
-                query = query.eq('is_active', true);
+                params.is_active = true;
             }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
+            const data = await ApiClient.getMembers(params);
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Mitglieder:', error);
@@ -2647,12 +2638,7 @@ const SupabaseDataAdapter = {
      */
     async getWorkspaces() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('workspaces')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getWorkspaces();
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Workspaces:', error);

@@ -242,8 +242,10 @@ const ApiClient = {
 
     // ========== MEMBERS ==========
 
-    async getMembers() {
-        return await this.request('/members');
+    async getMembers(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        const url = queryString ? `/members?${queryString}` : '/members';
+        return await this.request(url);
     },
 
     async getMemberById(id) {
