@@ -7312,23 +7312,22 @@ const App = {
             // Wenn filePath bereits übergeben wurde, direkt nutzen
             if (!filePath || filePath === '') {
                 // Sonst: Hole Invoice über ApiClient
-                const invoices = await ApiClient.getInvoices({ supplier_partita_iva: partitaIva });
-                const matching = invoices.find(inv => inv.invoice_number === dokumentNr);
+                try {
+                    const invoices = await ApiClient.getInvoices({ partita_iva: partitaIva });
+                    const matching = invoices.find(inv => inv.invoice_number === dokumentNr);
 
-                if (!matching) {
-                    throw new Error('PDF nicht in Datenbank gefunden');
-                }
+                    if (!matching) {
+                        throw new Error('PDF nicht in Datenbank gefunden');
+                    }
 
-                filePath = matching.file_path;
-                this.currentPdfPreviewData.invoiceId = matching.id;
-            } else {
-                // Hole Invoice-ID separat
-                const invoices = await ApiClient.getInvoices({ supplier_partita_iva: partitaIva });
-                const matching = invoices.find(inv => inv.invoice_number === dokumentNr);
-                if (matching) {
+                    filePath = matching.file_path;
                     this.currentPdfPreviewData.invoiceId = matching.id;
+                } catch (apiError) {
+                    console.warn('Invoice-Lookup fehlgeschlagen:', apiError);
+                    throw new Error('PDF nicht gefunden');
                 }
             }
+            // Invoice-ID wird nicht mehr separat geholt - ist optional
 
             this.currentPdfPreviewData.filePath = filePath;
 

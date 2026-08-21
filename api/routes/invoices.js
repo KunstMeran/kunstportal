@@ -5,7 +5,7 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 // GET all invoices
 router.get('/', requireAuth, requirePermission('rechnungen', 'read'), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { project_id, supplier_partita_iva, status, bezahlt, linked_booking_id, limit = 500, offset = 0 } = req.query;
+    const { project_id, supplier_partita_iva, partita_iva, status, bezahlt, linked_booking_id, limit = 500, offset = 0 } = req.query;
 
     try {
         let query = 'SELECT * FROM invoices';
@@ -16,9 +16,11 @@ router.get('/', requireAuth, requirePermission('rechnungen', 'read'), async (req
             values.push(project_id);
             conditions.push(`project_id = $${values.length}`);
         }
-        if (supplier_partita_iva) {
-            values.push(supplier_partita_iva);
-            conditions.push(`supplier_partita_iva = $${values.length}`);
+        // Unterstütze beide Parameter-Namen für partita_iva
+        const piva = supplier_partita_iva || partita_iva;
+        if (piva) {
+            values.push(piva);
+            conditions.push(`partita_iva = $${values.length}`);
         }
         if (status) {
             values.push(status);
