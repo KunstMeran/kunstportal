@@ -9,7 +9,7 @@ router.get("/artikel", requireAuth, requirePermission("einnahmen", "read"), asyn
         const result = await pool.query(`
             SELECT a.*, t.name as typ_name
             FROM shop_artikel a
-            LEFT JOIN shop_artikeltypen t ON a.typ_id = t.id
+            LEFT JOIN shop_artikeltypen t ON a.artikeltyp = t.code
             ORDER BY a.name
         `);
         res.json(result.rows);

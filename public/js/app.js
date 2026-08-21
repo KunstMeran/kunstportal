@@ -4152,12 +4152,7 @@ const App = {
         container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #666;">Lade Kontenplan...</td></tr>';
 
         try {
-            const { data, error } = await supabaseClient
-                .from('chart_of_accounts')
-                .select('*')
-                .order('sort_order', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getKontenplan();
 
             this.kontenplanCache = data || [];
             this.renderKontenplan(this.kontenplanCache);
@@ -4178,17 +4173,12 @@ const App = {
         if (!hinweisContainer) return;
 
         try {
-            // Alle eindeutigen Kontonummern aus DATEV-Buchungen laden
-            const { data: buchungen, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('konto_nr')
-                .not('konto_nr', 'is', null);
-
-            if (error) throw error;
+            // Alle DATEV-Buchungen laden
+            const buchungen = await ApiClient.getDatevBookings({ limit: 5000 });
 
             // Eindeutige Konten sammeln
             const verwendeteKonten = new Set();
-            buchungen.forEach(b => {
+            (buchungen || []).forEach(b => {
                 if (b.konto_nr) verwendeteKonten.add(b.konto_nr);
             });
 
@@ -4205,10 +4195,7 @@ const App = {
 
             if (ohneZuweisung.length > 0) {
                 // Kontenbezeichnungen laden
-                const { data: bezeichnungen } = await SupabaseService.client
-                    .from('konto_bezeichnungen')
-                    .select('konto_nr, beschreibung_de, beschreibung_it')
-                    .in('konto_nr', ohneZuweisung.slice(0, 20));
+                const bezeichnungen = await ApiClient.getKontoBezeichnungen();
 
                 const bezMap = {};
                 (bezeichnungen || []).forEach(b => { bezMap[b.konto_nr] = b; });
@@ -4374,17 +4361,10 @@ const App = {
         try {
             if (id) {
                 // Update
-                const { error } = await supabaseClient
-                    .from('chart_of_accounts')
-                    .update(accountData)
-                    .eq('id', id);
-                if (error) throw error;
+                await ApiClient.updateKontenplanEntry(id, accountData);
             } else {
                 // Insert
-                const { error } = await supabaseClient
-                    .from('chart_of_accounts')
-                    .insert([accountData]);
-                if (error) throw error;
+                await ApiClient.createKontenplanEntry(accountData);
             }
 
             this.hideModal('account-form-modal');
@@ -4399,12 +4379,7 @@ const App = {
         if (!confirm('Konto wirklich löschen?')) return;
 
         try {
-            const { error } = await supabaseClient
-                .from('chart_of_accounts')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await ApiClient.deleteKontenplanEntry(id);
             await this.loadKontenplan();
         } catch (error) {
             console.error('Fehler beim Löschen:', error);

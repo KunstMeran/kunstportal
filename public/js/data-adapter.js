@@ -1702,18 +1702,11 @@ const SupabaseDataAdapter = {
 
     async getTimeEntries() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('time_entries')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await ApiClient.getTimeEntries();
             return (data || []).map(e => this.convertTimeEntryFromSupabase(e));
         } catch (error) {
             console.error('Fehler beim Laden der Zeiteinträge:', error);
-            return DataManager._getTimeEntriesOriginal ? DataManager._getTimeEntriesOriginal() : [];
+            return [];
         }
     },
 
@@ -3365,24 +3358,13 @@ const SupabaseDataAdapter = {
             const chartOfAccounts = await this.getChartOfAccounts();
 
             // 2. Projekte laden (nur Ausstellungen, ohne hideInReporting)
-            const { data: allProjects, error: projectsError } = await supabaseClient
-                .from('projects')
-                .select('*')
-                .eq('ist_ausstellung', true);
+            const allProjects = await ApiClient.getProjects();
 
-            if (projectsError) throw projectsError;
-
-            // Projekte mit hideInReporting ausfiltern
-            const projects = (allProjects || []).filter(p => !p.hide_in_reporting);
+            // Projekte mit hideInReporting ausfiltern und nur Ausstellungen
+            const projects = (allProjects || []).filter(p => p.ist_ausstellung && !p.hide_in_reporting);
 
             // 3. DATEV-Buchungen laden
-            const { data: buchungen, error: buchungenError } = await supabaseClient
-                .from('datev_bookings')
-                .select('*')
-                .gte('datum', startDate)
-                .lte('datum', endDate);
-
-            if (buchungenError) throw buchungenError;
+            const buchungen = await ApiClient.getDatevBookings();
 
             // 4. Projekt-Gewichtungen berechnen
             const { weights, totalDays } = this.calculateProjectWeights(projects, startDate, endDate);
@@ -3508,31 +3490,8 @@ const SupabaseDataAdapter = {
             // Kontenplan laden
             const chartOfAccounts = await this.getChartOfAccounts();
 
-            // DATEV-Buchungen laden (mit Pagination für große Datensätze)
-            const PAGE_SIZE = 1000;
-            let buchungen = [];
-            let offset = 0;
-            let hasMore = true;
-
-            while (hasMore) {
-                const { data, error } = await supabaseClient
-                    .from('datev_bookings')
-                    .select('*')
-                    .gte('datum', startDate)
-                    .lte('datum', endDate)
-                    .order('datum', { ascending: false })
-                    .range(offset, offset + PAGE_SIZE - 1);
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    buchungen = buchungen.concat(data);
-                    offset += data.length;
-                    hasMore = data.length === PAGE_SIZE;
-                } else {
-                    hasMore = false;
-                }
-            }
+            // DATEV-Buchungen laden
+            const buchungen = await ApiClient.getDatevBookings({ limit: 10000 });
 
             console.log(`📊 getBookingsGroupedByAccount: ${buchungen.length} Buchungen für ${startDate} - ${endDate}`);
 

@@ -3,7 +3,8 @@ const router = express.Router();
 const { requireAuth, requirePermission } = require("../middleware/auth");
 
 // GET all time entries
-router.get("/", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+// Permission auf 'projekte' geändert, da Zeiterfassung Teil der Projektverwaltung ist
+router.get("/", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     const { user_id, project_id, start_date, end_date, limit = 500, offset = 0 } = req.query;
 

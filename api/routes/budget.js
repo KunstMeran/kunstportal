@@ -69,6 +69,67 @@ router.get('/kontenplan', requireAuth, requirePermission('projekte', 'read'), as
     }
 });
 
+// POST create chart of accounts entry
+router.post('/kontenplan', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { konto_pattern, konto_name, kategorie, beschreibung, db_zuordnung, ist_projektbezogen, sort_order } = req.body;
+
+    try {
+        const result = await pool.query(`
+            INSERT INTO chart_of_accounts (konto_pattern, konto_name, kategorie, beschreibung, db_zuordnung, ist_projektbezogen, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `, [konto_pattern, konto_name, kategorie, beschreibung, db_zuordnung || 'NEUTRAL', ist_projektbezogen || false, sort_order || 0]);
+
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT update chart of accounts entry
+router.put('/kontenplan/:id', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+    const data = req.body;
+
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
+        values.push(id);
+
+        const result = await pool.query(
+            `UPDATE chart_of_accounts SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+            values
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE chart of accounts entry
+router.delete('/kontenplan/:id', requireAuth, requirePermission('projekte', 'delete'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query('DELETE FROM chart_of_accounts WHERE id = $1 RETURNING *', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+        res.json({ success: true, deleted: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET konto bezeichnungen
 router.get('/konto-bezeichnungen', requireAuth, requirePermission('projekte', 'read'), async (req, res) => {
     const pool = req.app.locals.pool;

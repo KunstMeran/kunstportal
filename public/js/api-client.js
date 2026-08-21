@@ -344,6 +344,24 @@ const ApiClient = {
         return await this.request('/budget/kontenplan');
     },
 
+    async createKontenplanEntry(data) {
+        return await this.request('/budget/kontenplan', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateKontenplanEntry(id, data) {
+        return await this.request(`/budget/kontenplan/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteKontenplanEntry(id) {
+        return await this.request(`/budget/kontenplan/${id}`, { method: 'DELETE' });
+    },
+
     async getKontoBezeichnungen() {
         return await this.request('/budget/konto-bezeichnungen');
     },
