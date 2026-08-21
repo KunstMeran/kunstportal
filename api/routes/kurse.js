@@ -11,7 +11,7 @@ router.get("/", requireAuth, requirePermission("projekte", "read"), async (req, 
             FROM kurse k
             LEFT JOIN kurs_anbieter ka ON k.anbieter_id = ka.id
             LEFT JOIN kurs_kategorien kk ON k.kategorie_id = kk.id
-            ORDER BY k.startdatum DESC
+            ORDER BY k.name ASC
         `);
         res.json(result.rows);
     } catch (err) {
