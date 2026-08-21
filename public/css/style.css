@@ -446,7 +446,7 @@ table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
 
 /* Sidebar - Kollabierbar */
 .sidebar {
-    width: 64px; /* Kollabiert: nur Icons */
+    width: 72px; /* Kollabiert: nur Icons */
     background-color: var(--c-ink);
     border-right: none;
     padding: var(--s-4);
@@ -547,8 +547,8 @@ table .btn-outline.btn-sm[style*="color:#e74c3c"]:hover {
 }
 
 .nav-item .icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     filter: brightness(0) invert(1); /* Icons weiß machen */
 }
