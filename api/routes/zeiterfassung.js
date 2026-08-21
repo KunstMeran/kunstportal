@@ -40,7 +40,7 @@ router.get("/", requireAuth, requirePermission("projekte", "read"), async (req, 
 });
 
 // GET time entry by ID
-router.get("/:id", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+router.get("/:id", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     try {
         const result = await pool.query("SELECT * FROM time_entries WHERE id = $1", [req.params.id]);
@@ -54,7 +54,7 @@ router.get("/:id", requireAuth, requirePermission("zeiterfassung", "read"), asyn
 });
 
 // GET aggregated hours by user/project
-router.get("/stats/summary", requireAuth, requirePermission("zeiterfassung", "read"), async (req, res) => {
+router.get("/stats/summary", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
     const { year, month, project_id } = req.query;
 
@@ -93,7 +93,7 @@ router.get("/stats/summary", requireAuth, requirePermission("zeiterfassung", "re
 });
 
 // POST create time entry
-router.post("/", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+router.post("/", requireAuth, requirePermission("projekte", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
     const data = req.body;
 
@@ -113,7 +113,7 @@ router.post("/", requireAuth, requirePermission("zeiterfassung", "write"), async
 });
 
 // PUT update time entry
-router.put("/:id", requireAuth, requirePermission("zeiterfassung", "write"), async (req, res) => {
+router.put("/:id", requireAuth, requirePermission("projekte", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
     const data = req.body;
 
@@ -137,7 +137,7 @@ router.put("/:id", requireAuth, requirePermission("zeiterfassung", "write"), asy
 });
 
 // DELETE time entry
-router.delete("/:id", requireAuth, requirePermission("zeiterfassung", "delete"), async (req, res) => {
+router.delete("/:id", requireAuth, requirePermission("projekte", "delete"), async (req, res) => {
     const pool = req.app.locals.pool;
     try {
         const result = await pool.query("DELETE FROM time_entries WHERE id = $1 RETURNING *", [req.params.id]);

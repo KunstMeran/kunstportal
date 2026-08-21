@@ -6,8 +6,8 @@ const { createCrudRouter } = require('../middleware/crud');
 // Base CRUD for members
 const membersRouter = createCrudRouter('members', {
     module: 'mitglieder',
-    searchColumns: ['vorname', 'nachname', 'email'],
-    orderBy: 'nachname ASC, vorname ASC'
+    searchColumns: ['first_name', 'last_name', 'email'],
+    orderBy: 'last_name ASC, first_name ASC'
 });
 
 // Additional routes for member_payments

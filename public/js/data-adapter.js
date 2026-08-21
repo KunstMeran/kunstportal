@@ -2362,15 +2362,7 @@ const SupabaseDataAdapter = {
      */
     async getMemberById(id) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('members')
-                .select('*')
-                .eq('id', id)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.getMemberById(id);
             return data;
         } catch (error) {
             console.error('Fehler beim Laden des Mitglieds:', error);
@@ -2383,7 +2375,7 @@ const SupabaseDataAdapter = {
      */
     async addMember(memberData) {
         try {
-            let insertData = {
+            const insertData = {
                 member_number: memberData.member_number,
                 last_name: memberData.last_name,
                 first_name: memberData.first_name,
@@ -2405,17 +2397,7 @@ const SupabaseDataAdapter = {
                 is_active: memberData.is_active !== false
             };
 
-            // Audit-Trail: created_at und created_by hinzufügen
-            insertData = await this.addCreateMetadata(insertData);
-
-            const { data, error } = await SupabaseService.client
-                .from('members')
-                .insert(insertData)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.createMember(insertData);
             return data;
         } catch (error) {
             console.error('Fehler beim Hinzufügen des Mitglieds:', error);
@@ -2428,40 +2410,7 @@ const SupabaseDataAdapter = {
      */
     async updateMember(id, updates) {
         try {
-            let supabaseUpdates = {};
-
-            if (updates.member_number !== undefined) supabaseUpdates.member_number = updates.member_number;
-            if (updates.last_name !== undefined) supabaseUpdates.last_name = updates.last_name;
-            if (updates.first_name !== undefined) supabaseUpdates.first_name = updates.first_name;
-            if (updates.gender !== undefined) supabaseUpdates.gender = updates.gender;
-            if (updates.language !== undefined) supabaseUpdates.language = updates.language;
-            if (updates.address !== undefined) supabaseUpdates.address = updates.address;
-            if (updates.postal_code !== undefined) supabaseUpdates.postal_code = updates.postal_code;
-            if (updates.city !== undefined) supabaseUpdates.city = updates.city;
-            if (updates.email !== undefined) supabaseUpdates.email = updates.email;
-            if (updates.phone !== undefined) supabaseUpdates.phone = updates.phone;
-            if (updates.birth_year !== undefined) supabaseUpdates.birth_year = updates.birth_year;
-            if (updates.tax_number !== undefined) supabaseUpdates.tax_number = updates.tax_number;
-            if (updates.membership_fee !== undefined) supabaseUpdates.membership_fee = updates.membership_fee;
-            if (updates.donation !== undefined) supabaseUpdates.donation = updates.donation;
-            if (updates.join_date !== undefined) supabaseUpdates.join_date = updates.join_date;
-            if (updates.payment_method !== undefined) supabaseUpdates.payment_method = updates.payment_method;
-            if (updates.hashtag !== undefined) supabaseUpdates.hashtag = updates.hashtag;
-            if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
-            if (updates.is_active !== undefined) supabaseUpdates.is_active = updates.is_active;
-
-            // Audit-Trail: updated_at und updated_by hinzufügen
-            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
-
-            const { data, error } = await SupabaseService.client
-                .from('members')
-                .update(supabaseUpdates)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.updateMember(id, updates);
             return data;
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Mitglieds:', error);
@@ -2470,12 +2419,11 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Löscht ein Mitglied (Soft-Delete)
+     * Löscht ein Mitglied
      */
     async deleteMember(id) {
         try {
-            // Soft-Delete: Mitglied als gelöscht markieren statt entfernen
-            await this.softDelete('members', id);
+            await ApiClient.deleteMember(id);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Mitglieds:', error);
@@ -2488,36 +2436,33 @@ const SupabaseDataAdapter = {
      */
     async importMembers(membersArray) {
         try {
-            const membersToInsert = membersArray.map(m => ({
-                member_number: m.member_number || null,
-                last_name: m.last_name || '',
-                first_name: m.first_name || '',
-                gender: m.gender || null,
-                language: m.language || null,
-                address: m.address || null,
-                postal_code: m.postal_code || null,
-                city: m.city || null,
-                email: m.email || null,
-                phone: m.phone || null,
-                birth_year: m.birth_year || null,
-                tax_number: m.tax_number || null,
-                membership_fee: parseFloat(m.membership_fee) || 0,
-                donation: parseFloat(m.donation) || 0,
-                join_date: m.join_date || null,
-                payment_method: m.payment_method || null,
-                hashtag: m.hashtag || null,
-                notes: m.notes || null,
-                is_active: true
-            }));
-
-            const { data, error } = await SupabaseService.client
-                .from('members')
-                .insert(membersToInsert)
-                .select();
-
-            if (error) throw error;
-
-            return { success: true, count: data.length, data };
+            const results = [];
+            for (const m of membersArray) {
+                const memberData = {
+                    member_number: m.member_number || null,
+                    last_name: m.last_name || '',
+                    first_name: m.first_name || '',
+                    gender: m.gender || null,
+                    language: m.language || null,
+                    address: m.address || null,
+                    postal_code: m.postal_code || null,
+                    city: m.city || null,
+                    email: m.email || null,
+                    phone: m.phone || null,
+                    birth_year: m.birth_year || null,
+                    tax_number: m.tax_number || null,
+                    membership_fee: parseFloat(m.membership_fee) || 0,
+                    donation: parseFloat(m.donation) || 0,
+                    join_date: m.join_date || null,
+                    payment_method: m.payment_method || null,
+                    hashtag: m.hashtag || null,
+                    notes: m.notes || null,
+                    is_active: true
+                };
+                const data = await ApiClient.createMember(memberData);
+                results.push(data);
+            }
+            return { success: true, count: results.length, data: results };
         } catch (error) {
             console.error('Fehler beim Importieren der Mitglieder:', error);
             throw error;
@@ -3131,13 +3076,7 @@ const SupabaseDataAdapter = {
     async getProjectCosts(projectId, startDate, endDate) {
         try {
             // Projekt laden um datev_id zu bekommen
-            const { data: project, error: projectError } = await SupabaseService.client
-                .from('projects')
-                .select('datev_id')
-                .eq('id', projectId)
-                .single();
-
-            if (projectError) throw projectError;
+            const project = await ApiClient.getProjectById(projectId);
 
             if (!project || !project.datev_id) {
                 console.log(`⚠️ Projekt ${projectId} hat keine DATEV-ID`);
@@ -3145,22 +3084,17 @@ const SupabaseDataAdapter = {
             }
 
             // DATEV-Buchungen für dieses Projekt laden
-            const { data: buchungen, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('*')
-                .eq('projekt_id', project.datev_id)
-                .gte('datum', startDate)
-                .lte('datum', endDate)
-                .or('archived.is.null,archived.eq.false');
-
-            if (error) throw error;
+            const buchungen = await ApiClient.getDatevBookings({
+                projekt_id: project.datev_id,
+                start_date: startDate,
+                end_date: endDate,
+                limit: 5000
+            });
 
             // Kontenplan laden für Konto-Namen
             let kontenMap = {};
             try {
-                const { data: konten } = await SupabaseService.client
-                    .from('chart_of_accounts')
-                    .select('*');
+                const konten = await ApiClient.getKontenplan();
                 if (konten) {
                     konten.forEach(k => {
                         // Verschiedene mögliche Feldnamen unterstützen
@@ -3216,18 +3150,12 @@ const SupabaseDataAdapter = {
      */
     async getDatevBookings(startDate, endDate) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('*')
-                .gte('datum', startDate)
-                .lte('datum', endDate)
-                .or('archived.is.null,archived.eq.false')
-                .order('datum', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await ApiClient.getDatevBookings({
+                start_date: startDate,
+                end_date: endDate,
+                limit: 10000
+            });
             return data || [];
-
         } catch (error) {
             console.error('Fehler beim Laden der DATEV-Buchungen:', error);
             return [];
@@ -3734,7 +3662,7 @@ const SupabaseDataAdapter = {
      */
     async getBudgetKontoNotes(year) {
         try {
-            const data = await ApiClient.getBudgetKontoNotes({ projekt_id: null });
+            const data = await ApiClient.getKontoNotes({ projekt_id: null });
             // Als Map zurückgeben: konto_nr -> notes
             const notesMap = {};
             (data || []).forEach(note => {
@@ -3752,7 +3680,7 @@ const SupabaseDataAdapter = {
      */
     async saveBudgetKontoNote(kontoNr, year, notes) {
         try {
-            const data = await ApiClient.saveBudgetKontoNote({
+            const data = await ApiClient.upsertKontoNote({
                 projekt_id: null,
                 konto: kontoNr,
                 note: notes

@@ -5,7 +5,7 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 // GET all DATEV bookings
 router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { konto, projekt_id, year, month, kostentyp_id, kontrolliert, limit = 1000, offset = 0 } = req.query;
+    const { konto, projekt_id, year, month, kostentyp_id, kontrolliert, start_date, end_date, limit = 1000, offset = 0 } = req.query;
 
     try {
         let query = 'SELECT * FROM datev_bookings';
@@ -27,6 +27,14 @@ router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req
         if (month) {
             values.push(parseInt(month));
             conditions.push(`EXTRACT(MONTH FROM datum) = $${values.length}`);
+        }
+        if (start_date) {
+            values.push(start_date);
+            conditions.push(`datum >= $${values.length}`);
+        }
+        if (end_date) {
+            values.push(end_date);
+            conditions.push(`datum <= $${values.length}`);
         }
         if (kostentyp_id) {
             values.push(kostentyp_id);
