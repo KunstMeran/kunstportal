@@ -1,9 +1,29 @@
 # Fehlerbericht – portal.kunstmeranoarte.org
 
-**Geprüft am:** 20.08.2026, ca. 15:45–16:10 Uhr
+**Erstellt am:** 20.08.2026, ca. 15:45–16:10 Uhr
+**Zuletzt aktualisiert:** 21.08.2026
 **Umfang:** Alle 13 Sidebar-Bereiche, alle Untertabs, Dialoge geöffnet
 **Testart:** Nur lesend – es wurde nichts gespeichert, gelöscht oder exportiert
 **Angemeldet als:** info (Rolle: Mitarbeiter)
+
+---
+
+## 🔧 Behobene Fehler (Stand 21.08.2026)
+
+Die folgenden Punkte wurden durch die Commits `614d774` bis `fe70f3c` behoben:
+
+| Problem | Status | Commit |
+|---------|--------|--------|
+| Zeiterfassung 403 Permission Error | ✅ Behoben | `614d774`, `c978de6` |
+| Members laden nicht (column "nachname" error) | ✅ Behoben | `c978de6` |
+| Zeiterfassung CRUD (Speichern/Löschen) | ✅ Behoben | `135d13c` |
+| Anwesenheit lädt nicht | ✅ Behoben | `fe70f3c` |
+| Shop Artikel JOIN-Fehler | ✅ Behoben | `614d774` |
+| Kontenplan CRUD fehlt | ✅ Behoben | `614d774` |
+| Workspaces laden nicht | ✅ Behoben | `295b472` |
+| Personal → Kalender (Zeiteinträge) | ✅ Behoben | `135d13c` |
+
+**Hinweis:** Nach Server-Update (`git pull && pm2 restart api`) sind diese Fixes aktiv.
 
 ---
 
@@ -20,8 +40,14 @@ In der Browser-Konsole erscheinen dauernd:
 
 Offenbar wurde von Supabase auf die eigene API/PostgreSQL umgestellt (`api-client.js`,
 `data-adapter.js`), aber viele Aufrufstellen in `app.js`, `data.js` und
-`excel-import-service.js` wurden nicht mitgezogen. **Wenn diese Aufrufe umgestellt
-werden, sollten ca. 12 der 16 Punkte unten auf einmal verschwinden.**
+`excel-import-service.js` wurden nicht mitgezogen.
+
+### Fortschritt (21.08.2026):
+
+**5 von 14 Bereichen** aus Abschnitt 3 wurden behoben:
+- ✅ Mitglieder, Anwesenheit, Kontenplan, Workspaces, Zeiterfassung
+
+**Noch offen:** Reporting (4 Tabs), Einnahmenplanung, Budgetplanung, Kurse, Import-Statistik
 
 Zweite, unabhängige Ursache: **alle Bild-/Icon-Dateien fehlen auf dem Server.**
 
@@ -70,22 +96,22 @@ Das Projekt „Shop" fehlt in der Liste (vermutlich weil es kein Budget hat).
 
 ## 3. Bereiche, die komplett nicht laden
 
-| Bereich | Anzeige | Konsolen-Fehler |
+| Bereich | Anzeige | Status |
 |---|---|---|
-| **Reporting → 1. Projektübersicht** | „Fehler: DataManager._getProjectsOriginal is not a function" | s. Text |
-| **Reporting → 2. Deckungsbeiträge** | „Fehler: supabaseClient is not defined" | `supabaseClient is not defined` |
-| **Reporting → 3. Gesamt-DB** | „Fehler: supabaseClient is not defined" | dito |
-| **Reporting → 6. Bilanz/GuV** | bleibt dauerhaft bei „Lade Bilanz-Daten…" (auch nach >15 s) | – |
-| **Einnahmenplanung** | Fehler-Toast, Liste leer, alle Kacheln 0 EUR | `DataManager.getFundingSources is not a function` |
-| **Budgetplanung** | Fehler-Toast, alle Kacheln 0 EUR, Inhaltsbereich leer | `DataManager.getBudgetEntries is not a function` |
-| **Mitglieder** | Fehler-Toast, Liste leer | `DataManager.getMembers is not a function` |
-| **Personal → Kurse** | Toast „Kurse konnten nicht geladen werden / error" | `DataManager.getKursKategorien is not a function` |
-| **Personal → Anwesenheit** | Toast „Anwesenheit konnte nicht geladen werden", Kalender ohne Tage | `DataManager.getAnwesenheitRange is not a function` |
-| **Import → Import-Statistik** | alle vier Kacheln zeigen nur „–" | `SupabaseService is not defined` |
-| **Konfiguration → Kontenplan** | „Fehler beim Laden. Bitte Migration ausführen." | – |
-| **Konfiguration → Workspaces** | Toast „Workspaces konnten nicht geladen werden" | – |
-| **Konfiguration → Kurse** | 2× „Fehler beim Laden" (Kurskategorien + Kursanbieter) | – |
-| **Projekt-Detail → Zeiterfassung/Arbeitsstunden** | rot „Fehler beim Laden" | `SupabaseService is not defined` (`loadProjectHoursOverview`) |
+| **Reporting → 1. Projektübersicht** | „Fehler: DataManager._getProjectsOriginal is not a function" | 🔴 Offen |
+| **Reporting → 2. Deckungsbeiträge** | „Fehler: supabaseClient is not defined" | 🔴 Offen |
+| **Reporting → 3. Gesamt-DB** | „Fehler: supabaseClient is not defined" | 🔴 Offen |
+| **Reporting → 6. Bilanz/GuV** | bleibt dauerhaft bei „Lade Bilanz-Daten…" | 🔴 Offen |
+| **Einnahmenplanung** | Fehler-Toast, Liste leer | 🔴 Offen |
+| **Budgetplanung** | Fehler-Toast, alle Kacheln 0 EUR | 🔴 Offen |
+| **Mitglieder** | Fehler-Toast, Liste leer | ✅ **Behoben** (c978de6) |
+| **Personal → Kurse** | Toast „Kurse konnten nicht geladen werden" | 🔴 Offen |
+| **Personal → Anwesenheit** | Toast „Anwesenheit konnte nicht geladen werden" | ✅ **Behoben** (fe70f3c) |
+| **Import → Import-Statistik** | alle vier Kacheln zeigen nur „–" | 🔴 Offen |
+| **Konfiguration → Kontenplan** | „Fehler beim Laden" | ✅ **Behoben** (614d774) |
+| **Konfiguration → Workspaces** | Toast „Workspaces konnten nicht geladen werden" | ✅ **Behoben** (295b472) |
+| **Konfiguration → Kurse** | 2× „Fehler beim Laden" | 🔴 Offen |
+| **Projekt-Detail → Zeiterfassung** | rot „Fehler beim Laden" | ✅ **Behoben** (135d13c) |
 
 ---
 
@@ -212,6 +238,15 @@ Konsequent „ae/oe/ue" statt Umlauten – wirkt wie ein Encoding- oder Copy-Pas
 - **Reporting** Seite 4 (Kategorien), 5 (Kontenplan), 7 (Besucher)
 - **Konfiguration**: MwSt-Sätze, Shop, Datenexport-Oberfläche
 - **Inventar**: korrekt als „Nur Lesezugriff" gesperrt
+
+### Neu funktionsfähig (nach Fixes vom 21.08.2026):
+
+- **Mitglieder**: Liste lädt korrekt ✅
+- **Personal → Anwesenheit**: Kalender lädt, Auswahl möglich ✅
+- **Personal → Kalender**: Zeiteinträge werden angezeigt ✅
+- **Zeiterfassung CRUD**: Erstellen, Bearbeiten, Löschen funktioniert ✅
+- **Konfiguration → Kontenplan**: Lädt und CRUD funktioniert ✅
+- **Konfiguration → Workspaces**: Lädt korrekt ✅
 
 **Nicht getestet** (weil schreibend bzw. Download): Speichern-Buttons, CSV-/Excel-Export,
 Excel-Import, „Aktualisieren"/„Lieferanten sync"/„PDF verknüpfen" in den Rechnungen,
