@@ -20124,7 +20124,7 @@ const App = {
             // Status ermitteln
             let statusClass = '';
             if (isSelected) {
-                statusClass = 'ausgewählt'; // Lila - ausgewählt
+                statusClass = 'ausgewaehlt'; // Lila - CSS Klasse ohne Umlaut
             } else if (planung) {
                 if (planung.im_buero && planung.mittagessen) {
                     statusClass = 'anwesend'; // Gruen
