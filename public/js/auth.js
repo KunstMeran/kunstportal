@@ -209,6 +209,19 @@ const Auth = {
     },
 
     /**
+     * Aktuelle Benutzer-ID (synchron aus lokaler Session)
+     */
+    getCurrentUserId: function() {
+        try {
+            const session = DataManager.getSession();
+            return session?.id || null;
+        } catch (error) {
+            console.error('Get User ID Error:', error);
+            return null;
+        }
+    },
+
+    /**
      * Prüft Admin-Rechte
      */
     isAdmin: function() {

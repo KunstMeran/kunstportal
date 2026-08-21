@@ -14,7 +14,7 @@ router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req
 
         if (konto) {
             values.push(konto);
-            conditions.push(`konto = $${values.length}`);
+            conditions.push(`konto_nr = $${values.length}`);
         }
         if (projekt_id) {
             values.push(projekt_id);

@@ -98,22 +98,22 @@ function escapeHtmlObject(obj) {
 
 // Icon Helper - liefert SVG-Icon als HTML
 const Icons = {
-    document: '<img src="icons/01-document.svg" alt="" class="icon">',
-    sync: '<img src="icons/02-sync.svg" alt="" class="icon">',
-    data: '<img src="icons/03-data.svg" alt="" class="icon">',
-    upload: '<img src="icons/04-upload.svg" alt="" class="icon">',
-    company: '<img src="icons/05-company.svg" alt="" class="icon">',
-    trend: '<img src="icons/06-trend.svg" alt="" class="icon">',
-    close: '<img src="icons/07-close.svg" alt="" class="icon-sm">',
-    check: '<img src="icons/08-check.svg" alt="" class="icon">',
-    edit: '<img src="icons/09-edit.svg" alt="" class="icon">',
-    warning: '<img src="icons/10-warning.svg" alt="" class="icon">',
-    preview: '<img src="icons/11-preview.svg" alt="" class="icon">',
-    delete: '<img src="icons/12-delete.svg" alt="" class="icon">',
-    image: '<img src="icons/13-image.svg" alt="" class="icon">',
-    attachment: '<img src="icons/14-attachment.svg" alt="" class="icon">',
-    success: '<img src="icons/15-success.svg" alt="" class="icon">',
-    error: '<img src="icons/16-error.svg" alt="" class="icon">'
+    document: '<img src="assets/icons/01-document.svg" alt="" class="icon">',
+    sync: '<img src="assets/icons/02-sync.svg" alt="" class="icon">',
+    data: '<img src="assets/icons/03-data.svg" alt="" class="icon">',
+    upload: '<img src="assets/icons/04-upload.svg" alt="" class="icon">',
+    company: '<img src="assets/icons/05-company.svg" alt="" class="icon">',
+    trend: '<img src="assets/icons/06-trend.svg" alt="" class="icon">',
+    close: '<img src="assets/icons/07-close.svg" alt="" class="icon-sm">',
+    check: '<img src="assets/icons/08-check.svg" alt="" class="icon">',
+    edit: '<img src="assets/icons/09-edit.svg" alt="" class="icon">',
+    warning: '<img src="assets/icons/10-warning.svg" alt="" class="icon">',
+    preview: '<img src="assets/icons/11-preview.svg" alt="" class="icon">',
+    delete: '<img src="assets/icons/12-delete.svg" alt="" class="icon">',
+    image: '<img src="assets/icons/13-image.svg" alt="" class="icon">',
+    attachment: '<img src="assets/icons/14-attachment.svg" alt="" class="icon">',
+    success: '<img src="assets/icons/15-success.svg" alt="" class="icon">',
+    error: '<img src="assets/icons/16-error.svg" alt="" class="icon">'
 };
 
 const App = {
@@ -1439,7 +1439,7 @@ const App = {
             // Verschieben-Button
             const moveButton = `
                 <button class="btn btn-sm btn-outline" onclick="App.showMoveRechnungDialog('${r.rechnungId || r.partitaIva + '_' + r.dokumentNr}', '${r.projektId}')" title="In anderes Projekt verschieben" style="padding: 0.15rem 0.35rem;">
-                    <img src="icons/05-move.svg" alt="Verschieben" class="icon-sm" onerror="this.outerHTML='↔'">
+                    <img src="assets/icons/05-move.svg" alt="Verschieben" class="icon-sm" onerror="this.outerHTML='↔'">
                 </button>
             `;
 
@@ -9613,7 +9613,7 @@ const App = {
     // BESUCHERSTATISTIK
     // ==========================================
 
-    loadBesucherStatistik: function() {
+    loadBesucherStatistik: async function() {
         console.log('loadBesucherStatistik aufgerufen');
 
         // Default-Zeitraum: aktuelles Jahr
@@ -9652,9 +9652,10 @@ const App = {
         const kategorieStats = {};
         const verlaufStats = {};
 
-        const kategorien = DataManager.getEintrittKategorien() || [];
+        // Kategorien async laden
+        const kategorien = await DataManager.getEintrittKategorien() || [];
         const katMap = {};
-        kategorien.forEach(k => katMap[k.id] = k.name);
+        (kategorien || []).forEach(k => katMap[k.id] = k.name);
 
         eintritte.forEach(v => {
             const anzahl = v.menge || 1;
@@ -9790,7 +9791,7 @@ const App = {
         return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     },
 
-    exportBesucherCsv: function() {
+    exportBesucherCsv: async function() {
         const von = document.getElementById('besucher-von')?.value || '';
         const bis = document.getElementById('besucher-bis')?.value || '';
         const gruppierung = document.getElementById('besucher-gruppierung')?.value || 'monat';
@@ -9803,9 +9804,10 @@ const App = {
             v.datum <= bis
         );
 
-        const kategorien = DataManager.getEintrittKategorien() || [];
+        // Kategorien async laden
+        const kategorien = await DataManager.getEintrittKategorien() || [];
         const katMap = {};
-        kategorien.forEach(k => katMap[k.id] = k.name);
+        (kategorien || []).forEach(k => katMap[k.id] = k.name);
 
         // CSV mit allen Eintrittsdaten
         const header = ['Datum', 'Uhrzeit', 'Tageszeit', 'Kategorie', 'Menge', 'Preis'];
@@ -9913,24 +9915,40 @@ const App = {
 
             // Nicht-projektbezogene Einnahmen anzeigen
             if (allgemeinContainer) {
-                const allgUmsatz = ergebnisse.nichtProjektbezogen.umsatz || 0;
-                const allgKosten = ergebnisse.nichtProjektbezogen.kosten || 0;
+                const allgUmsatz = ergebnisse.nichtProjektbezogen?.umsatz || 0;
+                const allgKosten = ergebnisse.nichtProjektbezogen?.kosten || 0;
+                const nichtZugeordnetUmsatz = ergebnisse.nichtZugeordnet?.umsatz || 0;
+                const nichtZugeordnetKosten = ergebnisse.nichtZugeordnet?.kosten || 0;
                 const gesamtDb3 = ergebnisse.gesamt.db3 || 0;
 
-                allgemeinContainer.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                // Warnung wenn hohe nicht zugeordnete Beträge
+                const warnHtml = (nichtZugeordnetUmsatz > 0 || nichtZugeordnetKosten > 0) ? `
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <strong style="color: #856404;">Hinweis:</strong> Es gibt Umsätze/Kosten auf projektbezogenen Konten (z.B. Erlöse, Materialkosten),
+                        die keinem Projekt zugeordnet sind. Diese werden NICHT anteilig verteilt, sondern separat ausgewiesen.
+                        <br><small style="color: #856404;">Für korrekte Deckungsbeiträge: DATEV-Buchungen einem Projekt zuordnen (Bewegungen → Projekt-Spalte).</small>
+                    </div>
+                ` : '';
+
+                allgemeinContainer.innerHTML = warnHtml + `
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
                         <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #666;">Allg. Einnahmen</div>
+                            <div style="font-size: 0.875rem; color: #666;">Allg. Einnahmen (verteilt)</div>
                             <div style="font-size: 1.25rem; font-weight: 600;">${this.formatCurrency(allgUmsatz)}</div>
-                            <div style="font-size: 0.75rem; color: #999;">Mitgliedsbeiträge, Förderungen ohne Projektzuordnung</div>
+                            <div style="font-size: 0.75rem; color: #999;">Mitgliedsbeiträge, Förderungen → anteilig</div>
                         </div>
-                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #666;">Allg. Kosten</div>
-                            <div style="font-size: 1.25rem; font-weight: 600;">${this.formatCurrency(allgKosten)}</div>
-                            <div style="font-size: 0.75rem; color: #999;">Kosten ohne Projektzuordnung</div>
+                        <div style="background: ${nichtZugeordnetUmsatz > 0 ? '#fff3cd' : '#f8f9fa'}; padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: ${nichtZugeordnetUmsatz > 0 ? '#856404' : '#666'};">Umsätze ohne Projekt</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: ${nichtZugeordnetUmsatz > 0 ? '#856404' : 'inherit'};">${this.formatCurrency(nichtZugeordnetUmsatz)}</div>
+                            <div style="font-size: 0.75rem; color: #999;">Erlöse nicht zugeordnet</div>
+                        </div>
+                        <div style="background: ${nichtZugeordnetKosten > 0 ? '#fff3cd' : '#f8f9fa'}; padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: ${nichtZugeordnetKosten > 0 ? '#856404' : '#666'};">Kosten ohne Projekt</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: ${nichtZugeordnetKosten > 0 ? '#856404' : 'inherit'};">${this.formatCurrency(nichtZugeordnetKosten)}</div>
+                            <div style="font-size: 0.75rem; color: #999;">Direkte Kosten nicht zugeordnet</div>
                         </div>
                         <div style="background: ${gesamtDb3 >= 0 ? '#d4edda' : '#f8d7da'}; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #666;">Gesamt-DB3 (alle Projekte)</div>
+                            <div style="font-size: 0.875rem; color: #666;">Gesamt-DB3</div>
                             <div style="font-size: 1.25rem; font-weight: 600; color: ${gesamtDb3 >= 0 ? '#27ae60' : '#e74c3c'};">${this.formatCurrency(gesamtDb3)}</div>
                             <div style="font-size: 0.75rem; color: #999;">Nach Abzug aller Gemeinkosten</div>
                         </div>
@@ -12901,7 +12919,7 @@ const App = {
             frame.srcdoc = `
                 <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: sans-serif;">
                     <div style="text-align: center;">
-                        <p style="font-size: 48px;"><img src="icons/01-document.svg" alt="" style="width: 48px; height: 48px;"></p>
+                        <p style="font-size: 48px;"><img src="assets/icons/01-document.svg" alt="" style="width: 48px; height: 48px;"></p>
                         <p><strong>${dok.name}</strong></p>
                         <p>${(dok.size / 1024).toFixed(1)} KB</p>
                         <a href="${dok.data}" download="${dok.name}" style="color: #3498db;">Herunterladen</a>
@@ -16598,10 +16616,10 @@ const App = {
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-icon btn-sm" onclick="App.editShopArtikel(${art.id})" title="Bearbeiten">
-                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteShopArtikel(${art.id})" title="Löschen">
-                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     </div>
                 </td>
@@ -16825,10 +16843,10 @@ const App = {
                             ? '<span class="badge badge-danger">Storniert</span>'
                             : `<div class="action-buttons">
                                 <button class="btn btn-icon btn-sm" onclick="App.editShopVerkauf(${v.id})" title="Bearbeiten">
-                                    <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                                    <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                                 </button>
                                 <button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${v.id})" title="Stornieren">
-                                    <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
+                                    <img src="assets/icons/12-delete.svg" alt="Storno" class="icon-sm">
                                 </button>
                                </div>`
                         }
@@ -17193,10 +17211,10 @@ const App = {
                     <td>
                         <div class="action-buttons">
                             <button class="btn btn-icon btn-sm" onclick="App.editShopEinkauf(${e.id})" title="Bearbeiten">
-                                <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                                <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                             </button>
                             <button class="btn btn-icon btn-sm" onclick="App.deleteShopEinkauf(${e.id})" title="Löschen">
-                                <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                                <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                             </button>
                         </div>
                     </td>
@@ -17734,10 +17752,10 @@ const App = {
                 // Zahlungsart anzeigen
                 const zahlBadge = b.zahlungsart === 'bar' ? '' : ' <span class="badge badge-info">POS</span>';
                 aktionen = `<button class="btn btn-icon btn-sm" onclick="App.editShopVerkauf(${b.id})" title="Bearbeiten">
-                                <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                                <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                             </button>
                             <button class="btn btn-icon btn-sm" onclick="App.stornoShopVerkauf(${b.id})" title="Stornieren">
-                                <img src="icons/12-delete.svg" alt="Storno" class="icon-sm">
+                                <img src="assets/icons/12-delete.svg" alt="Storno" class="icon-sm">
                             </button>${zahlBadge}`;
             } else {
                 // Entnahme/Einlage
@@ -17746,10 +17764,10 @@ const App = {
                 aktionen = b.storniert
                     ? '<span class="badge badge-outline">Storniert</span>'
                     : `<button class="btn btn-icon btn-sm" onclick="App.editKassenBewegung(${b.id})" title="Bearbeiten">
-                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteKassenBewegung(${b.id})" title="Löschen">
-                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>`;
             }
 
@@ -18064,7 +18082,7 @@ const App = {
                     <td>
                         <div class="action-buttons">
                             <button class="btn btn-icon btn-sm" onclick="App.deleteShopAusgabe(${a.id})" title="Löschen">
-                                <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                                <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                             </button>
                         </div>
                     </td>
@@ -18616,10 +18634,10 @@ const App = {
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <button class="btn btn-icon btn-sm" onclick="App.editKursKategorie(${k.id})" title="Bearbeiten">
-                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteKursKategorie(${k.id})" title="Loeschen">
-                            <img src="icons/12-delete.svg" alt="Loeschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Loeschen" class="icon-sm">
                         </button>
                     </div>
                 </div>
@@ -18744,7 +18762,7 @@ const App = {
                     </div>
                     ${!t.is_system ? `
                         <button class="btn btn-icon btn-sm" onclick="App.deleteArtikelTyp(${t.id})" title="Löschen">
-                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     ` : ''}
                 </div>
@@ -18772,10 +18790,10 @@ const App = {
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span class="badge ${isActive ? 'badge-success' : 'badge-outline'}">${isActive ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editEintrittKat(${k.id})" title="Bearbeiten">
-                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteEintrittKat(${k.id})" title="Löschen">
-                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     </div>
                 </div>
@@ -18803,10 +18821,10 @@ const App = {
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span class="badge ${isActive ? 'badge-success' : 'badge-outline'}">${isActive ? 'Aktiv' : 'Inaktiv'}</span>
                         <button class="btn btn-icon btn-sm" onclick="App.editMitgliedKat(${k.id})" title="Bearbeiten">
-                            <img src="icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
+                            <img src="assets/icons/09-edit.svg" alt="Bearbeiten" class="icon-sm">
                         </button>
                         <button class="btn btn-icon btn-sm" onclick="App.deleteMitgliedKat(${k.id})" title="Löschen">
-                            <img src="icons/12-delete.svg" alt="Löschen" class="icon-sm">
+                            <img src="assets/icons/12-delete.svg" alt="Löschen" class="icon-sm">
                         </button>
                     </div>
                 </div>

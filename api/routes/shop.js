@@ -92,16 +92,55 @@ router.get("/verkaeufe", requireAuth, requirePermission("einnahmen", "read"), as
 router.post("/verkaeufe", requireAuth, requirePermission("einnahmen", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
     const data = req.body;
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+
         const columns = Object.keys(data);
         const values = Object.values(data);
         const placeholders = values.map((_, i) => `$${i + 1}`);
 
-        const result = await pool.query(
+        const result = await client.query(
             `INSERT INTO shop_verkaeufe (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`,
             values
         );
-        res.status(201).json(result.rows[0]);
+        const verkauf = result.rows[0];
+
+        // Lagerbestand reduzieren wenn Artikel verknüpft
+        if (verkauf.artikel_id && verkauf.menge) {
+            await client.query(
+                'UPDATE shop_artikel SET bestand = bestand - $1 WHERE id = $2',
+                [verkauf.menge, verkauf.artikel_id]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json(verkauf);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.put("/verkaeufe/:id", requireAuth, requirePermission("einnahmen", "write"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const data = req.body;
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(", ");
+        values.push(req.params.id);
+
+        const result = await pool.query(
+            `UPDATE shop_verkaeufe SET ${setClause} WHERE id = $${values.length} RETURNING *`,
+            values
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Verkauf not found' });
+        }
+        res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

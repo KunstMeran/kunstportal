@@ -323,6 +323,9 @@ const SupabaseDataAdapter = {
         DataManager._berechneKassensaldoOriginal = DataManager.berechneKassensaldo;
         DataManager.berechneKassensaldo = this.berechneKassensaldo.bind(this);
 
+        DataManager._getMwstAufschluesselungOriginal = DataManager.getMwstAufschluesselung;
+        DataManager.getMwstAufschluesselung = this.getMwstAufschluesselung.bind(this);
+
         // Eintritt-Kategorien
         DataManager._getEintrittKategorienOriginal = DataManager.getEintrittKategorien;
         DataManager.getEintrittKategorien = this.getEintrittKategorien.bind(this);
@@ -1582,7 +1585,8 @@ const SupabaseDataAdapter = {
                 };
             } catch (apiError) {
                 // Duplikat-Fehler behandeln
-                if (apiError.message && apiError.message.includes('duplicate') || apiError.message.includes('23505')) {
+                const errMsg = apiError.message || '';
+                if (errMsg.includes('duplicate') || errMsg.includes('23505') || errMsg.includes('unique')) {
                     throw new Error('Ein Lieferant mit dieser Partita IVA existiert bereits');
                 }
                 throw apiError;
@@ -2960,9 +2964,12 @@ const SupabaseDataAdapter = {
             const { weights, totalDays } = this.calculateProjectWeights(projects, startDate, endDate);
 
             // 5. Buchungen nach DB-Stufen kategorisieren
+            // - projektbezogen: direkt einem Projekt zugeordnet (projekt_id vorhanden)
+            // - allgemein: Konten ohne projektbezogen-Flag → werden anteilig verteilt
+            // - nichtZugeordnet: Konten MIT projektbezogen-Flag ABER ohne projekt_id → separat ausweisen
             const kategorisiert = {
-                UMSATZ: { gesamt: 0, projektbezogen: {}, allgemein: 0 },
-                DB1_KOSTEN: { gesamt: 0, projektbezogen: {}, allgemein: 0 },
+                UMSATZ: { gesamt: 0, projektbezogen: {}, allgemein: 0, nichtZugeordnet: 0 },
+                DB1_KOSTEN: { gesamt: 0, projektbezogen: {}, allgemein: 0, nichtZugeordnet: 0 },
                 DB2_KOSTEN: { gesamt: 0 },
                 DB3_KOSTEN: { gesamt: 0 },
                 NEUTRAL: { gesamt: 0 }
@@ -2980,14 +2987,21 @@ const SupabaseDataAdapter = {
 
                 kategorisiert[dbStufe].gesamt += betrag;
 
-                // Projektbezogene Kosten direkt zuordnen
-                if ((dbStufe === 'UMSATZ' || dbStufe === 'DB1_KOSTEN') && projektId && zuordnung.ist_projektbezogen) {
-                    if (!kategorisiert[dbStufe].projektbezogen[projektId]) {
-                        kategorisiert[dbStufe].projektbezogen[projektId] = 0;
+                // Unterscheidung für UMSATZ und DB1_KOSTEN
+                if (dbStufe === 'UMSATZ' || dbStufe === 'DB1_KOSTEN') {
+                    if (projektId && zuordnung.ist_projektbezogen) {
+                        // Fall 1: Konto ist projektbezogen UND hat projekt_id → direkt zuordnen
+                        if (!kategorisiert[dbStufe].projektbezogen[projektId]) {
+                            kategorisiert[dbStufe].projektbezogen[projektId] = 0;
+                        }
+                        kategorisiert[dbStufe].projektbezogen[projektId] += betrag;
+                    } else if (zuordnung.ist_projektbezogen && !projektId) {
+                        // Fall 2: Konto ist projektbezogen ABER keine projekt_id → nicht zugeordnet
+                        kategorisiert[dbStufe].nichtZugeordnet += betrag;
+                    } else {
+                        // Fall 3: Konto ist NICHT projektbezogen → allgemein (wird verteilt)
+                        kategorisiert[dbStufe].allgemein += betrag;
                     }
-                    kategorisiert[dbStufe].projektbezogen[projektId] += betrag;
-                } else if (dbStufe === 'UMSATZ' || dbStufe === 'DB1_KOSTEN') {
-                    kategorisiert[dbStufe].allgemein += betrag;
                 }
             }
 
@@ -3004,9 +3018,15 @@ const SupabaseDataAdapter = {
                     db3: 0,
                     neutral: kategorisiert.NEUTRAL.gesamt
                 },
+                // Allgemeine Einnahmen (Konten OHNE ist_projektbezogen) → werden verteilt
                 nichtProjektbezogen: {
                     umsatz: kategorisiert.UMSATZ.allgemein,
                     kosten: kategorisiert.DB1_KOSTEN.allgemein
+                },
+                // Nicht zugeordnete Einnahmen (Konten MIT ist_projektbezogen ABER ohne projekt_id)
+                nichtZugeordnet: {
+                    umsatz: kategorisiert.UMSATZ.nichtZugeordnet,
+                    kosten: kategorisiert.DB1_KOSTEN.nichtZugeordnet
                 },
                 zeitraum: { startDate, endDate, totalDays }
             };
@@ -4077,6 +4097,53 @@ const SupabaseDataAdapter = {
         } catch (error) {
             console.error('Fehler beim Berechnen des Kassensaldos:', error);
             return { einnahmenBar: 0, einnahmenPos: 0, entnahmen: 0, einlagen: 0, anfangsbestand: 0, saldoBar: 0 };
+        }
+    },
+
+    async getMwstAufschluesselung(datum) {
+        try {
+            const verkaeufe = await ApiClient.getShopVerkaeufe({ datum: datum });
+
+            const aufschluesselung = {
+                '4': { brutto: 0, netto: 0, mwst: 0 },
+                '22': { brutto: 0, netto: 0, mwst: 0 },
+                'art74': { brutto: 0, netto: 0, mwst: 0 },
+                'keine': { brutto: 0, netto: 0, mwst: 0 }
+            };
+
+            (verkaeufe || []).forEach(v => {
+                if (v.storniert) return;
+
+                const brutto = v.gesamtpreis || 0;
+                const satz = v.mwst_satz || 'keine';
+
+                if (satz === 'art74' || satz === 'keine') {
+                    aufschluesselung[satz].brutto += brutto;
+                    aufschluesselung[satz].netto += brutto;
+                } else {
+                    const mwstProzent = parseFloat(satz) / 100;
+                    const netto = brutto / (1 + mwstProzent);
+                    const mwst = brutto - netto;
+
+                    const key = String(satz);
+                    if (!aufschluesselung[key]) {
+                        aufschluesselung[key] = { brutto: 0, netto: 0, mwst: 0 };
+                    }
+                    aufschluesselung[key].brutto += brutto;
+                    aufschluesselung[key].netto += netto;
+                    aufschluesselung[key].mwst += mwst;
+                }
+            });
+
+            return aufschluesselung;
+        } catch (error) {
+            console.error('Fehler bei getMwstAufschluesselung:', error);
+            return {
+                '4': { brutto: 0, netto: 0, mwst: 0 },
+                '22': { brutto: 0, netto: 0, mwst: 0 },
+                'art74': { brutto: 0, netto: 0, mwst: 0 },
+                'keine': { brutto: 0, netto: 0, mwst: 0 }
+            };
         }
     },
 

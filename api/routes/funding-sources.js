@@ -108,7 +108,7 @@ router.get('/:id/expenses', requireAuth, requirePermission('projekte', 'read'), 
             SELECT
                 COALESCE(SUM(
                     CASE
-                        WHEN betrag_brutto IS NOT NULL THEN betrag_brutto
+                        WHEN betrag_gesamt IS NOT NULL THEN betrag_gesamt
                         WHEN betrag IS NOT NULL AND mwst_rate IS NOT NULL THEN betrag * (1 + mwst_rate / 100)
                         ELSE COALESCE(betrag, 0)
                     END

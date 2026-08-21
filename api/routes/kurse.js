@@ -87,7 +87,7 @@ router.get("/:id/termine", requireAuth, requirePermission("projekte", "read"), a
     const pool = req.app.locals.pool;
     try {
         const result = await pool.query(
-            "SELECT * FROM kurs_termine WHERE kurs_id = $1 ORDER BY datum, startzeit",
+            "SELECT * FROM kurs_termine WHERE kurs_id = $1 ORDER BY datum, uhrzeit_von",
             [req.params.id]
         );
         res.json(result.rows);
