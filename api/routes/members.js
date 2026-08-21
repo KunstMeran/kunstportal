@@ -28,13 +28,42 @@ router.get('/:id/payments', requireAuth, requirePermission('mitglieder', 'read')
 
 router.post('/:id/payments', requireAuth, requirePermission('mitglieder', 'write'), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { jahr, betrag, zahlungsdatum, bemerkung } = req.body;
+    // Unterstütze beide Namenskonventionen
+    const { year, jahr, amount, betrag, payment_date, zahlungsdatum, notes, bemerkung, datev_buchung_id, datev_buchungstext } = req.body;
+    const finalYear = year || jahr;
+    const finalAmount = amount || betrag;
+    const finalDate = payment_date || zahlungsdatum;
+    const finalNotes = notes || bemerkung;
+
     try {
-        const result = await pool.query(
-            'INSERT INTO member_payments (member_id, jahr, betrag, zahlungsdatum, bemerkung) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [req.params.id, jahr, betrag, zahlungsdatum, bemerkung]
+        const result = await pool.query(`
+            INSERT INTO member_payments (member_id, year, amount, payment_date, notes, datev_buchung_id, datev_buchungstext)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (member_id, year)
+            DO UPDATE SET amount = EXCLUDED.amount, payment_date = EXCLUDED.payment_date, notes = EXCLUDED.notes,
+                          datev_buchung_id = EXCLUDED.datev_buchung_id, datev_buchungstext = EXCLUDED.datev_buchungstext
+            RETURNING *`,
+            [req.params.id, finalYear, finalAmount, finalDate, finalNotes, datev_buchung_id, datev_buchungstext]
         );
         res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET all payments for a specific year (with member data)
+router.get('/payments/year/:year', requireAuth, requirePermission('mitglieder', 'read'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    try {
+        const result = await pool.query(`
+            SELECT mp.*, m.id as member_id, m.last_name, m.first_name, m.membership_fee
+            FROM member_payments mp
+            JOIN members m ON mp.member_id = m.id
+            WHERE mp.year = $1
+            ORDER BY mp.payment_date DESC`,
+            [req.params.year]
+        );
+        res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

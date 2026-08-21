@@ -486,15 +486,31 @@ const SupabaseDataAdapter = {
     async softDelete(table, id, idColumn = 'id') {
         try {
             const userId = await this.getCurrentUserId();
-            const { error } = await SupabaseService.client
-                .from(table)
-                .update({
-                    deleted_at: new Date().toISOString(),
-                    deleted_by: userId
-                })
-                .eq(idColumn, id);
+            // Verwende ApiClient für Soft-Delete
+            const updateData = {
+                deleted_at: new Date().toISOString(),
+                deleted_by: userId
+            };
 
-            if (error) throw error;
+            // Mapping von Tabellennamen zu API-Endpoints
+            const tableToEndpoint = {
+                'datev_bookings': 'datev',
+                'invoices': 'invoices',
+                'projects': 'projects',
+                'costs': 'costs'
+            };
+
+            const endpoint = tableToEndpoint[table];
+            if (!endpoint) {
+                console.warn(`⚠️ Soft-Delete nicht unterstützt für Tabelle: ${table}`);
+                return false;
+            }
+
+            await ApiClient.request(`/${endpoint}/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(updateData)
+            });
+
             return true;
         } catch (error) {
             console.error(`⚠️ Soft-Delete fehlgeschlagen für ${table}:`, error);
@@ -515,19 +531,12 @@ const SupabaseDataAdapter = {
 
             console.log('📝 Setze Kostentyp:', { rechnungId, kostentyp, kostentypAm });
 
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .update({
-                    kostentyp: kostentyp || null,
-                    kostentyp_am: kostentypAm,
-                    kostentyp_von: userId,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', rechnungId)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateDatevBooking(rechnungId, {
+                kostentyp: kostentyp || null,
+                kostentyp_am: kostentypAm,
+                kostentyp_von: userId
+            });
 
             console.log('✅ Kostentyp gespeichert:', data);
 
@@ -539,8 +548,7 @@ const SupabaseDataAdapter = {
             return data;
         } catch (error) {
             console.error('❌ Fehler beim Setzen des Kostentyps:', error);
-            // Fallback zu localStorage
-            return DataManager._setKostentypOriginal(rechnungId, kostentyp, datum);
+            throw error;
         }
     },
 
@@ -553,42 +561,34 @@ const SupabaseDataAdapter = {
         try {
             const userId = await this.getCurrentUserId();
 
-            // Mapping von localStorage-Feldern zu Supabase-Feldern
-            const supabaseUpdate = {
-                updated_at: new Date().toISOString()
-            };
+            // Mapping von localStorage-Feldern zu API-Feldern
+            const apiUpdate = {};
 
             if (statusUpdate.kostentyp !== undefined) {
-                supabaseUpdate.kostentyp = statusUpdate.kostentyp;
+                apiUpdate.kostentyp = statusUpdate.kostentyp;
             }
             if (statusUpdate.kostentypAm !== undefined) {
-                supabaseUpdate.kostentyp_am = statusUpdate.kostentypAm;
-                supabaseUpdate.kostentyp_von = userId;
+                apiUpdate.kostentyp_am = statusUpdate.kostentypAm;
+                apiUpdate.kostentyp_von = userId;
             }
             if (statusUpdate.status !== undefined) {
-                supabaseUpdate.workflow_status = statusUpdate.status;
+                apiUpdate.workflow_status = statusUpdate.status;
             }
             if (statusUpdate.kontrolliertVon !== undefined || statusUpdate.kontrolliertAm !== undefined) {
-                supabaseUpdate.kontrolliert_von = userId;
-                supabaseUpdate.kontrolliert_am = statusUpdate.kontrolliertAm || new Date().toISOString().split('T')[0];
+                apiUpdate.kontrolliert_von = userId;
+                apiUpdate.kontrolliert_am = statusUpdate.kontrolliertAm || new Date().toISOString().split('T')[0];
             }
             if (statusUpdate.bezahltAm !== undefined) {
-                supabaseUpdate.bezahlt_am = statusUpdate.bezahltAm;
+                apiUpdate.bezahlt_am = statusUpdate.bezahltAm;
             }
             if (statusUpdate.notizen !== undefined) {
-                supabaseUpdate.notizen = statusUpdate.notizen;
+                apiUpdate.notizen = statusUpdate.notizen;
             }
 
-            console.log('📝 Setze Rechnungsstatus:', { rechnungId, supabaseUpdate });
+            console.log('📝 Setze Rechnungsstatus:', { rechnungId, apiUpdate });
 
-            const { data, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .update(supabaseUpdate)
-                .eq('id', rechnungId)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateDatevBooking(rechnungId, apiUpdate);
 
             console.log('✅ Status gespeichert:', data);
 
@@ -600,8 +600,7 @@ const SupabaseDataAdapter = {
             return data;
         } catch (error) {
             console.error('❌ Fehler beim Setzen des Status:', error);
-            // Fallback zu localStorage
-            return DataManager._setRechnungStatusOriginal(rechnungId, statusUpdate);
+            throw error;
         }
     },
 
@@ -817,31 +816,9 @@ const SupabaseDataAdapter = {
 
             console.log('📝 addProject - insert data:', supabaseProject);
 
-            // Insert ohne .select() - RLS kann das Zurücklesen verhindern
-            const { error: insertError } = await SupabaseService.client
-                .from('projects')
-                .insert([supabaseProject]);
+            // Verwende ApiClient statt SupabaseService
+            const result = await ApiClient.createProject(supabaseProject);
 
-            if (insertError) {
-                console.error('❌ addProject insert error:', insertError);
-                console.error('❌ Error details:', JSON.stringify(insertError, null, 2));
-                throw insertError;
-            }
-
-            // Projekt separat laden (mit dem Namen als Filter)
-            const { data, error: selectError } = await SupabaseService.client
-                .from('projects')
-                .select('*')
-                .eq('name', supabaseProject.name)
-                .order('created_at', { ascending: false })
-                .limit(1);
-
-            if (selectError) {
-                console.warn('⚠️ Projekt erstellt aber konnte nicht geladen werden:', selectError);
-                return { id: null, name: supabaseProject.name, ...supabaseProject };
-            }
-
-            const result = data && data.length > 0 ? data[0] : null;
             console.log('✅ Projekt erstellt:', result);
             return result ? this.convertProjectFromSupabase(result) : null;
         } catch (error) {
@@ -874,14 +851,8 @@ const SupabaseDataAdapter = {
 
             console.log('📝 Projekt Update:', projectId, supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('projects')
-                .update(supabaseUpdates)
-                .eq('id', projectId)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateProject(projectId, supabaseUpdates);
 
             console.log('✅ Projekt aktualisiert:', data);
             return this.convertProjectFromSupabase(data);
@@ -909,18 +880,11 @@ const SupabaseDataAdapter = {
 
     async getCosts() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('costs')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-
-            return data.map(c => this.convertCostFromSupabase(c));
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getCosts();
+            return (data || []).map(c => this.convertCostFromSupabase(c));
         } catch (error) {
             console.error('Fehler beim Laden der Kosten:', error);
-            // Erstmal leeres Array (Kosten noch nicht migriert)
             return [];
         }
     },
@@ -958,18 +922,12 @@ const SupabaseDataAdapter = {
                 supabaseCost.created_by = publicUserId;
             }
 
-            const { data, error } = await SupabaseService.client
-                .from('costs')
-                .insert([supabaseCost])
-                .select();
-
-            if (error) throw error;
-
-            const result = data && data.length > 0 ? data[0] : null;
+            // Verwende ApiClient statt SupabaseService
+            const result = await ApiClient.createCost(supabaseCost);
             return result ? this.convertCostFromSupabase(result) : null;
         } catch (error) {
             console.error('Fehler beim Erstellen der Kosten:', error);
-            return DataManager._addCostOriginal(costData);
+            throw error;
         }
     },
 
@@ -994,19 +952,12 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('costs')
-                .update(supabaseUpdates)
-                .eq('id', costId)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateCost(costId, supabaseUpdates);
             return this.convertCostFromSupabase(data);
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Kosten:', error);
-            return DataManager._updateCostOriginal(costId, updates);
+            throw error;
         }
     },
 
@@ -1118,8 +1069,8 @@ const SupabaseDataAdapter = {
 
     async addInvoice(invoiceData) {
         try {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
-            let supabaseInvoice = {
+            const userId = await this.getCurrentUserId();
+            const invoicePayload = {
                 file_name: invoiceData.fileName,
                 file_path: invoiceData.filePath,
                 file_size: invoiceData.fileSize,
@@ -1127,20 +1078,12 @@ const SupabaseDataAdapter = {
                 invoice_number: invoiceData.invoiceNumber,
                 status: invoiceData.status || 'uploaded',
                 datev_buchung_id: invoiceData.datevBuchungId || null,
-                uploaded_by: currentUser?.id,
-                // Audit-Trail: created_at und created_by
-                created_at: new Date().toISOString(),
-                created_by: currentUser?.id || null
+                uploaded_by: userId,
+                created_by: userId
             };
 
-            const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .insert([supabaseInvoice])
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createInvoice(invoicePayload);
             return data;
         } catch (error) {
             console.error('Fehler beim Erstellen der Rechnung:', error);
@@ -1150,44 +1093,25 @@ const SupabaseDataAdapter = {
 
     async updateInvoiceStatus(invoiceId, newStatus) {
         try {
-            const authResult = await SupabaseService.client.auth.getUser();
-            const currentUser = authResult.data.user;
+            const userId = await this.getCurrentUserId();
             const now = new Date().toISOString();
-
-            // Debug: Zeige User-Info
-            console.log('🔐 updateInvoiceStatus - Auth Result:', {
-                invoiceId,
-                newStatus,
-                userId: currentUser?.id,
-                userEmail: currentUser?.email,
-                authError: authResult.error
-            });
 
             let updates = {
                 status: newStatus,
-                // Audit-Trail: updated_at und updated_by
-                updated_at: now,
-                updated_by: currentUser?.id || null
+                updated_by: userId
             };
 
             // Je nach Status zusätzliche Felder setzen
             if (newStatus === 'kontrolliert') {
-                updates.kontrolled_by = currentUser?.id;
+                updates.kontrolled_by = userId;
                 updates.kontrolled_at = now;
             } else if (newStatus === 'bezahlt') {
-                updates.paid_by = currentUser?.id;
+                updates.paid_by = userId;
                 updates.paid_at = now;
             }
 
-            const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .update(updates)
-                .eq('id', invoiceId)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateInvoice(invoiceId, updates);
             return data;
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Rechnungsstatus:', error);
@@ -1201,15 +1125,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             updates = await this.addUpdateMetadata(updates);
 
-            const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .update(updates)
-                .eq('id', invoiceId)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateInvoice(invoiceId, updates);
             return data;
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Kostentyps:', error);
@@ -1607,14 +1524,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('suppliers')
-                .update(supabaseUpdates)
-                .eq('partita_iva', partitaIva)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateSupplier(partitaIva, supabaseUpdates);
 
             return {
                 partitaIva: data.partita_iva,
@@ -1656,29 +1567,26 @@ const SupabaseDataAdapter = {
             // Audit-Trail hinzufügen
             insertData = await this.addCreateMetadata(insertData);
 
-            const { data, error } = await SupabaseService.client
-                .from('suppliers')
-                .insert([insertData])
-                .select()
-                .single();
+            // Verwende ApiClient statt SupabaseService
+            try {
+                const data = await ApiClient.createSupplier(insertData);
 
-            if (error) {
+                return {
+                    partitaIva: data.partita_iva,
+                    name: data.fornitore_name,
+                    fornitoreNr: data.fornitore_nr,
+                    address: data.address,
+                    city: data.city,
+                    country: data.country,
+                    contactUserId: data.contact_user_id || null
+                };
+            } catch (apiError) {
                 // Duplikat-Fehler behandeln
-                if (error.code === '23505') {
+                if (apiError.message && apiError.message.includes('duplicate') || apiError.message.includes('23505')) {
                     throw new Error('Ein Lieferant mit dieser Partita IVA existiert bereits');
                 }
-                throw error;
+                throw apiError;
             }
-
-            return {
-                partitaIva: data.partita_iva,
-                name: data.fornitore_name,
-                fornitoreNr: data.fornitore_nr,
-                address: data.address,
-                city: data.city,
-                country: data.country,
-                contactUserId: data.contact_user_id || null
-            };
         } catch (error) {
             console.error('Fehler beim Erstellen des Lieferanten:', error);
             throw error;
@@ -1884,13 +1792,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: created_at und created_by hinzufügen
             insertData = await this.addCreateMetadata(insertData);
 
-            const { data, error } = await SupabaseService.client
-                .from('cost_types')
-                .insert([insertData])
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createCostType(insertData);
 
             // Cache invalidieren
             await this.loadCostTypesFromSupabase();
@@ -1919,14 +1822,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('cost_types')
-                .update(supabaseUpdates)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateCostType(id, supabaseUpdates);
 
             // Cache invalidieren
             await this.loadCostTypesFromSupabase();
@@ -2020,14 +1917,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('users')
-                .update(supabaseUpdates)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateUser(id, supabaseUpdates);
 
             // Cache invalidieren
             await this.loadUsersFromSupabase();
@@ -2064,16 +1955,8 @@ const SupabaseDataAdapter = {
 
             console.log('Versuche User anzulegen mit:', insertData);
 
-            const { data, error } = await SupabaseService.client
-                .from('users')
-                .insert(insertData)
-                .select()
-                .single();
-
-            if (error) {
-                console.error('Supabase Error Details:', error);
-                throw new Error(error.message || 'Fehler beim Anlegen');
-            }
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createUser(insertData);
 
             // Cache invalidieren
             await this.loadUsersFromSupabase();
@@ -2432,14 +2315,8 @@ const SupabaseDataAdapter = {
      */
     async getMemberPayments(memberId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('member_payments')
-                .select('*')
-                .eq('member_id', memberId)
-                .order('year', { ascending: false });
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getMemberPayments(memberId);
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Mitgliedszahlungen:', error);
@@ -2452,17 +2329,8 @@ const SupabaseDataAdapter = {
      */
     async getMemberPaymentsByYear(year) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('member_payments')
-                .select(`
-                    *,
-                    members (id, last_name, first_name, membership_fee)
-                `)
-                .eq('year', year)
-                .order('payment_date', { ascending: false });
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getMemberPaymentsByYear(year);
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Jahreszahlungen:', error);
@@ -2488,16 +2356,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: created_at und created_by hinzufügen
             insertData = await this.addCreateMetadata(insertData);
 
-            const { data, error } = await SupabaseService.client
-                .from('member_payments')
-                .upsert(insertData, {
-                    onConflict: 'member_id,year'
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createMemberPayment(paymentData.member_id, insertData);
             return data;
         } catch (error) {
             console.error('Fehler beim Hinzufügen der Zahlung:', error);
@@ -2554,13 +2414,8 @@ const SupabaseDataAdapter = {
      */
     async getWorkspaceById(workspaceId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('workspaces')
-                .select('*')
-                .eq('id', workspaceId)
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getWorkspaceById(workspaceId);
             return data;
         } catch (error) {
             console.error('Fehler beim Laden des Workspace:', error);
@@ -2573,32 +2428,26 @@ const SupabaseDataAdapter = {
      */
     async addWorkspace(workspace) {
         try {
-            const { data: { user } } = await SupabaseService.client.auth.getUser();
+            const insertData = {
+                name: workspace.name,
+                description: workspace.description || null,
+                access_dashboard: workspace.access_dashboard || 'none',
+                access_projekte: workspace.access_projekte || 'none',
+                access_rechnungen: workspace.access_rechnungen || 'none',
+                access_bewegungen: workspace.access_bewegungen || 'none',
+                access_lieferanten: workspace.access_lieferanten || 'none',
+                access_mitglieder: workspace.access_mitglieder || 'none',
+                access_einnahmen: workspace.access_einnahmen || 'none',
+                access_konfiguration: workspace.access_konfiguration || 'none',
+                access_zeiterfassung: workspace.access_zeiterfassung || 'none',
+                access_inventar: workspace.access_inventar || 'none',
+                access_reporting: workspace.access_reporting || 'none',
+                rechnungen_nur_zugewiesene: workspace.rechnungen_nur_zugewiesene || false,
+                is_active: true
+            };
 
-            const { data, error } = await SupabaseService.client
-                .from('workspaces')
-                .insert({
-                    name: workspace.name,
-                    description: workspace.description || null,
-                    access_dashboard: workspace.access_dashboard || 'none',
-                    access_projekte: workspace.access_projekte || 'none',
-                    access_rechnungen: workspace.access_rechnungen || 'none',
-                    access_bewegungen: workspace.access_bewegungen || 'none',
-                    access_lieferanten: workspace.access_lieferanten || 'none',
-                    access_mitglieder: workspace.access_mitglieder || 'none',
-                    access_einnahmen: workspace.access_einnahmen || 'none',
-                    access_konfiguration: workspace.access_konfiguration || 'none',
-                    access_zeiterfassung: workspace.access_zeiterfassung || 'none',
-                    access_inventar: workspace.access_inventar || 'none',
-                    access_reporting: workspace.access_reporting || 'none',
-                    rechnungen_nur_zugewiesene: workspace.rechnungen_nur_zugewiesene || false,
-                    is_active: true,
-                    created_by: user?.id
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createWorkspace(insertData);
             return data;
         } catch (error) {
             console.error('Fehler beim Erstellen des Workspace:', error);
@@ -2635,20 +2484,8 @@ const SupabaseDataAdapter = {
                 supabaseUpdates.access_zeiterfassung = updates.access_zeiterfassung || 'none';
             }
 
-            // Nur updated_at setzen (updated_by existiert nicht in workspaces Tabelle)
-            supabaseUpdates.updated_at = new Date().toISOString();
-
-            const { data, error } = await SupabaseService.client
-                .from('workspaces')
-                .update(supabaseUpdates)
-                .eq('id', workspaceId)
-                .select()
-                .single();
-
-            if (error) {
-                console.error('❌ Workspace Update Fehler:', error.message, error.details, error.hint);
-                throw error;
-            }
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateWorkspace(workspaceId, supabaseUpdates);
 
             // Cache invalidieren
             this.permissionsCache = null;
@@ -2665,12 +2502,8 @@ const SupabaseDataAdapter = {
      */
     async deleteWorkspace(workspaceId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('workspaces')
-                .delete()
-                .eq('id', workspaceId);
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            await ApiClient.request(`/workspaces/${workspaceId}`, { method: 'DELETE' });
 
             // Cache invalidieren
             this.permissionsCache = null;
@@ -2687,18 +2520,8 @@ const SupabaseDataAdapter = {
      */
     async getUserWorkspaces(workspaceId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('user_workspaces')
-                .select(`
-                    id,
-                    user_id,
-                    workspace_id,
-                    is_admin,
-                    created_at
-                `)
-                .eq('workspace_id', workspaceId);
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getWorkspaceUsers(workspaceId);
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der User-Workspaces:', error);
@@ -2711,20 +2534,8 @@ const SupabaseDataAdapter = {
      */
     async addUserToWorkspace(userId, workspaceId, isAdmin = false) {
         try {
-            const { data: { user } } = await SupabaseService.client.auth.getUser();
-
-            const { data, error } = await SupabaseService.client
-                .from('user_workspaces')
-                .insert({
-                    user_id: userId,
-                    workspace_id: workspaceId,
-                    is_admin: isAdmin,
-                    created_by: user?.id
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.assignUserToWorkspace(workspaceId, userId);
 
             // Cache invalidieren
             this.permissionsCache = null;
@@ -2741,13 +2552,8 @@ const SupabaseDataAdapter = {
      */
     async removeUserFromWorkspace(userId, workspaceId) {
         try {
-            const { error } = await SupabaseService.client
-                .from('user_workspaces')
-                .delete()
-                .eq('user_id', userId)
-                .eq('workspace_id', workspaceId);
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            await ApiClient.removeUserFromWorkspace(workspaceId, userId);
 
             // Cache invalidieren
             this.permissionsCache = null;
@@ -2914,30 +2720,17 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Lädt alle Auth-User aus Supabase (für Dropdown)
+     * Lädt alle Auth-User aus der Datenbank (für Dropdown)
      */
     async getAllAuthUsers() {
         try {
-            // Lade User aus der profiles/users Tabelle oder auth.users view
-            // Da auth.users nicht direkt zugänglich ist, nutzen wir user_workspaces um bekannte User zu finden
-            // Alternativ: Eine eigene profiles-Tabelle erstellen
-
-            // Für jetzt: Lade User die bereits in user_workspaces sind
-            const { data: existingAssignments, error: assignError } = await SupabaseService.client
-                .from('user_workspaces')
-                .select('user_id')
-                .order('user_id');
-
-            if (assignError) throw assignError;
-
-            // Unique User IDs
-            const userIds = [...new Set(existingAssignments.map(a => a.user_id))];
-
-            // Versuche User-Details aus einer profiles-Tabelle zu laden (falls vorhanden)
-            // Fallback: Nur IDs zurückgeben
-            const users = userIds.map(id => ({ id, email: id }));
-
-            return users;
+            // Verwende ApiClient statt SupabaseService
+            const users = await ApiClient.getUsers();
+            return (users || []).map(u => ({
+                id: u.id,
+                email: u.email,
+                name: u.username || u.name || u.email
+            }));
         } catch (error) {
             console.error('Fehler beim Laden der Auth-User:', error);
             return [];
@@ -3441,13 +3234,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: created_at und created_by hinzufügen
             insertData = await this.addCreateMetadata(insertData);
 
-            const { data, error } = await SupabaseService.client
-                .from('budget_entries')
-                .insert(insertData)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.upsertBudgetEntry(insertData);
             return data;
         } catch (error) {
             console.error('Fehler beim Erstellen des Budget-Eintrags:', error);
@@ -3484,14 +3272,8 @@ const SupabaseDataAdapter = {
             // Audit-Trail: updated_at und updated_by hinzufügen
             supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
 
-            const { data, error } = await SupabaseService.client
-                .from('budget_entries')
-                .update(supabaseUpdates)
-                .eq('id', entryId)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.updateBudgetEntry(entryId, supabaseUpdates);
             return data;
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Budget-Eintrags:', error);
@@ -3658,34 +3440,22 @@ const SupabaseDataAdapter = {
 
             console.log('📝 Shop-Ausgabe insert data:', insertData);
 
-            // Insert ohne .single() um 409 Conflict zu vermeiden
-            const { data, error } = await SupabaseService.client
-                .from('shop_ausgaben')
-                .insert(insertData)
-                .select();
+            // Verwende ApiClient statt SupabaseService
+            // Die API handhabt auch die Bestandsreduktion
+            const result = await ApiClient.createShopAusgabe(insertData);
 
-            if (error) {
-                console.error('❌ Shop-Ausgabe Insert Fehler:', error);
-                throw error;
-            }
-
-            const result = data && data.length > 0 ? data[0] : insertData;
-
-            // Bestand manuell reduzieren (falls Trigger nicht existiert)
+            // Bestand manuell reduzieren (API macht das nicht automatisch)
             if (insertData.artikel_id) {
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell')
-                    .eq('id', insertData.artikel_id)
-                    .single();
-
-                if (artikel) {
-                    const neuerBestand = Math.max(0, (artikel.bestand_aktuell || 0) - (insertData.menge || 1));
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
-                        .eq('id', insertData.artikel_id);
-                    console.log('📦 Bestand nach Ausgabe reduziert:', artikel.bestand_aktuell, '->', neuerBestand);
+                try {
+                    const artikel = await ApiClient.request(`/shop/artikel`);
+                    const art = artikel.find(a => a.id === insertData.artikel_id);
+                    if (art) {
+                        const neuerBestand = Math.max(0, (art.bestand || art.bestand_aktuell || 0) - (insertData.menge || 1));
+                        await ApiClient.updateShopArtikel(insertData.artikel_id, { bestand: neuerBestand });
+                        console.log('📦 Bestand nach Ausgabe reduziert:', art.bestand || art.bestand_aktuell, '->', neuerBestand);
+                    }
+                } catch (bestandError) {
+                    console.warn('⚠️ Bestand konnte nicht aktualisiert werden:', bestandError);
                 }
             }
 
@@ -3699,41 +3469,12 @@ const SupabaseDataAdapter = {
 
     /**
      * Löscht eine Shop-Ausgabe und gibt den Bestand zurück
+     * Die API handhabt die Bestandswiederherstellung in einer Transaktion
      */
     async deleteShopAusgabe(id) {
         try {
-            // Erst die Ausgabe laden um Artikel-ID und Menge zu bekommen
-            const { data: ausgabe } = await SupabaseService.client
-                .from('shop_ausgaben')
-                .select('artikel_id, menge')
-                .eq('id', id)
-                .single();
-
-            const { error } = await SupabaseService.client
-                .from('shop_ausgaben')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
-            // Bestand manuell zurückgeben (falls Trigger nicht existiert)
-            if (ausgabe && ausgabe.artikel_id) {
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell')
-                    .eq('id', ausgabe.artikel_id)
-                    .single();
-
-                if (artikel) {
-                    const neuerBestand = (artikel.bestand_aktuell || 0) + (ausgabe.menge || 1);
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
-                        .eq('id', ausgabe.artikel_id);
-                    console.log('📦 Bestand nach Ausgabe-Löschung erhöht:', artikel.bestand_aktuell, '->', neuerBestand);
-                }
-            }
-
+            // Verwende ApiClient - die DELETE Route handhabt Bestandswiederherstellung
+            await ApiClient.deleteShopAusgabe(id);
             console.log('✅ Ausgabe gelöscht:', id);
             return true;
         } catch (error) {
@@ -3747,27 +3488,23 @@ const SupabaseDataAdapter = {
      */
     async checkDuplicateAusgabe(artikelId, empfaengerTyp, empfaengerId) {
         try {
-            let query = SupabaseService.client
-                .from('shop_ausgaben')
-                .select('id, datum, menge')
-                .eq('artikel_id', artikelId)
-                .eq('empfaenger_typ', empfaengerTyp);
+            // Lade alle Ausgaben und filtere clientseitig
+            const ausgaben = await this.getShopAusgaben({ artikelId });
 
-            if (empfaengerTyp === 'mitarbeiter') {
-                query = query.eq('empfaenger_user_id', empfaengerId);
-            } else {
-                // Bei Externen: Entweder ID oder Name prüfen
-                if (typeof empfaengerId === 'number' || !isNaN(parseInt(empfaengerId))) {
-                    query = query.eq('empfaenger_extern_id', empfaengerId);
+            const match = ausgaben.find(a => {
+                if (a.empfaenger_typ !== empfaengerTyp) return false;
+                if (empfaengerTyp === 'mitarbeiter') {
+                    return a.empfaenger_user_id === empfaengerId;
                 } else {
-                    query = query.eq('empfaenger_extern_name', empfaengerId);
+                    if (typeof empfaengerId === 'number' || !isNaN(parseInt(empfaengerId))) {
+                        return a.empfaenger_extern_id === empfaengerId;
+                    } else {
+                        return a.empfaenger_name === empfaengerId;
+                    }
                 }
-            }
+            });
 
-            const { data, error } = await query.limit(1);
-            if (error) throw error;
-
-            return data && data.length > 0 ? data[0] : null;
+            return match || null;
         } catch (error) {
             console.error('Fehler beim Duplikat-Check:', error);
             return null;
@@ -3779,17 +3516,12 @@ const SupabaseDataAdapter = {
      */
     async getExterneEmpfaenger() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_externe_empfaenger')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.getShopExterneEmpfaenger();
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden externer Empfänger:', error);
-            // Fallback auf localStorage
-            return DataManager._getExterneEmpfaengerOriginal();
+            return [];
         }
     },
 
@@ -3805,15 +3537,12 @@ const SupabaseDataAdapter = {
 
             insertData = await this.addCreateMetadata(insertData);
 
-            // Insert ohne .single() um 409 Conflict zu vermeiden
-            const { data, error } = await SupabaseService.client
-                .from('shop_externe_empfaenger')
-                .insert(insertData)
-                .select();
+            // Verwende ApiClient statt SupabaseService
+            const result = await ApiClient.request('/shop/externe-empfaenger', {
+                method: 'POST',
+                body: JSON.stringify(insertData)
+            });
 
-            if (error) throw error;
-
-            const result = data && data.length > 0 ? data[0] : insertData;
             console.log('✅ Externer Empfänger angelegt:', result);
             return result;
         } catch (error) {
@@ -3912,41 +3641,31 @@ const SupabaseDataAdapter = {
             if (isNew) {
                 // Neue Artikelnummer generieren falls nicht vorhanden
                 if (!dbData.artikelnr) {
-                    const { data: maxNr } = await SupabaseService.client
-                        .from('shop_artikel')
-                        .select('artikelnr')
-                        .like('artikelnr', 'SHOP-%')
-                        .order('artikelnr', { ascending: false })
-                        .limit(1);
-
+                    // Lade alle Artikel um max Artikelnr zu finden
+                    const allArtikel = await ApiClient.getShopArtikel();
                     let nextNr = 1;
-                    if (maxNr && maxNr.length > 0) {
-                        const match = maxNr[0].artikelnr.match(/SHOP-(\d+)/);
-                        if (match) nextNr = parseInt(match[1]) + 1;
+                    const shopArtikel = allArtikel.filter(a => a.artikelnr && a.artikelnr.startsWith('SHOP-'));
+                    if (shopArtikel.length > 0) {
+                        const nummern = shopArtikel.map(a => {
+                            const match = a.artikelnr.match(/SHOP-(\d+)/);
+                            return match ? parseInt(match[1]) : 0;
+                        });
+                        nextNr = Math.max(...nummern) + 1;
                     }
                     dbData.artikelnr = `SHOP-${String(nextNr).padStart(4, '0')}`;
                 }
 
                 const withMeta = await this.addCreateMetadata(dbData);
-                const { data, error } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .insert(withMeta)
-                    .select()
-                    .single();
+                // Verwende ApiClient statt SupabaseService
+                const data = await ApiClient.createShopArtikel(withMeta);
 
-                if (error) throw error;
                 console.log('✅ Artikel erstellt:', data);
                 return data;
             } else {
                 const withMeta = await this.addUpdateMetadata(dbData);
-                const { data, error } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .update(withMeta)
-                    .eq('id', artikel.id)
-                    .select()
-                    .single();
+                // Verwende ApiClient statt SupabaseService
+                const data = await ApiClient.updateShopArtikel(artikel.id, withMeta);
 
-                if (error) throw error;
                 console.log('✅ Artikel aktualisiert:', data);
                 return data;
             }
@@ -3958,13 +3677,9 @@ const SupabaseDataAdapter = {
 
     async deleteShopArtikel(id) {
         try {
-            // Soft-Delete
-            const { error } = await SupabaseService.client
-                .from('shop_artikel')
-                .update({ is_active: false })
-                .eq('id', id);
+            // Soft-Delete: Verwende ApiClient statt SupabaseService
+            await ApiClient.updateShopArtikel(id, { is_active: false });
 
-            if (error) throw error;
             console.log('✅ Artikel deaktiviert:', id);
             return true;
         } catch (error) {
@@ -4036,13 +3751,10 @@ const SupabaseDataAdapter = {
 
     async getShopVerkaufById(id) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .select('*')
-                .eq('id', id)
-                .single();
+            // Lade alle Verkäufe und finde den richtigen
+            const allVerkaeufe = await ApiClient.getShopVerkaeufe();
+            const data = allVerkaeufe.find(v => v.id === id);
 
-            if (error) throw error;
             if (!data) return null;
 
             return {
@@ -4092,29 +3804,21 @@ const SupabaseDataAdapter = {
 
             const withMeta = await this.addCreateMetadata(dbData);
 
-            const { data, error } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .insert(withMeta)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createShopVerkauf(withMeta);
 
             // Bestand reduzieren bei Artikel-Verkauf
             if (verkauf.typ === 'artikel' && dbData.artikel_id) {
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell')
-                    .eq('id', dbData.artikel_id)
-                    .single();
-
-                if (artikel) {
-                    const neuerBestand = Math.max(0, (artikel.bestand_aktuell || 0) - dbData.menge);
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({ bestand_aktuell: neuerBestand, updated_at: new Date().toISOString() })
-                        .eq('id', dbData.artikel_id);
-                    console.log('📦 Bestand reduziert:', artikel.bestand_aktuell, '->', neuerBestand);
+                try {
+                    const allArtikel = await ApiClient.getShopArtikel();
+                    const artikel = allArtikel.find(a => a.id === dbData.artikel_id);
+                    if (artikel) {
+                        const neuerBestand = Math.max(0, (artikel.bestand_aktuell || artikel.bestand || 0) - dbData.menge);
+                        await ApiClient.updateShopArtikel(dbData.artikel_id, { bestand_aktuell: neuerBestand });
+                        console.log('📦 Bestand reduziert:', artikel.bestand_aktuell, '->', neuerBestand);
+                    }
+                } catch (bestandError) {
+                    console.warn('⚠️ Bestand konnte nicht aktualisiert werden:', bestandError);
                 }
             }
 
@@ -4129,39 +3833,30 @@ const SupabaseDataAdapter = {
     async stornoShopVerkauf(id) {
         try {
             // Verkauf laden
-            const { data: verkauf } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .select('*')
-                .eq('id', id)
-                .single();
-
+            const verkauf = await this.getShopVerkaufById(id);
             if (!verkauf) throw new Error('Verkauf nicht gefunden');
 
-            // Stornieren
-            const { error } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .update({
+            // Stornieren via ApiClient
+            await ApiClient.request(`/shop/verkaeufe/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
                     storniert: true,
                     storniert_at: new Date().toISOString(),
                     storniert_by: await this.getCurrentUserId()
                 })
-                .eq('id', id);
-
-            if (error) throw error;
+            });
 
             // Bestand zurückgeben bei Artikel-Verkauf
             if (verkauf.typ === 'artikel' && verkauf.artikel_id) {
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell')
-                    .eq('id', verkauf.artikel_id)
-                    .single();
-
-                if (artikel) {
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({ bestand_aktuell: (artikel.bestand_aktuell || 0) + verkauf.menge })
-                        .eq('id', verkauf.artikel_id);
+                try {
+                    const allArtikel = await ApiClient.getShopArtikel();
+                    const artikel = allArtikel.find(a => a.id === verkauf.artikel_id);
+                    if (artikel) {
+                        const neuerBestand = (artikel.bestand_aktuell || artikel.bestand || 0) + verkauf.menge;
+                        await ApiClient.updateShopArtikel(verkauf.artikel_id, { bestand_aktuell: neuerBestand });
+                    }
+                } catch (bestandError) {
+                    console.warn('⚠️ Bestand konnte nicht wiederhergestellt werden:', bestandError);
                 }
             }
 
@@ -4177,14 +3872,12 @@ const SupabaseDataAdapter = {
         try {
             const withMeta = await this.addUpdateMetadata(updates);
 
-            const { data, error } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .update(withMeta)
-                .eq('id', id)
-                .select()
-                .single();
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.request(`/shop/verkaeufe/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(withMeta)
+            });
 
-            if (error) throw error;
             console.log('✅ Verkauf aktualisiert:', data);
             return data;
         } catch (error) {
@@ -4234,36 +3927,29 @@ const SupabaseDataAdapter = {
 
             const withMeta = await this.addCreateMetadata(dbData);
 
-            const { data, error } = await SupabaseService.client
-                .from('shop_einkaeufe')
-                .insert(withMeta)
-                .select()
-                .single();
-
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createShopEinkauf(withMeta);
 
             // Bestand erhöhen
             if (dbData.artikel_id) {
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell, durchschnitt_ek')
-                    .eq('id', dbData.artikel_id)
-                    .single();
+                try {
+                    const allArtikel = await ApiClient.getShopArtikel();
+                    const artikel = allArtikel.find(a => a.id === dbData.artikel_id);
 
-                if (artikel) {
-                    const neuerBestand = (artikel.bestand_aktuell || 0) + dbData.menge;
-                    // Durchschnitts-EK neu berechnen
-                    const alterWert = (artikel.bestand_aktuell || 0) * (artikel.durchschnitt_ek || 0);
-                    const neuerWert = dbData.menge * dbData.einzelpreis;
-                    const neuerDurchschnittEK = neuerBestand > 0 ? (alterWert + neuerWert) / neuerBestand : dbData.einzelpreis;
+                    if (artikel) {
+                        const neuerBestand = (artikel.bestand_aktuell || artikel.bestand || 0) + dbData.menge;
+                        // Durchschnitts-EK neu berechnen
+                        const alterWert = (artikel.bestand_aktuell || artikel.bestand || 0) * (artikel.durchschnitt_ek || 0);
+                        const neuerWert = dbData.menge * dbData.einzelpreis;
+                        const neuerDurchschnittEK = neuerBestand > 0 ? (alterWert + neuerWert) / neuerBestand : dbData.einzelpreis;
 
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({
+                        await ApiClient.updateShopArtikel(dbData.artikel_id, {
                             bestand_aktuell: neuerBestand,
                             durchschnitt_ek: neuerDurchschnittEK
-                        })
-                        .eq('id', dbData.artikel_id);
+                        });
+                    }
+                } catch (bestandError) {
+                    console.warn('⚠️ Bestand konnte nicht aktualisiert werden:', bestandError);
                 }
             }
 
@@ -4277,35 +3963,8 @@ const SupabaseDataAdapter = {
 
     async deleteShopEinkauf(id) {
         try {
-            // Einkauf laden für Bestandskorrektur
-            const { data: einkauf } = await SupabaseService.client
-                .from('shop_einkaeufe')
-                .select('*')
-                .eq('id', id)
-                .single();
-
-            if (einkauf && einkauf.artikel_id) {
-                // Bestand reduzieren
-                const { data: artikel } = await SupabaseService.client
-                    .from('shop_artikel')
-                    .select('bestand_aktuell')
-                    .eq('id', einkauf.artikel_id)
-                    .single();
-
-                if (artikel) {
-                    await SupabaseService.client
-                        .from('shop_artikel')
-                        .update({ bestand_aktuell: Math.max(0, (artikel.bestand_aktuell || 0) - einkauf.menge) })
-                        .eq('id', einkauf.artikel_id);
-                }
-            }
-
-            const { error } = await SupabaseService.client
-                .from('shop_einkaeufe')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            // Verwende ApiClient - die DELETE Route handhabt Bestandskorrektur in Transaktion
+            await ApiClient.deleteShopEinkauf(id);
             console.log('✅ Einkauf gelöscht:', id);
             return true;
         } catch (error) {
@@ -4320,18 +3979,9 @@ const SupabaseDataAdapter = {
 
     async getKassenBewegungen(datum = null) {
         try {
-            let query = SupabaseService.client
-                .from('shop_kassen_bewegungen')
-                .select('*')
-                .order('datum', { ascending: false })
-                .order('uhrzeit', { ascending: false });
-
-            if (datum) {
-                query = query.eq('datum', datum);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
+            // Verwende ApiClient statt SupabaseService
+            const filters = datum ? { datum } : {};
+            const data = await ApiClient.getShopKassenBewegungen(filters);
 
             return (data || []).map(b => ({
                 id: b.id,
@@ -4361,13 +4011,9 @@ const SupabaseDataAdapter = {
 
             const withMeta = await this.addCreateMetadata(dbData);
 
-            const { data, error } = await SupabaseService.client
-                .from('shop_kassen_bewegungen')
-                .insert(withMeta)
-                .select()
-                .single();
+            // Verwende ApiClient statt SupabaseService
+            const data = await ApiClient.createShopKassenBewegung(withMeta);
 
-            if (error) throw error;
             console.log('✅ Kassenbewegung erfasst:', data);
             return data;
         } catch (error) {

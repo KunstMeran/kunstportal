@@ -58,6 +58,32 @@ router.post('/entries', requireAuth, requirePermission('projekte', 'write'), asy
     }
 });
 
+// PUT update budget entry
+router.put('/entries/:id', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+    const data = req.body;
+
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
+        values.push(id);
+
+        const result = await pool.query(
+            `UPDATE budget_entries SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+            values
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Budget entry not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET chart of accounts
 router.get('/kontenplan', requireAuth, requirePermission('projekte', 'read'), async (req, res) => {
     const pool = req.app.locals.pool;
@@ -231,6 +257,72 @@ router.get('/cost-types', requireAuth, requirePermission('projekte', 'read'), as
     try {
         const result = await pool.query('SELECT * FROM cost_types ORDER BY name');
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST create cost type
+router.post('/cost-types', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const data = req.body;
+
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = values.map((_, i) => `$${i + 1}`);
+
+        const result = await pool.query(
+            `INSERT INTO cost_types (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
+            values
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT update cost type
+router.put('/cost-types/:id', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+    const data = req.body;
+
+    try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
+        values.push(id);
+
+        const result = await pool.query(
+            `UPDATE cost_types SET ${setClause} WHERE id = $${values.length} RETURNING *`,
+            values
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cost type not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE cost type (soft delete)
+router.delete('/cost-types/:id', requireAuth, requirePermission('projekte', 'delete'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            'UPDATE cost_types SET deleted_at = NOW() WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cost type not found' });
+        }
+        res.json({ success: true, deleted: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

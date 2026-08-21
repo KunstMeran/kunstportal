@@ -316,6 +316,10 @@ const ApiClient = {
         });
     },
 
+    async getMemberPaymentsByYear(year) {
+        return await this.request(`/members/payments/year/${year}`);
+    },
+
     // ========== FUNDING SOURCES ==========
 
     async getFundingSources(filters = {}) {
@@ -377,6 +381,13 @@ const ApiClient = {
         });
     },
 
+    async updateBudgetEntry(id, data) {
+        return await this.request(`/budget/entries/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
     async getKontenplan() {
         return await this.request('/budget/kontenplan');
     },
@@ -429,6 +440,24 @@ const ApiClient = {
 
     async getCostTypes() {
         return await this.request('/budget/cost-types');
+    },
+
+    async createCostType(data) {
+        return await this.request('/budget/cost-types', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateCostType(id, data) {
+        return await this.request(`/budget/cost-types/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteCostType(id) {
+        return await this.request(`/budget/cost-types/${id}`, { method: 'DELETE' });
     },
 
     // ========== SHOP ==========
@@ -519,6 +548,18 @@ const ApiClient = {
             method: 'POST',
             body: JSON.stringify(data),
         });
+    },
+
+    async deleteShopAusgabe(id) {
+        return await this.request(`/shop/ausgaben/${id}`, { method: 'DELETE' });
+    },
+
+    async deleteShopVerkauf(id) {
+        return await this.request(`/shop/verkaeufe/${id}`, { method: 'DELETE' });
+    },
+
+    async deleteShopEinkauf(id) {
+        return await this.request(`/shop/einkaeufe/${id}`, { method: 'DELETE' });
     },
 
     async getShopExterneEmpfaenger() {

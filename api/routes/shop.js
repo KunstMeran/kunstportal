@@ -266,6 +266,114 @@ router.post("/ausgaben", requireAuth, requirePermission("einnahmen", "write"), a
     }
 });
 
+// DELETE ausgabe (mit Bestandswiederherstellung)
+router.delete("/ausgaben/:id", requireAuth, requirePermission("einnahmen", "delete"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Ausgabe laden
+        const ausgabeResult = await client.query('SELECT * FROM shop_ausgaben WHERE id = $1', [req.params.id]);
+        if (ausgabeResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Ausgabe not found' });
+        }
+        const ausgabe = ausgabeResult.rows[0];
+
+        // Wenn ein Artikel verknüpft ist, Bestand wiederherstellen
+        if (ausgabe.artikel_id && ausgabe.menge) {
+            await client.query(
+                'UPDATE shop_artikel SET bestand = bestand + $1 WHERE id = $2',
+                [ausgabe.menge, ausgabe.artikel_id]
+            );
+        }
+
+        // Ausgabe löschen
+        await client.query('DELETE FROM shop_ausgaben WHERE id = $1', [req.params.id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE verkauf (mit Bestandswiederherstellung)
+router.delete("/verkaeufe/:id", requireAuth, requirePermission("einnahmen", "delete"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Verkauf laden
+        const verkaufResult = await client.query('SELECT * FROM shop_verkaeufe WHERE id = $1', [req.params.id]);
+        if (verkaufResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Verkauf not found' });
+        }
+        const verkauf = verkaufResult.rows[0];
+
+        // Wenn ein Artikel verknüpft ist, Bestand wiederherstellen
+        if (verkauf.artikel_id && verkauf.menge) {
+            await client.query(
+                'UPDATE shop_artikel SET bestand = bestand + $1 WHERE id = $2',
+                [verkauf.menge, verkauf.artikel_id]
+            );
+        }
+
+        // Verkauf löschen
+        await client.query('DELETE FROM shop_verkaeufe WHERE id = $1', [req.params.id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE einkauf (mit Bestandswiederherstellung)
+router.delete("/einkaeufe/:id", requireAuth, requirePermission("einnahmen", "delete"), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Einkauf laden
+        const einkaufResult = await client.query('SELECT * FROM shop_einkaeufe WHERE id = $1', [req.params.id]);
+        if (einkaufResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Einkauf not found' });
+        }
+        const einkauf = einkaufResult.rows[0];
+
+        // Wenn ein Artikel verknüpft ist, Bestand reduzieren
+        if (einkauf.artikel_id && einkauf.menge) {
+            await client.query(
+                'UPDATE shop_artikel SET bestand = bestand - $1 WHERE id = $2',
+                [einkauf.menge, einkauf.artikel_id]
+            );
+        }
+
+        // Einkauf löschen
+        await client.query('DELETE FROM shop_einkaeufe WHERE id = $1', [req.params.id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // ===== EXTERNE EMPFAENGER =====
 router.get("/externe-empfaenger", requireAuth, requirePermission("einnahmen", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
