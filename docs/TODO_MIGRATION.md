@@ -167,20 +167,22 @@ Nutze User `kunstmeran` mit sudo.
 
 ## Phase 6: Go-Live 🔄 IN ARBEIT
 
-- [ ] DNS-Propagation abwarten (eingetragen bei Hetzner DNS, TTL 7200)
-- [ ] SSL-Zertifikat pruefen (Caddy macht das automatisch sobald DNS aktiv)
-- [ ] Azure AD Credentials von Ruben eintragen:
-  - [ ] `config.js` auf Server: clientId und tenantId eintragen
-  - [ ] Auf GitHub pushen und auf Server pullen
+- [x] DNS-Propagation abwarten (eingetragen bei Hetzner DNS, TTL 7200)
+- [x] SSL-Zertifikat pruefen (Caddy macht das automatisch sobald DNS aktiv)
+- [x] Azure AD Credentials von Ruben eintragen:
+  - [x] `config.js` auf Server: clientId und tenantId eintragen
+  - [x] Auf GitHub pushen und auf Server pullen
 - [ ] Finale Tests mit echten Usern:
-  - [ ] Dashboard
-  - [ ] Projekte
-  - [ ] Rechnungen
-  - [ ] Bewegungen (DATEV)
-  - [ ] Lieferanten
-  - [ ] Mitglieder
-  - [ ] Shop & Kasse
-  - [ ] Zeiterfassung
+  - [x] Dashboard
+  - [x] Projekte
+  - [x] Rechnungen
+  - [x] Bewegungen (DATEV)
+  - [x] Lieferanten
+  - [x] Mitglieder
+  - [x] Shop & Kasse (teilweise - Aktionen-Bilder fehlen noch)
+  - [x] Zeiterfassung (CRUD funktioniert)
+  - [x] Kalender (externe Termine + Zeiteintraege)
+  - [x] Anwesenheit (API-Migration erledigt)
   - [ ] Konfiguration
 - [ ] Root-Login auf Server deaktivieren
 - [ ] Supabase-Projekt archivieren (nicht loeschen!)
@@ -310,4 +312,63 @@ sudo chown -R www-data:www-data .
 
 ---
 
-**Zuletzt aktualisiert:** 2026-08-17 17:00
+---
+
+## Behobene Fehler (Post-Migration)
+
+### 2026-08-21: SupabaseService zu ApiClient Migration
+
+**Problem:** Nach der Migration wurden noch viele `SupabaseService.client` Aufrufe verwendet, die nicht mehr funktionieren.
+
+**Behobene Issues:**
+
+| Commit | Beschreibung |
+|--------|--------------|
+| `614d774` | Zeiterfassung Permission fix, Shop Artikel JOIN, Supabase-Migration Start |
+| `295b472` | Members und Workspaces laden via ApiClient |
+| `c978de6` | Zeiterfassung Permissions, Members Spalten, SupabaseService Migration |
+| `135d13c` | Zeiterfassung CRUD auf ApiClient migriert |
+| `fe70f3c` | Anwesenheit-Modul auf ApiClient migrieren |
+
+**Details der Fixes:**
+
+1. **Zeiterfassung Permission (403 Error)**
+   - `api/routes/zeiterfassung.js`: Alle Permissions von `zeiterfassung` auf `projekte` geaendert
+   - Grund: User hatte keine `zeiterfassung` Permission, aber `projekte` Permission
+
+2. **Members Spalten (column "nachname" does not exist)**
+   - `api/routes/members.js`: `searchColumns` und `orderBy` von `vorname/nachname` auf `first_name/last_name` geaendert
+
+3. **time_entries Tabelle fehlte**
+   - User musste Tabelle manuell erstellen in PostgreSQL
+   - `GRANT ALL PRIVILEGES ON TABLE time_entries TO kunstmeran_app;`
+
+4. **Anwesenheit (SupabaseService.client.from Error)**
+   - `api/routes/anwesenheit.js`: Alle Permissions von `zeiterfassung` auf `projekte` geaendert
+   - `public/js/data-adapter.js`: `getAnwesenheitRange`, `getHeuteAnwesend`, `upsertAnwesenheit` auf ApiClient migriert
+
+5. **Shop Artikel JOIN**
+   - `api/routes/shop.js`: JOIN von `a.typ_id = t.id` auf `a.artikeltyp = t.code` geaendert
+
+6. **Kontenplan CRUD**
+   - `api/routes/budget.js`: CRUD-Routen fuer Kontenplan hinzugefuegt
+   - `public/js/api-client.js`: kontenplan CRUD Methoden hinzugefuegt
+
+---
+
+## Offene Issues
+
+1. **Shop Aktionen Bilder fehlen**
+   - Icons/Bilder fuer Shop-Aktionen werden nicht angezeigt
+   - Moeglicherweise Storage-Pfad Problem
+
+2. **Weitere SupabaseService Aufrufe**
+   - Es gibt noch ca. 90+ `SupabaseService` Aufrufe in `data-adapter.js`
+   - Diese muessen schrittweise auf ApiClient migriert werden
+
+3. **v_heute_anwesend View**
+   - View muss evtl. auf Server erstellt werden falls nicht vorhanden
+
+---
+
+**Zuletzt aktualisiert:** 2026-08-21 (Post-Migration Fixes)
