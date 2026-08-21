@@ -2043,8 +2043,8 @@ const App = {
                 <td style="color: #999; font-size: 0.85rem;">${globalIndex}</td>
                 <td>${this.formatDate(k.datum)}</td>
                 <td>${quelleBadge}</td>
-                <td>${k.lieferant}</td>
-                <td>${k.beschreibung}</td>
+                <td>${escapeHtml(k.lieferant)}</td>
+                <td>${escapeHtml(k.beschreibung)}</td>
                 <td>${kostentypBadge}</td>
                 <td>${typBadge}</td>
                 <td>${bezahltCell}</td>
@@ -2447,8 +2447,8 @@ const App = {
                     <td>
                         <span class="badge" style="${categoryStyle || 'background: #e8f5e9; color: #2e7d32;'}">${cost.category}</span>
                     </td>
-                    <td>${cost.lieferant}</td>
-                    <td>${cost.description} <small style="color: #666;">(${cost.dokumentNr})</small></td>
+                    <td>${escapeHtml(cost.lieferant)}</td>
+                    <td>${escapeHtml(cost.description)} <small style="color: #666;">(${escapeHtml(cost.dokumentNr)})</small></td>
                     <td>
                         <span class="badge badge-danger">IST</span>
                     </td>
@@ -2463,8 +2463,8 @@ const App = {
                 row.innerHTML = `
                     <td>${this.formatDate(cost.date)}</td>
                     <td>${cost.category}</td>
-                    <td>${supplier ? supplier.name : '-'}</td>
-                    <td>${cost.description}</td>
+                    <td>${supplier ? escapeHtml(supplier.name) : '-'}</td>
+                    <td>${escapeHtml(cost.description)}</td>
                     <td>
                         <span class="badge badge-${cost.type === 'ist' ? 'danger' : 'warning'}">
                             ${cost.type === 'ist' ? 'IST' : 'Geplant'}
@@ -16158,10 +16158,10 @@ const App = {
                 <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee;" title="${auditInfo}">
                     <div style="flex: 1;">
                         <div style="font-weight: 600; margin-bottom: 0.25rem;">
-                            ${ws.name}
+                            ${escapeHtml(ws.name)}
                             ${!ws.is_active ? '<span style="color: #999; font-weight: normal;">(inaktiv)</span>' : ''}
                         </div>
-                        ${ws.description ? `<div style="font-size: 0.875rem; color: #666; margin-bottom: 0.25rem;">${ws.description}</div>` : ''}
+                        ${ws.description ? `<div style="font-size: 0.875rem; color: #666; margin-bottom: 0.25rem;">${escapeHtml(ws.description)}</div>` : ''}
                         <div style="font-size: 0.75rem; color: #888;">
                             Zugriff: ${accessText}
                             ${ws.rechnungen_nur_zugewiesene ? ' | Nur zugewiesene Rechnungen' : ''}

@@ -6351,10 +6351,14 @@
     <div id="click-effect-container" class="click-effect-container"></div>
 
     <!-- SheetJS for Excel parsing -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- SRI: Generate hash with: curl -s URL | openssl dgst -sha384 -binary | openssl base64 -A -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"
+            crossorigin="anonymous"></script>
 
-    <!-- MSAL for Microsoft SSO (loaded when needed) -->
-    <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+    <!-- MSAL for Microsoft SSO -->
+    <!-- Note: Microsoft recommends loading MSAL dynamically; SRI may break on CDN updates -->
+    <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"
+            crossorigin="anonymous"></script>
 
     <!-- Scripts -->
     <script src="js/config.js?v=20260820"></script>

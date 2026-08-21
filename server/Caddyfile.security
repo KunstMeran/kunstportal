@@ -1,0 +1,57 @@
+# Security Headers Configuration for Kunst Meran Portal
+# Add this to your Caddyfile on the server
+#
+# Usage: Include these header directives in your site block
+# Example:
+#   portal.kunstmeranoarte.org {
+#       import security_headers
+#       ...
+#   }
+
+(security_headers) {
+    header {
+        # HSTS - Force HTTPS for 1 year, include subdomains
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+
+        # XSS Protection (legacy, but still useful)
+        X-XSS-Protection "1; mode=block"
+
+        # Referrer Policy - Don't leak full URLs to external sites
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Permissions Policy - Disable unnecessary browser features
+        Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+
+        # Content Security Policy
+        # NOTE: Start in Report-Only mode, then switch to enforcing after testing
+        # Content-Security-Policy-Report-Only "..."
+        Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.sheetjs.com https://alcdn.msauth.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://login.microsoftonline.com https://*.microsoftonline.com; frame-ancestors 'self'; form-action 'self'; base-uri 'self'"
+
+        # Remove server header
+        -Server
+    }
+}
+
+# Example full Caddyfile:
+#
+# portal.kunstmeranoarte.org {
+#     import security_headers
+#
+#     # API reverse proxy
+#     handle /api/* {
+#         reverse_proxy localhost:3000
+#     }
+#
+#     # Static files
+#     handle {
+#         root * /var/www/kunstmeran/public
+#         file_server
+#         try_files {path} /index.html
+#     }
+# }

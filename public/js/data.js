@@ -153,31 +153,39 @@ const DataManager = {
     currentYear: null,
 
     /**
+     * SECURITY: Remove legacy plaintext credentials and sensitive data
+     * Called on every app start to ensure old data is purged
+     */
+    purgeLegacyData: function() {
+        // List of legacy keys that may contain sensitive data
+        const legacyKeys = [
+            'km_users',           // Contains plaintext passwords (pre-SSO)
+            'km_config'           // May contain old credentials
+        ];
+
+        let purged = [];
+        legacyKeys.forEach(key => {
+            if (localStorage.getItem(key)) {
+                localStorage.removeItem(key);
+                purged.push(key);
+            }
+        });
+
+        if (purged.length > 0) {
+            console.log('🔒 SECURITY: Purged legacy data keys:', purged.join(', '));
+        }
+    },
+
+    /**
      * Initialisiert die Datenbank mit Standardwerten
      */
     init: function() {
-        // Benutzer initialisieren falls nicht vorhanden
-        if (!localStorage.getItem(this.KEYS.USERS)) {
-            const defaultUsers = [
-                {
-                    id: 1,
-                    username: 'Admin',
-                    password: 'KunstMeran2026',
-                    role: 'admin',
-                    name: 'Administrator',
-                    hourlyRate: 0  // Stundensatz (nur Admin sichtbar)
-                },
-                {
-                    id: 2,
-                    username: 'Mitarbeiter1',
-                    password: 'Test123',
-                    role: 'mitarbeiter',
-                    name: 'Max Mustermann',
-                    hourlyRate: 25  // 25 EUR/Stunde
-                }
-            ];
-            this.save(this.KEYS.USERS, defaultUsers);
-        }
+        // SECURITY: Remove legacy plaintext credentials from localStorage
+        // These were used before SSO migration and should no longer exist
+        this.purgeLegacyData();
+
+        // NOTE: User management is now handled via Microsoft SSO + Backend
+        // The old km_users with plaintext passwords is no longer used
 
         // Projekte initialisieren - Kunst Meran Projekte aus DATEV
         // Immer aktualisieren, um sicherzustellen dass die neuesten Projekte geladen sind
