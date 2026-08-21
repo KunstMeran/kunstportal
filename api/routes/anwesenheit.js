@@ -5,7 +5,7 @@ const { requireAuth, requirePermission } = require("../middleware/auth");
 // GET anwesenheit planung
 router.get("/planung", requireAuth, requirePermission("projekte", "read"), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { user_id, monat, jahr } = req.query;
+    const { user_id, monat, jahr, start_date, end_date } = req.query;
 
     try {
         let query = "SELECT * FROM anwesenheit_planung WHERE 1=1";
@@ -15,16 +15,26 @@ router.get("/planung", requireAuth, requirePermission("projekte", "read"), async
             values.push(user_id);
             query += ` AND user_id = $${values.length}`;
         }
-        if (monat) {
-            values.push(parseInt(monat));
-            query += ` AND monat = $${values.length}`;
-        }
-        if (jahr) {
+        // Filter nach Monat/Jahr über datum-Spalte
+        if (monat && jahr) {
             values.push(parseInt(jahr));
-            query += ` AND jahr = $${values.length}`;
+            values.push(parseInt(monat));
+            query += ` AND EXTRACT(YEAR FROM datum) = $${values.length - 1} AND EXTRACT(MONTH FROM datum) = $${values.length}`;
+        } else if (jahr) {
+            values.push(parseInt(jahr));
+            query += ` AND EXTRACT(YEAR FROM datum) = $${values.length}`;
+        }
+        // Alternativ: Datumsbereich
+        if (start_date) {
+            values.push(start_date);
+            query += ` AND datum >= $${values.length}`;
+        }
+        if (end_date) {
+            values.push(end_date);
+            query += ` AND datum <= $${values.length}`;
         }
 
-        query += " ORDER BY jahr DESC, monat DESC";
+        query += " ORDER BY datum DESC";
         const result = await pool.query(query, values);
         res.json(result.rows);
     } catch (err) {
@@ -46,16 +56,21 @@ router.get("/heute", requireAuth, requirePermission("projekte", "read"), async (
 // POST/PUT upsert anwesenheit planung
 router.post("/planung", requireAuth, requirePermission("projekte", "write"), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { user_id, monat, jahr, tage } = req.body;
+    const { user_id, datum, im_buero, mittagessen, abwesenheit_grund, abwesenheit_notiz } = req.body;
 
     try {
         const result = await pool.query(`
-            INSERT INTO anwesenheit_planung (user_id, monat, jahr, tage)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (user_id, monat, jahr)
-            DO UPDATE SET tage = EXCLUDED.tage, updated_at = NOW()
+            INSERT INTO anwesenheit_planung (user_id, datum, im_buero, mittagessen, abwesenheit_grund, abwesenheit_notiz)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (user_id, datum)
+            DO UPDATE SET
+                im_buero = EXCLUDED.im_buero,
+                mittagessen = EXCLUDED.mittagessen,
+                abwesenheit_grund = EXCLUDED.abwesenheit_grund,
+                abwesenheit_notiz = EXCLUDED.abwesenheit_notiz,
+                updated_at = NOW()
             RETURNING *
-        `, [user_id, monat, jahr, JSON.stringify(tage)]);
+        `, [user_id, datum, im_buero || false, mittagessen || false, abwesenheit_grund || null, abwesenheit_notiz || null]);
 
         res.json(result.rows[0]);
     } catch (err) {
@@ -111,25 +126,27 @@ router.get("/summary", requireAuth, requirePermission("projekte", "read"), async
             SELECT
                 ap.user_id,
                 u.name as user_name,
-                ap.monat,
-                ap.jahr,
-                ap.tage
+                ap.datum,
+                ap.im_buero,
+                ap.mittagessen,
+                ap.abwesenheit_grund,
+                ap.abwesenheit_notiz
             FROM anwesenheit_planung ap
             JOIN users u ON ap.user_id = u.id
             WHERE 1=1
         `;
         const values = [];
 
-        if (monat) {
-            values.push(parseInt(monat));
-            query += ` AND ap.monat = $${values.length}`;
-        }
-        if (jahr) {
+        if (monat && jahr) {
             values.push(parseInt(jahr));
-            query += ` AND ap.jahr = $${values.length}`;
+            values.push(parseInt(monat));
+            query += ` AND EXTRACT(YEAR FROM ap.datum) = $${values.length - 1} AND EXTRACT(MONTH FROM ap.datum) = $${values.length}`;
+        } else if (jahr) {
+            values.push(parseInt(jahr));
+            query += ` AND EXTRACT(YEAR FROM ap.datum) = $${values.length}`;
         }
 
-        query += " ORDER BY u.name, ap.jahr, ap.monat";
+        query += " ORDER BY u.name, ap.datum";
         const result = await pool.query(query, values);
         res.json(result.rows);
     } catch (err) {
