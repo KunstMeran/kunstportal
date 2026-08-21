@@ -10,7 +10,7 @@
 
 ## 🔧 Behobene Fehler (Stand 21.08.2026)
 
-Die folgenden Punkte wurden durch die Commits `614d774` bis `fe70f3c` behoben:
+Die folgenden Punkte wurden durch die Commits `614d774` bis `eba682a` behoben:
 
 | Problem | Status | Commit |
 |---------|--------|--------|
@@ -22,8 +22,25 @@ Die folgenden Punkte wurden durch die Commits `614d774` bis `fe70f3c` behoben:
 | Kontenplan CRUD fehlt | ✅ Behoben | `614d774` |
 | Workspaces laden nicht | ✅ Behoben | `295b472` |
 | Personal → Kalender (Zeiteinträge) | ✅ Behoben | `135d13c` |
+| Lieferanten 2025 Daten fehlen | ✅ Behoben | `bed8dfa` - Limit auf 10000 erhöht |
+| Users laden via SupabaseService | ✅ Behoben | `b1578c9` - auf ApiClient migriert |
+| Kurse API startdatum Spalte fehlt | ✅ Behoben | `14fb45b` - ORDER BY k.name ASC |
+| Kurse Funktionen auf SupabaseService | ✅ Behoben | `d3ff386` - auf ApiClient migriert |
+| Anwesenheit API falsche Spalten | ✅ Behoben | `6f32106` - an Tabellenstruktur angepasst |
+| CostTypes via SupabaseService | ✅ Behoben | `bed8dfa` - auf ApiClient migriert |
+| Permissions via SupabaseService | ✅ Behoben | `bed8dfa` - Session-Permissions nutzen |
+| Anwesenheit Kalender User-ID | ✅ Behoben | `318dd3f` - session.id ist bereits public.users.id |
+| Anwesenheit Kalender Auswahl | ✅ Behoben | `990906d` - CSS Klasse 'ausgewaehlt' ohne Umlaut |
+| Anwesenheit Speichern duplicate key | ✅ Behoben | `8e34ad7`, `cecb9f0` - manuelles Check+Insert/Update |
+| Externe Tab zeigt nichts | ✅ Behoben | `eba682a` - zeigt jetzt Lieferanten-Zeiteinträge |
 
-**Hinweis:** Nach Server-Update (`git pull && pm2 restart api`) sind diese Fixes aktiv.
+**Hinweis:** Nach Server-Update (`git pull && pm2 restart kunstmeran-api`) sind diese Fixes aktiv.
+
+### Datenbankfix erforderlich (einmalig):
+```sql
+-- ID-Sequenz für anwesenheit_planung reparieren:
+SELECT setval('anwesenheit_planung_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM anwesenheit_planung));
+```
 
 ---
 
