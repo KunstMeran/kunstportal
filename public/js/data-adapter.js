@@ -1840,13 +1840,7 @@ const SupabaseDataAdapter = {
 
     async loadCostTypesFromSupabase() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('cost_types')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('id', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getCostTypes();
 
             // Spalten anpassen: id ist der Code, is_active statt active
             this.costTypesCache = (data || []).map(ct => ({
@@ -1857,7 +1851,7 @@ const SupabaseDataAdapter = {
                 active: ct.is_active !== false
             }));
 
-            console.log(`📋 ${this.costTypesCache.length} Kostentypen aus Supabase geladen`);
+            console.log(`📋 ${this.costTypesCache.length} Kostentypen aus API geladen`);
             return this.costTypesCache;
         } catch (error) {
             console.error('Fehler beim Laden der Kostentypen:', error);
@@ -2794,109 +2788,34 @@ const SupabaseDataAdapter = {
                 return this.permissionsCache;
             }
 
-            const { data: { user } } = await SupabaseService.client.auth.getUser();
-            if (!user) {
-                return this.getDefaultPermissions();
+            // Berechtigungen aus der Session laden (wird vom Backend via Auth gesetzt)
+            const session = await ApiClient.getSession();
+            if (!session || !session.permissions) {
+                console.log('Keine Session/Berechtigungen - verwende Vollzugriff');
+                return this.getFullPermissions();
             }
 
-            // User-Workspaces mit Workspace-Details laden
-            const { data, error } = await SupabaseService.client
-                .from('user_workspaces')
-                .select(`
-                    workspace_id,
-                    is_admin,
-                    workspaces (
-                        id,
-                        name,
-                        access_dashboard,
-                        access_projekte,
-                        access_rechnungen,
-                        access_bewegungen,
-                        access_lieferanten,
-                        access_mitglieder,
-                        access_einnahmen,
-                        access_konfiguration,
-                        access_zeiterfassung,
-                        access_inventar,
-                        access_reporting,
-                        rechnungen_nur_zugewiesene,
-                        is_active
-                    )
-                `)
-                .eq('user_id', user.id);
-
-            if (error) throw error;
-
-            // Wenn keine Workspaces zugewiesen, KEIN Zugriff (Benutzer muss einem Workspace zugewiesen sein)
-            if (!data || data.length === 0) {
-                console.log('Kein Workspace zugewiesen - kein Zugriff');
-                return this.getDefaultPermissions();
-            }
-
-            // Hilfsfunktion: Aggregiert zwei Berechtigungslevel (höchste Stufe gewinnt)
-            const aggregateLevel = (current, newLevel) => {
-                const levels = this.PERMISSION_LEVELS;
-                const levelNames = ['none', 'read', 'write', 'delete'];
-                // Konvertiere zu Nummer falls nötig (Abwärtskompatibilität für boolean)
-                const currentNum = typeof current === 'boolean'
-                    ? (current ? 3 : 0)  // boolean true = volle Rechte (delete)
-                    : (levels[current] ?? 0);
-                const newNum = typeof newLevel === 'boolean'
-                    ? (newLevel ? 3 : 0)  // boolean true = volle Rechte (delete)
-                    : (levels[newLevel] ?? 0);
-                return levelNames[Math.max(currentNum, newNum)];
-            };
-
-            // Berechtigungen aggregieren (höchste Stufe über alle Workspaces gewinnt)
+            // Permissions direkt aus der Session übernehmen
+            const perms = session.permissions;
             const permissions = {
-                userId: user.id,
-                userEmail: user.email,
+                userId: session.id,
+                userEmail: session.email,
                 workspaces: [],
                 // 4-stufige Berechtigungen: 'none', 'read', 'write', 'delete'
-                access_dashboard: 'none',
-                access_projekte: 'none',
-                access_rechnungen: 'none',
-                access_bewegungen: 'none',
-                access_lieferanten: 'none',
-                access_mitglieder: 'none',
-                access_einnahmen: 'none',
-                access_konfiguration: 'none',
-                access_zeiterfassung: 'none',
-                access_inventar: 'none',
-                access_reporting: 'none',
-                rechnungen_nur_zugewiesene: true,
-                isWorkspaceAdmin: false
+                access_dashboard: perms.dashboard || 'delete',
+                access_projekte: perms.projekte || 'delete',
+                access_rechnungen: perms.rechnungen || 'delete',
+                access_bewegungen: perms.bewegungen || 'delete',
+                access_lieferanten: perms.lieferanten || 'delete',
+                access_mitglieder: perms.mitglieder || 'delete',
+                access_einnahmen: perms.einnahmen || 'delete',
+                access_konfiguration: perms.konfiguration || 'delete',
+                access_zeiterfassung: perms.zeiterfassung || 'delete',
+                access_inventar: perms.inventar || 'delete',
+                access_reporting: perms.reporting || 'delete',
+                rechnungen_nur_zugewiesene: false,
+                isWorkspaceAdmin: session.user_type === 'Admin'
             };
-
-            for (const uw of data) {
-                if (uw.workspaces && uw.workspaces.is_active) {
-                    const ws = uw.workspaces;
-                    permissions.workspaces.push({ id: ws.id, name: ws.name });
-
-                    // Aggregation mit höchster Stufe
-                    permissions.access_dashboard = aggregateLevel(permissions.access_dashboard, ws.access_dashboard);
-                    permissions.access_projekte = aggregateLevel(permissions.access_projekte, ws.access_projekte);
-                    permissions.access_rechnungen = aggregateLevel(permissions.access_rechnungen, ws.access_rechnungen);
-                    permissions.access_bewegungen = aggregateLevel(permissions.access_bewegungen, ws.access_bewegungen);
-                    permissions.access_lieferanten = aggregateLevel(permissions.access_lieferanten, ws.access_lieferanten);
-                    permissions.access_mitglieder = aggregateLevel(permissions.access_mitglieder, ws.access_mitglieder);
-                    permissions.access_einnahmen = aggregateLevel(permissions.access_einnahmen, ws.access_einnahmen);
-                    permissions.access_konfiguration = aggregateLevel(permissions.access_konfiguration, ws.access_konfiguration);
-                    permissions.access_zeiterfassung = aggregateLevel(permissions.access_zeiterfassung, ws.access_zeiterfassung);
-                    permissions.access_inventar = aggregateLevel(permissions.access_inventar, ws.access_inventar);
-                    permissions.access_reporting = aggregateLevel(permissions.access_reporting, ws.access_reporting);
-
-                    // Wenn mindestens ein Workspace vollen Rechnungszugriff hat
-                    if (!ws.rechnungen_nur_zugewiesene) {
-                        permissions.rechnungen_nur_zugewiesene = false;
-                    }
-
-                    // Workspace-Admin
-                    if (uw.is_admin) {
-                        permissions.isWorkspaceAdmin = true;
-                    }
-                }
-            }
 
             // Cache setzen
             this.permissionsCache = permissions;
