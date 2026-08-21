@@ -792,38 +792,22 @@ const SupabaseDataAdapter = {
 
     async getProjects() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('projects')
-                .select('*')
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            // Supabase-Format zu lokalem Format konvertieren
+            const data = await ApiClient.getProjects();
+            // API-Format zu lokalem Format konvertieren
             return data.map(p => this.convertProjectFromSupabase(p));
         } catch (error) {
             console.error('Fehler beim Laden der Projekte:', error);
-            // Fallback zu localStorage
-            return DataManager._getProjectsOriginal();
+            return [];
         }
     },
 
     async getProjectById(projectId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('projects')
-                .select('*')
-                .eq('id', projectId)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.getProjectById(projectId);
             return this.convertProjectFromSupabase(data);
         } catch (error) {
             console.error('Fehler beim Laden des Projekts:', error);
-            return DataManager._getProjectByIdOriginal(projectId);
+            return null;
         }
     },
 
@@ -1255,14 +1239,7 @@ const SupabaseDataAdapter = {
 
     async getInvoices() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('invoices')
-                .select('*')
-                .or('archived.is.null,archived.eq.false')  // Nur nicht-archivierte
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await ApiClient.getInvoices();
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Rechnungen:', error);
@@ -1307,14 +1284,12 @@ const SupabaseDataAdapter = {
             if (this.suppliersCache && this.isCacheValid(this.suppliersCacheTime)) {
                 suppliers = this.suppliersCache;
             } else {
-                const { data: suppliersData, error: supplierError } = await SupabaseService.client
-                    .from('suppliers')
-                    .select('partita_iva, fornitore_name');
-
-                if (supplierError) {
+                try {
+                    suppliers = await ApiClient.getSuppliers();
+                } catch (supplierError) {
                     console.warn('⚠️ Konnte Lieferanten nicht laden:', supplierError);
+                    suppliers = [];
                 }
-                suppliers = suppliersData || [];
                 this.suppliersCache = suppliers;
                 this.suppliersCacheTime = Date.now();
             }
@@ -1610,15 +1585,9 @@ const SupabaseDataAdapter = {
      */
     async getSuppliers() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('suppliers')
-                .select('*')
-                .order('fornitore_name', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getSuppliers();
 
             // Format anpassen an bisheriges Format (für Kompatibilität)
-            // NEU: contact_user_id für Ansprechperson bei Rechnungskontrolle
             return (data || []).map(s => ({
                 partitaIva: s.partita_iva,
                 name: s.fornitore_name,
@@ -1628,7 +1597,6 @@ const SupabaseDataAdapter = {
                 country: s.country,
                 contactUserId: s.contact_user_id || null,
                 isKursanbieter: s.is_kursanbieter || false,
-                // Audit-Felder für User-Tracking
                 created_at: s.created_at || null,
                 created_by: s.created_by || null,
                 updated_at: s.updated_at || null,
@@ -1637,9 +1605,7 @@ const SupabaseDataAdapter = {
 
         } catch (error) {
             console.error('Fehler beim Laden der Lieferanten:', error);
-            // Fallback auf alte Funktion
-            return DataManager._getDatevLieferantenOriginal ?
-                DataManager._getDatevLieferantenOriginal() : [];
+            return [];
         }
     },
 
@@ -3316,13 +3282,7 @@ const SupabaseDataAdapter = {
      */
     async getChartOfAccounts() {
         try {
-            const { data, error } = await supabaseClient
-                .from('chart_of_accounts')
-                .select('*')
-                .eq('ist_aktiv', true)
-                .order('sort_order', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getKontenplan();
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden des Kontenplans:', error);
@@ -3683,16 +3643,15 @@ const SupabaseDataAdapter = {
      */
     async getBudgetEntries(year, includeVorjahr = false) {
         try {
-            const years = includeVorjahr ? [year, year - 1] : [year];
+            const filters = { year: year };
+            const data = await ApiClient.getBudgetEntries(filters);
 
-            const { data, error } = await SupabaseService.client
-                .from('budget_entries')
-                .select('*')
-                .in('fiscal_year', years)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('konto_nr', { ascending: true });
+            // Wenn Vorjahr auch geladen werden soll, zweiter API-Call
+            if (includeVorjahr) {
+                const vorjahrData = await ApiClient.getBudgetEntries({ year: year - 1 });
+                return [...(data || []), ...(vorjahrData || [])];
+            }
 
-            if (error) throw error;
             return data || [];
         } catch (error) {
             console.error('Fehler beim Laden der Budget-Einträge:', error);
@@ -3705,15 +3664,9 @@ const SupabaseDataAdapter = {
      */
     async getBudgetEntryById(entryId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('budget_entries')
-                .select('*')
-                .eq('id', entryId)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .single();
-
-            if (error) throw error;
-            return data;
+            // Alle Budget-Einträge laden und filtern (kein direkter ID-Endpoint)
+            const allEntries = await ApiClient.getBudgetEntries({});
+            return allEntries.find(e => e.id === entryId) || null;
         } catch (error) {
             console.error('Fehler beim Laden des Budget-Eintrags:', error);
             return null;
@@ -3827,14 +3780,9 @@ const SupabaseDataAdapter = {
      */
     async getBudgetNotes(year) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('budget_notes')
-                .select('*')
-                .eq('fiscal_year', year)
-                .single();
-
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
-            return data?.notes || '';
+            const data = await ApiClient.getBudgetNotes({ projekt_id: null });
+            const yearNote = (data || []).find(n => n.fiscal_year === year);
+            return yearNote?.note || '';
         } catch (error) {
             console.error('Fehler beim Laden der Budget-Notizen:', error);
             return '';
@@ -3846,21 +3794,7 @@ const SupabaseDataAdapter = {
      */
     async saveBudgetNotes(year, notes) {
         try {
-            const { data: { user } } = await SupabaseService.client.auth.getUser();
-
-            const { data, error } = await SupabaseService.client
-                .from('budget_notes')
-                .upsert({
-                    fiscal_year: year,
-                    notes: notes,
-                    created_by: user?.id
-                }, {
-                    onConflict: 'fiscal_year'
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await ApiClient.saveBudgetNote({ projekt_id: null, note: notes });
             return data;
         } catch (error) {
             console.error('Fehler beim Speichern der Budget-Notizen:', error);
@@ -3873,17 +3807,11 @@ const SupabaseDataAdapter = {
      */
     async getBudgetKontoNotes(year) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('budget_konto_notes')
-                .select('*')
-                .eq('fiscal_year', year);
-
-            if (error) throw error;
-
+            const data = await ApiClient.getBudgetKontoNotes({ projekt_id: null });
             // Als Map zurückgeben: konto_nr -> notes
             const notesMap = {};
             (data || []).forEach(note => {
-                notesMap[note.konto_nr] = note.notes || '';
+                notesMap[note.konto] = note.note || '';
             });
             return notesMap;
         } catch (error) {
@@ -3897,19 +3825,11 @@ const SupabaseDataAdapter = {
      */
     async saveBudgetKontoNote(kontoNr, year, notes) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('budget_konto_notes')
-                .upsert({
-                    konto_nr: kontoNr,
-                    fiscal_year: year,
-                    notes: notes
-                }, {
-                    onConflict: 'konto_nr,fiscal_year'
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await ApiClient.saveBudgetKontoNote({
+                projekt_id: null,
+                konto: kontoNr,
+                note: notes
+            });
             return data;
         } catch (error) {
             console.error('Fehler beim Speichern der Konto-Notiz:', error);
@@ -3926,72 +3846,47 @@ const SupabaseDataAdapter = {
      */
     async getShopAusgaben(filter = {}) {
         try {
-            let query = SupabaseService.client
-                .from('shop_ausgaben')
-                .select(`
-                    *,
-                    artikel:shop_artikel(id, name, artikelnr),
-                    externer:shop_externe_empfaenger(id, name, notiz)
-                `)
-                .order('datum', { ascending: false })
-                .order('uhrzeit', { ascending: false });
+            const data = await ApiClient.getShopAusgaben();
 
-            if (filter.datum) {
-                query = query.eq('datum', filter.datum);
-            }
-            if (filter.datumVon) {
-                query = query.gte('datum', filter.datumVon);
-            }
-            if (filter.datumBis) {
-                query = query.lte('datum', filter.datumBis);
-            }
-            if (filter.artikelId) {
-                query = query.eq('artikel_id', filter.artikelId);
-            }
-            if (filter.empfaengerTyp) {
-                query = query.eq('empfaenger_typ', filter.empfaengerTyp);
-            }
-            if (filter.empfaengerUserId) {
-                query = query.eq('empfaenger_user_id', filter.empfaengerUserId);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            // User-Namen aus Cache holen (bereits geladen via loadUsersFromSupabase)
-            // empfaenger_user_id ist eine auth_id (UUID)
+            // User-Namen aus Cache holen
             const cachedUsers = this.usersCache || [];
             let usersMap = {};
             cachedUsers.forEach(u => {
-                // Map sowohl mit auth_id als auch mit id als Key
                 if (u.auth_id) usersMap[u.auth_id] = u;
                 if (u.id) usersMap[u.id] = u;
             });
 
-            return (data || []).map(a => ({
+            let result = (data || []).map(a => ({
                 id: a.id,
                 datum: a.datum,
                 uhrzeit: a.uhrzeit,
                 artikelId: a.artikel_id,
                 artikel_id: a.artikel_id,
-                artikel_name: a.artikel?.name,
-                artikel_nr: a.artikel?.artikelnr,
+                artikel_name: a.artikel_name || a.artikel?.name,
+                artikel_nr: a.artikel_nr || a.artikel?.artikelnr,
                 menge: a.menge,
                 empfaenger_typ: a.empfaenger_typ,
                 empfaenger_user_id: a.empfaenger_user_id,
                 empfaenger_extern_id: a.empfaenger_extern_id,
                 empfaenger_name: a.empfaenger_typ === 'mitarbeiter'
                     ? (usersMap[a.empfaenger_user_id]?.name || usersMap[a.empfaenger_user_id]?.email || 'Unbekannt')
-                    : (a.externer?.name || a.empfaenger_extern_name),
-                empfaenger_extern_notiz: a.externer?.notiz || a.empfaenger_extern_notiz,
+                    : (a.empfaenger_name || a.externer?.name || a.empfaenger_extern_name),
+                empfaenger_extern_notiz: a.empfaenger_extern_notiz || a.externer?.notiz,
                 zweck: a.zweck,
                 createdAt: a.created_at,
                 createdBy: a.created_by
             }));
+
+            // Client-side filtering
+            if (filter.datumVon) result = result.filter(a => a.datum >= filter.datumVon);
+            if (filter.datumBis) result = result.filter(a => a.datum <= filter.datumBis);
+            if (filter.artikelId) result = result.filter(a => a.artikel_id === filter.artikelId);
+            if (filter.empfaengerTyp) result = result.filter(a => a.empfaenger_typ === filter.empfaengerTyp);
+
+            return result;
         } catch (error) {
             console.error('Fehler beim Laden der Ausgaben:', error);
-            // Fallback auf localStorage
-            return DataManager._getShopAusgabenOriginal(filter);
+            return [];
         }
     },
 
@@ -4195,13 +4090,7 @@ const SupabaseDataAdapter = {
 
     async getShopArtikel() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_artikel')
-                .select('*')
-                .eq('is_active', true)
-                .order('name', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getShopArtikel();
 
             return (data || []).map(a => ({
                 id: a.id,
@@ -4232,13 +4121,8 @@ const SupabaseDataAdapter = {
 
     async getShopArtikelById(id) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_artikel')
-                .select('*')
-                .eq('id', id)
-                .single();
-
-            if (error) throw error;
+            const allArtikel = await ApiClient.getShopArtikel();
+            const data = allArtikel.find(a => a.id === id);
             if (!data) return null;
 
             return {
@@ -4357,12 +4241,7 @@ const SupabaseDataAdapter = {
 
     async getShopArtikeltypen() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_artikeltypen')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getShopArtikeltypen();
 
             return (data || []).map(t => ({
                 id: t.id,
@@ -4389,19 +4268,8 @@ const SupabaseDataAdapter = {
 
     async getShopVerkaeufe(datum = null) {
         try {
-            let query = SupabaseService.client
-                .from('shop_verkaeufe')
-                .select('*')
-                .eq('storniert', false)
-                .order('datum', { ascending: false })
-                .order('uhrzeit', { ascending: false });
-
-            if (datum) {
-                query = query.eq('datum', datum);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
+            const filters = datum ? { datum: datum } : {};
+            const data = await ApiClient.getShopVerkaeufe(filters);
 
             return (data || []).map(v => ({
                 id: v.id,
@@ -4593,19 +4461,14 @@ const SupabaseDataAdapter = {
 
     async getShopEinkaeufe() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_einkaeufe')
-                .select('*, artikel:shop_artikel(id, name, artikelnr)')
-                .order('datum', { ascending: false });
-
-            if (error) throw error;
+            const data = await ApiClient.getShopEinkaeufe();
 
             return (data || []).map(e => ({
                 id: e.id,
                 artikel_id: e.artikel_id,
                 artikelId: e.artikel_id,
-                artikel_name: e.artikel?.name,
-                artikel_nr: e.artikel?.artikelnr,
+                artikel_name: e.artikel_name || e.artikel?.name,
+                artikel_nr: e.artikel_nr || e.artikel?.artikelnr,
                 datum: e.datum,
                 menge: e.menge,
                 einzelpreis: e.einzelpreis,
@@ -4779,28 +4642,22 @@ const SupabaseDataAdapter = {
         try {
             const heute = datum || new Date().toISOString().split('T')[0];
 
-            // Verkäufe des Tages
-            const { data: verkaeufe } = await SupabaseService.client
-                .from('shop_verkaeufe')
-                .select('gesamtpreis, zahlungsart')
-                .eq('datum', heute)
-                .eq('storniert', false);
+            // Verkäufe des Tages über API
+            const verkaeufe = await ApiClient.getShopVerkaeufe({ datum: heute });
 
-            // Kassenbewegungen des Tages
-            const { data: bewegungen } = await SupabaseService.client
-                .from('shop_kassen_bewegungen')
-                .select('betrag, typ')
-                .eq('datum', heute)
-                .eq('storniert', false);
+            // Kassenbewegungen des Tages über API
+            const bewegungen = await ApiClient.getShopKassenBewegungen({ datum: heute });
 
             let einnahmenBar = 0;
             let einnahmenPos = 0;
 
             (verkaeufe || []).forEach(v => {
-                if (v.zahlungsart === 'bar') {
-                    einnahmenBar += v.gesamtpreis;
-                } else {
-                    einnahmenPos += v.gesamtpreis;
+                if (!v.storniert) {
+                    if (v.zahlungsart === 'bar') {
+                        einnahmenBar += v.gesamtpreis;
+                    } else {
+                        einnahmenPos += v.gesamtpreis;
+                    }
                 }
             });
 
@@ -4808,22 +4665,22 @@ const SupabaseDataAdapter = {
             let einlagen = 0;
 
             (bewegungen || []).forEach(b => {
-                if (b.typ === 'entnahme') {
-                    entnahmen += Math.abs(b.betrag);
-                } else if (b.typ === 'einlage') {
-                    einlagen += Math.abs(b.betrag);
+                if (!b.storniert) {
+                    if (b.typ === 'entnahme') {
+                        entnahmen += Math.abs(b.betrag);
+                    } else if (b.typ === 'einlage') {
+                        einlagen += Math.abs(b.betrag);
+                    }
                 }
             });
 
             // Letzten Kassenabschluss holen für Anfangsbestand
-            const { data: letzterAbschluss } = await SupabaseService.client
-                .from('shop_kassenabschluss')
-                .select('endbestand_bar_ist')
-                .lt('datum', heute)
-                .order('datum', { ascending: false })
-                .limit(1);
+            const abschluesse = await ApiClient.getShopKassenabschluss({});
+            const letzterAbschluss = (abschluesse || [])
+                .filter(a => a.datum < heute)
+                .sort((a, b) => b.datum.localeCompare(a.datum))[0];
 
-            const anfangsbestand = letzterAbschluss?.[0]?.endbestand_bar_ist || 0;
+            const anfangsbestand = letzterAbschluss?.endbestand_bar_ist || 0;
 
             return {
                 einnahmenBar,
@@ -4845,13 +4702,7 @@ const SupabaseDataAdapter = {
 
     async getEintrittKategorien() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_eintritt_kategorien')
-                .select('*')
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getShopEintrittKategorien();
 
             return (data || []).map(k => ({
                 id: k.id,
@@ -4873,13 +4724,7 @@ const SupabaseDataAdapter = {
 
     async getMitgliedKategorien() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('shop_mitglied_kategorien')
-                .select('*')
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getShopMitgliedKategorien();
 
             return (data || []).map(k => ({
                 id: k.id,
