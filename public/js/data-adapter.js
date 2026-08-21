@@ -1035,7 +1035,7 @@ const SupabaseDataAdapter = {
             endDate: supabaseProject.end_date,
             status: this.mapStatusFromSupabase(supabaseProject.status),
             datevId: supabaseProject.datev_id || '',
-            budget: supabaseProject.budget || 0,
+            budget: parseFloat(supabaseProject.budget) || 0,
             pl1: supabaseProject.pl1 || '',
             pl2: supabaseProject.pl2 || '',
             pl3: supabaseProject.pl3 || '',
@@ -1082,7 +1082,19 @@ const SupabaseDataAdapter = {
     },
 
     mapStatusFromSupabase(status) {
-        return status?.toLowerCase() || 'laufend';
+        const statusLower = status?.toLowerCase() || 'laufend';
+        // Englische Status-Werte auf deutsche mappen
+        const statusMap = {
+            'active': 'laufend',
+            'running': 'laufend',
+            'in_progress': 'laufend',
+            'planning': 'planung',
+            'planned': 'planung',
+            'completed': 'abgeschlossen',
+            'done': 'abgeschlossen',
+            'finished': 'abgeschlossen'
+        };
+        return statusMap[statusLower] || statusLower;
     },
 
     mapCategoryToSupabase(category) {

@@ -97,6 +97,36 @@ router.put('/:id', requireAuth, requirePermission('projekte', 'write'), async (r
     }
 });
 
+// GET expenses for a funding source (Rechnungen mit dieser Abgabestelle)
+router.get('/:id/expenses', requireAuth, requirePermission('projekte', 'read'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+
+    try {
+        // Summe der Rechnungen mit dieser funding_source_id berechnen
+        const result = await pool.query(`
+            SELECT
+                COALESCE(SUM(
+                    CASE
+                        WHEN betrag_brutto IS NOT NULL THEN betrag_brutto
+                        WHEN betrag IS NOT NULL AND mwst_rate IS NOT NULL THEN betrag * (1 + mwst_rate / 100)
+                        ELSE COALESCE(betrag, 0)
+                    END
+                ), 0) as total_brutto,
+                COUNT(*) as count
+            FROM datev_bookings
+            WHERE funding_source_id = $1
+        `, [id]);
+
+        res.json({
+            totalBrutto: parseFloat(result.rows[0].total_brutto) || 0,
+            count: parseInt(result.rows[0].count) || 0
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // DELETE funding source
 router.delete('/:id', requireAuth, requirePermission('projekte', 'write'), async (req, res) => {
     const pool = req.app.locals.pool;
