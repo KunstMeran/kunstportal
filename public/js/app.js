@@ -853,8 +853,8 @@ const App = {
                 };
             });
 
-            // Statistiken berechnen
-            const activeProjects = summaries.filter(s => s.project.status === 'laufend').length;
+            // Statistiken berechnen (case-insensitive Status-Vergleich)
+            const activeProjects = summaries.filter(s => (s.project.status || '').toLowerCase() === 'laufend').length;
             const totalBudget = summaries.reduce((sum, s) => sum + s.budget, 0);
             const totalSpent = summaries.reduce((sum, s) => sum + s.ist, 0);
 
@@ -3961,7 +3961,7 @@ const App = {
         await this.loadCostTypes();
         await this.loadKontenplan();
         this.renderMwstSaetze();
-        this.loadSuppliers();
+        await this.loadSuppliers();
         await this.loadUsers();
         await this.loadKurseKonfig();
         await this.loadShopKategorien();
@@ -4412,35 +4412,38 @@ const App = {
         }
     },
 
-    loadSuppliers: function() {
-        // Lieferanten werden jetzt über Supabase verwaltet, Tab wurde entfernt
+    loadSuppliers: async function() {
+        // Lieferanten werden über die API geladen
         const container = document.getElementById('suppliers-list');
         if (!container) return; // Tab existiert nicht mehr
 
-        const suppliers = DataManager.getSuppliers();
-        container.innerHTML = '';
+        try {
+            const suppliers = await DataManager.getDatevLieferanten();
+            container.innerHTML = '';
 
-        if (suppliers.length === 0) {
-            container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Lieferanten definiert</p>';
-            return;
+            if (!suppliers || suppliers.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">Keine Lieferanten definiert</p>';
+                return;
+            }
+
+            suppliers.forEach(s => {
+                container.innerHTML += `
+                    <div class="config-item">
+                        <div class="config-item-info">
+                            <span style="font-weight: 500;">${s.name || s.fornitore_name || '-'}</span>
+                            <span style="color: #666; font-size: 0.75rem; margin-left: 0.5rem;">${s.partitaIva || s.partita_iva || ''}</span>
+                            ${s.isKursanbieter || s.is_kursanbieter ? '<span class="badge badge-primary" style="margin-left: 0.5rem;">Kursanbieter</span>' : ''}
+                        </div>
+                        <div class="config-item-actions">
+                            <button class="btn btn-sm btn-outline" onclick="App.editLieferant('${s.partitaIva || s.partita_iva}')">Bearbeiten</button>
+                        </div>
+                    </div>
+                `;
+            });
+        } catch (error) {
+            console.error('Fehler beim Laden der Lieferanten:', error);
+            container.innerHTML = '<p style="color: #e74c3c; text-align: center; padding: 2rem;">Fehler beim Laden der Lieferanten</p>';
         }
-
-        suppliers.forEach(s => {
-            container.innerHTML += `
-                <div class="config-item">
-                    <div class="config-item-info">
-                        <span style="font-weight: 500;">${s.name}</span>
-                        <span style="color: #666; font-size: 0.75rem; margin-left: 0.5rem;">${s.externalId || ''}</span>
-                        <span class="badge badge-primary" style="margin-left: 0.5rem;">${s.type || '-'}</span>
-                        ${!s.active ? '<span class="badge badge-warning">Inaktiv</span>' : ''}
-                    </div>
-                    <div class="config-item-actions">
-                        <button class="btn btn-sm btn-outline" onclick="App.editSupplier(${s.id})">Bearbeiten</button>
-                        <button class="btn btn-sm btn-danger" onclick="App.deleteSupplier(${s.id})">Löschen</button>
-                    </div>
-                </div>
-            `;
-        });
     },
 
     /**
@@ -15880,16 +15883,10 @@ const App = {
 
     loadBudgetIstData: async function(year) {
         try {
-            // DATEV-Buchungen für das Jahr laden - mit konto_nr für DB-Zuordnung
-            const { data: buchungen, error } = await SupabaseService.client
-                .from('datev_bookings')
-                .select('konto_nr, kategorie, datum, betrag')
-                .eq('import_year', year);
-
-            if (error) throw error;
+            // DATEV-Buchungen für das Jahr laden über ApiClient
+            const buchungen = await ApiClient.getDatevBookings({ year: year });
 
             // Nach konto_nr und Monat gruppieren (für DB-Zuordnung)
-            // Speichere sowohl konto_nr als auch kategorie für die Anzeige
             this.budgetIstData = {};
             this.budgetIstDataTotal = { jan: 0, feb: 0, mar: 0, apr: 0, mai: 0, jun: 0, jul: 0, aug: 0, sep: 0, okt: 0, nov: 0, dez: 0, total: 0 };
             const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
@@ -15898,10 +15895,9 @@ const App = {
                 if (!b.datum) return;
 
                 // Primär nach konto_nr gruppieren (für DB-Zuordnung)
-                // Fallback auf kategorie wenn konto_nr fehlt
-                const kontoNr = b.konto_nr || '';
+                const kontoNr = b.konto_nr || b.konto || '';
                 const kategorie = b.kategorie || 'Sonstige';
-                const key = kontoNr || kategorie; // konto_nr hat Priorität
+                const key = kontoNr || kategorie;
 
                 const monat = new Date(b.datum).getMonth(); // 0-11
                 const betrag = parseFloat(b.betrag) || 0;
@@ -15923,9 +15919,6 @@ const App = {
             });
 
             console.log('IST-Daten geladen:', Object.keys(this.budgetIstData).length, 'Konten');
-            // Debug: Zeige ein paar Beispiele
-            const beispiele = Object.entries(this.budgetIstData).slice(0, 5);
-            console.log('IST-Daten Beispiele:', beispiele.map(([k, v]) => ({ key: k, konto_nr: v.konto_nr, kategorie: v.kategorie })));
 
         } catch (error) {
             console.error('Fehler beim Laden der IST-Daten:', error);
@@ -16941,6 +16934,17 @@ const App = {
 
             // Statistiken laden
             await this.loadShopStatistiken();
+
+            // Standard-Tab aktivieren (Inventar)
+            const tabs = document.querySelectorAll('#view-shop .tabs .tab');
+            const contents = document.querySelectorAll('#view-shop .tab-content');
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            const defaultTab = document.querySelector('#view-shop .tab[data-tab="shop-inventar"]');
+            const defaultContent = document.getElementById('tab-shop-inventar');
+            if (defaultTab) defaultTab.classList.add('active');
+            if (defaultContent) defaultContent.classList.add('active');
 
             // Standard-Tab laden (Inventar)
             await this.loadShopInventar();
