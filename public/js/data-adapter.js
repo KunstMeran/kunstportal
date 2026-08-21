@@ -1979,24 +1979,19 @@ const SupabaseDataAdapter = {
 
     async loadUsersFromSupabase() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('users')
-                .select('id, username, email, role, hourly_rate, auth_id, user_type')
-                .order('username', { ascending: true });
-
-            if (error) throw error;
+            const data = await ApiClient.getUsers();
 
             this.usersCache = (data || []).map(u => ({
                 id: u.id,
-                auth_id: u.auth_id,  // Supabase Auth User ID
-                name: u.username || u.email,
+                auth_id: u.auth_id,  // Auth User ID
+                name: u.name || u.username || u.email,
                 email: u.email,
-                role: u.role || 'user',
+                role: u.role || u.user_type || 'user',
                 hourlyRate: parseFloat(u.hourly_rate) || 0,
                 userType: u.user_type || 'intern'  // 'intern' oder 'extern'
             }));
 
-            console.log(`👥 ${this.usersCache.length} Benutzer aus Supabase geladen`);
+            console.log(`👥 ${this.usersCache.length} Benutzer aus API geladen`);
             return this.usersCache;
         } catch (error) {
             console.error('Fehler beim Laden der Benutzer:', error);
