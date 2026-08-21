@@ -10,14 +10,14 @@
  */
 async function addAuditMetadata(updates) {
     try {
-        const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+        const currentUserId = Auth.getCurrentUserId();
         return {
             ...updates,
             updated_at: new Date().toISOString(),
-            updated_by: currentUser?.id || null
+            updated_by: currentUserId || null
         };
     } catch (error) {
-        console.warn('⚠️ Konnte Audit-Metadaten nicht hinzufügen:', error);
+        console.warn('Konnte Audit-Metadaten nicht hinzufuegen:', error);
         return {
             ...updates,
             updated_at: new Date().toISOString()
@@ -1506,10 +1506,7 @@ const App = {
                     updateData.paid_by = Auth.getCurrentUserId();
                 }
 
-                await SupabaseService.client
-                    .from('invoices')
-                    .update(updateData)
-                    .eq('id', id);
+                await ApiClient.updateInvoice(id, updateData);
             } else {
                 // DATEV-Buchung aktualisieren
                 const updateData = {
@@ -1525,10 +1522,7 @@ const App = {
                     updateData.paid_by = Auth.getCurrentUserId();
                 }
 
-                await SupabaseService.client
-                    .from('datev_bookings')
-                    .update(updateData)
-                    .eq('id', id);
+                await ApiClient.updateDatevBooking(id, updateData);
             }
 
             // Lokale Daten aktualisieren
@@ -1571,31 +1565,21 @@ const App = {
     async saveProjectRechnungNote(id, notizText, isInvoice) {
         try {
             if (isInvoice) {
-                // Supabase Invoice aktualisieren
-                await SupabaseService.client
-                    .from('invoices')
-                    .update({
-                        notes: notizText,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', id);
+                // Invoice aktualisieren via ApiClient
+                await ApiClient.updateInvoice(id, {
+                    notes: notizText,
+                    updated_at: new Date().toISOString()
+                });
             } else {
-                // Für DATEV-Buchungen die verknüpfte Invoice aktualisieren
+                // Fuer DATEV-Buchungen die verknuepfte Invoice aktualisieren
                 // Zuerst die Invoice-ID finden
-                const { data: invoices } = await SupabaseService.client
-                    .from('invoices')
-                    .select('id')
-                    .eq('linked_booking_id', id)
-                    .limit(1);
+                const invoices = await ApiClient.getInvoices({ linked_booking_id: id });
 
                 if (invoices && invoices.length > 0) {
-                    await SupabaseService.client
-                        .from('invoices')
-                        .update({
-                            notes: notizText,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', invoices[0].id);
+                    await ApiClient.updateInvoice(invoices[0].id, {
+                        notes: notizText,
+                        updated_at: new Date().toISOString()
+                    });
                 }
             }
 
@@ -2318,14 +2302,9 @@ const App = {
      */
     async updateBezahltDatum(invoiceId, datum) {
         try {
-            const { error } = await SupabaseService.client
-                .from('invoices')
-                .update({
-                    bezahlt_am: datum || null
-                })
-                .eq('id', invoiceId);
-
-            if (error) throw error;
+            await ApiClient.updateInvoice(invoiceId, {
+                bezahlt_am: datum || null
+            });
 
             this.showToast('success', 'Gespeichert', 'Bezahlt-Datum aktualisiert');
 
@@ -2351,15 +2330,10 @@ const App = {
 
             const heute = new Date().toISOString().split('T')[0];
 
-            const { error } = await SupabaseService.client
-                .from('invoices')
-                .update({
-                    status: 'bezahlt',
-                    bezahlt_am: heute
-                })
-                .eq('id', invoiceId);
-
-            if (error) throw error;
+            await ApiClient.updateInvoice(invoiceId, {
+                status: 'bezahlt',
+                bezahlt_am: heute
+            });
 
             this.showToast('success', 'Bezahlt', 'Rechnung als bezahlt markiert');
 
@@ -5064,9 +5038,9 @@ const App = {
 
         // Filter: "Meine Rechnungen" (ohne Projekt, wo ich Ansprechperson bin)
         if (meineRechnungenFilter) {
-            const currentUser = (await SupabaseService.client.auth.getUser()).data.user;
+            const currentUserId = Auth.getCurrentUserId();
             rechnungen = rechnungen.filter(r =>
-                !r.projektId && r.contactUserId === currentUser?.id
+                !r.projektId && r.contactUserId === currentUserId
             );
         }
 
@@ -6404,48 +6378,27 @@ const App = {
         if (!confirm(`${count} Rechnung(en) als kontrolliert markieren?`)) return;
 
         try {
-            const heute = new Date().toISOString().split('T')[0];
-            const user = (await SupabaseService.client.auth.getUser()).data.user;
-            let successCount = 0;
-            let errorCount = 0;
+            const userId = Auth.getCurrentUserId();
 
+            // Dokumente für Bulk-Update vorbereiten
+            const documents = [];
             for (const rechnungId of this.selectedRechnungen) {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
-
-                // Query bauen - partita_iva kann NULL oder leer sein
-                let query = SupabaseService.client
-                    .from('datev_bookings')
-                    .update({
-                        workflow_status: 'kontrolliert',
-                        kontrolled_at: heute,
-                        kontrolled_by: user?.id
-                    });
-
-                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
-                if (partitaIva && partitaIva.trim() !== '') {
-                    query = query.eq('partita_iva', partitaIva);
-                } else {
-                    query = query.or('partita_iva.is.null,partita_iva.eq.');
-                }
-                query = query.eq('dokument_nr', dokumentNr);
-
-                const { data, error } = await query.select('id');
-
-                if (error) {
-                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
-                    errorCount++;
-                } else {
-                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} als kontrolliert markiert`);
-                    successCount++;
-                    DataManager.markAsKontrolliert(rechnungId);
-                }
+                documents.push({ partitaIva, dokumentNr });
             }
 
-            if (errorCount > 0) {
-                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
-            } else {
+            const result = await ApiClient.bulkUpdateDatevStatusByDokument(documents, 'kontrolliert', userId);
+
+            if (result.success) {
+                console.log(`✅ ${result.updated} Buchungen als kontrolliert markiert`);
+                // Local state aktualisieren
+                for (const rechnungId of this.selectedRechnungen) {
+                    DataManager.markAsKontrolliert(rechnungId);
+                }
                 this.showToast('success', 'Erledigt', `${count} Rechnung(en) als kontrolliert markiert`);
+            } else {
+                throw new Error(result.error || 'Unbekannter Fehler');
             }
         } catch (error) {
             console.error('Fehler bei Massen-Markierung:', error);
@@ -6463,40 +6416,20 @@ const App = {
         if (!confirm(`${count} Rechnung(en) auf "neu" zurücksetzen?`)) return;
 
         try {
-            let successCount = 0;
-            let errorCount = 0;
-
+            // Dokumente für Bulk-Update vorbereiten
+            const documents = [];
             for (const rechnungId of this.selectedRechnungen) {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
+                documents.push({ partitaIva, dokumentNr });
+            }
 
-                // Query bauen - partita_iva kann NULL oder leer sein
-                let query = SupabaseService.client
-                    .from('datev_bookings')
-                    .update({
-                        workflow_status: 'neu',
-                        kontrolled_at: null,
-                        kontrolled_by: null,
-                        paid_at: null,
-                        paid_by: null
-                    });
+            const result = await ApiClient.bulkUpdateDatevStatusByDokument(documents, 'neu', null);
 
-                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
-                if (partitaIva && partitaIva.trim() !== '') {
-                    query = query.eq('partita_iva', partitaIva);
-                } else {
-                    query = query.or('partita_iva.is.null,partita_iva.eq.');
-                }
-                query = query.eq('dokument_nr', dokumentNr);
-
-                const { data, error } = await query.select('id');
-
-                if (error) {
-                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
-                    errorCount++;
-                } else {
-                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} auf neu zurückgesetzt`);
-                    successCount++;
+            if (result.success) {
+                console.log(`✅ ${result.updated} Buchungen auf neu zurückgesetzt`);
+                // Local state aktualisieren
+                for (const rechnungId of this.selectedRechnungen) {
                     DataManager.setRechnungStatus(rechnungId, {
                         status: 'neu',
                         kontrolliertAm: null,
@@ -6504,12 +6437,9 @@ const App = {
                         bezahltAm: null
                     });
                 }
-            }
-
-            if (errorCount > 0) {
-                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
-            } else {
                 this.showToast('success', 'Erledigt', `${count} Rechnung(en) auf "neu" zurückgesetzt`);
+            } else {
+                throw new Error(result.error || 'Unbekannter Fehler');
             }
         } catch (error) {
             console.error('Fehler bei Massen-Zurücksetzen:', error);
@@ -6533,48 +6463,27 @@ const App = {
         if (!confirm(`${count} Rechnung(en) als bezahlt markieren?`)) return;
 
         try {
-            const heute = new Date().toISOString().split('T')[0];
-            const user = (await SupabaseService.client.auth.getUser()).data.user;
-            let successCount = 0;
-            let errorCount = 0;
+            const userId = Auth.getCurrentUserId();
 
+            // Dokumente für Bulk-Update vorbereiten
+            const documents = [];
             for (const rechnungId of this.selectedRechnungen) {
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
-
-                // Query bauen - partita_iva kann NULL oder leer sein
-                let query = SupabaseService.client
-                    .from('datev_bookings')
-                    .update({
-                        workflow_status: 'bezahlt',
-                        paid_at: heute,
-                        paid_by: user?.id
-                    });
-
-                // partita_iva: Wenn leer, nach NULL oder leerem String suchen
-                if (partitaIva && partitaIva.trim() !== '') {
-                    query = query.eq('partita_iva', partitaIva);
-                } else {
-                    query = query.or('partita_iva.is.null,partita_iva.eq.');
-                }
-                query = query.eq('dokument_nr', dokumentNr);
-
-                const { data, error } = await query.select('id');
-
-                if (error) {
-                    console.error('Fehler bei Update:', { rechnungId, partitaIva, dokumentNr, error });
-                    errorCount++;
-                } else {
-                    console.log(`✅ ${data?.length || 0} Buchungen für ${dokumentNr} als bezahlt markiert`);
-                    successCount++;
-                    DataManager.markAsBezahlt(rechnungId);
-                }
+                documents.push({ partitaIva, dokumentNr });
             }
 
-            if (errorCount > 0) {
-                this.showToast('warning', 'Teilweise erledigt', `${successCount} erfolgreich, ${errorCount} Fehler`);
-            } else {
+            const result = await ApiClient.bulkUpdateDatevStatusByDokument(documents, 'bezahlt', userId);
+
+            if (result.success) {
+                console.log(`✅ ${result.updated} Buchungen als bezahlt markiert`);
+                // Local state aktualisieren
+                for (const rechnungId of this.selectedRechnungen) {
+                    DataManager.markAsBezahlt(rechnungId);
+                }
                 this.showToast('success', 'Erledigt', `${count} Rechnung(en) als bezahlt markiert`);
+            } else {
+                throw new Error(result.error || 'Unbekannter Fehler');
             }
         } catch (error) {
             console.error('Fehler bei Massen-Markierung:', error);
@@ -6590,31 +6499,29 @@ const App = {
      */
     setProjektForRechnung: async function(rechnungId, projektId) {
         try {
-            let query;
             // Bei leerem projektId wird null gesetzt (Projekt entfernen)
             const updates = await addAuditMetadata({ projekt_id: projektId || null });
 
             // Format 1: "id:123" - Datenbank-ID direkt
             if (rechnungId.startsWith('id:')) {
                 const dbId = rechnungId.substring(3);
-                query = SupabaseService.client
-                    .from('datev_bookings')
-                    .update(updates)
-                    .eq('id', dbId);
+                await ApiClient.updateDatevBooking(dbId, updates);
             } else {
-                // Format 2: partitaIva_dokumentNr
+                // Format 2: partitaIva_dokumentNr - über bulk endpoint
                 const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                 const dokumentNr = dokumentNrParts.join('_');
 
-                query = SupabaseService.client
-                    .from('datev_bookings')
-                    .update(updates)
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr);
-            }
+                // Erst Buchung(en) mit dieser partita_iva/dokument_nr finden
+                const bookings = await ApiClient.getDatevBookings({
+                    partita_iva: partitaIva,
+                    dokument_nr: dokumentNr
+                });
 
-            const { error } = await query;
-            if (error) throw error;
+                // Alle gefundenen Buchungen aktualisieren
+                for (const booking of bookings) {
+                    await ApiClient.updateDatevBooking(booking.id, updates);
+                }
+            }
 
             if (projektId) {
                 this.showToast('success', 'Projekt gesetzt', `Projekt wurde zugewiesen`);
@@ -6638,31 +6545,23 @@ const App = {
         if (!confirm(`${count} Rechnung(en) archivieren?\n\nArchivierte Rechnungen werden ausgeblendet, können aber wiederhergestellt werden.`)) return;
 
         try {
-            const heute = new Date().toISOString();
-            let archivedCount = 0;
-
-            // Hole alle Rechnungen um die DB-ID zu finden
             const allRechnungen = this.filteredRechnungen || [];
+            const datevBookingIds = [];
+            const invoiceIds = [];
 
+            // Kategorisiere die IDs
             for (const rechnungId of this.selectedRechnungen) {
                 console.log('Archiviere:', rechnungId);
 
                 // Versuche zuerst die Rechnung in filteredRechnungen zu finden (hat DB-ID)
                 const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
 
-                // Wenn wir die DB-ID haben, direkt damit archivieren (zuverlässigste Methode)
-                if (rechnung && rechnung.id && !rechnung.isSupabaseOnly) {
-                    const { error } = await SupabaseService.client
-                        .from('datev_bookings')
-                        .update({
-                            archived: true,
-                            archived_at: heute
-                        })
-                        .eq('id', rechnung.id);
-                    if (error) {
-                        console.error('Archiv-Fehler (via DB-ID):', error);
+                // Wenn wir die DB-ID haben
+                if (rechnung && rechnung.id) {
+                    if (rechnung.isSupabaseOnly) {
+                        invoiceIds.push(rechnung.id);
                     } else {
-                        archivedCount++;
+                        datevBookingIds.push(rechnung.id);
                     }
                     continue;
                 }
@@ -6670,77 +6569,50 @@ const App = {
                 // Format 1: "id:123" - Datenbank-ID (für DATEV-Buchungen ohne dokumentNr)
                 if (rechnungId.startsWith('id:')) {
                     const dbId = rechnungId.substring(3);
-                    const { error } = await SupabaseService.client
-                        .from('datev_bookings')
-                        .update({
-                            archived: true,
-                            archived_at: heute
-                        })
-                        .eq('id', dbId);
-                    if (error) {
-                        console.error('Archiv-Fehler (id:):', error);
-                    } else {
-                        archivedCount++;
-                    }
+                    datevBookingIds.push(dbId);
                 }
-                // Format 2: Nur Zahlen - Supabase-only Invoice (PDF ohne DATEV-Match)
+                // Format 2: Nur Zahlen - Invoice ID
                 else if (/^\d+$/.test(rechnungId)) {
-                    const { error } = await SupabaseService.client
-                        .from('invoices')
-                        .update({
-                            archived: true,
-                            archived_at: heute
-                        })
-                        .eq('id', rechnungId);
-                    if (error) {
-                        console.error('Archiv-Fehler (invoice):', error);
-                    } else {
-                        archivedCount++;
-                    }
+                    invoiceIds.push(rechnungId);
                 }
-                // Format 3: "partitaIva_dokumentNr" - DATEV-Buchung mit Rechnungsnummer
+                // Format 3: "partitaIva_dokumentNr" - DATEV-Buchung, müssen ID finden
                 else {
                     const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
                     const dokumentNr = dokumentNrParts.join('_');
-
-                    // Archivieren mit partitaIva und dokumentNr
                     if (dokumentNr) {
-                        const { data, error } = await SupabaseService.client
-                            .from('datev_bookings')
-                            .update({
-                                archived: true,
-                                archived_at: heute
-                            })
-                            .eq('partita_iva', partitaIva)
-                            .eq('dokument_nr', dokumentNr)
-                            .select();
-                        if (error) {
-                            console.error('Archiv-Fehler (partita_dokumentNr):', error);
-                        } else if (data && data.length > 0) {
-                            archivedCount++;
-                        } else {
-                            // Fallback: Nur nach dokumentNr suchen (falls partitaIva leer)
-                            const { data: data2, error: error2 } = await SupabaseService.client
-                                .from('datev_bookings')
-                                .update({
-                                    archived: true,
-                                    archived_at: heute
-                                })
-                                .eq('dokument_nr', dokumentNr)
-                                .select();
-                            if (!error2 && data2 && data2.length > 0) {
-                                archivedCount++;
-                            } else {
-                                console.warn('Konnte nicht archivieren:', rechnungId);
-                            }
+                        // Buchung suchen um ID zu bekommen
+                        try {
+                            const bookings = await ApiClient.getDatevBookings({
+                                partita_iva: partitaIva,
+                                dokument_nr: dokumentNr
+                            });
+                            bookings.forEach(b => datevBookingIds.push(b.id));
+                        } catch (err) {
+                            console.warn('Konnte Buchung nicht finden:', rechnungId, err);
                         }
-                    } else {
-                        console.warn('Kann nicht archivieren ohne dokumentNr:', rechnungId);
                     }
                 }
             }
 
-            this.showToast('success', 'Archiviert', `${archivedCount} Rechnung(en) archiviert`);
+            let totalArchived = 0;
+
+            // Bulk-Archivieren DATEV-Buchungen
+            if (datevBookingIds.length > 0) {
+                const result = await ApiClient.bulkArchiveDatevBookings(datevBookingIds, true);
+                if (result.success) {
+                    totalArchived += result.updated;
+                }
+            }
+
+            // Bulk-Archivieren Invoices
+            if (invoiceIds.length > 0) {
+                const result = await ApiClient.bulkArchiveInvoices(invoiceIds, true);
+                if (result.success) {
+                    totalArchived += result.updated;
+                }
+            }
+
+            this.showToast('success', 'Archiviert', `${totalArchived} Rechnung(en) archiviert`);
         } catch (error) {
             console.error('Fehler beim Archivieren:', error);
             this.showToast('error', 'Fehler', 'Archivierung fehlgeschlagen');
@@ -6762,8 +6634,8 @@ const App = {
         const selectedList = Array.from(this.selectedRechnungen);
 
         // Kategorisiere die Einträge
-        const invoiceIds = [];      // Supabase-only PDFs
-        const datevBookings = [];   // DATEV-Buchungen (mit DB-ID)
+        const invoiceIdsToDelete = [];      // PDF Invoices
+        const datevBookingIds = [];         // DATEV-Buchungen IDs
 
         for (const rechnungId of selectedList) {
             // Suche die Rechnung in filteredRechnungen um Typ zu bestimmen
@@ -6780,43 +6652,41 @@ const App = {
             if (rechnung) {
                 // Rechnung gefunden - basierend auf Eigenschaften kategorisieren
                 if (rechnung.isSupabaseOnly) {
-                    // Supabase-only Invoice (UUID)
-                    invoiceIds.push(rechnung.id);
+                    invoiceIdsToDelete.push(rechnung.id);
                     console.log('  → Als Invoice kategorisiert');
                 } else if (rechnung.id) {
-                    // DATEV-Buchung mit DB-ID
-                    datevBookings.push({ rechnungId, dbId: rechnung.id, dokumentNr: rechnung.dokumentNr });
+                    datevBookingIds.push(rechnung.id);
                     console.log('  → Als DATEV-Buchung kategorisiert, dbId:', rechnung.id);
                 } else {
                     console.log('  → Keine ID gefunden, wird übersprungen');
                 }
             } else if (rechnungId.startsWith('id:')) {
                 // Format id:123 (DATEV ohne dokumentNr)
-                datevBookings.push({ rechnungId, dbId: rechnungId.substring(3), dokumentNr: null });
+                datevBookingIds.push(rechnungId.substring(3));
                 console.log('  → id: Format erkannt');
             } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rechnungId)) {
                 // UUID = Invoice
-                invoiceIds.push(rechnungId);
+                invoiceIdsToDelete.push(rechnungId);
                 console.log('  → UUID erkannt');
             } else {
                 console.log('  → Nicht kategorisiert!');
             }
         }
 
-        console.log('🗑️ Ergebnis:', { invoiceIds, datevBookings });
+        console.log('🗑️ Ergebnis:', { invoiceIdsToDelete, datevBookingIds });
 
-        const totalCount = invoiceIds.length + datevBookings.length;
+        const totalCount = invoiceIdsToDelete.length + datevBookingIds.length;
         if (totalCount === 0) {
             this.showToast('warning', 'Hinweis', 'Keine löschbaren Einträge ausgewählt.');
             return;
         }
 
         let message = `${totalCount} Eintrag/Einträge löschen?\n\n`;
-        if (invoiceIds.length > 0) {
-            message += `• ${invoiceIds.length} PDF(s) ohne DATEV-Verknüpfung (werden dauerhaft gelöscht)\n`;
+        if (invoiceIdsToDelete.length > 0) {
+            message += `• ${invoiceIdsToDelete.length} PDF(s) ohne DATEV-Verknüpfung (werden dauerhaft gelöscht)\n`;
         }
-        if (datevBookings.length > 0) {
-            message += `• ${datevBookings.length} DATEV-Buchung(en) (werden beim nächsten Import wieder angelegt)\n`;
+        if (datevBookingIds.length > 0) {
+            message += `• ${datevBookingIds.length} DATEV-Buchung(en) (werden beim nächsten Import wieder angelegt)\n`;
         }
         message += '\nFortfahren?';
 
@@ -6825,69 +6695,38 @@ const App = {
         try {
             let deletedCount = 0;
 
-            // 1. Supabase-only PDFs löschen
-            for (const invoiceId of invoiceIds) {
-                // PDF aus Storage löschen
-                const { data: invoice } = await SupabaseService.client
-                    .from('invoices')
-                    .select('file_path')
-                    .eq('id', invoiceId)
-                    .single();
-
-                if (invoice?.file_path) {
-                    await SupabaseService.client.storage
-                        .from('invoices')
-                        .remove([invoice.file_path]);
+            // 1. Invoices löschen (PDFs)
+            if (invoiceIdsToDelete.length > 0) {
+                // TODO: PDF-Dateien aus Storage löschen (erfordert Storage-API)
+                const result = await ApiClient.bulkDeleteInvoices(invoiceIdsToDelete);
+                if (result.success) {
+                    deletedCount += result.deleted;
+                    console.log('Invoices gelöscht:', result.deleted);
                 }
-
-                // Invoice-Eintrag löschen
-                const { error } = await SupabaseService.client
-                    .from('invoices')
-                    .delete()
-                    .eq('id', invoiceId);
-
-                if (!error) deletedCount++;
             }
 
-            // 2. DATEV-Buchungen löschen (inkl. verknüpfte PDFs)
-            for (const booking of datevBookings) {
-                // Erst alle verknüpften Invoices holen
-                const { data: linkedInvoices } = await SupabaseService.client
-                    .from('invoices')
-                    .select('id, file_path')
-                    .eq('linked_booking_id', booking.dbId);
-
-                // Verknüpfte PDFs aus Storage löschen
-                if (linkedInvoices && linkedInvoices.length > 0) {
-                    for (const inv of linkedInvoices) {
-                        if (inv.file_path) {
-                            await SupabaseService.client.storage
-                                .from('invoices')
-                                .remove([inv.file_path]);
-                            console.log('PDF aus Storage gelöscht:', inv.file_path);
+            // 2. Verknüpfte Invoices für DATEV-Buchungen finden und löschen
+            if (datevBookingIds.length > 0) {
+                // Erst verknüpfte Invoices holen
+                for (const bookingId of datevBookingIds) {
+                    try {
+                        const linkedInvoices = await ApiClient.getInvoices({ linked_booking_id: bookingId });
+                        if (linkedInvoices && linkedInvoices.length > 0) {
+                            const linkedIds = linkedInvoices.map(inv => inv.id);
+                            // TODO: PDF-Dateien aus Storage löschen
+                            await ApiClient.bulkDeleteInvoices(linkedIds);
+                            console.log('Verknüpfte Invoices gelöscht für Buchung', bookingId);
                         }
+                    } catch (err) {
+                        console.warn('Konnte verknüpfte Invoices nicht laden:', bookingId, err);
                     }
-
-                    // Invoice-Einträge löschen
-                    const invoiceIds = linkedInvoices.map(inv => inv.id);
-                    await SupabaseService.client
-                        .from('invoices')
-                        .delete()
-                        .in('id', invoiceIds);
-                    console.log('Invoice-Einträge gelöscht:', invoiceIds.length);
                 }
 
-                // Dann DATEV-Buchung löschen
-                const { error } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .delete()
-                    .eq('id', booking.dbId);
-
-                if (error) {
-                    console.error('Lösch-Fehler für DATEV-Buchung:', booking.dbId, error);
-                } else {
-                    deletedCount++;
-                    console.log('DATEV-Buchung gelöscht:', booking.dokumentNr || booking.dbId);
+                // DATEV-Buchungen löschen
+                const result = await ApiClient.bulkDeleteDatevBookings(datevBookingIds);
+                if (result.success) {
+                    deletedCount += result.deleted;
+                    console.log('DATEV-Buchungen gelöscht:', result.deleted);
                 }
             }
 
@@ -6898,9 +6737,7 @@ const App = {
         }
 
         this.clearSelection();
-        if (typeof SupabaseDataAdapter !== 'undefined' && SupabaseDataAdapter.invalidateCache) {
-            SupabaseDataAdapter.invalidateCache();
-        }
+        await DataManager.clearCache();
         await this.loadRechnungen();
     },
 
@@ -6912,19 +6749,35 @@ const App = {
 
         try {
             const heute = new Date().toISOString().split('T')[0];
+            const allRechnungen = this.filteredRechnungen || [];
 
             for (const rechnungId of this.selectedRechnungen) {
-                const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
-                const dokumentNr = dokumentNrParts.join('_');
+                // Versuche zuerst die Rechnung in filteredRechnungen zu finden (hat DB-ID)
+                const rechnung = allRechnungen.find(r => r.rechnungId === rechnungId);
 
-                await SupabaseService.client
-                    .from('datev_bookings')
-                    .update({
+                if (rechnung && rechnung.id && !rechnung.isSupabaseOnly) {
+                    // Direktes Update mit DB-ID
+                    await ApiClient.updateDatevBooking(rechnung.id, {
                         abgabestelle: abgabestelle,
                         abgabestelle_am: heute
-                    })
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr);
+                    });
+                } else {
+                    // Fallback: Über partita_iva und dokument_nr
+                    const [partitaIva, ...dokumentNrParts] = rechnungId.split('_');
+                    const dokumentNr = dokumentNrParts.join('_');
+
+                    const bookings = await ApiClient.getDatevBookings({
+                        partita_iva: partitaIva,
+                        dokument_nr: dokumentNr
+                    });
+
+                    for (const booking of bookings) {
+                        await ApiClient.updateDatevBooking(booking.id, {
+                            abgabestelle: abgabestelle,
+                            abgabestelle_am: heute
+                        });
+                    }
+                }
 
                 DataManager.setAbgabestelle(rechnungId, abgabestelle);
             }

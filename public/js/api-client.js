@@ -167,6 +167,20 @@ const ApiClient = {
         return await this.request(`/invoices/${id}`, { method: 'DELETE' });
     },
 
+    async bulkArchiveInvoices(invoiceIds, archived = true) {
+        return await this.request('/invoices/bulk-archive', {
+            method: 'POST',
+            body: JSON.stringify({ invoiceIds, archived }),
+        });
+    },
+
+    async bulkDeleteInvoices(invoiceIds) {
+        return await this.request('/invoices/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ invoiceIds }),
+        });
+    },
+
     // ========== DATEV BOOKINGS ==========
 
     async getDatevBookings(filters = {}) {
@@ -210,6 +224,27 @@ const ApiClient = {
 
     async deleteDatevBooking(id) {
         return await this.request(`/datev/${id}`, { method: 'DELETE' });
+    },
+
+    async bulkUpdateDatevStatusByDokument(documents, status, userId) {
+        return await this.request('/datev/bulk-status-by-dokument', {
+            method: 'POST',
+            body: JSON.stringify({ documents, status, userId }),
+        });
+    },
+
+    async bulkArchiveDatevBookings(bookingIds, archived = true) {
+        return await this.request('/datev/bulk-archive', {
+            method: 'POST',
+            body: JSON.stringify({ bookingIds, archived }),
+        });
+    },
+
+    async bulkDeleteDatevBookings(bookingIds) {
+        return await this.request('/datev/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ bookingIds }),
+        });
     },
 
     // ========== SUPPLIERS ==========

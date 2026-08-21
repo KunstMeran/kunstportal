@@ -5,7 +5,7 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 // GET all DATEV bookings
 router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req, res) => {
     const pool = req.app.locals.pool;
-    const { konto, projekt_id, year, month, kostentyp_id, kontrolliert, start_date, end_date, limit = 1000, offset = 0 } = req.query;
+    const { konto, projekt_id, year, month, kostentyp_id, kontrolliert, start_date, end_date, partita_iva, dokument_nr, limit = 1000, offset = 0 } = req.query;
 
     try {
         let query = 'SELECT * FROM datev_bookings';
@@ -43,6 +43,14 @@ router.get('/', requireAuth, requirePermission('bewegungen', 'read'), async (req
         if (kontrolliert !== undefined) {
             values.push(kontrolliert === 'true');
             conditions.push(`kontrolliert = $${values.length}`);
+        }
+        if (partita_iva) {
+            values.push(partita_iva);
+            conditions.push(`partita_iva = $${values.length}`);
+        }
+        if (dokument_nr) {
+            values.push(dokument_nr);
+            conditions.push(`dokument_nr = $${values.length}`);
         }
 
         if (conditions.length > 0) {
@@ -207,6 +215,165 @@ router.put('/:id', requireAuth, requirePermission('bewegungen', 'write'), async 
             return res.status(404).json({ error: 'Booking not found' });
         }
         res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST bulk workflow status update by IDs
+router.post('/bulk-status', requireAuth, requirePermission('bewegungen', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { bookingIds, status, userId } = req.body;
+    const heute = new Date().toISOString().split('T')[0];
+
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+        return res.status(400).json({ error: 'bookingIds array required' });
+    }
+
+    try {
+        let updateData = { workflow_status: status || 'neu' };
+
+        if (status === 'kontrolliert') {
+            updateData.kontrolled_at = heute;
+            updateData.kontrolled_by = userId;
+        } else if (status === 'bezahlt') {
+            updateData.paid_at = heute;
+            updateData.paid_by = userId;
+        } else if (status === 'neu') {
+            updateData.kontrolled_at = null;
+            updateData.kontrolled_by = null;
+            updateData.paid_at = null;
+            updateData.paid_by = null;
+        }
+
+        const placeholders = bookingIds.map((_, i) => `$${i + 1}`).join(',');
+        const columns = Object.keys(updateData);
+        const setClause = columns.map(col => `${col} = $${bookingIds.length + columns.indexOf(col) + 1}`).join(', ');
+
+        const values = [...bookingIds, ...Object.values(updateData)];
+
+        const result = await pool.query(
+            `UPDATE datev_bookings SET ${setClause} WHERE id IN (${placeholders}) RETURNING id`,
+            values
+        );
+
+        res.json({ success: true, updated: result.rowCount });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST bulk workflow status update by partita_iva and dokument_nr
+router.post('/bulk-status-by-dokument', requireAuth, requirePermission('bewegungen', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { documents, status, userId } = req.body;
+    const heute = new Date().toISOString().split('T')[0];
+
+    // documents = [{ partitaIva: '...', dokumentNr: '...' }, ...]
+    if (!documents || !Array.isArray(documents) || documents.length === 0) {
+        return res.status(400).json({ error: 'documents array required' });
+    }
+
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            let totalUpdated = 0;
+
+            for (const doc of documents) {
+                const { partitaIva, dokumentNr } = doc;
+
+                let updateFields = { workflow_status: status || 'neu' };
+
+                if (status === 'kontrolliert') {
+                    updateFields.kontrolled_at = heute;
+                    updateFields.kontrolled_by = userId;
+                } else if (status === 'bezahlt') {
+                    updateFields.paid_at = heute;
+                    updateFields.paid_by = userId;
+                } else if (status === 'neu') {
+                    updateFields.kontrolled_at = null;
+                    updateFields.kontrolled_by = null;
+                    updateFields.paid_at = null;
+                    updateFields.paid_by = null;
+                }
+
+                // Build WHERE clause for partita_iva (can be NULL or empty)
+                let whereClause;
+                let values;
+
+                if (partitaIva && partitaIva.trim() !== '') {
+                    whereClause = 'partita_iva = $1 AND dokument_nr = $2';
+                    values = [partitaIva, dokumentNr];
+                } else {
+                    whereClause = '(partita_iva IS NULL OR partita_iva = \'\') AND dokument_nr = $1';
+                    values = [dokumentNr];
+                }
+
+                const columns = Object.keys(updateFields);
+                const setClause = columns.map((col, i) => `${col} = $${values.length + i + 1}`).join(', ');
+                values.push(...Object.values(updateFields));
+
+                const result = await client.query(
+                    `UPDATE datev_bookings SET ${setClause} WHERE ${whereClause}`,
+                    values
+                );
+                totalUpdated += result.rowCount;
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true, updated: totalUpdated });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST bulk archive
+router.post('/bulk-archive', requireAuth, requirePermission('bewegungen', 'write'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { bookingIds, archived = true } = req.body;
+    const archivedAt = archived ? new Date().toISOString() : null;
+
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+        return res.status(400).json({ error: 'bookingIds array required' });
+    }
+
+    try {
+        const placeholders = bookingIds.map((_, i) => `$${i + 1}`).join(',');
+        const result = await pool.query(
+            `UPDATE datev_bookings SET archived = $${bookingIds.length + 1}, archived_at = $${bookingIds.length + 2} WHERE id IN (${placeholders}) RETURNING id`,
+            [...bookingIds, archived, archivedAt]
+        );
+
+        res.json({ success: true, updated: result.rowCount });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST bulk delete
+router.post('/bulk-delete', requireAuth, requirePermission('bewegungen', 'delete'), async (req, res) => {
+    const pool = req.app.locals.pool;
+    const { bookingIds } = req.body;
+
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+        return res.status(400).json({ error: 'bookingIds array required' });
+    }
+
+    try {
+        const placeholders = bookingIds.map((_, i) => `$${i + 1}`).join(',');
+        const result = await pool.query(
+            `DELETE FROM datev_bookings WHERE id IN (${placeholders}) RETURNING id`,
+            bookingIds
+        );
+
+        res.json({ success: true, deleted: result.rowCount });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
