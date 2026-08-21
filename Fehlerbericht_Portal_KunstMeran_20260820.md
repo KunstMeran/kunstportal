@@ -1,7 +1,7 @@
 # Fehlerbericht – portal.kunstmeranoarte.org
 
 **Erstellt am:** 20.08.2026, ca. 15:45–16:10 Uhr
-**Zuletzt aktualisiert:** 21.08.2026
+**Zuletzt aktualisiert:** 21.08.2026, 16:10 Uhr
 **Umfang:** Alle 13 Sidebar-Bereiche, alle Untertabs, Dialoge geöffnet
 **Testart:** Nur lesend – es wurde nichts gespeichert, gelöscht oder exportiert
 **Angemeldet als:** info (Rolle: Mitarbeiter)
@@ -10,7 +10,7 @@
 
 ## 🔧 Behobene Fehler (Stand 21.08.2026)
 
-Die folgenden Punkte wurden durch die Commits `614d774` bis `eba682a` behoben:
+Die folgenden Punkte wurden durch die Commits `614d774` bis `9acddf3` behoben:
 
 | Problem | Status | Commit |
 |---------|--------|--------|
@@ -33,8 +33,15 @@ Die folgenden Punkte wurden durch die Commits `614d774` bis `eba682a` behoben:
 | Anwesenheit Kalender Auswahl | ✅ Behoben | `990906d` - CSS Klasse 'ausgewaehlt' ohne Umlaut |
 | Anwesenheit Speichern duplicate key | ✅ Behoben | `8e34ad7`, `cecb9f0` - manuelles Check+Insert/Update |
 | Externe Tab zeigt nichts | ✅ Behoben | `eba682a` - zeigt jetzt Lieferanten-Zeiteinträge |
+| Dashboard Gesamtbudget String-Verkettung | ✅ Behoben | `704932e` - parseFloat() in convertProjectFromSupabase |
+| Dashboard "Aktive Projekte" zeigt 0 | ✅ Behoben | `704932e` - Status-Mapping active→laufend |
+| Icons/Logo kaputt (SPA-Fallback) | ✅ Behoben | Server: Symlink `ln -s assets/icons icons` |
+| Massen-Aktionen (Kontrolliert/Bezahlt/Neu) | ✅ Behoben | `9acddf3` - SupabaseService→ApiClient migriert |
+| Massen-Archivierung/Löschung | ✅ Behoben | `9acddf3` - Neue Bulk-API-Endpoints |
+| Abgabestelle Massen-Setzen | ✅ Behoben | `9acddf3` - SupabaseService→ApiClient migriert |
+| Einnahmenplanung expenses-Endpoint | ✅ Behoben | `704932e` - GET /funding-sources/:id/expenses |
 
-**Hinweis:** Nach Server-Update (`git pull && pm2 restart kunstmeran-api`) sind diese Fixes aktiv.
+**Hinweis:** Nach Server-Update (`git pull && pm2 restart kunstportal-api`) sind diese Fixes aktiv.
 
 ### Datenbankfix erforderlich (einmalig):
 ```sql
@@ -59,51 +66,54 @@ Offenbar wurde von Supabase auf die eigene API/PostgreSQL umgestellt (`api-clien
 `data-adapter.js`), aber viele Aufrufstellen in `app.js`, `data.js` und
 `excel-import-service.js` wurden nicht mitgezogen.
 
-### Fortschritt (21.08.2026):
+### Fortschritt (21.08.2026, 17:30):
 
-**5 von 14 Bereichen** aus Abschnitt 3 wurden behoben:
+**Umfangreiche Migration durchgeführt:** ~40 SupabaseService-Aufrufe auf ApiClient migriert.
+
+**Behoben:**
 - ✅ Mitglieder, Anwesenheit, Kontenplan, Workspaces, Zeiterfassung
+- ✅ Dashboard (Budget-Summe, Aktive Projekte)
+- ✅ Icons/Logo (Server-Symlink)
+- ✅ Massen-Aktionen in Rechnungen
+- ✅ Invoice/DATEV-Verknüpfung (linkInvoiceToDatev, unlinkInvoiceFromDatev)
+- ✅ Abgabestellen inline Update
+- ✅ Notizen inline speichern
+- ✅ Workflow-Status Updates
+- ✅ Lieferanten-Updates
+- ✅ Rechnungsnummer-Updates
+- ✅ MwSt-Satz Updates
+- ✅ Kontenplan-Bezeichnungen laden
+- ✅ Auto-Link Invoices nach Import
+- ✅ DATEV-Verknüpfungsmodal
+- ✅ Budget Quick-Save
 
-**Noch offen:** Reporting (4 Tabs), Einnahmenplanung, Budgetplanung, Kurse, Import-Statistik
+**Noch offen:**
+- PDF-Upload/-Download Funktionen (benötigen StorageService)
+- Reporting (4 Tabs)
+- Einige Budgetplanung-Funktionen
 
-Zweite, unabhängige Ursache: **alle Bild-/Icon-Dateien fehlen auf dem Server.**
+**Neue API-Endpoints (Commit `9acddf3`):**
+- `POST /api/v1/datev/bulk-status-by-dokument` - Workflow-Status per partita_iva/dokument_nr
+- `POST /api/v1/datev/bulk-archive` - Bulk-Archivierung DATEV-Buchungen
+- `POST /api/v1/datev/bulk-delete` - Bulk-Löschung DATEV-Buchungen
+- `POST /api/v1/invoices/bulk-archive` - Bulk-Archivierung Invoices
+- `POST /api/v1/invoices/bulk-delete` - Bulk-Löschung Invoices
+- `GET /api/v1/funding-sources/:id/expenses` - Ausgaben pro Funding Source
+- Filter `partita_iva`, `dokument_nr` bei `GET /api/v1/datev`
 
 ---
 
 ## 2. Kritisch – falsche Zahlen
 
-### 2.1 Dashboard: Gesamtbudget ist völlig falsch (Zahlen werden aneinandergehängt statt addiert)
+### 2.1 ✅ Dashboard: Gesamtbudget ist völlig falsch (BEHOBEN)
 
-Angezeigt: `125.000.500.060.000.144.342.650.007.900.098.154,00 €`
-Korrekt wäre: **463.996,00 €**
+~~Angezeigt: `125.000.500.060.000.144.342.650.007.900.098.154,00 €`~~
+**Fix (Commit `704932e`):** `parseFloat()` in `convertProjectFromSupabase` hinzugefügt.
 
-Nachweis – die Einzelbudgets werden als Text verkettet:
+### 2.2 ✅ Dashboard: „Aktive Projekte" zeigt 0 (BEHOBEN)
 
-| Projekt | Budget |
-|---|---|
-| Kunsthaus Wartungen | 12.500 |
-| Rahmenprogramm | 5.000 |
-| Menschenbilder | 60.000 |
-| Wanderausstellung | 144.342 |
-| Stadtraum Meran | 65.000 |
-| Animacies | 79.000 |
-| Complice | 98.154 |
-
-„12500" + „5000" + „60000" + „144342" + „65000" + „79000" + „98154"
-= 12500500060000144342650007900098154 → genau die angezeigte Zahl.
-
-Ursache: Die Budgets kommen als String aus der DB und werden mit `+` addiert.
-Fix: vor der Summierung `parseFloat()` / `Number()`.
-
-**Folgefehler:** „Verfügbar" zeigt eine leicht andere Riesenzahl
-(`…140.000.000.000.000.000.000`) – dort wurde später doch numerisch gerechnet und
-die Gleitkomma-Genauigkeit ging verloren. Außerdem sprengt die Zahl das Layout:
-die Seite bekommt einen horizontalen Scrollbalken und der Wert wird in der Kachel
-abgeschnitten.
-
-### 2.2 Dashboard: „Aktive Projekte" zeigt 0
-
-Es sind 8 Projekte vorhanden, alle mit Status „Laufend". Trotzdem steht dort `0`.
+~~Es sind 8 Projekte vorhanden, alle mit Status „Laufend". Trotzdem steht dort `0`.~~
+**Fix (Commit `704932e`):** Status-Mapping erweitert (`active` → `laufend`).
 
 ### 2.3 Dashboard-Projektübersicht zeigt nur 7 von 8 Projekten
 
@@ -189,22 +199,14 @@ weiß. Erst ein manueller Klick auf einen Tab lädt Inhalt. Sollte per Default d
 
 ## 7. Darstellung / Layout
 
-### 7.1 Alle Icons und das Logo sind kaputt (überall im Portal)
+### 7.1 ✅ Alle Icons und das Logo sind kaputt (BEHOBEN)
 
-Sidebar-Icons, Logo oben links, die Icons auf der Import-Seite und die Bearbeiten-/Löschen-
-Icons in der Konfiguration erscheinen als „kaputtes Bild"-Platzhalter.
+~~Sidebar-Icons, Logo oben links, die Icons auf der Import-Seite und die Bearbeiten-/Löschen-
+Icons in der Konfiguration erscheinen als „kaputtes Bild"-Platzhalter.~~
 
-**Ursache gefunden:** Die Bilddateien liegen nicht auf dem Server. Ruft man z. B.
-`https://portal.kunstmeranoarte.org/icons/17-dashboard.svg` direkt auf, kommt nicht das SVG,
-sondern die **Login-HTML-Seite** zurück (Status 200 durch SPA-Fallback). Gleiches bei
-`/logo_weiss.png` → landet auf `app.html`.
-Betroffen u. a.: `17-dashboard.svg`, `18-project.svg`, `01-document.svg`, `05-company.svg`,
-`23-user.svg`, `30-inventory.svg`, `32-shop.svg`, `06-trend.svg`, `29-income.svg`,
-`31-budget.svg`, `04-upload.svg`, `20-settings.svg`, `02-sync.svg`, `03-data.svg`,
-`14-attachment.svg`, `09-edit.svg`, `16-error.svg`, `07-close.svg`, `logo_weiss.png`,
-`logo_ohne_Text_weiss.png`.
-Fix: Icon-Ordner mit deployen bzw. Server-Rewrite so einstellen, dass echte Dateipfade nicht
-auf die HTML-Seite umgeleitet werden.
+**Fix (Server):** Symlink erstellt: `cd /var/www/kunstmeran/app/public && ln -s assets/icons icons`
+Die Icons waren unter `public/assets/icons/` vorhanden, aber der Code referenzierte `icons/` direkt.
+Nach Symlink-Erstellung: `curl -I https://portal.kunstmeranoarte.org/icons/32-shop.svg` → 200 OK.
 
 ### 7.2 Sidebar überdeckt beim Aufklappen den Inhalt
 
