@@ -398,45 +398,27 @@ const SupabaseDataAdapter = {
      * daher muss hier die Supabase Auth UID verwendet werden, nicht public.users.id
      */
     /**
-     * Holt die Auth-User-ID (auth.users.id)
-     * Für FKs die auf auth.users zeigen (z.B. funding_sources, time_entries)
+     * Holt die User-ID aus der Session
+     * Nach Migration: session.id ist bereits die public.users.id
      */
     async getCurrentAuthUserId() {
         try {
             const currentUser = await Auth.getCurrentUser();
             return currentUser?.id || null;
         } catch (error) {
-            console.warn('⚠️ Konnte Auth-User-ID nicht ermitteln:', error);
+            console.warn('⚠️ Konnte User-ID nicht ermitteln:', error);
             return null;
         }
     },
 
     /**
      * Holt die Public-User-ID (public.users.id)
-     * Für FKs die auf public.users zeigen (z.B. projects, costs)
+     * Nach Migration: session.id IST bereits die public.users.id
      */
     async getCurrentPublicUserId() {
         try {
-            const authUserId = await this.getCurrentAuthUserId();
-            if (!authUserId) return null;
-
-            // Finde public.users Eintrag mit dieser auth_id
-            const users = this.getUsers();
-            const publicUser = users.find(u => u.auth_id === authUserId);
-
-            if (publicUser) {
-                return publicUser.id;
-            }
-
-            // Fallback: Lade aus API
-            try {
-                const allUsers = await ApiClient.getUsers();
-                const user = (allUsers || []).find(u => u.auth_id === authUserId);
-                return user?.id || null;
-            } catch (e) {
-                console.warn('⚠️ Kein public.users Eintrag für auth_id:', authUserId);
-                return null;
-            }
+            const currentUser = await Auth.getCurrentUser();
+            return currentUser?.id || null;
         } catch (error) {
             console.warn('⚠️ Konnte Public-User-ID nicht ermitteln:', error);
             return null;
@@ -444,7 +426,7 @@ const SupabaseDataAdapter = {
     },
 
     /**
-     * Holt die User-ID für auth.users FKs (Standard)
+     * Holt die User-ID (Standard)
      */
     async getCurrentUserId() {
         return this.getCurrentAuthUserId();
@@ -4625,14 +4607,15 @@ const SupabaseDataAdapter = {
 
     async getAnwesenheitRange(startDate, endDate) {
         try {
-            // Parse dates to get month/year for API
-            const start = new Date(startDate);
-            const end = new Date(endDate);
             const data = await ApiClient.getAnwesenheitPlanung({
-                monat: start.getMonth() + 1,
-                jahr: start.getFullYear()
+                start_date: startDate,
+                end_date: endDate
             });
-            return data || [];
+            // Normalisiere Datum zu YYYY-MM-DD Format (PostgreSQL gibt oft ISO-8601 zurück)
+            return (data || []).map(p => ({
+                ...p,
+                datum: p.datum ? p.datum.split('T')[0] : p.datum
+            }));
         } catch (error) {
             console.error('Fehler beim Laden der Anwesenheit:', error);
             return [];
