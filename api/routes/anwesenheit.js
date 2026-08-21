@@ -58,11 +58,14 @@ router.post("/planung", requireAuth, requirePermission("projekte", "write"), asy
     const pool = req.app.locals.pool;
     const { user_id, datum, im_buero, mittagessen, abwesenheit_grund, abwesenheit_notiz } = req.body;
 
+    // Datum normalisieren (nur YYYY-MM-DD Teil)
+    const normalizedDatum = datum ? datum.split('T')[0] : datum;
+
     try {
         // Prüfe ob Eintrag bereits existiert
         const existing = await pool.query(
-            "SELECT id FROM anwesenheit_planung WHERE user_id = $1 AND datum = $2",
-            [user_id, datum]
+            "SELECT id FROM anwesenheit_planung WHERE user_id = $1 AND datum = $2::date",
+            [user_id, normalizedDatum]
         );
 
         let result;
@@ -71,16 +74,16 @@ router.post("/planung", requireAuth, requirePermission("projekte", "write"), asy
             result = await pool.query(`
                 UPDATE anwesenheit_planung
                 SET im_buero = $1, mittagessen = $2, abwesenheit_grund = $3, abwesenheit_notiz = $4, updated_at = NOW()
-                WHERE user_id = $5 AND datum = $6
+                WHERE user_id = $5 AND datum = $6::date
                 RETURNING *
-            `, [im_buero || false, mittagessen || false, abwesenheit_grund || null, abwesenheit_notiz || null, user_id, datum]);
+            `, [im_buero || false, mittagessen || false, abwesenheit_grund || null, abwesenheit_notiz || null, user_id, normalizedDatum]);
         } else {
             // Neuen Eintrag erstellen
             result = await pool.query(`
                 INSERT INTO anwesenheit_planung (user_id, datum, im_buero, mittagessen, abwesenheit_grund, abwesenheit_notiz)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                VALUES ($1, $2::date, $3, $4, $5, $6)
                 RETURNING *
-            `, [user_id, datum, im_buero || false, mittagessen || false, abwesenheit_grund || null, abwesenheit_notiz || null]);
+            `, [user_id, normalizedDatum, im_buero || false, mittagessen || false, abwesenheit_grund || null, abwesenheit_notiz || null]);
         }
 
         res.json(result.rows[0]);
