@@ -3344,8 +3344,9 @@ const App = {
         const allEntries = await DataManager.getTimeEntries();
         const projects = await DataManager.getProjects();
         const users = await DataManager.getUsers();
+        const suppliers = await DataManager.getDatevLieferanten();
 
-        // Nur externe Mitarbeiter
+        // Externe = Lieferanten-Einträge (mit supplierPartitaIva) ODER externe Mitarbeiter
         const externeUsers = users.filter(u => u.userType === 'extern');
         const externeUserIds = externeUsers.map(u => u.id);
 
@@ -3354,8 +3355,16 @@ const App = {
         const projectSelect = document.getElementById('externe-filter-project');
 
         if (userSelect && userSelect.options.length <= 1) {
+            // Externe Mitarbeiter
             externeUsers.forEach(u => {
-                userSelect.innerHTML += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`;
+                userSelect.innerHTML += `<option value="user_${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`;
+            });
+            // Lieferanten die Zeiteinträge haben
+            const supplierPivas = [...new Set(allEntries.filter(e => e.supplierPartitaIva).map(e => e.supplierPartitaIva))];
+            supplierPivas.forEach(piva => {
+                const supplier = suppliers.find(s => s.partitaIva === piva);
+                const name = supplier?.name || piva;
+                userSelect.innerHTML += `<option value="supplier_${escapeHtml(piva)}">${escapeHtml(name)} (Lieferant)</option>`;
             });
         }
 
@@ -3366,16 +3375,25 @@ const App = {
         }
 
         // Filter anwenden
-        const filterUserId = document.getElementById('externe-filter-user')?.value || '';
+        const filterValue = document.getElementById('externe-filter-user')?.value || '';
         const filterProjectId = document.getElementById('externe-filter-project')?.value || '';
         const filterFrom = document.getElementById('externe-filter-from')?.value || '';
         const filterTo = document.getElementById('externe-filter-to')?.value || '';
 
-        // Nur Eintraege von externen Mitarbeitern
-        let filteredEntries = allEntries.filter(e => externeUserIds.includes(e.userId));
+        // Externe Einträge: Lieferanten (supplierPartitaIva) ODER externe Mitarbeiter
+        let filteredEntries = allEntries.filter(e =>
+            e.supplierPartitaIva || externeUserIds.includes(e.userId)
+        );
 
-        if (filterUserId) {
-            filteredEntries = filteredEntries.filter(e => String(e.userId) === filterUserId);
+        // Filter nach User/Lieferant
+        if (filterValue) {
+            if (filterValue.startsWith('user_')) {
+                const userId = filterValue.replace('user_', '');
+                filteredEntries = filteredEntries.filter(e => String(e.userId) === userId);
+            } else if (filterValue.startsWith('supplier_')) {
+                const piva = filterValue.replace('supplier_', '');
+                filteredEntries = filteredEntries.filter(e => e.supplierPartitaIva === piva);
+            }
         }
         if (filterProjectId) {
             filteredEntries = filteredEntries.filter(e => String(e.projectId) === filterProjectId);
@@ -3387,12 +3405,16 @@ const App = {
             filteredEntries = filteredEntries.filter(e => e.date <= filterTo);
         }
 
-        // Gruppieren nach Mitarbeiter und Projekt
+        // Gruppieren nach Person (User oder Lieferant) und Projekt
         const grouped = {};
         filteredEntries.forEach(entry => {
-            const key = `${entry.userId}_${entry.projectId}`;
+            const personKey = entry.supplierPartitaIva || entry.userId;
+            const key = `${personKey}_${entry.projectId}`;
             if (!grouped[key]) {
                 grouped[key] = {
+                    personKey: personKey,
+                    isSupplier: !!entry.supplierPartitaIva,
+                    supplierPartitaIva: entry.supplierPartitaIva,
                     userId: entry.userId,
                     projectId: entry.projectId,
                     hours: 0
@@ -3408,7 +3430,7 @@ const App = {
         const rows = Object.values(grouped);
         let totalHours = 0;
         let totalCosts = 0;
-        const uniqueUsers = new Set();
+        const uniquePersons = new Set();
 
         tbody.innerHTML = '';
 
@@ -3416,22 +3438,33 @@ const App = {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666; padding: 2rem;">Keine Einträge gefunden</td></tr>';
         } else {
             rows.forEach(row => {
-                const user = users.find(u => String(u.id) === String(row.userId));
+                let personName = '';
+                let hourlyRate = 0;
+
+                if (row.isSupplier) {
+                    const supplier = suppliers.find(s => s.partitaIva === row.supplierPartitaIva);
+                    personName = supplier?.name || row.supplierPartitaIva;
+                    // Lieferanten haben keinen Stundensatz hier
+                } else {
+                    const user = users.find(u => String(u.id) === String(row.userId));
+                    personName = user?.name || 'Unbekannt';
+                    hourlyRate = user?.hourlyRate || 0;
+                }
+
                 const project = projects.find(p => String(p.id) === String(row.projectId));
-                const hourlyRate = user?.hourlyRate || 0;
                 const costs = row.hours * hourlyRate;
 
                 totalHours += row.hours;
                 totalCosts += costs;
-                if (user) uniqueUsers.add(user.id);
+                uniquePersons.add(row.personKey);
 
                 tbody.innerHTML += `
                     <tr>
-                        <td>${user?.name || 'Unbekannt'}</td>
+                        <td>${escapeHtml(personName)}${row.isSupplier ? ' <span style="color:#666;font-size:0.8em">(Lieferant)</span>' : ''}</td>
                         <td>${project?.name || 'Unbekannt'}</td>
                         <td style="text-align: right;">${row.hours.toFixed(1)}</td>
-                        <td style="text-align: right;">${this.formatCurrency(hourlyRate)}</td>
-                        <td style="text-align: right; font-weight: 600;">${this.formatCurrency(costs)}</td>
+                        <td style="text-align: right;">${hourlyRate ? this.formatCurrency(hourlyRate) : '-'}</td>
+                        <td style="text-align: right; font-weight: 600;">${hourlyRate ? this.formatCurrency(costs) : '-'}</td>
                     </tr>
                 `;
             });
@@ -3450,7 +3483,7 @@ const App = {
         // Statistiken aktualisieren
         document.getElementById('stat-externe-stunden').textContent = totalHours.toFixed(1);
         document.getElementById('stat-externe-kosten').textContent = this.formatCurrency(totalCosts);
-        document.getElementById('stat-externe-mitarbeiter').textContent = uniqueUsers.size;
+        document.getElementById('stat-externe-mitarbeiter').textContent = uniquePersons.size;
     },
 
     resetExterneFilters: function() {
