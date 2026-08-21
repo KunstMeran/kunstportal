@@ -1742,25 +1742,17 @@ const SupabaseDataAdapter = {
                 }
             }
 
-            const supabaseEntry = {
+            const timeEntry = {
                 project_id: entryData.projectId,
                 user_id: isSupplierEntry ? null : userId,
                 supplier_partita_iva: isSupplierEntry ? entryData.supplierPartitaIva : null,
                 date: entryData.date,
                 hours: entryData.hours,
                 description: entryData.description || '',
-                activity_type: entryData.activityType || null,
-                created_at: new Date().toISOString()
+                activity_type: entryData.activityType || null
             };
 
-            const { data, error } = await SupabaseService.client
-                .from('time_entries')
-                .insert([supabaseEntry])
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.createTimeEntry(timeEntry);
             return this.convertTimeEntryFromSupabase(data);
         } catch (error) {
             console.error('Fehler beim Speichern des Zeiteintrags:', error);
@@ -1773,7 +1765,7 @@ const SupabaseDataAdapter = {
             // Unterscheidung: Mitarbeiter-Eintrag oder Lieferanten-Eintrag
             const isSupplierEntry = !!updates.supplierPartitaIva;
 
-            let supabaseUpdates = {
+            let updateData = {
                 project_id: updates.projectId,
                 date: updates.date,
                 hours: updates.hours,
@@ -1783,32 +1775,21 @@ const SupabaseDataAdapter = {
 
             // Bei Wechsel zwischen Mitarbeiter/Lieferant müssen beide Felder gesetzt werden
             if (isSupplierEntry) {
-                supabaseUpdates.user_id = null;
-                supabaseUpdates.supplier_partita_iva = updates.supplierPartitaIva;
+                updateData.user_id = null;
+                updateData.supplier_partita_iva = updates.supplierPartitaIva;
             } else if (updates.userId !== undefined) {
-                supabaseUpdates.user_id = updates.userId;
-                supabaseUpdates.supplier_partita_iva = null;
+                updateData.user_id = updates.userId;
+                updateData.supplier_partita_iva = null;
             }
 
             // Nur definierte Werte übernehmen
-            Object.keys(supabaseUpdates).forEach(key => {
-                if (supabaseUpdates[key] === undefined) {
-                    delete supabaseUpdates[key];
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined) {
+                    delete updateData[key];
                 }
             });
 
-            // Audit-Trail: updated_at und updated_by hinzufügen
-            supabaseUpdates = await this.addUpdateMetadata(supabaseUpdates);
-
-            const { data, error } = await SupabaseService.client
-                .from('time_entries')
-                .update(supabaseUpdates)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
-
+            const data = await ApiClient.updateTimeEntry(id, updateData);
             return this.convertTimeEntryFromSupabase(data);
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Zeiteintrags:', error);
@@ -1818,8 +1799,7 @@ const SupabaseDataAdapter = {
 
     async deleteTimeEntry(id) {
         try {
-            // Soft-Delete: Zeiteintrag als gelöscht markieren statt entfernen
-            await this.softDelete('time_entries', id);
+            await ApiClient.deleteTimeEntry(id);
             return true;
         } catch (error) {
             console.error('Fehler beim Löschen des Zeiteintrags:', error);
