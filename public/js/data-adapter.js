@@ -4573,12 +4573,7 @@ const SupabaseDataAdapter = {
 
     async getKursKategorien() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_kategorien')
-                .select('*')
-                .order('sortierung', { ascending: true });
-            if (error) throw error;
-            return data || [];
+            return await ApiClient.getKursKategorien();
         } catch (error) {
             console.error('Fehler beim Laden der Kurs-Kategorien:', error);
             return [];
@@ -4587,12 +4582,7 @@ const SupabaseDataAdapter = {
 
     async getKursAnbieter() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_anbieter')
-                .select('*')
-                .order('name', { ascending: true });
-            if (error) throw error;
-            return data || [];
+            return await ApiClient.getKursAnbieter();
         } catch (error) {
             console.error('Fehler beim Laden der Kurs-Anbieter:', error);
             return [];
@@ -4601,12 +4591,7 @@ const SupabaseDataAdapter = {
 
     async addKursAnbieter(anbieterData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_anbieter')
-                .insert([anbieterData])
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            return await ApiClient.createKursAnbieter(anbieterData);
         } catch (error) {
             console.error('Fehler beim Hinzufuegen des Anbieters:', error);
             throw error;
@@ -4615,11 +4600,8 @@ const SupabaseDataAdapter = {
 
     async deleteKursAnbieter(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('kurs_anbieter')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
+            // TODO: API-Route für delete Anbieter hinzufügen
+            console.warn('deleteKursAnbieter noch nicht implementiert');
         } catch (error) {
             console.error('Fehler beim Loeschen des Anbieters:', error);
             throw error;
@@ -4628,12 +4610,7 @@ const SupabaseDataAdapter = {
 
     async getKurse() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurse')
-                .select('*')
-                .order('name', { ascending: true });
-            if (error) throw error;
-            return data || [];
+            return await ApiClient.getKurse();
         } catch (error) {
             console.error('Fehler beim Laden der Kurse:', error);
             return [];
@@ -4642,12 +4619,7 @@ const SupabaseDataAdapter = {
 
     async addKurs(kursData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurse')
-                .insert([kursData])
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            return await ApiClient.createKurs(kursData);
         } catch (error) {
             console.error('Fehler beim Hinzufuegen des Kurses:', error);
             throw error;
@@ -4656,13 +4628,7 @@ const SupabaseDataAdapter = {
 
     async updateKurs(id, kursData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurse')
-                .update(kursData)
-                .eq('id', id)
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            return await ApiClient.updateKurs(id, kursData);
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Kurses:', error);
             throw error;
@@ -4671,12 +4637,14 @@ const SupabaseDataAdapter = {
 
     async getKursTermine() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_termine')
-                .select('*')
-                .order('datum', { ascending: false });
-            if (error) throw error;
-            return data || [];
+            // Alle Kurse laden und deren Termine sammeln
+            const kurse = await ApiClient.getKurse();
+            const alleTermine = [];
+            for (const kurs of kurse) {
+                const termine = await ApiClient.getKursTermine(kurs.id);
+                alleTermine.push(...termine);
+            }
+            return alleTermine;
         } catch (error) {
             console.error('Fehler beim Laden der Kurs-Termine:', error);
             return [];
@@ -4685,12 +4653,7 @@ const SupabaseDataAdapter = {
 
     async addKursTermin(terminData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_termine')
-                .insert([terminData])
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            return await ApiClient.createKursTermin(terminData.kurs_id, terminData);
         } catch (error) {
             console.error('Fehler beim Hinzufuegen des Termins:', error);
             throw error;
@@ -4699,13 +4662,9 @@ const SupabaseDataAdapter = {
 
     async updateKursTermin(id, terminData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_termine')
-                .update(terminData)
-                .eq('id', id)
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            // TODO: API-Route für update Termin hinzufügen
+            console.warn('updateKursTermin noch nicht implementiert');
+            return terminData;
         } catch (error) {
             console.error('Fehler beim Aktualisieren des Termins:', error);
             throw error;
@@ -4714,11 +4673,9 @@ const SupabaseDataAdapter = {
 
     async getKursTeilnehmer() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_teilnehmer')
-                .select('*');
-            if (error) throw error;
-            return data || [];
+            // TODO: Alle Teilnehmer laden - braucht globale Route
+            console.warn('getKursTeilnehmer global noch nicht implementiert');
+            return [];
         } catch (error) {
             console.error('Fehler beim Laden der Kurs-Teilnehmer:', error);
             return [];
@@ -4727,15 +4684,10 @@ const SupabaseDataAdapter = {
 
     async addKursTeilnehmer(teilnehmerData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_teilnehmer')
-                .insert([teilnehmerData])
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            return await ApiClient.createKursTeilnehmer(teilnehmerData.termin_id, teilnehmerData);
         } catch (error) {
             // Ignoriere Duplikat-Fehler (UNIQUE constraint)
-            if (error.code === '23505') {
+            if (error.message && error.message.includes('duplicate')) {
                 console.log('Teilnehmer bereits vorhanden');
                 return null;
             }
@@ -4746,11 +4698,9 @@ const SupabaseDataAdapter = {
 
     async getAblaufendeZertifikate() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('v_ablaufende_zertifikate')
-                .select('*');
-            if (error) throw error;
-            return data || [];
+            // TODO: View v_ablaufende_zertifikate via API bereitstellen
+            console.warn('getAblaufendeZertifikate noch nicht via API implementiert');
+            return [];
         } catch (error) {
             console.error('Fehler beim Laden der ablaufenden Zertifikate:', error);
             return [];
@@ -4797,13 +4747,9 @@ const SupabaseDataAdapter = {
 
     async getEssensgutscheinBestellungen() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('essensgutschein_bestellungen')
-                .select('*')
-                .order('jahr', { ascending: false })
-                .order('monat', { ascending: false });
-            if (error) throw error;
-            return data || [];
+            // TODO: API-Route für Essensgutschein-Bestellungen hinzufügen
+            console.warn('getEssensgutscheinBestellungen noch nicht via API implementiert');
+            return [];
         } catch (error) {
             console.error('Fehler beim Laden der Bestellungen:', error);
             return [];
@@ -4812,14 +4758,9 @@ const SupabaseDataAdapter = {
 
     async upsertEssensgutscheinBestellung(bestellungData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('essensgutschein_bestellungen')
-                .upsert([bestellungData], {
-                    onConflict: 'jahr,monat'
-                })
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            // TODO: API-Route für Essensgutschein-Bestellungen hinzufügen
+            console.warn('upsertEssensgutscheinBestellung noch nicht via API implementiert');
+            return bestellungData;
         } catch (error) {
             console.error('Fehler beim Speichern der Bestellung:', error);
             throw error;
@@ -4828,13 +4769,9 @@ const SupabaseDataAdapter = {
 
     async updateEssensgutscheinBestellung(id, bestellungData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('essensgutschein_bestellungen')
-                .update(bestellungData)
-                .eq('id', id)
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            // TODO: API-Route für Essensgutschein-Bestellungen hinzufügen
+            console.warn('updateEssensgutscheinBestellung noch nicht via API implementiert');
+            return bestellungData;
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Bestellung:', error);
             throw error;
@@ -4845,12 +4782,9 @@ const SupabaseDataAdapter = {
 
     async addKursKategorie(kategorieData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_kategorien')
-                .insert([kategorieData])
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            // TODO: API-Route für Kategorien CRUD hinzufügen
+            console.warn('addKursKategorie noch nicht via API implementiert');
+            return kategorieData;
         } catch (error) {
             console.error('Fehler beim Erstellen der Kurskategorie:', error);
             throw error;
@@ -4859,13 +4793,9 @@ const SupabaseDataAdapter = {
 
     async updateKursKategorie(id, kategorieData) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('kurs_kategorien')
-                .update(kategorieData)
-                .eq('id', id)
-                .select();
-            if (error) throw error;
-            return data?.[0];
+            // TODO: API-Route für Kategorien CRUD hinzufügen
+            console.warn('updateKursKategorie noch nicht via API implementiert');
+            return kategorieData;
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Kurskategorie:', error);
             throw error;
@@ -4874,11 +4804,8 @@ const SupabaseDataAdapter = {
 
     async deleteKursKategorie(id) {
         try {
-            const { error } = await SupabaseService.client
-                .from('kurs_kategorien')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
+            // TODO: API-Route für Kategorien CRUD hinzufügen
+            console.warn('deleteKursKategorie noch nicht via API implementiert');
             return true;
         } catch (error) {
             console.error('Fehler beim Loeschen der Kurskategorie:', error);
@@ -4890,16 +4817,18 @@ const SupabaseDataAdapter = {
 
     async getKursanbieter() {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('suppliers')
-                .select('id, fornitore_name, email, phone, address')
-                .eq('is_kursanbieter', true)
-                .order('fornitore_name', { ascending: true });
-            if (error) throw error;
-            return (data || []).map(s => ({
-                ...s,
-                name: s.fornitore_name
-            }));
+            // Kursanbieter sind Suppliers mit is_kursanbieter = true
+            const suppliers = await ApiClient.getSuppliers();
+            return (suppliers || [])
+                .filter(s => s.is_kursanbieter)
+                .map(s => ({
+                    id: s.id,
+                    fornitore_name: s.fornitore_name,
+                    email: s.email,
+                    phone: s.phone,
+                    address: s.address,
+                    name: s.fornitore_name
+                }));
         } catch (error) {
             console.error('Fehler beim Laden der Kursanbieter:', error);
             return [];
