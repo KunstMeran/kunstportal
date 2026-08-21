@@ -20083,10 +20083,16 @@ const App = {
     // User: Meine Anwesenheit als Monatskalender rendern
     renderMeineAnwesenheit: async function() {
         const container = document.getElementById('meine-anwesenheit-kalender');
-        if (!container) return;
+        if (!container) {
+            console.log('renderMeineAnwesenheit: Container nicht gefunden');
+            return;
+        }
 
         const currentUserId = await DataManager.getCurrentPublicUserId();
-        if (!currentUserId) return;
+        console.log('renderMeineAnwesenheit: currentUserId =', currentUserId);
+        if (!currentUserId) {
+            console.log('renderMeineAnwesenheit: Kein User - zeige Kalender trotzdem');
+        }
 
         const year = this.anwesenheitState.meineCurrentMonth.getFullYear();
         const month = this.anwesenheitState.meineCurrentMonth.getMonth();
@@ -20109,7 +20115,7 @@ const App = {
         // Tage des Monats
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const datum = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const planung = this.anwesenheitState.planung.find(p => p.datum === datum && p.user_id === currentUserId);
+            const planung = this.anwesenheitState.planung.find(p => p.datum === datum && String(p.user_id) === String(currentUserId));
             const dateObj = new Date(year, month, day);
             const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
             const isToday = datum === new Date().toISOString().split('T')[0];
@@ -20146,7 +20152,8 @@ const App = {
     },
 
     // Tag zur Auswahl hinzufuegen/entfernen
-    toggleAnwesenheitAuswahl: function(datum) {
+    toggleAnwesenheitAuswahl: async function(datum) {
+        console.log('toggleAnwesenheitAuswahl:', datum);
         if (!this.anwesenheitState.selectedDates) {
             this.anwesenheitState.selectedDates = [];
         }
@@ -20157,8 +20164,9 @@ const App = {
         } else {
             this.anwesenheitState.selectedDates.push(datum);
         }
+        console.log('selectedDates:', this.anwesenheitState.selectedDates);
 
-        this.renderMeineAnwesenheit();
+        await this.renderMeineAnwesenheit();
     },
 
     // Auswahl speichern
