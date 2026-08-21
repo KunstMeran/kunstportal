@@ -90,6 +90,7 @@ app.use('/api/v1/zeiterfassung', require('./routes/zeiterfassung'));
 app.use('/api/v1/kurse', require('./routes/kurse'));
 app.use('/api/v1/anwesenheit', require('./routes/anwesenheit'));
 app.use('/api/v1/funding-sources', require('./routes/funding-sources'));
+app.use('/api/v1/costs', require('./routes/costs'));
 
 // Health check
 app.get('/api/v1/health', async (req, res) => {

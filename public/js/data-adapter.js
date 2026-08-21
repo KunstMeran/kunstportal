@@ -950,19 +950,10 @@ const SupabaseDataAdapter = {
 
     async getCostsByProject(projectId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('costs')
-                .select('*')
-                .eq('project_id', projectId)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-
-            return data.map(c => this.convertCostFromSupabase(c));
+            const data = await ApiClient.getCosts({ project_id: projectId });
+            return (data || []).map(c => this.convertCostFromSupabase(c));
         } catch (error) {
             console.error('Fehler beim Laden der Kosten:', error);
-            // Erstmal leeres Array zurückgeben (Kosten sind noch nicht migriert)
             return [];
         }
     },
@@ -1728,20 +1719,11 @@ const SupabaseDataAdapter = {
 
     async getTimeEntriesByProject(projectId) {
         try {
-            const { data, error } = await SupabaseService.client
-                .from('time_entries')
-                .select('*')
-                .eq('project_id', projectId)
-                .is('deleted_at', null)  // Soft-Delete Filter
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await ApiClient.getTimeEntries({ project_id: projectId });
             return (data || []).map(e => this.convertTimeEntryFromSupabase(e));
         } catch (error) {
             console.error('Fehler beim Laden der Projekt-Zeiteinträge:', error);
-            return DataManager._getTimeEntriesByProjectOriginal ?
-                DataManager._getTimeEntriesByProjectOriginal(projectId) : [];
+            return [];
         }
     },
 

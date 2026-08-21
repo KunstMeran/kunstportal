@@ -526,6 +526,35 @@ const ApiClient = {
         return await this.request(`/workspaces/permissions/${userId}`);
     },
 
+    // ========== COSTS ==========
+
+    async getCosts(filters = {}) {
+        const params = new URLSearchParams(filters).toString();
+        return await this.request(`/costs${params ? '?' + params : ''}`);
+    },
+
+    async getCostById(id) {
+        return await this.request(`/costs/${id}`);
+    },
+
+    async createCost(data) {
+        return await this.request('/costs', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateCost(id, data) {
+        return await this.request(`/costs/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteCost(id) {
+        return await this.request(`/costs/${id}`, { method: 'DELETE' });
+    },
+
     // ========== TIME ENTRIES ==========
 
     async getTimeEntries(filters = {}) {

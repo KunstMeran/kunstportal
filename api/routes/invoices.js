@@ -33,7 +33,7 @@ router.get('/', requireAuth, requirePermission('rechnungen', 'read'), async (req
             query += ' WHERE ' + conditions.join(' AND ');
         }
 
-        query += ` ORDER BY datum DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        query += ` ORDER BY uploaded_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
         values.push(limit, offset);
 
         const result = await pool.query(query, values);

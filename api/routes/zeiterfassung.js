@@ -21,14 +21,14 @@ router.get("/", requireAuth, requirePermission("zeiterfassung", "read"), async (
         }
         if (start_date) {
             values.push(start_date);
-            query += ` AND datum >= $${values.length}`;
+            query += ` AND date >= $${values.length}`;
         }
         if (end_date) {
             values.push(end_date);
-            query += ` AND datum <= $${values.length}`;
+            query += ` AND date <= $${values.length}`;
         }
 
-        query += ` ORDER BY datum DESC, start_time DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        query += ` ORDER BY date DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
         values.push(limit, offset);
 
         const result = await pool.query(query, values);
@@ -71,11 +71,11 @@ router.get("/stats/summary", requireAuth, requirePermission("zeiterfassung", "re
 
         if (year) {
             values.push(parseInt(year));
-            query += ` AND EXTRACT(YEAR FROM datum) = $${values.length}`;
+            query += ` AND EXTRACT(YEAR FROM date) = $${values.length}`;
         }
         if (month) {
             values.push(parseInt(month));
-            query += ` AND EXTRACT(MONTH FROM datum) = $${values.length}`;
+            query += ` AND EXTRACT(MONTH FROM date) = $${values.length}`;
         }
         if (project_id) {
             values.push(project_id);
