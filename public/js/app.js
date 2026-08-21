@@ -5734,13 +5734,9 @@ const App = {
             const filePath = `invoices/${newFileName}`;
             console.log('📤 Generierter Dateiname:', newFileName);
 
-            // Upload zu Supabase Storage
-            const { data: uploadData, error: uploadError } = await SupabaseService.client.storage
-                .from('invoices')
-                .upload(filePath, file, { upsert: true });
-
-            console.log('📤 Storage Upload Ergebnis:', { uploadData, uploadError });
-            if (uploadError) throw uploadError;
+            // Upload zu Storage via ApiClient
+            const uploadResult = await ApiClient.uploadFile('invoices', file, newFileName);
+            console.log('📤 Storage Upload Ergebnis:', uploadResult);
 
             // Booking-ID extrahieren wenn vorhanden (für linked_booking_id)
             let bookingId = null;
@@ -5748,15 +5744,9 @@ const App = {
                 bookingId = rechnungId.substring(3);
             } else if (rechnungId && partitaIva && dokumentNr) {
                 // Bei partitaIva_dokumentNr Format: Booking-ID aus DB holen
-                const { data: booking } = await SupabaseService.client
-                    .from('datev_bookings')
-                    .select('id')
-                    .eq('partita_iva', partitaIva)
-                    .eq('dokument_nr', dokumentNr)
-                    .limit(1)
-                    .single();
-                if (booking) {
-                    bookingId = booking.id;
+                const bookings = await ApiClient.getDatevBookings({ partita_iva: partitaIva, dokument_nr: dokumentNr });
+                if (bookings.length > 0) {
+                    bookingId = bookings[0].id;
                     console.log('📤 Booking-ID aus DB geholt:', bookingId);
                 }
             }
@@ -5775,85 +5765,60 @@ const App = {
                 console.log('📤 linked_booking_id gesetzt:', bookingId);
             }
 
-            const { data: invoiceData, error: dbError } = await SupabaseService.client
-                .from('invoices')
-                .insert(insertData)
-                .select()
-                .single();
-
-            console.log('📤 Invoice DB Insert Ergebnis:', { invoiceData, dbError });
-            if (dbError) throw dbError;
+            const invoiceData = await ApiClient.createInvoice(insertData);
+            console.log('📤 Invoice DB Insert Ergebnis:', invoiceData);
 
             // Wenn wir eine rechnungId haben, verknüpfe auch mit datev_bookings (Rückwärtskompatibilität)
             // HINWEIS: Die Hauptverknüpfung läuft jetzt über linked_booking_id in invoices
             if (rechnungId && invoiceData) {
                 console.log('📤 Verknüpfe mit datev_bookings, rechnungId:', rechnungId);
-                let linkData = null;
-                let linkError = null;
+                let updatedCount = 0;
 
-                // Prüfe ob ID-Format (id:UUID) oder altes Format (partitaIva_dokumentNr)
-                if (rechnungId.startsWith('id:')) {
-                    const dbId = rechnungId.substring(3);
-                    console.log('📤 Verknüpfe via DB-ID:', dbId, 'Invoice-ID:', invoiceData.id);
+                try {
+                    // Prüfe ob ID-Format (id:UUID) oder altes Format (partitaIva_dokumentNr)
+                    if (rechnungId.startsWith('id:')) {
+                        const dbId = rechnungId.substring(3);
+                        console.log('📤 Verknüpfe via DB-ID:', dbId, 'Invoice-ID:', invoiceData.id);
 
-                    // linked_invoice_id in datev_bookings setzen (Rückwärtskompatibilität, nur für erstes PDF)
-                    // Prüfen ob bereits ein linked_invoice_id gesetzt ist
-                    const { data: existingBooking } = await SupabaseService.client
-                        .from('datev_bookings')
-                        .select('linked_invoice_id')
-                        .eq('id', dbId)
-                        .single();
+                        // linked_invoice_id in datev_bookings setzen (Rückwärtskompatibilität, nur für erstes PDF)
+                        // Prüfen ob bereits ein linked_invoice_id gesetzt ist
+                        const existingBookings = await ApiClient.getDatevBookings();
+                        const existingBooking = existingBookings.find(b => String(b.id) === String(dbId));
 
-                    // Nur setzen wenn noch kein PDF verknüpft war
-                    if (!existingBooking?.linked_invoice_id) {
-                        const result = await SupabaseService.client
-                            .from('datev_bookings')
-                            .update({ linked_invoice_id: invoiceData.id })
-                            .eq('id', dbId)
-                            .select();
-                        linkData = result.data;
-                        linkError = result.error;
+                        // Nur setzen wenn noch kein PDF verknüpft war
+                        if (existingBooking && !existingBooking.linked_invoice_id) {
+                            await ApiClient.updateDatevBooking(dbId, { linked_invoice_id: invoiceData.id });
+                            updatedCount = 1;
+                        } else if (existingBooking?.linked_invoice_id) {
+                            console.log('📤 Buchung hat bereits ein verknüpftes PDF, überspringe linked_invoice_id Update');
+                            updatedCount = 1;
+                        }
+
+                        if (updatedCount === 0) {
+                            console.warn('⚠️ Keine DATEV-Buchung mit ID gefunden:', dbId);
+                        }
                     } else {
-                        console.log('📤 Buchung hat bereits ein verknüpftes PDF, überspringe linked_invoice_id Update');
-                        linkData = [existingBooking];
+                        // Format: partitaIva_dokumentNr (kann auch _dokumentNr sein wenn partitaIva leer)
+                        const [pIva, ...dNrParts] = rechnungId.split('_');
+                        const dNr = dNrParts.join('_');
+                        console.log('📤 Verknüpfe via partitaIva/dokumentNr:', { pIva, dNr });
+
+                        // Buchungen suchen und linked_invoice_id setzen
+                        const bookings = await ApiClient.getDatevBookings({ partita_iva: pIva || '', dokument_nr: dNr });
+                        for (const booking of bookings) {
+                            if (!booking.linked_invoice_id) {
+                                await ApiClient.updateDatevBooking(booking.id, { linked_invoice_id: invoiceData.id });
+                                updatedCount++;
+                            }
+                        }
+
+                        if (updatedCount === 0 && bookings.length === 0) {
+                            console.warn('⚠️ Keine DATEV-Buchung mit partitaIva/dokumentNr gefunden:', { pIva, dNr });
+                        }
                     }
 
-                    // Falls kein Match gefunden wurde, logge Warnung
-                    if (!linkData || linkData.length === 0) {
-                        console.warn('⚠️ Keine DATEV-Buchung mit ID gefunden:', dbId);
-                    }
-                } else {
-                    // Format: partitaIva_dokumentNr (kann auch _dokumentNr sein wenn partitaIva leer)
-                    const [pIva, ...dNrParts] = rechnungId.split('_');
-                    const dNr = dNrParts.join('_');
-                    console.log('📤 Verknüpfe via partitaIva/dokumentNr:', { pIva, dNr });
-
-                    // linked_invoice_id in datev_bookings setzen (per partitaIva + dokumentNr)
-                    // Wenn partitaIva leer ist, suche nach leerer partita_iva ODER null
-                    let query = SupabaseService.client
-                        .from('datev_bookings')
-                        .update({ linked_invoice_id: invoiceData.id });
-
-                    if (pIva && pIva.trim() !== '') {
-                        query = query.eq('partita_iva', pIva);
-                    } else {
-                        // Leere partita_iva: match auf leer oder null
-                        query = query.or('partita_iva.is.null,partita_iva.eq.');
-                    }
-                    query = query.eq('dokument_nr', dNr);
-
-                    const result = await query.select();
-                    linkData = result.data;
-                    linkError = result.error;
-
-                    if (!linkData || linkData.length === 0) {
-                        console.warn('⚠️ Keine DATEV-Buchung mit partitaIva/dokumentNr gefunden:', { pIva, dNr });
-                    }
-                }
-
-                console.log('📤 Verknüpfung Ergebnis:', { linkData, linkError, matchCount: linkData?.length || 0 });
-
-                if (linkError) {
+                    console.log('📤 Verknüpfung Ergebnis:', { updatedCount });
+                } catch (linkError) {
                     console.error('❌ Verknüpfungsfehler:', linkError);
                 }
             } else {
@@ -9277,23 +9242,18 @@ const App = {
             for (const file of newFiles) {
                 try {
                     const inventarId = id || Date.now().toString();
-                    const fileName = `inventar/${inventarId}/${Date.now()}_${file.name}`;
+                    const fileName = `${Date.now()}_${file.name}`;
+                    const folderPath = `documents/inventar/${inventarId}`;
 
-                    const { data, error } = await SupabaseService.client.storage
-                        .from('documents')
-                        .upload(fileName, file);
-
-                    if (error) throw error;
+                    const uploadResult = await ApiClient.uploadFile(folderPath, file, fileName);
 
                     // URL generieren
-                    const { data: urlData } = SupabaseService.client.storage
-                        .from('documents')
-                        .getPublicUrl(fileName);
+                    const fileUrl = ApiClient.getStorageUrl(`${folderPath}/${fileName}`);
 
                     this.currentInventarAnhaenge.push({
                         name: file.name,
-                        path: fileName,
-                        url: urlData.publicUrl,
+                        path: `${folderPath}/${fileName}`,
+                        url: fileUrl,
                         uploadedAt: new Date().toISOString()
                     });
                 } catch (error) {
@@ -14085,14 +14045,11 @@ const App = {
         // PDF-Vorschau laden
         if (this.selectedPdfForVerknuepfung?.file_path) {
             try {
-                const { data, error } = await SupabaseService.client.storage
-                    .from('invoices')
-                    .createSignedUrl(this.selectedPdfForVerknuepfung.file_path, 300);
-
-                if (error) throw error;
+                // URL für Storage-Datei generieren
+                const pdfUrl = await StorageService.getSignedUrl(this.selectedPdfForVerknuepfung.file_path);
 
                 const container = document.getElementById('pdf-vorschau-container');
-                container.innerHTML = `<iframe src="${data.signedUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+                container.innerHTML = `<iframe src="${pdfUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
             } catch (error) {
                 console.error('Fehler beim Laden der PDF-Vorschau:', error);
                 document.getElementById('pdf-vorschau-container').innerHTML = '<p style="color: #e74c3c; text-align: center;">PDF konnte nicht geladen werden</p>';

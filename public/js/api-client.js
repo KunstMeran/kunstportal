@@ -778,6 +778,11 @@ const ApiClient = {
         return `${Config.storage.baseUrl}/${path}`;
     },
 
+    getStorageUrl(path) {
+        // Alias für getFileUrl - für konsistente API
+        return this.getFileUrl(path);
+    },
+
     // ========== HEALTH CHECK ==========
 
     async healthCheck() {
