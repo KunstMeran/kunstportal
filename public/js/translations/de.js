@@ -150,7 +150,9 @@ const translations_de = {
         noProjects: "Keine Projekte vorhanden",
         showingProjects: "Zeige {start}-{end} von {total} Projekten",
         deleteConfirm: "Projekt wirklich löschen?",
-        projectNotFound: "Projekt nicht gefunden"
+        projectNotFound: "Projekt nicht gefunden",
+        workHours: "Arbeitsstunden",
+        pl1Exhibition: "PL1 - Ausstellungsmanagement"
     },
 
     // Invoices
@@ -338,12 +340,20 @@ const translations_de = {
         title: "Inventar",
         newItem: "+ Neues Item",
         itemName: "Bezeichnung",
+        designation: "Bezeichnung",
         category: "Kategorie",
         location: "Standort",
         quantity: "Anzahl",
         value: "Wert",
+        valueEur: "Wert (EUR)",
         lastCheck: "Letzte Prüfung",
-        noItems: "Keine Inventar-Items gefunden"
+        noItems: "Keine Inventar-Items gefunden",
+        warehouse: "Lager",
+        external: "Extern/Verliehen",
+        searchPlaceholder: "Bezeichnung suchen...",
+        inventoryNo: "Inv.-Nr.",
+        condition: "Zustand",
+        acquisition: "Anschaffung"
     },
 
     // Shop
@@ -415,7 +425,13 @@ const translations_de = {
         projectReport: "Projekt-Report",
         costAnalysis: "Kostenanalyse",
         budgetComparison: "Budget-Vergleich",
-        timeline: "Zeitverlauf"
+        timeline: "Zeitverlauf",
+        period: "Zeitraum:",
+        totalContributionMargin: "Gesamt-Deckungsbeitragsrechnung",
+        ytd: "YTD (bis heute)",
+        ytdPrevMonth: "YTD (bis Vormonat)",
+        fullYear: "Ganzes Jahr",
+        balanceAndPl: "Bilanz & Gewinn- und Verlustrechnung"
     },
 
     // Revenue planning
@@ -605,7 +621,21 @@ const translations_de = {
         thisMonth: "Diesen Monat",
         lastMonth: "Letzten Monat",
         thisYear: "Dieses Jahr",
-        lastYear: "Letztes Jahr"
+        lastYear: "Letztes Jahr",
+        months: {
+            january: "Januar",
+            february: "Februar",
+            march: "März",
+            april: "April",
+            may: "Mai",
+            june: "Juni",
+            july: "Juli",
+            august: "August",
+            september: "September",
+            october: "Oktober",
+            november: "November",
+            december: "Dezember"
+        }
     },
 
     // Submission points

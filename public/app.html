@@ -1462,17 +1462,17 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Standort</label>
+                            <label class="form-label" data-i18n="inventory.location">Standort</label>
                             <select id="inventar-filter-standort" class="form-control" onchange="App.filterInventar()">
-                                <option value="">Alle Standorte</option>
+                                <option value="" data-i18n="inventoryPage.allLocations">Alle Standorte</option>
                                 <option value="kunsthaus">Kunsthaus Meran</option>
-                                <option value="lager">Lager</option>
-                                <option value="extern">Extern/Verliehen</option>
+                                <option value="lager" data-i18n="inventory.warehouse">Lager</option>
+                                <option value="extern" data-i18n="inventory.external">Extern/Verliehen</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Suche</label>
-                            <input type="text" id="inventar-suche" class="form-control" placeholder="Bezeichnung suchen..." oninput="App.filterInventar()">
+                            <label class="form-label" data-i18n="actions.search">Suche</label>
+                            <input type="text" id="inventar-suche" class="form-control" data-i18n-placeholder="inventory.searchPlaceholder" placeholder="Bezeichnung suchen..." oninput="App.filterInventar()">
                         </div>
                     </div>
                 </div>
@@ -1480,22 +1480,22 @@
                 <!-- Inventarliste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Inventar</h3>
-                        <button class="btn btn-outline btn-sm" onclick="App.exportInventarCSV()">CSV Export</button>
+                        <h3 class="card-title" data-i18n="inventory.title">Inventar</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportInventarCSV()" data-i18n="inventoryPage.csvExport">CSV Export</button>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Inv.-Nr.</th>
-                                    <th>Bezeichnung</th>
-                                    <th>Kategorie</th>
-                                    <th>Standort</th>
-                                    <th>Zustand</th>
-                                    <th>Anschaffung</th>
-                                    <th>Wert (EUR)</th>
-                                    <th>Geändert</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="inventory.inventoryNo">Inv.-Nr.</th>
+                                    <th data-i18n="inventory.designation">Bezeichnung</th>
+                                    <th data-i18n="forms.category">Kategorie</th>
+                                    <th data-i18n="inventory.location">Standort</th>
+                                    <th data-i18n="inventory.condition">Zustand</th>
+                                    <th data-i18n="inventory.acquisition">Anschaffung</th>
+                                    <th data-i18n="inventory.valueEur">Wert (EUR)</th>
+                                    <th data-i18n="inventoryPage.modified">Geändert</th>
+                                    <th data-i18n="actions.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="inventar-table-body">
@@ -2029,24 +2029,24 @@
                 <div class="reporting-tab-content hidden" id="reporting-tab-2">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Gesamt-Deckungsbeitragsrechnung</h3>
+                            <h3 class="card-title" data-i18n="reporting.totalContributionMargin">Gesamt-Deckungsbeitragsrechnung</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <label style="font-size: 0.85rem; color: #666;">Zeitraum:</label>
+                                <label style="font-size: 0.85rem; color: #666;" data-i18n="reporting.period">Zeitraum:</label>
                                 <select id="db-zeitraum" class="form-control" style="width: auto; font-size: 0.85rem;" onchange="App.loadDeckungsbeitragMitFilter()">
-                                    <option value="ytd">YTD (bis heute)</option>
-                                    <option value="year">Ganzes Jahr</option>
-                                    <option value="1">Januar</option>
-                                    <option value="2">Februar</option>
-                                    <option value="3">März</option>
-                                    <option value="4">April</option>
-                                    <option value="5">Mai</option>
-                                    <option value="6">Juni</option>
-                                    <option value="7">Juli</option>
-                                    <option value="8">August</option>
-                                    <option value="9">September</option>
-                                    <option value="10">Oktober</option>
-                                    <option value="11">November</option>
-                                    <option value="12">Dezember</option>
+                                    <option value="ytd" data-i18n="reporting.ytd">YTD (bis heute)</option>
+                                    <option value="year" data-i18n="reporting.fullYear">Ganzes Jahr</option>
+                                    <option value="1" data-i18n="datetime.months.january">Januar</option>
+                                    <option value="2" data-i18n="datetime.months.february">Februar</option>
+                                    <option value="3" data-i18n="datetime.months.march">März</option>
+                                    <option value="4" data-i18n="datetime.months.april">April</option>
+                                    <option value="5" data-i18n="datetime.months.may">Mai</option>
+                                    <option value="6" data-i18n="datetime.months.june">Juni</option>
+                                    <option value="7" data-i18n="datetime.months.july">Juli</option>
+                                    <option value="8" data-i18n="datetime.months.august">August</option>
+                                    <option value="9" data-i18n="datetime.months.september">September</option>
+                                    <option value="10" data-i18n="datetime.months.october">Oktober</option>
+                                    <option value="11" data-i18n="datetime.months.november">November</option>
+                                    <option value="12" data-i18n="datetime.months.december">Dezember</option>
                                 </select>
                                 <span id="db-zeitraum-info" style="font-size: 0.8rem; color: #666;"></span>
                             </div>
@@ -2146,24 +2146,24 @@
                 <div class="reporting-tab-content hidden" id="reporting-tab-5">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Bilanz & Gewinn- und Verlustrechnung</h3>
+                            <h3 class="card-title" data-i18n="reporting.balanceAndPl">Bilanz & Gewinn- und Verlustrechnung</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                                <label style="font-size: 0.85rem; color: #666;">Zeitraum:</label>
+                                <label style="font-size: 0.85rem; color: #666;" data-i18n="reporting.period">Zeitraum:</label>
                                 <select id="bilanz-zeitraum" class="form-control" style="width: auto; font-size: 0.85rem;" onchange="App.loadBilanzReport()">
-                                    <option value="ytd">YTD (bis Vormonat)</option>
-                                    <option value="year">Ganzes Jahr</option>
-                                    <option value="1">Januar</option>
-                                    <option value="2">Februar</option>
-                                    <option value="3">März</option>
-                                    <option value="4">April</option>
-                                    <option value="5">Mai</option>
-                                    <option value="6">Juni</option>
-                                    <option value="7">Juli</option>
-                                    <option value="8">August</option>
-                                    <option value="9">September</option>
-                                    <option value="10">Oktober</option>
-                                    <option value="11">November</option>
-                                    <option value="12">Dezember</option>
+                                    <option value="ytd" data-i18n="reporting.ytdPrevMonth">YTD (bis Vormonat)</option>
+                                    <option value="year" data-i18n="reporting.fullYear">Ganzes Jahr</option>
+                                    <option value="1" data-i18n="datetime.months.january">Januar</option>
+                                    <option value="2" data-i18n="datetime.months.february">Februar</option>
+                                    <option value="3" data-i18n="datetime.months.march">März</option>
+                                    <option value="4" data-i18n="datetime.months.april">April</option>
+                                    <option value="5" data-i18n="datetime.months.may">Mai</option>
+                                    <option value="6" data-i18n="datetime.months.june">Juni</option>
+                                    <option value="7" data-i18n="datetime.months.july">Juli</option>
+                                    <option value="8" data-i18n="datetime.months.august">August</option>
+                                    <option value="9" data-i18n="datetime.months.september">September</option>
+                                    <option value="10" data-i18n="datetime.months.october">Oktober</option>
+                                    <option value="11" data-i18n="datetime.months.november">November</option>
+                                    <option value="12" data-i18n="datetime.months.december">Dezember</option>
                                 </select>
                                 <span id="bilanz-zeitraum-info" style="font-size: 0.8rem; color: #666;"></span>
                                 <select id="bilanz-vergleichsjahr" class="form-control" style="width: auto;" onchange="App.loadBilanzReport()">
@@ -3172,46 +3172,46 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Projektinformationen</h3>
-                            <button class="btn btn-primary btn-sm admin-only" onclick="App.editCurrentProject()">
+                            <button class="btn btn-primary btn-sm admin-only" onclick="App.editCurrentProject()" data-i18n="actions.edit">
                                 Bearbeiten
                             </button>
                         </div>
                         <div class="detail-grid">
                             <div class="detail-item">
-                                <label>Standort</label>
+                                <label data-i18n="forms.location">Standort</label>
                                 <span id="fp-location">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>DATEV-ID</label>
+                                <label data-i18n="modals.datevId">DATEV-ID</label>
                                 <span id="fp-datev-id">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>Zeitraum</label>
+                                <label data-i18n="reporting.period">Zeitraum</label>
                                 <span id="fp-period">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>Status</label>
+                                <label data-i18n="forms.status">Status</label>
                                 <span id="fp-status">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>Arbeitsstunden</label>
+                                <label data-i18n="projects.workHours">Arbeitsstunden</label>
                                 <span id="fp-hours">0 Std.</span>
                             </div>
                             <div class="detail-item">
-                                <label>PL1 - Ausstellungsmanagement</label>
+                                <label data-i18n="projects.pl1Exhibition">PL1 - Ausstellungsmanagement</label>
                                 <span id="fp-pl1">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>PL2 - Kommunikation</label>
+                                <label data-i18n="modals.pl2Communication">PL2 - Kommunikation</label>
                                 <span id="fp-pl2">-</span>
                             </div>
                             <div class="detail-item">
-                                <label>PL3 - Vermittlung</label>
+                                <label data-i18n="modals.pl3Mediation">PL3 - Vermittlung</label>
                                 <span id="fp-pl3">-</span>
                             </div>
                         </div>
                         <div style="margin-top: 1rem;">
-                            <label style="font-size: 0.75rem; color: #666; text-transform: uppercase;">Beschreibung</label>
+                            <label style="font-size: 0.75rem; color: #666; text-transform: uppercase;" data-i18n="forms.description">Beschreibung</label>
                             <p id="fp-description" style="margin: 0.25rem 0 0 0;">-</p>
                         </div>
                         <div id="fp-audit-info" style="margin-top: 0.75rem; font-size: 0.75rem; color: #888;"></div>
