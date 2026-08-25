@@ -855,7 +855,101 @@ const translations_it = {
         month: "Mese",
         expiringCertificates: "Certificati in scadenza",
         course: "Corso",
-        required: "Obbligatorio"
+        required: "Obbligatorio",
+        // Workspace permissions
+        accessAreas: "Accesso alle aree",
+        area: "Area",
+        none: "Nessuno",
+        read: "Lettura",
+        edit: "Modif.",
+        delete: "Elim.",
+        showOnlyAssignedInvoices: "Fatture: Mostra solo assegnate",
+        usersInWorkspace: "Utenti nel Workspace",
+        addUser: "Aggiungi utente",
+        userMustBeRegistered: "L'utente deve aver effettuato almeno un accesso.",
+        assignedUsers: "Utenti assegnati",
+        // PDF & Document
+        pdfNotAccessible: "Il file non esiste o non è accessibile.",
+        removeInvalidLink: "Rimuovi collegamento non valido",
+        openInNewTab: "Apri in nuova scheda",
+        document: "Documento",
+        // Invoice details
+        deductibleVat: "IVA detraibile (85%):",
+        nonDeductibleVat: "Non detraibile (Pro-Rata):",
+        statusHistory: "Cronologia stato",
+        splitInvoiceHint: "Quando sono coinvolti più progetti o finanziatori",
+        // Meeting/Sitzung
+        time: "Orario",
+        participants: "Partecipanti",
+        agenda: "Agenda / Argomenti",
+        tasksFromMeeting: "Attività da questa riunione",
+        // Artist
+        website: "Sito web",
+        linkedProjects: "Progetti/Eventi collegati",
+        // Inventory
+        multipleFilesHint: "Più file possibili: PDF, Immagini, Word, Excel",
+        organization: "Organizzazione",
+        // Revenue/Income
+        newIncome: "Nuova entrata",
+        nameOrDescription: "Nome / Descrizione",
+        source: "Fonte / Ente",
+        submissionPointHint: "Se abilitato, questa entrata può essere selezionata per le fatture",
+        confirmationDocument: "Documento di conferma (Email, Lettera, Contratto)",
+        documentFileTypes: "PDF, Immagine, Word o file Email",
+        // Budget
+        projectOptional: "Progetto (opzionale)",
+        noProject: "-- Nessun progetto --",
+        distributesTo12Months: "L'importo viene distribuito uniformemente su 12 mesi",
+        // Members import
+        importMembersFromExcel: "Importa soci da Excel",
+        importMembersHint: "Carica un file Excel con i dati dei soci.",
+        previewFirst5Rows: "Anteprima (prime 5 righe):",
+        assignPayment: "Assegna pagamento",
+        selectDatevBooking: "Seleziona registrazione DATEV (Conto 6401550)",
+        paymentDate: "Data pagamento",
+        savePayment: "Salva pagamento",
+        assignDatevToMembers: "Assegna registrazioni DATEV ai soci",
+        assignDatevHint: "Seleziona una registrazione e assegnala a uno o più soci.",
+        searchBooking: "Cerca registrazione",
+        bookingsAccount: "Registrazioni (Conto 6401550)",
+        showAlreadyPaid: "Mostra già pagati",
+        clickToSelectHint: "Clicca per selezionare (max. 2 per pagamento congiunto)",
+        makeAssignment: "Effettua assegnazione:",
+        booking: "Registrazione:",
+        members: "Socio/i:",
+        assignNow: "Assegna ora",
+        // DATEV Link
+        linkDatevToInvoice: "Collega movimento DATEV a fattura",
+        linkNow: "Collega ora",
+        datevMovements: "Movimenti DATEV",
+        withoutPdf: "Senza PDF",
+        withPdf: "Con PDF",
+        uploadedPdfs: "PDF caricati",
+        notLinked: "Non collegato",
+        withoutNote: "Senza nota",
+        withNote: "Con nota",
+        // Convert
+        convertConfirmText: "Vuoi convertire questi costi provvisori in costi effettivi?",
+        convert: "Converti",
+        // Supplier
+        partitaIvaHint: "Obbligatorio - Formato: IT + 11 cifre",
+        contactPerson: "Referente (interno)",
+        noContactPerson: "-- Nessun referente --",
+        courseProvider: "Fornitore corsi",
+        courseProviderHint: "Può essere selezionato come fornitore per corsi/formazione",
+        // Employee
+        employeeType: "Tipo dipendente",
+        // Account DB levels
+        dbUmsatz: "Ricavi (Entrate)",
+        dbDb1: "DB1 - Costi diretti",
+        dbDb2: "DB2 - Costi strutturali",
+        dbDb3: "DB3 - Costi fissi",
+        projectRelated: "Correlato a progetto",
+        projectRelatedHint: "Se abilitato, le registrazioni su questo conto saranno assegnate a un progetto",
+        // Workspace area names
+        markAsPaid: "- Segna come pagato",
+        movements: "Movimenti",
+        timeTracking: "Rilevamento ore"
     },
 
     // Reporting tabs

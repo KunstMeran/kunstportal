@@ -856,7 +856,101 @@ const translations_de = {
         month: "Monat",
         expiringCertificates: "Ablaufende Zertifikate",
         course: "Kurs",
-        required: "Pflicht"
+        required: "Pflicht",
+        // Workspace permissions
+        accessAreas: "Zugriff auf Bereiche",
+        area: "Bereich",
+        none: "Kein",
+        read: "Lesen",
+        edit: "Bearb.",
+        delete: "Lsch.",
+        showOnlyAssignedInvoices: "Rechnungen: Nur zugewiesene anzeigen",
+        usersInWorkspace: "Benutzer im Workspace",
+        addUser: "Benutzer hinzufügen",
+        userMustBeRegistered: "Der Benutzer muss sich bereits einmal angemeldet haben.",
+        assignedUsers: "Zugewiesene Benutzer",
+        // PDF & Document
+        pdfNotAccessible: "Die Datei existiert nicht oder ist nicht zugänglich.",
+        removeInvalidLink: "Ungültige Verknüpfung entfernen",
+        openInNewTab: "In neuem Tab öffnen",
+        document: "Dokument",
+        // Invoice details
+        deductibleVat: "Absetzbare MwSt (85%):",
+        nonDeductibleVat: "Nicht absetzbar (Pro-Rata):",
+        statusHistory: "Status-Verlauf",
+        splitInvoiceHint: "Wenn mehrere Projekte oder Fördergeber beteiligt sind",
+        // Meeting/Sitzung
+        time: "Uhrzeit",
+        participants: "Teilnehmer",
+        agenda: "Agenda / Themen",
+        tasksFromMeeting: "Aufgaben aus dieser Sitzung",
+        // Artist
+        website: "Website",
+        linkedProjects: "Verknüpfte Projekte/Events",
+        // Inventory
+        multipleFilesHint: "Mehrere Dateien möglich: PDF, Bilder, Word, Excel",
+        organization: "Organisation",
+        // Revenue/Income
+        newIncome: "Neue Einnahme",
+        nameOrDescription: "Name / Bezeichnung",
+        source: "Quelle / Geber",
+        submissionPointHint: "Wenn aktiviert, kann diese Einnahme bei Rechnungen ausgewählt werden",
+        confirmationDocument: "Bestätigungsdokument (E-Mail, Zusage, Vertrag)",
+        documentFileTypes: "PDF, Bild, Word oder E-Mail-Datei",
+        // Budget
+        projectOptional: "Projekt (optional)",
+        noProject: "-- Kein Projekt --",
+        distributesTo12Months: "Eingabe verteilt gleichmäßig auf 12 Monate",
+        // Members import
+        importMembersFromExcel: "Mitglieder aus Excel importieren",
+        importMembersHint: "Laden Sie eine Excel-Datei mit Mitgliederdaten hoch.",
+        previewFirst5Rows: "Vorschau (erste 5 Zeilen):",
+        assignPayment: "Zahlung zuweisen",
+        selectDatevBooking: "DATEV-Buchung auswählen (Konto 6401550)",
+        paymentDate: "Zahlungsdatum",
+        savePayment: "Zahlung speichern",
+        assignDatevToMembers: "DATEV-Buchungen Mitgliedern zuweisen",
+        assignDatevHint: "Wählen Sie eine Buchung und ordnen Sie sie einem oder mehreren Mitgliedern zu.",
+        searchBooking: "Buchung suchen",
+        bookingsAccount: "Buchungen (Konto 6401550)",
+        showAlreadyPaid: "Bereits bezahlte anzeigen",
+        clickToSelectHint: "Klicken um auszuwählen (max. 2 bei gemeinsamer Zahlung)",
+        makeAssignment: "Zuweisung vornehmen:",
+        booking: "Buchung:",
+        members: "Mitglied(er):",
+        assignNow: "Jetzt zuweisen",
+        // DATEV Link
+        linkDatevToInvoice: "DATEV-Bewegung mit Rechnung verknüpfen",
+        linkNow: "Jetzt verknüpfen",
+        datevMovements: "DATEV-Bewegungen",
+        withoutPdf: "Ohne PDF",
+        withPdf: "Mit PDF",
+        uploadedPdfs: "Hochgeladene PDFs",
+        notLinked: "Nicht verknüpft",
+        withoutNote: "Ohne Notiz",
+        withNote: "Mit Notiz",
+        // Convert
+        convertConfirmText: "Möchten Sie diese provisorischen Kosten in effektive IST-Kosten umwandeln?",
+        convert: "Umwandeln",
+        // Supplier
+        partitaIvaHint: "Pflichtfeld - Format: IT + 11 Ziffern",
+        contactPerson: "Ansprechperson (intern)",
+        noContactPerson: "-- Keine Ansprechperson --",
+        courseProvider: "Kursanbieter",
+        courseProviderHint: "Kann als Anbieter für Schulungen/Kurse ausgewählt werden",
+        // Employee
+        employeeType: "Mitarbeitertyp",
+        // Account DB levels
+        dbUmsatz: "Umsatz (Einnahmen)",
+        dbDb1: "DB1 - Direkte Kosten",
+        dbDb2: "DB2 - Strukturkosten",
+        dbDb3: "DB3 - Fixkosten",
+        projectRelated: "Projektbezogen",
+        projectRelatedHint: "Wenn aktiviert, werden Buchungen auf dieses Konto einem Projekt zugeordnet",
+        // Workspace area names
+        markAsPaid: "- Als bezahlt markieren",
+        movements: "Bewegungen",
+        timeTracking: "Zeiterfassung"
     },
 
     // Reporting tabs

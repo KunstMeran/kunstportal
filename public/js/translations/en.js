@@ -855,7 +855,101 @@ const translations_en = {
         month: "Month",
         expiringCertificates: "Expiring Certificates",
         course: "Course",
-        required: "Required"
+        required: "Required",
+        // Workspace permissions
+        accessAreas: "Access to Areas",
+        area: "Area",
+        none: "None",
+        read: "Read",
+        edit: "Edit",
+        delete: "Del.",
+        showOnlyAssignedInvoices: "Invoices: Show only assigned",
+        usersInWorkspace: "Users in Workspace",
+        addUser: "Add User",
+        userMustBeRegistered: "The user must have logged in at least once.",
+        assignedUsers: "Assigned Users",
+        // PDF & Document
+        pdfNotAccessible: "The file does not exist or is not accessible.",
+        removeInvalidLink: "Remove Invalid Link",
+        openInNewTab: "Open in new tab",
+        document: "Document",
+        // Invoice details
+        deductibleVat: "Deductible VAT (85%):",
+        nonDeductibleVat: "Non-deductible (Pro-Rata):",
+        statusHistory: "Status History",
+        splitInvoiceHint: "When multiple projects or funders are involved",
+        // Meeting/Sitzung
+        time: "Time",
+        participants: "Participants",
+        agenda: "Agenda / Topics",
+        tasksFromMeeting: "Tasks from this Meeting",
+        // Artist
+        website: "Website",
+        linkedProjects: "Linked Projects/Events",
+        // Inventory
+        multipleFilesHint: "Multiple files possible: PDF, Images, Word, Excel",
+        organization: "Organization",
+        // Revenue/Income
+        newIncome: "New Income",
+        nameOrDescription: "Name / Description",
+        source: "Source / Funder",
+        submissionPointHint: "If enabled, this income can be selected for invoices",
+        confirmationDocument: "Confirmation Document (Email, Letter, Contract)",
+        documentFileTypes: "PDF, Image, Word or Email file",
+        // Budget
+        projectOptional: "Project (optional)",
+        noProject: "-- No Project --",
+        distributesTo12Months: "Entry distributes evenly across 12 months",
+        // Members import
+        importMembersFromExcel: "Import Members from Excel",
+        importMembersHint: "Upload an Excel file with member data.",
+        previewFirst5Rows: "Preview (first 5 rows):",
+        assignPayment: "Assign Payment",
+        selectDatevBooking: "Select DATEV Booking (Account 6401550)",
+        paymentDate: "Payment Date",
+        savePayment: "Save Payment",
+        assignDatevToMembers: "Assign DATEV Bookings to Members",
+        assignDatevHint: "Select a booking and assign it to one or more members.",
+        searchBooking: "Search Booking",
+        bookingsAccount: "Bookings (Account 6401550)",
+        showAlreadyPaid: "Show already paid",
+        clickToSelectHint: "Click to select (max. 2 for joint payment)",
+        makeAssignment: "Make Assignment:",
+        booking: "Booking:",
+        members: "Member(s):",
+        assignNow: "Assign Now",
+        // DATEV Link
+        linkDatevToInvoice: "Link DATEV Entry to Invoice",
+        linkNow: "Link Now",
+        datevMovements: "DATEV Entries",
+        withoutPdf: "Without PDF",
+        withPdf: "With PDF",
+        uploadedPdfs: "Uploaded PDFs",
+        notLinked: "Not Linked",
+        withoutNote: "Without Note",
+        withNote: "With Note",
+        // Convert
+        convertConfirmText: "Do you want to convert these provisional costs to actual costs?",
+        convert: "Convert",
+        // Supplier
+        partitaIvaHint: "Required - Format: IT + 11 digits",
+        contactPerson: "Contact Person (internal)",
+        noContactPerson: "-- No Contact Person --",
+        courseProvider: "Course Provider",
+        courseProviderHint: "Can be selected as provider for courses/training",
+        // Employee
+        employeeType: "Employee Type",
+        // Account DB levels
+        dbUmsatz: "Revenue (Income)",
+        dbDb1: "DB1 - Direct Costs",
+        dbDb2: "DB2 - Structural Costs",
+        dbDb3: "DB3 - Fixed Costs",
+        projectRelated: "Project-Related",
+        projectRelatedHint: "If enabled, bookings to this account will be assigned to a project",
+        // Workspace area names
+        markAsPaid: "- Mark as Paid",
+        movements: "Movements",
+        timeTracking: "Time Tracking"
     },
 
     // Reporting tabs
