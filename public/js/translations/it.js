@@ -1028,6 +1028,42 @@ const translations_it = {
         cancelled: "Annullato"
     },
 
+    // Project details page
+    projectDetails: {
+        excelExport: "Esporta Excel",
+        projectInfo: "Informazioni Progetto",
+        costs: "Costi",
+        addCost: "+ Aggiungi Costo",
+        searchDescSupplier: "Cerca (Descrizione/Fornitore)",
+        enterSearchTerm: "Inserisci termine di ricerca...",
+        allTypes: "Tutti",
+        actualCosts: "Costi Effettivi",
+        provisional: "Provvisorio",
+        nSelected: "0 selezionati",
+        assignCostType: "Assegna tipo di costo...",
+        assign: "Assegna",
+        nr: "Nr.",
+        source: "Fonte",
+        costType: "Tipo di Costo",
+        invoiceControl: "Controllo Fatture",
+        filterStatus: "Filtra Stato",
+        newToCheck: "Nuovo (da controllare)",
+        datevPdfHint: "Qui vengono visualizzate solo le registrazioni DATEV con PDF collegati. Modifiche di stato e note sono sincronizzate con la pagina fatture.",
+        timeTracking: "Registrazione Tempo / Ore di Lavoro",
+        hours: "Ore",
+        costColumn: "Costo",
+        hourCostHint: "Nota: I costi orari non sono inclusi nel totale del progetto.",
+        budgetOverview: "Panoramica Budget",
+        actual: "Effettivo",
+        planned: "Pianificato",
+        planComparison: "Confronto Piano",
+        originalPlan: "Piano Originale:",
+        deviation: "Scostamento:",
+        laborCosts: "Costi del Personale (calcolati)",
+        basedOnRates: "Basato sulle tariffe orarie:",
+        byCostType: "Per Tipo di Costo"
+    },
+
     // Revenue additional keys
     revenue: {
         title: "Pianificazione Entrate",

@@ -3155,12 +3155,12 @@
     <!-- ==================== FULLPAGE PROJECT VIEW ==================== -->
     <div id="project-fullpage" class="fullpage-view">
         <div class="fullpage-header">
-            <h1 id="fullpage-project-name">Projektdetails</h1>
+            <h1 id="fullpage-project-name" data-i18n="modals.projectDetails">Projektdetails</h1>
             <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-outline admin-only" onclick="App.exportCurrentProjectToExcel()" style="color: white; border-color: white;">
+                <button class="btn btn-outline admin-only" onclick="App.exportCurrentProjectToExcel()" style="color: white; border-color: white;" data-i18n="projectDetails.excelExport">
                     Excel Export
                 </button>
-                <button class="btn btn-outline" onclick="App.closeProjectFullpage()" style="color: white; border-color: white;">
+                <button class="btn btn-outline" onclick="App.closeProjectFullpage()" style="color: white; border-color: white;" data-i18n="actions.close">
                     Schließen
                 </button>
             </div>
@@ -3171,7 +3171,7 @@
                     <!-- Projekt-Info Card -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Projektinformationen</h3>
+                            <h3 class="card-title" data-i18n="projectDetails.projectInfo">Projektinformationen</h3>
                             <button class="btn btn-primary btn-sm admin-only" onclick="App.editCurrentProject()" data-i18n="actions.edit">
                                 Bearbeiten
                             </button>
@@ -3220,46 +3220,46 @@
                     <!-- Kosten-Filter und Liste -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Kosten</h3>
-                            <button class="btn btn-primary btn-sm" onclick="App.showNewCostFormForProject()">
+                            <h3 class="card-title" data-i18n="projectDetails.costs">Kosten</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showNewCostFormForProject()" data-i18n="projectDetails.addCost">
                                 + Kosten hinzufügen
                             </button>
                         </div>
                         <div class="filter-row" style="flex-wrap: wrap;">
                             <div class="form-group" style="flex: 2; min-width: 200px;">
-                                <label class="form-label">Suche (Beschreibung/Lieferant)</label>
-                                <input type="text" id="fp-search" class="form-control" placeholder="Suchbegriff eingeben..." oninput="App.filterProjectCostsDebounced()">
+                                <label class="form-label" data-i18n="projectDetails.searchDescSupplier">Suche (Beschreibung/Lieferant)</label>
+                                <input type="text" id="fp-search" class="form-control" data-i18n-placeholder="projectDetails.enterSearchTerm" placeholder="Suchbegriff eingeben..." oninput="App.filterProjectCostsDebounced()">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Kategorie</label>
+                                <label class="form-label" data-i18n="forms.category">Kategorie</label>
                                 <select id="fp-filter-category" class="form-control" onchange="App.filterProjectCosts()">
-                                    <option value="">Alle Kategorien</option>
+                                    <option value="" data-i18n="forms.allCategories">Alle Kategorien</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Lieferant</label>
+                                <label class="form-label" data-i18n="forms.supplier">Lieferant</label>
                                 <select id="fp-filter-supplier" class="form-control" onchange="App.filterProjectCosts()">
-                                    <option value="">Alle Lieferanten</option>
+                                    <option value="" data-i18n="forms.allSuppliers">Alle Lieferanten</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Typ</label>
+                                <label class="form-label" data-i18n="forms.type">Typ</label>
                                 <select id="fp-filter-type" class="form-control" onchange="App.filterProjectCosts()">
-                                    <option value="">Alle</option>
-                                    <option value="ist">IST-Kosten</option>
-                                    <option value="provisorisch">Provisorisch</option>
+                                    <option value="" data-i18n="projectDetails.allTypes">Alle</option>
+                                    <option value="ist" data-i18n="projectDetails.actualCosts">IST-Kosten</option>
+                                    <option value="provisorisch" data-i18n="projectDetails.provisional">Provisorisch</option>
                                 </select>
                             </div>
                         </div>
                         <!-- Massenbearbeitung -->
                         <div id="fp-mass-edit-bar" style="display: none; padding: 0.75rem; background: #e3f2fd; border-radius: 6px; margin-bottom: 1rem;">
                             <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span id="fp-selected-count">0 ausgewählt</span>
+                                <span id="fp-selected-count" data-i18n="projectDetails.nSelected">0 ausgewählt</span>
                                 <select id="fp-mass-kostentyp" class="form-control" style="width: auto;">
-                                    <option value="">Kostentyp zuweisen...</option>
+                                    <option value="" data-i18n="projectDetails.assignCostType">Kostentyp zuweisen...</option>
                                 </select>
-                                <button class="btn btn-primary btn-sm" onclick="App.applyMassKostentyp()">Zuweisen</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.clearCostSelection()">Abbrechen</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.applyMassKostentyp()" data-i18n="projectDetails.assign">Zuweisen</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.clearCostSelection()" data-i18n="actions.cancel">Abbrechen</button>
                             </div>
                         </div>
                         <div class="table-container">
@@ -3267,16 +3267,16 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 40px;"><input type="checkbox" id="fp-select-all" onchange="App.toggleAllCosts(this)"></th>
-                                        <th style="width: 40px;">Nr.</th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('datum')">Datum <span id="fp-sort-datum"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('quelle')">Quelle <span id="fp-sort-quelle"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('lieferant')">Lieferant <span id="fp-sort-lieferant"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('beschreibung')">Beschreibung <span id="fp-sort-beschreibung"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('kostentyp')">Kostentyp <span id="fp-sort-kostentyp"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('typ')">Status <span id="fp-sort-typ"></span></th>
-                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('bezahlt')">Bezahlt <span id="fp-sort-bezahlt"></span></th>
-                                        <th style="text-align: right; cursor: pointer;" onclick="App.sortProjectCosts('betrag')">Betrag <span id="fp-sort-betrag"></span></th>
-                                        <th>Aktionen</th>
+                                        <th style="width: 40px;" data-i18n="projectDetails.nr">Nr.</th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('datum')"><span data-i18n="forms.date">Datum</span> <span id="fp-sort-datum"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('quelle')"><span data-i18n="projectDetails.source">Quelle</span> <span id="fp-sort-quelle"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('lieferant')"><span data-i18n="forms.supplier">Lieferant</span> <span id="fp-sort-lieferant"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('beschreibung')"><span data-i18n="forms.description">Beschreibung</span> <span id="fp-sort-beschreibung"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('kostentyp')"><span data-i18n="projectDetails.costType">Kostentyp</span> <span id="fp-sort-kostentyp"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('typ')"><span data-i18n="forms.status">Status</span> <span id="fp-sort-typ"></span></th>
+                                        <th style="cursor: pointer;" onclick="App.sortProjectCosts('bezahlt')"><span data-i18n="status.paid">Bezahlt</span> <span id="fp-sort-bezahlt"></span></th>
+                                        <th style="text-align: right; cursor: pointer;" onclick="App.sortProjectCosts('betrag')"><span data-i18n="forms.amount">Betrag</span> <span id="fp-sort-betrag"></span></th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="fp-costs-table">
@@ -3286,7 +3286,7 @@
                         <!-- Pagination -->
                         <div id="fp-costs-pagination" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-top: 1px solid #e0e0e0;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span style="font-size: 0.875rem; color: #666;">Zeige</span>
+                                <span style="font-size: 0.875rem; color: #666;" data-i18n="pagination.showing">Zeige</span>
                                 <select id="fp-costs-per-page" class="form-control" style="width: auto;" onchange="App.changeCostsPerPage()">
                                     <option value="20">20</option>
                                     <option value="50">50</option>
@@ -3301,7 +3301,7 @@
                     <!-- Rechnungskontrolle für dieses Projekt -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Rechnungskontrolle</h3>
+                            <h3 class="card-title" data-i18n="projectDetails.invoiceControl">Rechnungskontrolle</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <span class="badge" style="background: #e0e0e0; color: #616161;" id="fp-rechnungen-neu-badge">0 Neu (zu kontrollieren)</span>
                                 <span class="badge" style="background: #fff3e0; color: #e65100;" id="fp-rechnungen-kontrolliert-badge">0 Kontrolliert</span>
@@ -3310,12 +3310,12 @@
                         </div>
                         <div class="filter-row" style="flex-wrap: wrap; padding: 0.75rem;">
                             <div class="form-group" style="flex: 1; min-width: 150px;">
-                                <label class="form-label">Status filtern</label>
+                                <label class="form-label" data-i18n="projectDetails.filterStatus">Status filtern</label>
                                 <select id="fp-rechnungen-status-filter" class="form-control" onchange="App.filterProjectRechnungen()">
-                                    <option value="">Alle Status</option>
-                                    <option value="neu">Neu (zu kontrollieren)</option>
-                                    <option value="kontrolliert">Kontrolliert</option>
-                                    <option value="bezahlt">Bezahlt</option>
+                                    <option value="" data-i18n="forms.allStatus">Alle Status</option>
+                                    <option value="neu" data-i18n="projectDetails.newToCheck">Neu (zu kontrollieren)</option>
+                                    <option value="kontrolliert" data-i18n="status.checked">Kontrolliert</option>
+                                    <option value="bezahlt" data-i18n="status.paid">Bezahlt</option>
                                 </select>
                             </div>
                         </div>
@@ -3323,13 +3323,13 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Datum</th>
-                                        <th>Lieferant</th>
-                                        <th>Rechnungs-Nr.</th>
-                                        <th style="text-align: right;">Betrag</th>
-                                        <th>Status</th>
-                                        <th>Notiz</th>
-                                        <th>Aktionen</th>
+                                        <th data-i18n="forms.date">Datum</th>
+                                        <th data-i18n="forms.supplier">Lieferant</th>
+                                        <th data-i18n="invoices.invoiceNumber">Rechnungs-Nr.</th>
+                                        <th style="text-align: right;" data-i18n="forms.amount">Betrag</th>
+                                        <th data-i18n="forms.status">Status</th>
+                                        <th data-i18n="forms.notes">Notiz</th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="fp-rechnungen-table">
@@ -3337,7 +3337,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
+                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;" data-i18n="projectDetails.datevPdfHint">
                             Hier werden nur DATEV-Buchungen mit verknüpften PDFs angezeigt. Status-Änderungen und Notizen sind mit der Rechnungen-Seite synchronisiert.
                         </div>
                     </div>
@@ -3345,17 +3345,17 @@
                     <!-- Stunden-Übersicht für dieses Projekt -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Zeiterfassung / Arbeitsstunden</h3>
+                            <h3 class="card-title" data-i18n="projectDetails.timeTracking">Zeiterfassung / Arbeitsstunden</h3>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Mitarbeiter</th>
-                                        <th>Datum</th>
-                                        <th>Beschreibung</th>
-                                        <th style="text-align: right;">Stunden</th>
-                                        <th style="text-align: right;">Kosten</th>
+                                        <th data-i18n="personnel.employee">Mitarbeiter</th>
+                                        <th data-i18n="forms.date">Datum</th>
+                                        <th data-i18n="forms.description">Beschreibung</th>
+                                        <th style="text-align: right;" data-i18n="projectDetails.hours">Stunden</th>
+                                        <th style="text-align: right;" data-i18n="projectDetails.costColumn">Kosten</th>
                                     </tr>
                                 </thead>
                                 <tbody id="fp-hours-overview-body">
@@ -3363,14 +3363,14 @@
                                 </tbody>
                                 <tfoot>
                                     <tr style="background: #f8f9fa; font-weight: 600;">
-                                        <td colspan="3" style="text-align: right;">Summe:</td>
+                                        <td colspan="3" style="text-align: right;" data-i18n="revenuePage.sum">Summe:</td>
                                         <td id="fp-hours-total" style="text-align: right;">0 Std.</td>
                                         <td id="fp-hours-cost-total" style="text-align: right;">0,00 EUR</td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
-                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;">
+                        <div style="padding: 0.75rem; font-size: 0.75rem; color: #666; background: #fafafa; border-top: 1px solid #e0e0e0;" data-i18n="projectDetails.hourCostHint">
                             Hinweis: Stundenkosten werden nicht in die Projekt-Gesamtsumme eingerechnet.
                         </div>
                     </div>
@@ -3380,51 +3380,51 @@
                 <div class="fullpage-sidebar">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Budget-Übersicht</h3>
+                            <h3 class="card-title" data-i18n="projectDetails.budgetOverview">Budget-Übersicht</h3>
                         </div>
                         <div style="text-align: center; padding: 1rem 0;">
                             <div style="font-size: 2rem; font-weight: 700;" id="fp-budget-total">0 EUR</div>
-                            <div style="font-size: 0.875rem; color: #666;">Gesamtbudget</div>
+                            <div style="font-size: 0.875rem; color: #666;" data-i18n="dashboard.totalBudget">Gesamtbudget</div>
                         </div>
                         <div class="budget-bar" id="fp-budget-bar" style="height: 30px; margin-bottom: 1rem;">
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; text-align: center;">
                             <div style="padding: 0.75rem; background: rgba(231, 76, 60, 0.1); border-radius: 8px;">
                                 <div style="font-weight: 600; color: #e74c3c;" id="fp-ist-total">0 EUR</div>
-                                <div style="font-size: 0.75rem; color: #666;">IST</div>
+                                <div style="font-size: 0.75rem; color: #666;" data-i18n="projectDetails.actual">IST</div>
                             </div>
                             <div style="padding: 0.75rem; background: rgba(243, 156, 18, 0.1); border-radius: 8px;">
                                 <div style="font-weight: 600; color: #f39c12;" id="fp-prov-total">0 EUR</div>
-                                <div style="font-size: 0.75rem; color: #666;">Geplant</div>
+                                <div style="font-size: 0.75rem; color: #666;" data-i18n="projectDetails.planned">Geplant</div>
                             </div>
                         </div>
                         <div style="text-align: center; margin-top: 1rem; padding: 1rem; background: rgba(39, 174, 96, 0.1); border-radius: 8px;">
                             <div style="font-size: 1.5rem; font-weight: 700; color: #27ae60;" id="fp-available">0 EUR</div>
-                            <div style="font-size: 0.875rem; color: #666;">Verfügbar</div>
+                            <div style="font-size: 0.875rem; color: #666;" data-i18n="projects.available">Verfügbar</div>
                         </div>
 
                         <!-- Originalplanung vs Aktuell -->
                         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
-                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;">
+                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;" data-i18n="projectDetails.planComparison">
                                 Planvergleich
                             </div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                                <span style="color: #666;">Originalplanung:</span>
+                                <span style="color: #666;" data-i18n="projectDetails.originalPlan">Originalplanung:</span>
                                 <span id="fp-planned-original" style="font-weight: 500;">0 EUR</span>
                             </div>
                             <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #666;">Abweichung:</span>
+                                <span style="color: #666;" data-i18n="projectDetails.deviation">Abweichung:</span>
                                 <span id="fp-planned-deviation" style="font-weight: 600;">0 EUR</span>
                             </div>
                         </div>
 
                         <!-- Personalkosten (Admin only) -->
                         <div class="admin-only" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
-                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;">
+                            <div style="font-size: 0.75rem; color: #666; text-transform: uppercase; margin-bottom: 0.5rem;" data-i18n="projectDetails.laborCosts">
                                 Personalkosten (kalkuliert)
                             </div>
                             <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #666;">Basierend auf Stundensätzen:</span>
+                                <span style="color: #666;" data-i18n="projectDetails.basedOnRates">Basierend auf Stundensätzen:</span>
                                 <span id="fp-labor-cost" style="font-weight: 600; color: #3498db;">0 EUR</span>
                             </div>
                         </div>
@@ -3433,7 +3433,7 @@
                     <!-- Aufschlüsselung nach Kostentyp -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Nach Kostentyp</h3>
+                            <h3 class="card-title" data-i18n="projectDetails.byCostType">Nach Kostentyp</h3>
                         </div>
                         <div id="fp-category-breakdown">
                             <!-- Wird dynamisch geladen -->

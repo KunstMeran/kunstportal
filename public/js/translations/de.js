@@ -1029,6 +1029,42 @@ const translations_de = {
         cancelled: "Abgesagt"
     },
 
+    // Project details page
+    projectDetails: {
+        excelExport: "Excel Export",
+        projectInfo: "Projektinformationen",
+        costs: "Kosten",
+        addCost: "+ Kosten hinzufügen",
+        searchDescSupplier: "Suche (Beschreibung/Lieferant)",
+        enterSearchTerm: "Suchbegriff eingeben...",
+        allTypes: "Alle",
+        actualCosts: "IST-Kosten",
+        provisional: "Provisorisch",
+        nSelected: "0 ausgewählt",
+        assignCostType: "Kostentyp zuweisen...",
+        assign: "Zuweisen",
+        nr: "Nr.",
+        source: "Quelle",
+        costType: "Kostentyp",
+        invoiceControl: "Rechnungskontrolle",
+        filterStatus: "Status filtern",
+        newToCheck: "Neu (zu kontrollieren)",
+        datevPdfHint: "Hier werden nur DATEV-Buchungen mit verknüpften PDFs angezeigt. Status-Änderungen und Notizen sind mit der Rechnungen-Seite synchronisiert.",
+        timeTracking: "Zeiterfassung / Arbeitsstunden",
+        hours: "Stunden",
+        costColumn: "Kosten",
+        hourCostHint: "Hinweis: Stundenkosten werden nicht in die Projekt-Gesamtsumme eingerechnet.",
+        budgetOverview: "Budget-Übersicht",
+        actual: "IST",
+        planned: "Geplant",
+        planComparison: "Planvergleich",
+        originalPlan: "Originalplanung:",
+        deviation: "Abweichung:",
+        laborCosts: "Personalkosten (kalkuliert)",
+        basedOnRates: "Basierend auf Stundensätzen:",
+        byCostType: "Nach Kostentyp"
+    },
+
     // Revenue additional keys
     revenue: {
         title: "Einnahmenplanung",

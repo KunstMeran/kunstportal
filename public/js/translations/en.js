@@ -1028,6 +1028,42 @@ const translations_en = {
         cancelled: "Cancelled"
     },
 
+    // Project details page
+    projectDetails: {
+        excelExport: "Excel Export",
+        projectInfo: "Project Information",
+        costs: "Costs",
+        addCost: "+ Add Cost",
+        searchDescSupplier: "Search (Description/Supplier)",
+        enterSearchTerm: "Enter search term...",
+        allTypes: "All",
+        actualCosts: "Actual Costs",
+        provisional: "Provisional",
+        nSelected: "0 selected",
+        assignCostType: "Assign cost type...",
+        assign: "Assign",
+        nr: "No.",
+        source: "Source",
+        costType: "Cost Type",
+        invoiceControl: "Invoice Control",
+        filterStatus: "Filter Status",
+        newToCheck: "New (to check)",
+        datevPdfHint: "Only DATEV bookings with linked PDFs are displayed here. Status changes and notes are synchronized with the invoices page.",
+        timeTracking: "Time Tracking / Work Hours",
+        hours: "Hours",
+        costColumn: "Cost",
+        hourCostHint: "Note: Hourly costs are not included in the project total.",
+        budgetOverview: "Budget Overview",
+        actual: "Actual",
+        planned: "Planned",
+        planComparison: "Plan Comparison",
+        originalPlan: "Original Plan:",
+        deviation: "Deviation:",
+        laborCosts: "Labor Costs (calculated)",
+        basedOnRates: "Based on hourly rates:",
+        byCostType: "By Cost Type"
+    },
+
     // Revenue additional keys
     revenue: {
         title: "Revenue Planning",
