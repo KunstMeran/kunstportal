@@ -974,5 +974,80 @@ const translations_it = {
         notesAutoSave: "Le note vengono salvate automaticamente per anno.",
         notesPlaceholder: "Inserire note sulla pianificazione budget...",
         revenues: "1. RICAVI"
+    },
+
+    // Inventory categories
+    inventoryCategories: {
+        technik: "Tecnologia (Proiettori, Audio, ecc.)",
+        moebel: "Mobili & Allestimento",
+        kunst: "Opere d'arte",
+        transport: "Mezzi di trasporto",
+        sonstiges: "Altro"
+    },
+
+    // Contacts page
+    contacts: {
+        title: "Gestione Contatti",
+        newContact: "+ Nuovo Contatto",
+        contacts: "Contatti",
+        organization: "Organizzazione",
+        cityCountry: "Città/Paese",
+        searchPlaceholder: "Nome, Email, Organizzazione..."
+    },
+
+    // Contact categories
+    contactCategories: {
+        artist: "Artisti",
+        curator: "Curatori",
+        press: "Stampa & Media",
+        sponsor: "Sponsor",
+        supplier: "Fornitori",
+        institution: "Istituzioni",
+        other: "Altro"
+    },
+
+    // Revenue types
+    revenueTypes: {
+        all: "Tutti i tipi",
+        grantProvince: "Contributo Provincia",
+        grantMunicipality: "Contributo Comune",
+        grantRegion: "Contributo Regione",
+        grantFoundation: "Contributo Fondazione",
+        sponsoring: "Sponsorizzazione",
+        donation: "Donazione",
+        membershipFee: "Quota associativa",
+        revenues: "Ricavi (Shop, Mostre)",
+        other: "Altro"
+    },
+
+    // Revenue status
+    revenueStatus: {
+        confirmed: "Confermato (documento presente)",
+        expected: "Previsto",
+        uncertain: "Incerto",
+        cancelled: "Annullato"
+    },
+
+    // Revenue additional keys
+    revenue: {
+        title: "Pianificazione Entrate",
+        newRevenue: "+ Nuova Entrata",
+        source: "Fonte",
+        amount: "Importo",
+        expectedDate: "Data prevista",
+        receivedDate: "Data ricezione",
+        code: "Codice",
+        nameSource: "Nome / Fonte",
+        previousYear: "Anno precedente",
+        changePercent: "+/- %",
+        document: "Documento",
+        status: {
+            promised: "Promesso",
+            received: "Ricevuto",
+            applied: "Richiesto",
+            open: "Aperto",
+            rejected: "Rifiutato"
+        },
+        noRevenues: "Nessuna entrata trovata"
     }
 };

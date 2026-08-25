@@ -1451,14 +1451,14 @@
                 <div class="card" style="margin-bottom: 1rem;">
                     <div class="filter-row" style="padding: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Kategorie</label>
+                            <label class="form-label" data-i18n="forms.category">Kategorie</label>
                             <select id="inventar-filter-kategorie" class="form-control" onchange="App.filterInventar()">
-                                <option value="">Alle Kategorien</option>
-                                <option value="technik">Technik (Beamer, Audio, etc.)</option>
-                                <option value="moebel">Möbel & Aufbau</option>
-                                <option value="kunst">Kunstwerke</option>
-                                <option value="transport">Transportmittel</option>
-                                <option value="sonstiges">Sonstiges</option>
+                                <option value="" data-i18n="inventoryPage.allCategories">Alle Kategorien</option>
+                                <option value="technik" data-i18n="inventoryCategories.technik">Technik (Beamer, Audio, etc.)</option>
+                                <option value="moebel" data-i18n="inventoryCategories.moebel">Möbel & Aufbau</option>
+                                <option value="kunst" data-i18n="inventoryCategories.kunst">Kunstwerke</option>
+                                <option value="transport" data-i18n="inventoryCategories.transport">Transportmittel</option>
+                                <option value="sonstiges" data-i18n="inventoryCategories.sonstiges">Sonstiges</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1509,29 +1509,29 @@
             <!-- ==================== ADRESSEN ==================== -->
             <div id="view-adressen" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Adressverwaltung</h1>
-                    <button class="btn btn-primary" onclick="App.showNewAdresseForm()">+ Neuer Kontakt</button>
+                    <h1 class="page-title" data-i18n="contacts.title">Adressverwaltung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewAdresseForm()" data-i18n="contacts.newContact">+ Neuer Kontakt</button>
                 </div>
 
                 <!-- Filter -->
                 <div class="card" style="margin-bottom: 1rem;">
                     <div class="filter-row" style="padding: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Kategorie</label>
+                            <label class="form-label" data-i18n="forms.category">Kategorie</label>
                             <select id="adresse-filter-kategorie" class="form-control" onchange="App.filterAdressen()">
-                                <option value="">Alle Kategorien</option>
-                                <option value="kuenstler">Künstler</option>
-                                <option value="kurator">Kuratoren</option>
-                                <option value="presse">Presse & Medien</option>
-                                <option value="sponsor">Sponsoren</option>
-                                <option value="lieferant">Lieferanten</option>
-                                <option value="institution">Institutionen</option>
-                                <option value="sonstige">Sonstige</option>
+                                <option value="" data-i18n="forms.allCategories">Alle Kategorien</option>
+                                <option value="kuenstler" data-i18n="contactCategories.artist">Künstler</option>
+                                <option value="kurator" data-i18n="contactCategories.curator">Kuratoren</option>
+                                <option value="presse" data-i18n="contactCategories.press">Presse & Medien</option>
+                                <option value="sponsor" data-i18n="contactCategories.sponsor">Sponsoren</option>
+                                <option value="lieferant" data-i18n="contactCategories.supplier">Lieferanten</option>
+                                <option value="institution" data-i18n="contactCategories.institution">Institutionen</option>
+                                <option value="sonstige" data-i18n="contactCategories.other">Sonstige</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Suche</label>
-                            <input type="text" id="adresse-suche" class="form-control" placeholder="Name, Email, Organisation..." oninput="App.filterAdressen()">
+                            <label class="form-label" data-i18n="actions.search">Suche</label>
+                            <input type="text" id="adresse-suche" class="form-control" data-i18n-placeholder="contacts.searchPlaceholder" placeholder="Name, Email, Organisation..." oninput="App.filterAdressen()">
                         </div>
                     </div>
                 </div>
@@ -1539,20 +1539,20 @@
                 <!-- Adressliste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Kontakte</h3>
-                        <button class="btn btn-outline btn-sm" onclick="App.exportAdressenCSV()">CSV Export</button>
+                        <h3 class="card-title" data-i18n="contacts.contacts">Kontakte</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportAdressenCSV()" data-i18n="actions.export">CSV Export</button>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Organisation</th>
-                                    <th>Kategorie</th>
-                                    <th>Email</th>
-                                    <th>Telefon</th>
-                                    <th>Stadt/Land</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="forms.name">Name</th>
+                                    <th data-i18n="contacts.organization">Organisation</th>
+                                    <th data-i18n="forms.category">Kategorie</th>
+                                    <th data-i18n="forms.email">Email</th>
+                                    <th data-i18n="forms.phone">Telefon</th>
+                                    <th data-i18n="contacts.cityCountry">Stadt/Land</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="adressen-table-body">
@@ -2350,7 +2350,7 @@
                 <div class="card" style="margin-bottom: 1rem;">
                     <div class="filter-row" style="padding: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Jahr</label>
+                            <label class="form-label" data-i18n="forms.year">Jahr</label>
                             <select id="einnahmen-filter-jahr" class="form-control" onchange="App.loadEinnahmen()">
                                 <option value="2026">2026</option>
                                 <option value="2025">2025</option>
@@ -2358,28 +2358,28 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Typ</label>
+                            <label class="form-label" data-i18n="forms.type">Typ</label>
                             <select id="einnahmen-filter-typ" class="form-control" onchange="App.filterEinnahmen()">
-                                <option value="">Alle Typen</option>
-                                <option value="zuschuss_provinz">Zuschuss Provinz</option>
-                                <option value="zuschuss_gemeinde">Zuschuss Gemeinde</option>
-                                <option value="zuschuss_region">Zuschuss Region</option>
-                                <option value="zuschuss_stiftung">Zuschuss Stiftung</option>
-                                <option value="sponsoring">Sponsoring</option>
-                                <option value="spende">Spende</option>
-                                <option value="mitgliedsbeitrag">Mitgliedsbeitrag</option>
-                                <option value="erloese">Erlöse (Shop, Ausstellungen)</option>
-                                <option value="sonstige">Sonstige</option>
+                                <option value="" data-i18n="revenueTypes.all">Alle Typen</option>
+                                <option value="zuschuss_provinz" data-i18n="revenueTypes.grantProvince">Zuschuss Provinz</option>
+                                <option value="zuschuss_gemeinde" data-i18n="revenueTypes.grantMunicipality">Zuschuss Gemeinde</option>
+                                <option value="zuschuss_region" data-i18n="revenueTypes.grantRegion">Zuschuss Region</option>
+                                <option value="zuschuss_stiftung" data-i18n="revenueTypes.grantFoundation">Zuschuss Stiftung</option>
+                                <option value="sponsoring" data-i18n="revenueTypes.sponsoring">Sponsoring</option>
+                                <option value="spende" data-i18n="revenueTypes.donation">Spende</option>
+                                <option value="mitgliedsbeitrag" data-i18n="revenueTypes.membershipFee">Mitgliedsbeitrag</option>
+                                <option value="erloese" data-i18n="revenueTypes.revenues">Erlöse (Shop, Ausstellungen)</option>
+                                <option value="sonstige" data-i18n="revenueTypes.other">Sonstige</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Status</label>
+                            <label class="form-label" data-i18n="forms.status">Status</label>
                             <select id="einnahmen-filter-status" class="form-control" onchange="App.filterEinnahmen()">
-                                <option value="">Alle Status</option>
-                                <option value="bestaetigt">Bestätigt (Dokument vorhanden)</option>
-                                <option value="erwartet">Erwartet</option>
-                                <option value="unsicher">Unsicher</option>
-                                <option value="abgesagt">Abgesagt</option>
+                                <option value="" data-i18n="forms.allStatus">Alle Status</option>
+                                <option value="bestaetigt" data-i18n="revenueStatus.confirmed">Bestätigt (Dokument vorhanden)</option>
+                                <option value="erwartet" data-i18n="revenueStatus.expected">Erwartet</option>
+                                <option value="unsicher" data-i18n="revenueStatus.uncertain">Unsicher</option>
+                                <option value="abgesagt" data-i18n="revenueStatus.cancelled">Abgesagt</option>
                             </select>
                         </div>
                     </div>
@@ -2388,25 +2388,25 @@
                 <!-- Einnahmen-Liste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Geplante Einnahmen</h3>
-                        <button class="btn btn-outline btn-sm" onclick="App.exportEinnahmenCSV()">CSV Export</button>
+                        <h3 class="card-title" data-i18n="revenuePage.plannedRevenues">Geplante Einnahmen</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportEinnahmenCSV()" data-i18n="actions.export">CSV Export</button>
                     </div>
                     <div class="table-container">
                         <table id="einnahmen-table">
                             <thead>
                                 <tr>
-                                    <th>Code</th>
-                                    <th>Name / Quelle</th>
-                                    <th style="text-align: right;">Budget</th>
-                                    <th style="text-align: right;" id="th-einnahmen-vorjahr">Vorjahr</th>
-                                    <th style="text-align: right;">+/- %</th>
-                                    <th style="text-align: right;">Ausgaben</th>
-                                    <th style="text-align: right;">Verfügbar</th>
-                                    <th>Status</th>
-                                    <th>Abgabestelle</th>
-                                    <th>Dokument</th>
-                                    <th>Geändert</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="revenue.code">Code</th>
+                                    <th data-i18n="revenue.nameSource">Name / Quelle</th>
+                                    <th style="text-align: right;" data-i18n="forms.budget">Budget</th>
+                                    <th style="text-align: right;" id="th-einnahmen-vorjahr" data-i18n="revenue.previousYear">Vorjahr</th>
+                                    <th style="text-align: right;" data-i18n="revenue.changePercent">+/- %</th>
+                                    <th style="text-align: right;" data-i18n="revenuePage.expenses">Ausgaben</th>
+                                    <th style="text-align: right;" data-i18n="projects.available">Verfügbar</th>
+                                    <th data-i18n="forms.status">Status</th>
+                                    <th data-i18n="submissionPoints.title">Abgabestelle</th>
+                                    <th data-i18n="revenue.document">Dokument</th>
+                                    <th data-i18n="projects.modified">Geändert</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="einnahmen-table-body">
@@ -2414,7 +2414,7 @@
                             </tbody>
                             <tfoot>
                                 <tr style="font-weight: bold; background: #f5f5f5;">
-                                    <td colspan="2">Summe</td>
+                                    <td colspan="2" data-i18n="revenuePage.sum">Summe</td>
                                     <td style="text-align: right;" id="einnahmen-summe-budget">0,00 EUR</td>
                                     <td style="text-align: right;" id="einnahmen-summe-vorjahr">0,00 EUR</td>
                                     <td style="text-align: right;" id="einnahmen-summe-prozent">-</td>

@@ -975,5 +975,80 @@ const translations_de = {
         notesAutoSave: "Notizen werden automatisch pro Jahr gespeichert.",
         notesPlaceholder: "Notizen zur Budgetplanung eingeben...",
         revenues: "1. UMSÄTZE"
+    },
+
+    // Inventory categories
+    inventoryCategories: {
+        technik: "Technik (Beamer, Audio, etc.)",
+        moebel: "Möbel & Aufbau",
+        kunst: "Kunstwerke",
+        transport: "Transportmittel",
+        sonstiges: "Sonstiges"
+    },
+
+    // Contacts page
+    contacts: {
+        title: "Adressverwaltung",
+        newContact: "+ Neuer Kontakt",
+        contacts: "Kontakte",
+        organization: "Organisation",
+        cityCountry: "Stadt/Land",
+        searchPlaceholder: "Name, Email, Organisation..."
+    },
+
+    // Contact categories
+    contactCategories: {
+        artist: "Künstler",
+        curator: "Kuratoren",
+        press: "Presse & Medien",
+        sponsor: "Sponsoren",
+        supplier: "Lieferanten",
+        institution: "Institutionen",
+        other: "Sonstige"
+    },
+
+    // Revenue types
+    revenueTypes: {
+        all: "Alle Typen",
+        grantProvince: "Zuschuss Provinz",
+        grantMunicipality: "Zuschuss Gemeinde",
+        grantRegion: "Zuschuss Region",
+        grantFoundation: "Zuschuss Stiftung",
+        sponsoring: "Sponsoring",
+        donation: "Spende",
+        membershipFee: "Mitgliedsbeitrag",
+        revenues: "Erlöse (Shop, Ausstellungen)",
+        other: "Sonstige"
+    },
+
+    // Revenue status
+    revenueStatus: {
+        confirmed: "Bestätigt (Dokument vorhanden)",
+        expected: "Erwartet",
+        uncertain: "Unsicher",
+        cancelled: "Abgesagt"
+    },
+
+    // Revenue additional keys
+    revenue: {
+        title: "Einnahmenplanung",
+        newRevenue: "+ Neue Einnahme",
+        source: "Quelle",
+        amount: "Betrag",
+        expectedDate: "Erwartetes Datum",
+        receivedDate: "Eingangsdatum",
+        code: "Code",
+        nameSource: "Name / Quelle",
+        previousYear: "Vorjahr",
+        changePercent: "+/- %",
+        document: "Dokument",
+        status: {
+            promised: "Zugesagt",
+            received: "Eingegangen",
+            applied: "Beantragt",
+            open: "Offen",
+            rejected: "Abgelehnt"
+        },
+        noRevenues: "Keine Einnahmen gefunden"
     }
 };

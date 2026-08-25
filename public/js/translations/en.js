@@ -974,5 +974,80 @@ const translations_en = {
         notesAutoSave: "Notes are automatically saved per year.",
         notesPlaceholder: "Enter budget planning notes...",
         revenues: "1. REVENUES"
+    },
+
+    // Inventory categories
+    inventoryCategories: {
+        technik: "Technology (Projectors, Audio, etc.)",
+        moebel: "Furniture & Setup",
+        kunst: "Artworks",
+        transport: "Vehicles",
+        sonstiges: "Other"
+    },
+
+    // Contacts page
+    contacts: {
+        title: "Contact Management",
+        newContact: "+ New Contact",
+        contacts: "Contacts",
+        organization: "Organization",
+        cityCountry: "City/Country",
+        searchPlaceholder: "Name, Email, Organization..."
+    },
+
+    // Contact categories
+    contactCategories: {
+        artist: "Artists",
+        curator: "Curators",
+        press: "Press & Media",
+        sponsor: "Sponsors",
+        supplier: "Suppliers",
+        institution: "Institutions",
+        other: "Other"
+    },
+
+    // Revenue types
+    revenueTypes: {
+        all: "All Types",
+        grantProvince: "Province Grant",
+        grantMunicipality: "Municipality Grant",
+        grantRegion: "Region Grant",
+        grantFoundation: "Foundation Grant",
+        sponsoring: "Sponsoring",
+        donation: "Donation",
+        membershipFee: "Membership Fee",
+        revenues: "Revenue (Shop, Exhibitions)",
+        other: "Other"
+    },
+
+    // Revenue status
+    revenueStatus: {
+        confirmed: "Confirmed (document available)",
+        expected: "Expected",
+        uncertain: "Uncertain",
+        cancelled: "Cancelled"
+    },
+
+    // Revenue additional keys
+    revenue: {
+        title: "Revenue Planning",
+        newRevenue: "+ New Revenue",
+        source: "Source",
+        amount: "Amount",
+        expectedDate: "Expected Date",
+        receivedDate: "Received Date",
+        code: "Code",
+        nameSource: "Name / Source",
+        previousYear: "Previous Year",
+        changePercent: "+/- %",
+        document: "Document",
+        status: {
+            promised: "Promised",
+            received: "Received",
+            applied: "Applied",
+            open: "Open",
+            rejected: "Rejected"
+        },
+        noRevenues: "No revenues found"
     }
 };
