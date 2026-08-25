@@ -349,55 +349,55 @@
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-view="dashboard">
                     <img src="assets/icons/17-dashboard.svg" alt="" class="icon">
-                    <span>Dashboard</span>
+                    <span data-i18n="nav.dashboard">Dashboard</span>
                 </a>
                 <a href="#" class="nav-item" data-view="projekte">
                     <img src="assets/icons/18-project.svg" alt="" class="icon">
-                    <span>Projekte</span>
+                    <span data-i18n="nav.projects">Projekte</span>
                 </a>
                 <a href="#" class="nav-item" data-view="rechnungen">
                     <img src="assets/icons/01-document.svg" alt="" class="icon">
-                    <span>Rechnungen</span>
+                    <span data-i18n="nav.invoices">Rechnungen</span>
                 </a>
                 <a href="#" class="nav-item" data-view="lieferanten">
                     <img src="assets/icons/05-company.svg" alt="" class="icon">
-                    <span>Lieferanten</span>
+                    <span data-i18n="nav.suppliers">Lieferanten</span>
                 </a>
                 <a href="#" class="nav-item" data-view="personal">
                     <img src="assets/icons/23-user.svg" alt="" class="icon">
-                    <span>Personal & Stunden</span>
+                    <span data-i18n="nav.personnel">Personal & Stunden</span>
                 </a>
                 <a href="#" class="nav-item" data-view="inventar">
                     <img src="assets/icons/30-inventory.svg" alt="" class="icon">
-                    <span>Inventar</span>
+                    <span data-i18n="nav.inventory">Inventar</span>
                 </a>
                 <a href="#" class="nav-item" data-view="shop">
                     <img src="assets/icons/32-shop.svg" alt="" class="icon">
-                    <span>Shop</span>
+                    <span data-i18n="nav.shop">Shop</span>
                 </a>
                 <a href="#" class="nav-item" data-view="reporting">
                     <img src="assets/icons/06-trend.svg" alt="" class="icon">
-                    <span>Reporting</span>
+                    <span data-i18n="nav.reporting">Reporting</span>
                 </a>
                 <a href="#" class="nav-item" data-view="einnahmen">
                     <img src="assets/icons/29-income.svg" alt="" class="icon">
-                    <span>Einnahmenplanung</span>
+                    <span data-i18n="nav.revenue">Einnahmenplanung</span>
                 </a>
                 <a href="#" class="nav-item" data-view="budgetplanung">
                     <img src="assets/icons/31-budget.svg" alt="" class="icon">
-                    <span>Budgetplanung</span>
+                    <span data-i18n="nav.budget">Budgetplanung</span>
                 </a>
                 <a href="#" class="nav-item" data-view="mitglieder">
                     <img src="assets/icons/23-user.svg" alt="" class="icon">
-                    <span>Mitglieder</span>
+                    <span data-i18n="nav.members">Mitglieder</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="import">
                     <img src="assets/icons/04-upload.svg" alt="" class="icon">
-                    <span>Import</span>
+                    <span data-i18n="nav.import">Import</span>
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="konfiguration">
                     <img src="assets/icons/20-settings.svg" alt="" class="icon">
-                    <span>Konfiguration</span>
+                    <span data-i18n="nav.config">Konfiguration</span>
                 </a>
             </nav>
 
@@ -409,9 +409,15 @@
                         <div class="user-role" id="user-role">Administrator</div>
                     </div>
                 </div>
+                <!-- Language Switcher -->
+                <div class="language-switcher">
+                    <button class="lang-btn active" data-lang="de" title="Deutsch">DE</button>
+                    <button class="lang-btn" data-lang="en" title="English">EN</button>
+                    <button class="lang-btn" data-lang="it" title="Italiano">IT</button>
+                </div>
                 <button class="btn btn-outline btn-block logout-btn" onclick="App.logout()" style="color: white; border-color: #666;">
                     <span class="logout-initials" id="logout-initials">A</span>
-                    <span class="logout-text">Abmelden</span>
+                    <span class="logout-text" data-i18n="nav.logout">Abmelden</span>
                 </button>
             </div>
         </aside>
@@ -421,31 +427,31 @@
             <!-- ==================== DASHBOARD ==================== -->
             <div id="view-dashboard" class="view-content">
                 <div class="page-header">
-                    <h1 class="page-title">Dashboard</h1>
+                    <h1 class="page-title" data-i18n="dashboard.title">Dashboard</h1>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-value" id="stat-projects">0</div>
-                        <div class="stat-label">Aktive Projekte</div>
+                        <div class="stat-label" data-i18n="dashboard.activeProjects">Aktive Projekte</div>
                     </div>
                     <div class="stat-card success">
                         <div class="stat-value" id="stat-budget">0 EUR</div>
-                        <div class="stat-label">Gesamtbudget</div>
+                        <div class="stat-label" data-i18n="dashboard.totalBudget">Gesamtbudget</div>
                     </div>
                     <div class="stat-card danger">
                         <div class="stat-value" id="stat-spent">0 EUR</div>
-                        <div class="stat-label">Ausgegeben (IST)</div>
+                        <div class="stat-label" data-i18n="dashboard.spent">Ausgegeben (IST)</div>
                     </div>
                     <div class="stat-card warning">
                         <div class="stat-value" id="stat-available">0 EUR</div>
-                        <div class="stat-label">Verfügbar</div>
+                        <div class="stat-label" data-i18n="dashboard.available">Verfügbar</div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Projektübersicht</h3>
+                        <h3 class="card-title" data-i18n="dashboard.projectOverview">Projektübersicht</h3>
                     </div>
                     <div id="dashboard-projects">
                         <!-- Wird dynamisch geladen -->
@@ -453,15 +459,15 @@
                     <div class="budget-legend" style="padding: 1rem;">
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #27ae60;"></div>
-                            <span>< 70% verbraucht</span>
+                            <span data-i18n="dashboard.legend.under70">< 70% verbraucht</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #f39c12;"></div>
-                            <span>70-90% verbraucht</span>
+                            <span data-i18n="dashboard.legend.between70and90">70-90% verbraucht</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #e74c3c;"></div>
-                            <span>> 90% verbraucht</span>
+                            <span data-i18n="dashboard.legend.over90">> 90% verbraucht</span>
                         </div>
                     </div>
                 </div>
@@ -470,31 +476,31 @@
             <!-- ==================== PROJEKTE ==================== -->
             <div id="view-projekte" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Projekte</h1>
-                    <button class="btn btn-primary admin-only" onclick="App.showNewProjectForm()">
+                    <h1 class="page-title" data-i18n="projects.title">Projekte</h1>
+                    <button class="btn btn-primary admin-only" onclick="App.showNewProjectForm()" data-i18n="projects.newProject">
                         + Neues Projekt
                     </button>
                 </div>
 
                 <div class="card">
                     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 class="card-title" style="margin: 0;">Projektliste</h3>
+                        <h3 class="card-title" style="margin: 0;" data-i18n="projects.projectList">Projektliste</h3>
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <label style="font-size: 0.875rem; color: #666;">
-                                Jahr
+                                <span data-i18n="forms.year">Jahr</span>
                                 <select id="projects-year-filter" class="form-control" style="width: auto; display: inline-block; margin: 0 0.25rem;" onchange="App.filterProjectsByYear()">
-                                    <option value="">Alle Jahre</option>
+                                    <option value="" data-i18n="forms.allYears">Alle Jahre</option>
                                 </select>
                             </label>
                             <label style="font-size: 0.875rem; color: #666;">
-                                Zeige
+                                <span data-i18n="pagination.showing">Zeige</span>
                                 <select id="projects-per-page" class="form-control" style="width: auto; display: inline-block; margin: 0 0.25rem;" onchange="App.changeProjectsPerPage()">
                                     <option value="10">10</option>
                                     <option value="20" selected>20</option>
                                     <option value="30">30</option>
                                     <option value="50">50</option>
                                 </select>
-                                Einträge
+                                <span data-i18n="pagination.entries">Einträge</span>
                             </label>
                         </div>
                     </div>
@@ -502,14 +508,14 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Projektname</th>
-                                    <th>Standort</th>
-                                    <th>Status</th>
-                                    <th>Budget</th>
-                                    <th>IST-Kosten</th>
-                                    <th>Verfügbar</th>
-                                    <th>Geändert</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="projects.projectName">Projektname</th>
+                                    <th data-i18n="projects.location">Standort</th>
+                                    <th data-i18n="forms.status">Status</th>
+                                    <th data-i18n="projects.budget">Budget</th>
+                                    <th data-i18n="projects.actualCosts">IST-Kosten</th>
+                                    <th data-i18n="projects.available">Verfügbar</th>
+                                    <th data-i18n="projects.modified">Geändert</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="projects-table-body">
@@ -536,19 +542,19 @@
                 </div>
 
                 <div class="page-header" style="margin-bottom: 1rem;">
-                    <h1 class="page-title">EK-Rechnungen</h1>
+                    <h1 class="page-title" data-i18n="invoices.title">EK-Rechnungen</h1>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <span id="datev-last-update" style="font-size: 0.75rem; color: #666;"></span>
-                        <button class="btn btn-outline btn-sm" onclick="App.refreshDatevData()">
+                        <button class="btn btn-outline btn-sm" onclick="App.refreshDatevData()" data-i18n="actions.refresh">
                             Aktualisieren
                         </button>
-                        <button class="btn btn-outline btn-sm" onclick="App.updateSupplierNames()" title="Lieferantennamen aus Suppliers-Tabelle aktualisieren">
-                            <img src="assets/icons/02-sync.svg" alt="" class="icon"> Lieferanten sync
+                        <button class="btn btn-outline btn-sm" onclick="App.updateSupplierNames()" data-i18n-title="invoices.syncSuppliers">
+                            <img src="assets/icons/02-sync.svg" alt="" class="icon"> <span data-i18n="invoices.syncSuppliers">Lieferanten sync</span>
                         </button>
-                        <button class="btn btn-outline btn-sm" onclick="App.openDatevVerknuepfungModal()" title="DATEV-Bewegungen mit PDFs verknüpfen" style="background: #e8f5e9;">
+                        <button class="btn btn-outline btn-sm" onclick="App.openDatevVerknuepfungModal()" style="background: #e8f5e9;" data-i18n="invoices.linkPdf">
                             PDF verknüpfen
                         </button>
-                        <button class="btn btn-primary btn-sm" onclick="App.exportRechnungenCSV()">
+                        <button class="btn btn-primary btn-sm" onclick="App.exportRechnungenCSV()" data-i18n="invoices.csvExport">
                             CSV Export
                         </button>
                     </div>
@@ -558,36 +564,36 @@
                 <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #6c757d;">
                         <span style="font-weight: 600; font-size: 1.1rem;" id="stat-rechnungen-total">0</span>
-                        <span style="color: #666; font-size: 0.8rem;">Gesamt</span>
+                        <span style="color: #666; font-size: 0.8rem;" data-i18n="invoices.total">Gesamt</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff3e0; border-radius: 6px; border-left: 3px solid #ff9800;">
                         <span style="font-weight: 600; font-size: 1.1rem; color: #e65100;" id="stat-rechnungen-neu">0</span>
-                        <span style="color: #666; font-size: 0.8rem;">Neu</span>
+                        <span style="color: #666; font-size: 0.8rem;" data-i18n="status.new">Neu</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff8e1; border-radius: 6px; border-left: 3px solid #ffc107;">
                         <span style="font-weight: 600; font-size: 1.1rem;" id="stat-rechnungen-kontrolliert">0</span>
-                        <span style="color: #666; font-size: 0.8rem;">Kontrolliert</span>
+                        <span style="color: #666; font-size: 0.8rem;" data-i18n="status.checked">Kontrolliert</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e8f5e9; border-radius: 6px; border-left: 3px solid #4caf50;">
                         <span style="font-weight: 600; font-size: 1.1rem; color: #2e7d32;" id="stat-rechnungen-bezahlt">0</span>
-                        <span style="color: #666; font-size: 0.8rem;">Bezahlt</span>
+                        <span style="color: #666; font-size: 0.8rem;" data-i18n="status.paid">Bezahlt</span>
                     </div>
                     <div style="flex: 1;"></div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e3f2fd; border-radius: 6px;">
                         <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-netto">0,00 €</span>
-                        <span style="color: #666; font-size: 0.75rem;">Netto</span>
+                        <span style="color: #666; font-size: 0.75rem;" data-i18n="invoices.net">Netto</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #f3e5f5; border-radius: 6px;">
                         <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-mwst">0,00 €</span>
-                        <span style="color: #666; font-size: 0.75rem;">MwSt</span>
+                        <span style="color: #666; font-size: 0.75rem;" data-i18n="invoices.vat">MwSt</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #fff3e0; border-radius: 6px;">
                         <span style="font-weight: 500; font-size: 0.95rem;" id="stat-summe-offen">0,00 €</span>
-                        <span style="color: #666; font-size: 0.75rem;">Offen</span>
+                        <span style="color: #666; font-size: 0.75rem;" data-i18n="invoices.open">Offen</span>
                     </div>
                     <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0.5rem 0.75rem; background: #e8f5e9; border-radius: 6px;">
                         <span style="font-weight: 500; font-size: 0.95rem; color: #2e7d32;" id="stat-summe-bezahlt">0,00 €</span>
-                        <span style="color: #666; font-size: 0.75rem;">Bezahlt €</span>
+                        <span style="color: #666; font-size: 0.75rem;" data-i18n="invoices.paidAmount">Bezahlt €</span>
                     </div>
                 </div>
 
@@ -598,10 +604,11 @@
                             <input type="text"
                                    id="bewegungen-volltext-suche"
                                    class="form-control"
+                                   data-i18n-placeholder="placeholders.searchMovements"
                                    placeholder="Bewegungen durchsuchen (Rechnungs-Nr., Lieferant, Betrag, Notizen...)"
                                    oninput="App.filterRechnungen()"
                                    style="flex: 1; font-size: 0.95rem;">
-                            <button class="btn btn-outline btn-sm" onclick="App.clearBewegungssuche()" title="Suche leeren" style="padding: 0.4rem 0.75rem;">
+                            <button class="btn btn-outline btn-sm" onclick="App.clearBewegungssuche()" data-i18n-title="actions.clear" style="padding: 0.4rem 0.75rem;" data-i18n="actions.clear">
                                 Leeren
                             </button>
                         </div>
@@ -611,90 +618,90 @@
                 <!-- Filter -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Filter</h3>
+                        <h3 class="card-title" data-i18n="actions.filter">Filter</h3>
                     </div>
                     <div class="filter-row">
                         <div class="form-group">
-                            <label class="form-label">Jahr</label>
+                            <label class="form-label" data-i18n="forms.year">Jahr</label>
                             <select id="rechnung-filter-jahr" class="form-control" onchange="App.filterRechnungen()" style="min-width: 90px;">
                                 <!-- Wird dynamisch befüllt -->
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Status</label>
+                            <label class="form-label" data-i18n="forms.status">Status</label>
                             <select id="rechnung-filter-status" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle Status</option>
-                                <option value="neu">Neu</option>
-                                <option value="kontrolliert">Kontrolliert</option>
-                                <option value="bezahlt">Bezahlt</option>
+                                <option value="" data-i18n="forms.allStatus">Alle Status</option>
+                                <option value="neu" data-i18n="status.new">Neu</option>
+                                <option value="kontrolliert" data-i18n="status.checked">Kontrolliert</option>
+                                <option value="bezahlt" data-i18n="status.paid">Bezahlt</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Projekt</label>
+                            <label class="form-label" data-i18n="forms.project">Projekt</label>
                             <select id="rechnung-filter-projekt" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle Projekte</option>
+                                <option value="" data-i18n="forms.allProjects">Alle Projekte</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Lieferant</label>
-                            <input type="text" id="rechnung-filter-lieferant" class="form-control" placeholder="Lieferant suchen..." oninput="App.filterRechnungen()">
+                            <label class="form-label" data-i18n="forms.supplier">Lieferant</label>
+                            <input type="text" id="rechnung-filter-lieferant" class="form-control" data-i18n-placeholder="placeholders.searchSupplier" placeholder="Lieferant suchen..." oninput="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Rechnungsnr.</label>
-                            <input type="text" id="rechnung-filter-dokumentnr" class="form-control" placeholder="Nummer suchen..." oninput="App.filterRechnungen()">
+                            <label class="form-label" data-i18n="invoices.invoiceNumber">Rechnungsnr.</label>
+                            <input type="text" id="rechnung-filter-dokumentnr" class="form-control" data-i18n-placeholder="placeholders.searchNumber" placeholder="Nummer suchen..." oninput="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">PDF-Status</label>
+                            <label class="form-label" data-i18n="invoices.pdfStatus">PDF-Status</label>
                             <select id="rechnung-filter-pdf-status" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle</option>
-                                <option value="zugewiesen">Zugewiesen</option>
-                                <option value="nicht-zugewiesen">Nicht zugewiesen</option>
+                                <option value="" data-i18n="submissionPoints.all">Alle</option>
+                                <option value="zugewiesen" data-i18n="status.assigned">Zugewiesen</option>
+                                <option value="nicht-zugewiesen" data-i18n="status.notAssigned">Nicht zugewiesen</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">DATEV-Bewegung</label>
+                            <label class="form-label" data-i18n="invoices.datevStatus">DATEV-Bewegung</label>
                             <select id="rechnung-filter-datev-status" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle</option>
-                                <option value="zugewiesen">Zugewiesen</option>
-                                <option value="nicht-zugewiesen">Nicht zugewiesen</option>
+                                <option value="" data-i18n="submissionPoints.all">Alle</option>
+                                <option value="zugewiesen" data-i18n="status.assigned">Zugewiesen</option>
+                                <option value="nicht-zugewiesen" data-i18n="status.notAssigned">Nicht zugewiesen</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Kostentyp/Konto</label>
+                            <label class="form-label" data-i18n="costTypes.title">Kostentyp/Konto</label>
                             <select id="rechnung-filter-kostentyp" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle Konten</option>
-                                <option value="kuration">Kuration</option>
-                                <option value="kuenstlerausgabe">Künstlerausgabe</option>
-                                <option value="transport">Transport</option>
-                                <option value="produktion">Produktion</option>
-                                <option value="vermittlung">Vermittlung</option>
-                                <option value="dokumentation">Dokumentation</option>
-                                <option value="kommunikation">Kommunikation</option>
+                                <option value="" data-i18n="costTypes.allAccounts">Alle Konten</option>
+                                <option value="kuration" data-i18n="costTypes.curation">Kuration</option>
+                                <option value="kuenstlerausgabe" data-i18n="costTypes.artistExpense">Künstlerausgabe</option>
+                                <option value="transport" data-i18n="costTypes.transport">Transport</option>
+                                <option value="produktion" data-i18n="costTypes.production">Produktion</option>
+                                <option value="vermittlung" data-i18n="costTypes.mediation">Vermittlung</option>
+                                <option value="dokumentation" data-i18n="costTypes.documentation">Dokumentation</option>
+                                <option value="kommunikation" data-i18n="costTypes.communication">Kommunikation</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Abgabestelle</label>
+                            <label class="form-label" data-i18n="submissionPoints.title">Abgabestelle</label>
                             <select id="rechnung-filter-abgabestelle" class="form-control" onchange="App.filterRechnungen()">
-                                <option value="">Alle</option>
+                                <option value="" data-i18n="submissionPoints.all">Alle</option>
                                 <!-- Wird dynamisch aus Einnahmenplanung befüllt -->
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Von</label>
+                            <label class="form-label" data-i18n="forms.from">Von</label>
                             <input type="date" id="rechnung-filter-datum-von" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Bis</label>
+                            <label class="form-label" data-i18n="forms.to">Bis</label>
                             <input type="date" id="rechnung-filter-datum-bis" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Geändert ab</label>
+                            <label class="form-label" data-i18n="forms.modifiedSince">Geändert ab</label>
                             <input type="date" id="rechnung-filter-geaendert-ab" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; max-width: 130px;" onchange="App.filterRechnungen()">
                         </div>
                         <div class="form-group" style="display: flex; align-items: center; padding-top: 1.5rem;">
                             <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; white-space: nowrap;">
                                 <input type="checkbox" id="rechnung-filter-meine" onchange="App.filterRechnungen()">
-                                Meine Rechnungen
+                                <span data-i18n="invoices.myInvoices">Meine Rechnungen</span>
                             </label>
                         </div>
                     </div>
@@ -709,24 +716,24 @@
                                 <span id="rechnungen-selected-count" style="font-weight: 500;">0 ausgewählt</span>
                             </div>
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-sm" onclick="App.massMarkNeu()" style="background: #6c757d; color: white;" title="Ausgewählte auf 'neu' zurücksetzen">
+                                <button class="btn btn-sm" onclick="App.massMarkNeu()" style="background: #6c757d; color: white;" data-i18n="invoices.markAsNew">
                                     Als neu
                                 </button>
-                                <button class="btn btn-sm btn-primary" onclick="App.massMarkKontrolliert()" title="Ausgewählte als kontrolliert markieren">
+                                <button class="btn btn-sm btn-primary" onclick="App.massMarkKontrolliert()" data-i18n="invoices.markAsChecked">
                                     Als kontrolliert
                                 </button>
-                                <button class="btn btn-sm btn-success" onclick="App.massMarkBezahlt()" title="Ausgewählte als bezahlt markieren">
+                                <button class="btn btn-sm btn-success" onclick="App.massMarkBezahlt()" data-i18n="invoices.markAsPaid">
                                     Als bezahlt
                                 </button>
                                 <!-- Abgabestelle-Buttons (dynamisch befüllt) -->
                                 <span id="mass-abgabestelle-buttons"></span>
-                                <button class="btn btn-sm" onclick="App.massArchive()" style="background: #ff9800; color: white;" title="Ausgewählte archivieren">
+                                <button class="btn btn-sm" onclick="App.massArchive()" style="background: #ff9800; color: white;" data-i18n="actions.archive">
                                     Archivieren
                                 </button>
-                                <button class="btn btn-sm" onclick="App.massDelete()" style="background: #dc3545; color: white;" title="PDFs ohne DATEV-Verknüpfung löschen">
+                                <button class="btn btn-sm" onclick="App.massDelete()" style="background: #dc3545; color: white;" data-i18n="actions.delete">
                                     Löschen
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="App.clearSelection()" style="border-color: #e74c3c; color: #e74c3c;">
+                                <button class="btn btn-sm btn-outline" onclick="App.clearSelection()" style="border-color: #e74c3c; color: #e74c3c;" data-i18n="actions.deselectAll">
                                     Auswahl aufheben
                                 </button>
                             </div>
@@ -738,50 +745,50 @@
                                 <tr>
                                     <th style="width: 50px; position: sticky; left: 0; background: white; z-index: 10;">#</th>
                                     <th style="width: 40px; position: sticky; left: 50px; background: white; z-index: 10;">
-                                        <input type="checkbox" id="rechnungen-select-all" onchange="App.toggleSelectAll(this)" title="Alle auswählen/abwählen">
+                                        <input type="checkbox" id="rechnungen-select-all" onchange="App.toggleSelectAll(this)" data-i18n-title="actions.selectAll">
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('datum')">
-                                        Datum <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.date">Datum</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('lieferant')">
-                                        Lieferant <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.supplier">Lieferant</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('rechnungsnr')">
-                                        Rechnungsnr. <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.invoiceNumber">Rechnungsnr.</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('projekt')">
-                                        Projekt <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.project">Projekt</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('kostentyp')">
-                                        Kostentyp <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.costType">Kostentyp</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('netto')">
-                                        Netto <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.net">Netto</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('mwst')">
-                                        MwSt <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.vat">MwSt</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" style="text-align: right;" onclick="App.sortRechnungen('brutto')">
-                                        Brutto <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.gross">Brutto</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('status')">
-                                        Status <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.status">Status</span> <span class="sort-arrow">⇅</span>
                                     </th>
-                                    <th>PDF</th>
+                                    <th data-i18n="invoices.pdf">PDF</th>
                                     <th class="sortable" onclick="App.sortRechnungen('kontrolliert')">
-                                        Kontrolliert <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.checkedDate">Kontrolliert</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('bezahlt')">
-                                        Bezahlt <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.paidDate">Bezahlt</span> <span class="sort-arrow">⇅</span>
                                     </th>
-                                    <th class="sortable" onclick="App.sortRechnungen('geaendert')" title="Letzte Änderung">
-                                        Geändert <span class="sort-arrow">⇅</span>
+                                    <th class="sortable" onclick="App.sortRechnungen('geaendert')">
+                                        <span data-i18n="invoices.modified">Geändert</span> <span class="sort-arrow">⇅</span>
                                     </th>
                                     <th class="sortable" onclick="App.sortRechnungen('abgabestelle')">
-                                        Abgabestelle <span class="sort-arrow">⇅</span>
+                                        <span data-i18n="invoices.submissionPoint">Abgabestelle</span> <span class="sort-arrow">⇅</span>
                                     </th>
-                                    <th style="min-width: 150px;">Notiz</th>
-                                    <th>Aktionen</th>
+                                    <th style="min-width: 150px;" data-i18n="invoices.note">Notiz</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="rechnungen-table-body">
@@ -793,7 +800,7 @@
                     <!-- Pagination -->
                     <div id="rechnungen-pagination" class="pagination" style="display: none; align-items: center; gap: 1rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label style="font-size: 0.8rem; color: #666;">Pro Seite:</label>
+                            <label style="font-size: 0.8rem; color: #666;" data-i18n="forms.perPage">Pro Seite:</label>
                             <select id="page-size-select" onchange="App.changePageSize(this.value)" style="padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem;">
                                 <option value="10">10</option>
                                 <option value="20">20</option>
@@ -815,12 +822,12 @@
             <!-- ==================== LIEFERANTEN ==================== -->
             <div id="view-lieferanten" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Lieferanten</h1>
+                    <h1 class="page-title" data-i18n="suppliers.title">Lieferanten</h1>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <select id="lieferanten-filter-jahr" class="form-control" style="width: auto; min-width: 100px;" onchange="App.filterLieferantenByYear()">
                             <!-- Wird dynamisch befüllt -->
                         </select>
-                        <button class="btn btn-primary" onclick="App.showNewSupplierForm()">
+                        <button class="btn btn-primary" onclick="App.showNewSupplierForm()" data-i18n="suppliers.newSupplier">
                             + Neuer Lieferant
                         </button>
                     </div>
@@ -830,15 +837,15 @@
                 <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
                     <div class="stat-card">
                         <div class="stat-value" id="stat-lieferanten-total">0</div>
-                        <div class="stat-label">Lieferanten gesamt</div>
+                        <div class="stat-label" data-i18n="suppliers.totalSuppliers">Lieferanten gesamt</div>
                     </div>
                     <div class="stat-card success">
                         <div class="stat-value" id="stat-lieferanten-aktiv">0</div>
-                        <div class="stat-label">Mit Rechnungen</div>
+                        <div class="stat-label" data-i18n="suppliers.withInvoices">Mit Rechnungen</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="stat-lieferanten-summe">0 EUR</div>
-                        <div class="stat-label">Gesamtvolumen</div>
+                        <div class="stat-label" data-i18n="suppliers.totalVolume">Gesamtvolumen</div>
                     </div>
                 </div>
 
@@ -848,6 +855,7 @@
                         <input type="text"
                                id="lieferanten-search"
                                class="form-control"
+                               data-i18n-placeholder="suppliers.searchPlaceholder"
                                placeholder="Lieferant suchen (Name, Partita IVA, Adresse)..."
                                oninput="App.filterLieferanten()"
                                style="font-size: 0.9rem;">
@@ -862,16 +870,16 @@
                                 <tr>
                                     <th style="width: 30px;"></th>
                                     <th class="sortable" onclick="App.sortLieferanten('name')">
-                                        Lieferant <span id="sort-icon-lieferant-name"></span>
+                                        <span data-i18n="suppliers.supplierName">Lieferant</span> <span id="sort-icon-lieferant-name"></span>
                                     </th>
                                     <th class="sortable" onclick="App.sortLieferanten('partitaIva')">
-                                        Partita IVA <span id="sort-icon-lieferant-partitaIva"></span>
+                                        <span data-i18n="suppliers.partitaIva">Partita IVA</span> <span id="sort-icon-lieferant-partitaIva"></span>
                                     </th>
                                     <th class="sortable" onclick="App.sortLieferanten('adresse')">
-                                        Adresse <span id="sort-icon-lieferant-adresse"></span>
+                                        <span data-i18n="suppliers.address">Adresse</span> <span id="sort-icon-lieferant-adresse"></span>
                                     </th>
                                     <th class="sortable" onclick="App.sortLieferanten('ansprechperson')">
-                                        Ansprechperson <span id="sort-icon-lieferant-ansprechperson"></span>
+                                        <span data-i18n="suppliers.contactPerson">Ansprechperson</span> <span id="sort-icon-lieferant-ansprechperson"></span>
                                     </th>
                                     <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('jahr')">
                                         <span id="th-lieferant-jahr">2026</span> <span id="sort-icon-lieferant-jahr"></span>
@@ -880,7 +888,7 @@
                                         <span id="th-lieferant-vorjahr">2025</span> <span id="sort-icon-lieferant-vorjahr"></span>
                                     </th>
                                     <th style="text-align: right;" class="sortable" onclick="App.sortLieferanten('prozent')">
-                                        +/- % <span id="sort-icon-lieferant-prozent"></span>
+                                        <span data-i18n="suppliers.change">+/- %</span> <span id="sort-icon-lieferant-prozent"></span>
                                     </th>
                                 </tr>
                             </thead>
@@ -895,19 +903,19 @@
             <!-- ==================== PERSONAL ==================== -->
             <div id="view-personal" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Personal</h1>
-                    <button class="btn btn-primary" id="btn-personal-action" onclick="App.showNewTimeEntryForm()">
+                    <h1 class="page-title" data-i18n="personnel.title">Personal</h1>
+                    <button class="btn btn-primary" id="btn-personal-action" onclick="App.showNewTimeEntryForm()" data-i18n="personnel.newTimeEntry">
                         + Zeit erfassen
                     </button>
                 </div>
 
                 <!-- Tabs für Personal -->
                 <div class="tabs" style="margin-bottom: 1rem;">
-                    <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchPersonalTab('eintraege')">Zeiteinträge</div>
-                    <div class="tab" data-tab="zeit-externe" onclick="App.switchPersonalTab('externe')">Externe</div>
-                    <div class="tab" data-tab="zeit-kalender" onclick="App.switchPersonalTab('kalender')">Kalender</div>
-                    <div class="tab" data-tab="zeit-kurse" onclick="App.switchPersonalTab('kurse')">Kurse</div>
-                    <div class="tab" data-tab="zeit-anwesenheit" onclick="App.switchPersonalTab('anwesenheit')">Anwesenheit</div>
+                    <div class="tab active" data-tab="zeit-eintraege" onclick="App.switchPersonalTab('eintraege')" data-i18n="personnel.timeEntries">Zeiteinträge</div>
+                    <div class="tab" data-tab="zeit-externe" onclick="App.switchPersonalTab('externe')" data-i18n="personnel.external">Externe</div>
+                    <div class="tab" data-tab="zeit-kalender" onclick="App.switchPersonalTab('kalender')" data-i18n="personnel.calendar">Kalender</div>
+                    <div class="tab" data-tab="zeit-kurse" onclick="App.switchPersonalTab('kurse')" data-i18n="personnel.courses">Kurse</div>
+                    <div class="tab" data-tab="zeit-anwesenheit" onclick="App.switchPersonalTab('anwesenheit')" data-i18n="personnel.attendance">Anwesenheit</div>
                 </div>
 
                 <!-- Tab: Zeiteinträge -->
@@ -915,47 +923,47 @@
                     <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-total-hours">0</div>
-                            <div class="stat-label">Stunden diese Woche</div>
+                            <div class="stat-label" data-i18n="personnel.hoursThisWeek">Stunden diese Woche</div>
                         </div>
                         <div class="stat-card success">
                             <div class="stat-value" id="stat-total-hours-month">0</div>
-                            <div class="stat-label">Stunden diesen Monat</div>
+                            <div class="stat-label" data-i18n="personnel.hoursThisMonth">Stunden diesen Monat</div>
                         </div>
                     </div>
 
                     <!-- Admin-Filter (nur für Admins sichtbar) -->
                     <div id="time-admin-filters" class="card admin-only" style="margin-bottom: 1rem; display: none;">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Filter (Admin)</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="personnel.filterAdmin">Filter (Admin)</h3>
                         </div>
                         <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Mitarbeiter</label>
+                                <label class="form-label" data-i18n="personnel.employee">Mitarbeiter</label>
                                 <select id="time-filter-user" class="form-control" onchange="App.loadTimeTracking()">
-                                    <option value="">Alle Mitarbeiter</option>
+                                    <option value="" data-i18n="personnel.allEmployees">Alle Mitarbeiter</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Projekt</label>
+                                <label class="form-label" data-i18n="forms.project">Projekt</label>
                                 <select id="time-filter-project" class="form-control" onchange="App.loadTimeTracking()">
-                                    <option value="">Alle Projekte</option>
+                                    <option value="" data-i18n="forms.allProjects">Alle Projekte</option>
                             </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Von</label>
+                                <label class="form-label" data-i18n="forms.from">Von</label>
                                 <input type="date" id="time-filter-from" class="form-control" onchange="App.loadTimeTracking()">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Bis</label>
+                                <label class="form-label" data-i18n="forms.to">Bis</label>
                                 <input type="date" id="time-filter-to" class="form-control" onchange="App.loadTimeTracking()">
                             </div>
-                            <button class="btn btn-outline btn-sm" onclick="App.resetTimeFilters()">Filter zurucksetzen</button>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetTimeFilters()" data-i18n="personnel.resetFilters">Filter zurücksetzen</button>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title" id="time-entries-title">Meine Zeiteinträge</h3>
+                            <h3 class="card-title" id="time-entries-title" data-i18n="personnel.myEntries">Meine Zeiteinträge</h3>
                         </div>
                         <div id="time-entries-list">
                             <!-- Wird dynamisch geladen -->
@@ -967,61 +975,61 @@
                 <div id="tab-zeit-externe" class="tab-content" style="display: none;">
                     <div class="card" style="margin-bottom: 1rem;">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Filter</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="actions.filter">Filter</h3>
                         </div>
                         <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Externer Mitarbeiter</label>
+                                <label class="form-label" data-i18n="personnel.externalEmployee">Externer Mitarbeiter</label>
                                 <select id="externe-filter-user" class="form-control" onchange="App.loadExterneAuswertung()">
-                                    <option value="">Alle Externen</option>
+                                    <option value="" data-i18n="personnel.allExternals">Alle Externen</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Projekt</label>
+                                <label class="form-label" data-i18n="forms.project">Projekt</label>
                                 <select id="externe-filter-project" class="form-control" onchange="App.loadExterneAuswertung()">
-                                    <option value="">Alle Projekte</option>
+                                    <option value="" data-i18n="forms.allProjects">Alle Projekte</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Von</label>
+                                <label class="form-label" data-i18n="forms.from">Von</label>
                                 <input type="date" id="externe-filter-from" class="form-control" onchange="App.loadExterneAuswertung()">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Bis</label>
+                                <label class="form-label" data-i18n="forms.to">Bis</label>
                                 <input type="date" id="externe-filter-to" class="form-control" onchange="App.loadExterneAuswertung()">
                             </div>
-                            <button class="btn btn-outline btn-sm" onclick="App.resetExterneFilters()">Filter zurucksetzen</button>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetExterneFilters()" data-i18n="personnel.resetFilters">Filter zurücksetzen</button>
                         </div>
                     </div>
 
                     <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1rem;">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-externe-stunden">0</div>
-                            <div class="stat-label">Externe Stunden gesamt</div>
+                            <div class="stat-label" data-i18n="personnel.externalHoursTotal">Externe Stunden gesamt</div>
                         </div>
                         <div class="stat-card warning">
                             <div class="stat-value" id="stat-externe-kosten">0</div>
-                            <div class="stat-label">Externe Kosten gesamt</div>
+                            <div class="stat-label" data-i18n="personnel.externalCostsTotal">Externe Kosten gesamt</div>
                         </div>
                         <div class="stat-card success">
                             <div class="stat-value" id="stat-externe-mitarbeiter">0</div>
-                            <div class="stat-label">Externe Mitarbeiter</div>
+                            <div class="stat-label" data-i18n="personnel.externalEmployees">Externe Mitarbeiter</div>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Externe Stunden nach Projekt</h3>
+                            <h3 class="card-title" data-i18n="personnel.externalHoursByProject">Externe Stunden nach Projekt</h3>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Mitarbeiter</th>
-                                        <th>Projekt</th>
-                                        <th style="text-align: right;">Stunden</th>
-                                        <th style="text-align: right;">Stundensatz</th>
-                                        <th style="text-align: right;">Kosten</th>
+                                        <th data-i18n="personnel.employee">Mitarbeiter</th>
+                                        <th data-i18n="forms.project">Projekt</th>
+                                        <th style="text-align: right;" data-i18n="personnel.hours">Stunden</th>
+                                        <th style="text-align: right;" data-i18n="personnel.hourlyRate">Stundensatz</th>
+                                        <th style="text-align: right;" data-i18n="personnel.costs">Kosten</th>
                                     </tr>
                                 </thead>
                                 <tbody id="externe-auswertung-list">
@@ -1036,31 +1044,31 @@
                 <div id="tab-zeit-kalender" class="tab-content" style="display: none;">
                     <div class="card" style="margin-bottom: 1rem;">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Wartungskalender</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="calendar.title">Wartungskalender</h3>
                         </div>
                         <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Monat</label>
+                                <label class="form-label" data-i18n="calendar.month">Monat</label>
                                 <input type="month" id="kalender-filter-monat" class="form-control" onchange="App.loadKalender()">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Projekt</label>
+                                <label class="form-label" data-i18n="forms.project">Projekt</label>
                                 <select id="kalender-filter-projekt" class="form-control" onchange="App.loadKalender()">
-                                    <option value="">Alle Projekte</option>
+                                    <option value="" data-i18n="forms.allProjects">Alle Projekte</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Typ</label>
+                                <label class="form-label" data-i18n="calendar.type">Typ</label>
                                 <select id="kalender-filter-typ" class="form-control" onchange="App.loadKalender()">
-                                    <option value="">Alle</option>
-                                    <option value="mitarbeiter">Nur Mitarbeiter</option>
-                                    <option value="lieferant">Nur Lieferanten</option>
+                                    <option value="" data-i18n="calendar.allTypes">Alle</option>
+                                    <option value="mitarbeiter" data-i18n="calendar.employeesOnly">Nur Mitarbeiter</option>
+                                    <option value="lieferant" data-i18n="calendar.suppliersOnly">Nur Lieferanten</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Lieferant</label>
+                                <label class="form-label" data-i18n="forms.supplier">Lieferant</label>
                                 <select id="kalender-filter-lieferant" class="form-control" onchange="App.loadKalender()">
-                                    <option value="">Alle Lieferanten</option>
+                                    <option value="" data-i18n="forms.allSuppliers">Alle Lieferanten</option>
                                 </select>
                             </div>
                         </div>
@@ -1068,11 +1076,11 @@
 
                     <!-- Kalender Navigation -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <button class="btn btn-outline btn-sm" onclick="App.kalenderPrevMonth()">
+                        <button class="btn btn-outline btn-sm" onclick="App.kalenderPrevMonth()" data-i18n="calendar.previousMonth">
                             &larr; Vorheriger Monat
                         </button>
                         <h2 id="kalender-monat-titel" style="margin: 0;">August 2026</h2>
-                        <button class="btn btn-outline btn-sm" onclick="App.kalenderNextMonth()">
+                        <button class="btn btn-outline btn-sm" onclick="App.kalenderNextMonth()" data-i18n="calendar.nextMonth">
                             Nächster Monat &rarr;
                         </button>
                     </div>
@@ -1081,28 +1089,28 @@
                     <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1rem;">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-kalender-eintraege">0</div>
-                            <div class="stat-label">Einträge im Monat</div>
+                            <div class="stat-label" data-i18n="calendar.entriesInMonth">Einträge im Monat</div>
                         </div>
                         <div class="stat-card success">
                             <div class="stat-value" id="stat-kalender-stunden">0</div>
-                            <div class="stat-label">Stunden gesamt</div>
+                            <div class="stat-label" data-i18n="calendar.totalHours">Stunden gesamt</div>
                         </div>
                         <div class="stat-card warning">
                             <div class="stat-value" id="stat-kalender-lieferanten">0</div>
-                            <div class="stat-label">Lieferanten-Stunden</div>
+                            <div class="stat-label" data-i18n="calendar.supplierHours">Lieferanten-Stunden</div>
                         </div>
                     </div>
 
                     <!-- Kalender Grid -->
                     <div class="card">
                         <div class="kalender-header">
-                            <div class="kalender-wochentag">Mo</div>
-                            <div class="kalender-wochentag">Di</div>
-                            <div class="kalender-wochentag">Mi</div>
-                            <div class="kalender-wochentag">Do</div>
-                            <div class="kalender-wochentag">Fr</div>
-                            <div class="kalender-wochentag">Sa</div>
-                            <div class="kalender-wochentag">So</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.mo">Mo</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.tu">Di</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.we">Mi</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.th">Do</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.fr">Fr</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.sa">Sa</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.su">So</div>
                         </div>
                         <div id="kalender-container" class="kalender-grid">
                             <!-- Wird dynamisch generiert -->
@@ -1114,82 +1122,82 @@
                 <div id="tab-zeit-kurse" class="tab-content" style="display: none;">
                     <!-- Admin: Ablaufende Zertifikate Warnung -->
                     <div id="kurse-ablauf-warnung" class="alert alert-warning admin-only" style="display: none; margin-bottom: 1rem;">
-                        <strong>Achtung:</strong> <span id="kurse-ablauf-anzahl">0</span> Zertifikate laufen in den naechsten 90 Tagen ab.
-                        <button class="btn btn-sm btn-outline" onclick="App.showAblaufendeZertifikate()" style="margin-left: 1rem;">Details anzeigen</button>
+                        <strong data-i18n="courses.expiringWarning">Achtung:</strong> <span id="kurse-ablauf-anzahl">0</span>
+                        <button class="btn btn-sm btn-outline" onclick="App.showAblaufendeZertifikate()" style="margin-left: 1rem;" data-i18n="courses.showDetails">Details anzeigen</button>
                     </div>
 
                     <!-- Kurse Statistiken -->
                     <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-kurse-gesamt">0</div>
-                            <div class="stat-label">Kurse gesamt</div>
+                            <div class="stat-label" data-i18n="courses.totalCourses">Kurse gesamt</div>
                         </div>
                         <div class="stat-card warning">
                             <div class="stat-value" id="stat-kurse-pflicht">0</div>
-                            <div class="stat-label">Pflichtkurse</div>
+                            <div class="stat-label" data-i18n="courses.mandatoryCourses">Pflichtkurse</div>
                         </div>
                         <div class="stat-card error">
                             <div class="stat-value" id="stat-kurse-ablaufend">0</div>
-                            <div class="stat-label">Ablaufend (90 Tage)</div>
+                            <div class="stat-label" data-i18n="courses.expiringSoon">Ablaufend (90 Tage)</div>
                         </div>
                         <div class="stat-card success">
                             <div class="stat-value" id="stat-kurse-geplant">0</div>
-                            <div class="stat-label">Geplante Termine</div>
+                            <div class="stat-label" data-i18n="courses.plannedDates">Geplante Termine</div>
                         </div>
                     </div>
 
                     <!-- Admin Filter -->
                     <div id="kurse-admin-filter" class="card admin-only" style="margin-bottom: 1rem;">
                         <div class="card-header">
-                            <h3 class="card-title" style="margin: 0;">Filter</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="courses.filter">Filter</h3>
                         </div>
                         <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Kategorie</label>
+                                <label class="form-label" data-i18n="forms.category">Kategorie</label>
                                 <select id="kurse-filter-kategorie" class="form-control" onchange="App.loadKurse()">
-                                    <option value="">Alle Kategorien</option>
+                                    <option value="" data-i18n="courses.allCategories">Alle Kategorien</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Typ</label>
+                                <label class="form-label" data-i18n="forms.type">Typ</label>
                                 <select id="kurse-filter-typ" class="form-control" onchange="App.loadKurse()">
-                                    <option value="">Alle</option>
-                                    <option value="pflicht">Nur Pflicht</option>
-                                    <option value="freiwillig">Nur Freiwillig</option>
+                                    <option value="" data-i18n="courses.allTypes">Alle</option>
+                                    <option value="pflicht" data-i18n="courses.mandatoryOnly">Nur Pflicht</option>
+                                    <option value="freiwillig" data-i18n="courses.voluntaryOnly">Nur Freiwillig</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Status</label>
+                                <label class="form-label" data-i18n="forms.status">Status</label>
                                 <select id="kurse-filter-status" class="form-control" onchange="App.loadKurse()">
-                                    <option value="">Alle</option>
-                                    <option value="aktiv">Nur aktive</option>
-                                    <option value="inaktiv">Nur inaktive</option>
+                                    <option value="" data-i18n="courses.allTypes">Alle</option>
+                                    <option value="aktiv" data-i18n="courses.activeOnly">Nur aktive</option>
+                                    <option value="inaktiv" data-i18n="courses.inactiveOnly">Nur inaktive</option>
                                 </select>
                             </div>
-                            <button class="btn btn-outline btn-sm" onclick="App.resetKurseFilters()">Filter zuruecksetzen</button>
+                            <button class="btn btn-outline btn-sm" onclick="App.resetKurseFilters()" data-i18n="courses.resetFilters">Filter zuruecksetzen</button>
                         </div>
                     </div>
 
                     <!-- Kursliste (Admin) -->
                     <div class="card admin-only" style="margin-bottom: 1rem;">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Kurse verwalten</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="courses.manageCourses">Kurse verwalten</h3>
                             <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn btn-outline btn-sm" onclick="App.showKursAnbieterModal()">Anbieter</button>
-                                <button class="btn btn-primary btn-sm" onclick="App.showNewKursForm()">+ Neuer Kurs</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showKursAnbieterModal()" data-i18n="courses.providers">Anbieter</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewKursForm()" data-i18n="courses.newCourse">+ Neuer Kurs</button>
                             </div>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Kurs</th>
-                                        <th>Kategorie</th>
-                                        <th>Pflicht</th>
-                                        <th>Faellig</th>
-                                        <th style="text-align: center;">Termine</th>
-                                        <th style="text-align: center;">Teilnehmer</th>
-                                        <th style="text-align: right;">Aktionen</th>
+                                        <th data-i18n="courses.course">Kurs</th>
+                                        <th data-i18n="forms.category">Kategorie</th>
+                                        <th data-i18n="courses.mandatory">Pflicht</th>
+                                        <th data-i18n="courses.due">Faellig</th>
+                                        <th style="text-align: center;" data-i18n="courses.dates">Termine</th>
+                                        <th style="text-align: center;" data-i18n="courses.participants">Teilnehmer</th>
+                                        <th style="text-align: right;" data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="kurse-liste">
@@ -1202,18 +1210,18 @@
                     <!-- Meine Kurse (User) -->
                     <div class="card" id="meine-kurse-card">
                         <div class="card-header">
-                            <h3 class="card-title" style="margin: 0;">Meine Kurse & Zertifikate</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="courses.myCourses">Meine Kurse & Zertifikate</h3>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Kurs</th>
-                                        <th>Kategorie</th>
-                                        <th>Termin</th>
-                                        <th>Status</th>
-                                        <th>Zertifikat bis</th>
-                                        <th style="text-align: right;">Aktionen</th>
+                                        <th data-i18n="courses.course">Kurs</th>
+                                        <th data-i18n="forms.category">Kategorie</th>
+                                        <th data-i18n="courses.date">Termin</th>
+                                        <th data-i18n="forms.status">Status</th>
+                                        <th data-i18n="courses.certificateUntil">Zertifikat bis</th>
+                                        <th style="text-align: right;" data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="meine-kurse-liste">
@@ -1230,41 +1238,41 @@
                     <div class="stats-grid admin-only" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-anwesenheit-heute">0</div>
-                            <div class="stat-label">Heute im Buero</div>
+                            <div class="stat-label" data-i18n="attendance.todayInOffice">Heute im Buero</div>
                         </div>
                         <div class="stat-card success">
                             <div class="stat-value" id="stat-anwesenheit-essen-heute">0</div>
-                            <div class="stat-label">Mittagessen heute</div>
+                            <div class="stat-label" data-i18n="attendance.lunchToday">Mittagessen heute</div>
                         </div>
                         <div class="stat-card warning">
                             <div class="stat-value" id="stat-anwesenheit-essen-monat">0</div>
-                            <div class="stat-label">Mittagessen Monat</div>
+                            <div class="stat-label" data-i18n="attendance.lunchMonth">Mittagessen Monat</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value" id="stat-anwesenheit-homeoffice">0</div>
-                            <div class="stat-label">Homeoffice heute</div>
+                            <div class="stat-label" data-i18n="attendance.homeofficeToday">Homeoffice heute</div>
                         </div>
                     </div>
 
                     <!-- Admin: Monatskalender mit Essensgutschein-Anzahl -->
                     <div class="card admin-only" style="margin-bottom: 1rem;">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Anwesenheit & Essensgutscheine</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="attendance.attendanceAndLunch">Anwesenheit & Essensgutscheine</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <button class="btn btn-outline btn-sm" onclick="App.anwesenheitPrevMonth()">&larr;</button>
                                 <span id="anwesenheit-monat-titel" style="min-width: 120px; text-align: center;">August 2026</span>
                                 <button class="btn btn-outline btn-sm" onclick="App.anwesenheitNextMonth()">&rarr;</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.showBestellungModal()" style="margin-left: 1rem;">Bestellungen</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showBestellungModal()" style="margin-left: 1rem;" data-i18n="attendance.orders">Bestellungen</button>
                             </div>
                         </div>
                         <div class="kalender-header">
-                            <div class="kalender-wochentag">Mo</div>
-                            <div class="kalender-wochentag">Di</div>
-                            <div class="kalender-wochentag">Mi</div>
-                            <div class="kalender-wochentag">Do</div>
-                            <div class="kalender-wochentag">Fr</div>
-                            <div class="kalender-wochentag">Sa</div>
-                            <div class="kalender-wochentag">So</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.mo">Mo</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.tu">Di</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.we">Mi</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.th">Do</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.fr">Fr</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.sa">Sa</div>
+                            <div class="kalender-wochentag" data-i18n="calendar.weekdays.su">So</div>
                         </div>
                         <div id="anwesenheit-kalender-container" class="kalender-grid">
                             <!-- Wird dynamisch generiert -->
@@ -1274,7 +1282,7 @@
                     <!-- User: Meine Monatsplanung -->
                     <div class="card" id="meine-anwesenheit-card">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title" style="margin: 0;">Meine Anwesenheitsplanung</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="attendance.myAttendance">Meine Anwesenheitsplanung</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <button class="btn btn-outline btn-sm" onclick="App.meineAnwesenheitPrevMonth()">&larr;</button>
                                 <span id="meine-anwesenheit-monat-titel" style="min-width: 120px; text-align: center;">August 2026</span>
@@ -1284,36 +1292,36 @@
                         <div style="padding: 1rem;">
                             <!-- Auswahlmodus-Leiste -->
                             <div id="anwesenheit-auswahl-leiste" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
-                                <span style="color: #666; font-size: 0.9rem;">Auswahl:</span>
+                                <span style="color: #666; font-size: 0.9rem;" data-i18n="attendance.markAttendance">Auswahl:</span>
                                 <select id="anwesenheit-auswahl-status" class="form-control" style="width: auto; min-width: 180px;">
                                     <option value="buero_essen">Buero + Mittagessen</option>
                                     <option value="buero_ohne_essen">Buero (ohne Essen)</option>
-                                    <option value="homeoffice">Homeoffice</option>
-                                    <option value="urlaub">Urlaub</option>
-                                    <option value="nicht_da">Nicht geplant</option>
+                                    <option value="homeoffice" data-i18n="attendance.homeoffice">Homeoffice</option>
+                                    <option value="urlaub" data-i18n="attendance.vacation">Urlaub</option>
+                                    <option value="nicht_da" data-i18n="attendance.notWorking">Nicht geplant</option>
                                 </select>
-                                <button class="btn btn-primary btn-sm" onclick="App.saveAnwesenheitAuswahl()">Auswahl speichern</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.clearAnwesenheitAuswahl()">Zuruecksetzen</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.saveAnwesenheitAuswahl()" data-i18n="actions.save">Auswahl speichern</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.clearAnwesenheitAuswahl()" data-i18n="actions.reset">Zuruecksetzen</button>
                             </div>
 
                             <!-- Legende -->
                             <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; font-size: 0.8rem;">
                                 <span><span style="display: inline-block; width: 12px; height: 12px; background: #27ae60; border-radius: 2px; margin-right: 4px;"></span>Buero + Essen</span>
-                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #3498db; border-radius: 2px; margin-right: 4px;"></span>Buero</span>
-                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #f39c12; border-radius: 2px; margin-right: 4px;"></span>Homeoffice</span>
-                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #e74c3c; border-radius: 2px; margin-right: 4px;"></span>Urlaub</span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #3498db; border-radius: 2px; margin-right: 4px;"></span><span data-i18n="attendance.office">Buero</span></span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #f39c12; border-radius: 2px; margin-right: 4px;"></span><span data-i18n="attendance.homeoffice">Homeoffice</span></span>
+                                <span><span style="display: inline-block; width: 12px; height: 12px; background: #e74c3c; border-radius: 2px; margin-right: 4px;"></span><span data-i18n="attendance.vacation">Urlaub</span></span>
                                 <span><span style="display: inline-block; width: 12px; height: 12px; background: #9b59b6; border-radius: 2px; margin-right: 4px;"></span>Ausgewaehlt</span>
                             </div>
 
                             <!-- Monatskalender -->
                             <div class="kalender-header">
-                                <div class="kalender-wochentag">Mo</div>
-                                <div class="kalender-wochentag">Di</div>
-                                <div class="kalender-wochentag">Mi</div>
-                                <div class="kalender-wochentag">Do</div>
-                                <div class="kalender-wochentag">Fr</div>
-                                <div class="kalender-wochentag">Sa</div>
-                                <div class="kalender-wochentag">So</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.mo">Mo</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.tu">Di</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.we">Mi</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.th">Do</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.fr">Fr</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.sa">Sa</div>
+                                <div class="kalender-wochentag" data-i18n="calendar.weekdays.su">So</div>
                             </div>
                             <div id="meine-anwesenheit-kalender" class="kalender-grid">
                                 <!-- Wird dynamisch generiert -->
@@ -1324,7 +1332,7 @@
                     <!-- Wer ist heute da? (fuer alle sichtbar) -->
                     <div class="card" style="margin-top: 1rem;">
                         <div class="card-header">
-                            <h3 class="card-title" style="margin: 0;">Heute anwesend</h3>
+                            <h3 class="card-title" style="margin: 0;" data-i18n="attendance.present">Heute anwesend</h3>
                         </div>
                         <div id="heute-anwesend-liste" style="padding: 1rem;">
                             <!-- Wird dynamisch geladen -->
@@ -1336,44 +1344,44 @@
             <!-- ==================== SITZUNGEN ==================== -->
             <div id="view-sitzungen" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Sitzungen & Besprechungen</h1>
-                    <button class="btn btn-primary" onclick="App.showNewSitzungForm()">+ Neue Sitzung</button>
+                    <h1 class="page-title" data-i18n="meetings.title">Sitzungen & Besprechungen</h1>
+                    <button class="btn btn-primary" onclick="App.showNewSitzungForm()" data-i18n="meetings.newMeeting">+ Neue Sitzung</button>
                 </div>
 
                 <!-- Tabs für Sitzungstypen -->
                 <div class="tabs" style="margin-bottom: 1rem;">
-                    <div class="tab active" data-tab="alle-sitzungen" onclick="App.filterSitzungen('alle')">Alle</div>
-                    <div class="tab" data-tab="intern" onclick="App.filterSitzungen('intern')">Interne Besprechungen</div>
-                    <div class="tab" data-tab="extern" onclick="App.filterSitzungen('extern')">Externe Meetings</div>
-                    <div class="tab" data-tab="vorstand" onclick="App.filterSitzungen('vorstand')">Vorstandssitzungen</div>
+                    <div class="tab active" data-tab="alle-sitzungen" onclick="App.filterSitzungen('alle')" data-i18n="meetings.all">Alle</div>
+                    <div class="tab" data-tab="intern" onclick="App.filterSitzungen('intern')" data-i18n="meetings.internalMeetings">Interne Besprechungen</div>
+                    <div class="tab" data-tab="extern" onclick="App.filterSitzungen('extern')" data-i18n="meetings.externalMeetings">Externe Meetings</div>
+                    <div class="tab" data-tab="vorstand" onclick="App.filterSitzungen('vorstand')" data-i18n="meetings.boardMeetings">Vorstandssitzungen</div>
                 </div>
 
                 <!-- Anstehende Deadlines -->
                 <div class="card" style="margin-bottom: 1rem; background: #fff3cd; border-left: 4px solid #f39c12;">
                     <div class="card-header" style="background: transparent;">
-                        <h3 class="card-title" style="color: #856404;">Anstehende Deadlines</h3>
+                        <h3 class="card-title" style="color: #856404;" data-i18n="meetings.upcomingDeadlines">Anstehende Deadlines</h3>
                     </div>
                     <div id="deadlines-liste" style="padding: 0 1rem 1rem;">
                         <!-- Wird dynamisch geladen -->
-                        <p style="color: #666; font-style: italic;">Keine anstehenden Deadlines</p>
+                        <p style="color: #666; font-style: italic;" data-i18n="meetings.noDeadlines">Keine anstehenden Deadlines</p>
                     </div>
                 </div>
 
                 <!-- Sitzungsliste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Sitzungen</h3>
+                        <h3 class="card-title" data-i18n="meetings.meetingsList">Sitzungen</h3>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Datum</th>
-                                    <th>Titel</th>
-                                    <th>Typ</th>
-                                    <th>Teilnehmer</th>
-                                    <th>Offene Tasks</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="forms.date">Datum</th>
+                                    <th data-i18n="meetings.meetingTitle">Titel</th>
+                                    <th data-i18n="forms.type">Typ</th>
+                                    <th data-i18n="courses.participants">Teilnehmer</th>
+                                    <th data-i18n="meetings.openTasks">Offene Tasks</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="sitzungen-table-body">
@@ -1387,22 +1395,22 @@
             <!-- ==================== KÜNSTLER ==================== -->
             <div id="view-kuenstler" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Künstlerverwaltung</h1>
-                    <button class="btn btn-primary" onclick="App.showNewKuenstlerForm()">+ Neuer Künstler</button>
+                    <h1 class="page-title" data-i18n="artists.title">Künstlerverwaltung</h1>
+                    <button class="btn btn-primary" onclick="App.showNewKuenstlerForm()" data-i18n="artists.newArtist">+ Neuer Künstler</button>
                 </div>
 
                 <!-- Filter -->
                 <div class="card" style="margin-bottom: 1rem;">
                     <div class="filter-row" style="padding: 1rem;">
                         <div class="form-group">
-                            <label class="form-label">Projekt/Event</label>
+                            <label class="form-label" data-i18n="forms.project">Projekt/Event</label>
                             <select id="kuenstler-filter-projekt" class="form-control" onchange="App.filterKuenstler()">
-                                <option value="">Alle Projekte</option>
+                                <option value="" data-i18n="forms.allProjects">Alle Projekte</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Suche</label>
-                            <input type="text" id="kuenstler-suche" class="form-control" placeholder="Name suchen..." oninput="App.filterKuenstler()">
+                            <label class="form-label" data-i18n="actions.search">Suche</label>
+                            <input type="text" id="kuenstler-suche" class="form-control" data-i18n-placeholder="artists.searchName" placeholder="Name suchen..." oninput="App.filterKuenstler()">
                         </div>
                     </div>
                 </div>
@@ -1410,18 +1418,18 @@
                 <!-- Künstlerliste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Künstler</h3>
+                        <h3 class="card-title" data-i18n="artists.artistsList">Künstler</h3>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Land</th>
-                                    <th>Technik/Medium</th>
-                                    <th>Verknüpfte Events</th>
-                                    <th>Kontakt</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="forms.name">Name</th>
+                                    <th data-i18n="forms.country">Land</th>
+                                    <th data-i18n="artists.technique">Technik/Medium</th>
+                                    <th data-i18n="artists.linkedEvents">Verknüpfte Events</th>
+                                    <th data-i18n="artists.contact">Kontakt</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="kuenstler-table-body">
@@ -1558,11 +1566,11 @@
             <!-- ==================== SHOP & KASSE ==================== -->
             <div id="view-shop" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Shop & Kasse</h1>
+                    <h1 class="page-title" data-i18n="shop.title">Shop & Kasse</h1>
                     <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('artikel')">+ Artikel verkaufen</button>
-                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('eintritt')">+ Eintritt</button>
-                        <button class="btn btn-primary" onclick="App.showShopVerkaufForm('mitglied')">+ Mitgliedsbeitrag</button>
+                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('artikel')" data-i18n="shop.sellArticle">+ Artikel verkaufen</button>
+                        <button class="btn btn-outline" onclick="App.showShopVerkaufForm('eintritt')" data-i18n="shop.admission">+ Eintritt</button>
+                        <button class="btn btn-primary" onclick="App.showShopVerkaufForm('mitglied')" data-i18n="shop.membership">+ Mitgliedsbeitrag</button>
                     </div>
                 </div>
 
@@ -1570,40 +1578,40 @@
                 <div class="stats-grid">
                     <div class="stat-card success">
                         <div class="stat-value" id="shop-stat-einnahmen-bar">0 EUR</div>
-                        <div class="stat-label">Einnahmen Bar (heute)</div>
+                        <div class="stat-label" data-i18n="shop.cashRevenueToday">Einnahmen Bar (heute)</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="shop-stat-einnahmen-pos">0 EUR</div>
-                        <div class="stat-label">Einnahmen POS (heute)</div>
+                        <div class="stat-label" data-i18n="shop.posRevenueToday">Einnahmen POS (heute)</div>
                     </div>
                     <div class="stat-card warning">
                         <div class="stat-value" id="shop-stat-kassen-saldo">0 EUR</div>
-                        <div class="stat-label">Kassensaldo Bar</div>
+                        <div class="stat-label" data-i18n="shop.cashBalance">Kassensaldo Bar</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="shop-stat-artikel">0</div>
-                        <div class="stat-label">Artikel im Bestand</div>
+                        <div class="stat-label" data-i18n="shop.articlesInStock">Artikel im Bestand</div>
                     </div>
                 </div>
 
                 <!-- Tabs -->
                 <div class="tabs" id="shop-tabs">
-                    <div class="tab active" data-tab="shop-inventar">Inventar</div>
-                    <div class="tab" data-tab="shop-verkaeufe">Verkäufe</div>
-                    <div class="tab" data-tab="shop-einkaeufe">Einkäufe</div>
-                    <div class="tab" data-tab="shop-rechnungen">Rechnungen</div>
-                    <div class="tab" data-tab="shop-kasse">Kasse</div>
-                    <div class="tab" data-tab="shop-ausgaben">Interne Ausgaben</div>
+                    <div class="tab active" data-tab="shop-inventar" data-i18n="shop.inventory">Inventar</div>
+                    <div class="tab" data-tab="shop-verkaeufe" data-i18n="shop.sales">Verkäufe</div>
+                    <div class="tab" data-tab="shop-einkaeufe" data-i18n="shop.purchases">Einkäufe</div>
+                    <div class="tab" data-tab="shop-rechnungen" data-i18n="shop.invoices">Rechnungen</div>
+                    <div class="tab" data-tab="shop-kasse" data-i18n="shop.cash">Kasse</div>
+                    <div class="tab" data-tab="shop-ausgaben" data-i18n="shop.internalExpenses">Interne Ausgaben</div>
                 </div>
 
                 <!-- Tab: Inventar -->
                 <div id="tab-shop-inventar" class="tab-content active">
                     <div class="card">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title">Artikelbestand</h3>
+                            <h3 class="card-title" data-i18n="shop.articleStock">Artikelbestand</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <select id="shop-filter-typ" class="form-control" style="width: 150px;" onchange="App.filterShopArtikel()">
-                                    <option value="">Alle Typen</option>
+                                    <option value="" data-i18n="shop.allTypes">Alle Typen</option>
                                     <option value="buch">Buch</option>
                                     <option value="katalog">Katalog</option>
                                     <option value="objekt">Objekt/Gadget</option>
@@ -1612,28 +1620,28 @@
                                     <option value="sonstiges">Sonstiges</option>
                                 </select>
                                 <select id="shop-filter-standort" class="form-control" style="width: 150px;" onchange="App.filterShopArtikel()">
-                                    <option value="">Alle Standorte</option>
+                                    <option value="" data-i18n="shop.allLocations">Alle Standorte</option>
                                     <option value="Shop">Shop</option>
                                     <option value="Bücherkeller">Bücherkeller</option>
                                 </select>
-                                <input type="text" id="shop-suche" class="form-control" placeholder="Suche..." style="width: 200px;" oninput="App.filterShopArtikel()">
-                                <button class="btn btn-outline btn-sm" onclick="App.showShopImportModal()">Excel Import</button>
-                                <button class="btn btn-primary btn-sm" onclick="App.showNewShopArtikelForm()">+ Neuer Artikel</button>
+                                <input type="text" id="shop-suche" class="form-control" data-i18n-placeholder="placeholders.searchGeneral" placeholder="Suche..." style="width: 200px;" oninput="App.filterShopArtikel()">
+                                <button class="btn btn-outline btn-sm" onclick="App.showShopImportModal()" data-i18n="shop.excelImport">Excel Import</button>
+                                <button class="btn btn-primary btn-sm" onclick="App.showNewShopArtikelForm()" data-i18n="shop.newArticle">+ Neuer Artikel</button>
                             </div>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Art.-Nr.</th>
-                                        <th>Bezeichnung</th>
-                                        <th>Typ</th>
-                                        <th style="text-align: right;">Ø EK</th>
-                                        <th style="text-align: right;">VK</th>
-                                        <th style="text-align: center;">Marge</th>
-                                        <th style="text-align: right;">MwSt</th>
-                                        <th style="text-align: center;">Bestand</th>
-                                        <th>Aktionen</th>
+                                        <th data-i18n="shop.articleNo">Art.-Nr.</th>
+                                        <th data-i18n="shop.designation">Bezeichnung</th>
+                                        <th data-i18n="forms.type">Typ</th>
+                                        <th style="text-align: right;" data-i18n="shop.avgPurchasePrice">Ø EK</th>
+                                        <th style="text-align: right;" data-i18n="shop.sellingPrice">VK</th>
+                                        <th style="text-align: center;" data-i18n="shop.margin">Marge</th>
+                                        <th style="text-align: right;" data-i18n="shop.vat">MwSt</th>
+                                        <th style="text-align: center;" data-i18n="shop.stock">Bestand</th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="shop-artikel-table-body">
@@ -1648,17 +1656,17 @@
                 <div id="tab-shop-verkaeufe" class="tab-content">
                     <div class="card">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title">Verkäufe & Einnahmen</h3>
+                            <h3 class="card-title" data-i18n="shop.salesAndRevenue">Verkäufe & Einnahmen</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <input type="date" id="shop-verkaeufe-datum" class="form-control" style="width: 150px;" onchange="App.loadShopVerkaeufe()">
                                 <select id="shop-verkaeufe-typ" class="form-control" style="width: 130px;" onchange="App.loadShopVerkaeufe()">
-                                    <option value="">Alle Typen</option>
-                                    <option value="artikel">Artikel</option>
+                                    <option value="" data-i18n="shop.allTypes">Alle Typen</option>
+                                    <option value="artikel" data-i18n="shop.article">Artikel</option>
                                     <option value="eintritt">Eintritt</option>
                                     <option value="mitglied">Mitglied</option>
                                 </select>
                                 <select id="shop-verkaeufe-zahlung" class="form-control" style="width: 100px;" onchange="App.loadShopVerkaeufe()">
-                                    <option value="">Alle</option>
+                                    <option value="" data-i18n="shop.allPayments">Alle</option>
                                     <option value="bar">Bar</option>
                                     <option value="pos">POS</option>
                                 </select>
@@ -1668,15 +1676,15 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Datum</th>
-                                        <th>Zeit</th>
-                                        <th>Typ</th>
-                                        <th>Beschreibung</th>
-                                        <th style="text-align: center;">Menge</th>
-                                        <th style="text-align: right;">Einzelpreis</th>
-                                        <th style="text-align: right;">Gesamt</th>
-                                        <th>Zahlung</th>
-                                        <th>Aktionen</th>
+                                        <th data-i18n="forms.date">Datum</th>
+                                        <th data-i18n="shop.time">Zeit</th>
+                                        <th data-i18n="forms.type">Typ</th>
+                                        <th data-i18n="forms.description">Beschreibung</th>
+                                        <th style="text-align: center;" data-i18n="shop.quantity">Menge</th>
+                                        <th style="text-align: right;" data-i18n="shop.unitPrice">Einzelpreis</th>
+                                        <th style="text-align: right;" data-i18n="shop.total">Gesamt</th>
+                                        <th data-i18n="shop.payment">Zahlung</th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="shop-verkaeufe-table-body">
@@ -1691,21 +1699,21 @@
                 <div id="tab-shop-einkaeufe" class="tab-content">
                     <div class="card">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title">Wareneinkäufe</h3>
-                            <button class="btn btn-primary btn-sm" onclick="App.showShopEinkaufForm()">+ Einkauf erfassen</button>
+                            <h3 class="card-title" data-i18n="shop.goodsPurchases">Wareneinkäufe</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.showShopEinkaufForm()" data-i18n="shop.recordPurchase">+ Einkauf erfassen</button>
                         </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Datum</th>
-                                        <th>Artikel</th>
-                                        <th style="text-align: center;">Menge</th>
-                                        <th style="text-align: right;">Einzelpreis</th>
-                                        <th style="text-align: right;">Gesamt</th>
-                                        <th>Lieferant</th>
-                                        <th>Rechnung</th>
-                                        <th>Aktionen</th>
+                                        <th data-i18n="forms.date">Datum</th>
+                                        <th data-i18n="shop.article">Artikel</th>
+                                        <th style="text-align: center;" data-i18n="shop.quantity">Menge</th>
+                                        <th style="text-align: right;" data-i18n="shop.unitPrice">Einzelpreis</th>
+                                        <th style="text-align: right;" data-i18n="shop.total">Gesamt</th>
+                                        <th data-i18n="forms.supplier">Lieferant</th>
+                                        <th data-i18n="invoices.invoiceNumber">Rechnung</th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="shop-einkaeufe-table-body">
@@ -1723,13 +1731,13 @@
                             <h3 class="card-title">Shop-Rechnungen (Kostenstelle 2699)</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <select id="shop-rechnungen-filter-status" class="form-control" style="width: 150px;" onchange="App.loadShopRechnungen()">
-                                    <option value="">Alle Status</option>
-                                    <option value="offen">Offen</option>
-                                    <option value="kontrolliert">Kontrolliert</option>
-                                    <option value="bezahlt">Bezahlt</option>
+                                    <option value="" data-i18n="forms.allStatus">Alle Status</option>
+                                    <option value="offen" data-i18n="status.open">Offen</option>
+                                    <option value="kontrolliert" data-i18n="status.checked">Kontrolliert</option>
+                                    <option value="bezahlt" data-i18n="status.paid">Bezahlt</option>
                                 </select>
                                 <select id="shop-rechnungen-filter-typ" class="form-control" style="width: 150px;" onchange="App.loadShopRechnungen()">
-                                    <option value="">Alle Typen</option>
+                                    <option value="" data-i18n="shop.allTypes">Alle Typen</option>
                                     <option value="eingang">Eingangsrechnungen</option>
                                     <option value="ausgang">Ausgangsrechnungen</option>
                                 </select>
@@ -1739,13 +1747,13 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Datum</th>
+                                        <th data-i18n="forms.date">Datum</th>
                                         <th>Lieferant/Kunde</th>
-                                        <th>Beschreibung</th>
-                                        <th style="text-align: right;">Betrag</th>
-                                        <th style="text-align: center;">Status</th>
-                                        <th>Einkauf</th>
-                                        <th>Aktionen</th>
+                                        <th data-i18n="forms.description">Beschreibung</th>
+                                        <th style="text-align: right;" data-i18n="forms.amount">Betrag</th>
+                                        <th style="text-align: center;" data-i18n="forms.status">Status</th>
+                                        <th data-i18n="shop.purchases">Einkauf</th>
+                                        <th data-i18n="table.actions">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody id="shop-rechnungen-table-body">
@@ -1760,50 +1768,50 @@
                 <div id="tab-shop-kasse" class="tab-content">
                     <div class="card">
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 class="card-title">Kassenführung</h3>
+                            <h3 class="card-title" data-i18n="shop.invoiceManagement">Kassenführung</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <input type="date" id="shop-kasse-datum" class="form-control" style="width: 150px;" onchange="App.loadKasse()">
-                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEntnahmeForm()">- Entnahme</button>
-                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEinlageForm()">+ Einlage</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEntnahmeForm()" data-i18n="shop.withdrawal">- Entnahme</button>
+                                <button class="btn btn-outline btn-sm" onclick="App.showKassenEinlageForm()" data-i18n="shop.deposit">+ Einlage</button>
                             </div>
                         </div>
 
                         <!-- Kassen-Übersicht -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem;">
                             <div class="kassen-uebersicht" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
-                                <h4 style="margin: 0 0 1rem 0;">Kassensaldo</h4>
+                                <h4 style="margin: 0 0 1rem 0;" data-i18n="shop.cashOverview">Kassensaldo</h4>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
-                                    <span>Anfangsbestand Bar:</span>
+                                    <span data-i18n="shop.openingBalance">Anfangsbestand Bar:</span>
                                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                                         <span id="kasse-anfang">0,00 EUR</span>
-                                        <button class="btn btn-icon btn-sm" onclick="App.showAnfangsbestandForm()" title="Anfangsbestand setzen">
+                                        <button class="btn btn-icon btn-sm" onclick="App.showAnfangsbestandForm()" data-i18n-title="shop.setOpeningBalance" title="Anfangsbestand setzen">
                                             <img src="assets/icons/09-edit.svg" alt="Setzen" class="icon-sm">
                                         </button>
                                     </div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--success-color);">
-                                    <span>+ Einnahmen Bar:</span>
+                                    <span data-i18n="shop.cashRevenue">+ Einnahmen Bar:</span>
                                     <span id="kasse-einnahmen-bar">0,00 EUR</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--success-color);">
-                                    <span>+ Einlagen Bar:</span>
+                                    <span data-i18n="shop.deposits">+ Einlagen Bar:</span>
                                     <span id="kasse-einlagen">0,00 EUR</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); color: var(--warning-color);">
-                                    <span>- Entnahmen Bar:</span>
+                                    <span data-i18n="shop.withdrawals">- Entnahmen Bar:</span>
                                     <span id="kasse-ausgaenge">0,00 EUR</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; font-weight: bold; font-size: 1.1rem;">
-                                    <span>= Kassensaldo (Soll):</span>
+                                    <span data-i18n="shop.expectedBalance">= Kassensaldo (Soll):</span>
                                     <span id="kasse-saldo-soll">0,00 EUR</span>
                                 </div>
                                 <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border-color);">
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
-                                    <span>Einnahmen POS (Karte):</span>
+                                    <span data-i18n="shop.posRevenue">Einnahmen POS (Karte):</span>
                                     <span id="kasse-einnahmen-pos">0,00 EUR</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; font-weight: bold;">
-                                    <span>Gesamteinnahmen:</span>
+                                    <span data-i18n="shop.totalRevenue">Gesamteinnahmen:</span>
                                     <span id="kasse-gesamt">0,00 EUR</span>
                                 </div>
                             </div>
@@ -2566,10 +2574,10 @@
             <!-- ==================== MITGLIEDER ==================== -->
             <div id="view-mitglieder" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Mitglieder</h1>
+                    <h1 class="page-title" data-i18n="members.title">Mitglieder</h1>
                     <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-outline" onclick="App.showMemberImportModal()">Excel Import</button>
-                        <button class="btn btn-primary" onclick="App.showNewMemberForm()">+ Neues Mitglied</button>
+                        <button class="btn btn-outline" onclick="App.showMemberImportModal()" data-i18n="import.excelImport">Excel Import</button>
+                        <button class="btn btn-primary" onclick="App.showNewMemberForm()" data-i18n="members.newMember">+ Neues Mitglied</button>
                     </div>
                 </div>
 
@@ -2577,19 +2585,19 @@
                 <div class="stats-grid" style="margin-bottom: 1.5rem;">
                     <div class="stat-card">
                         <div class="stat-value" id="members-total">0</div>
-                        <div class="stat-label">Mitglieder Gesamt</div>
+                        <div class="stat-label" data-i18n="members.totalMembers">Mitglieder Gesamt</div>
                     </div>
                     <div class="stat-card success">
                         <div class="stat-value" id="members-paid">0</div>
-                        <div class="stat-label">Bezahlt (<span id="members-year-label">2026</span>)</div>
+                        <div class="stat-label"><span data-i18n="status.paid">Bezahlt</span> (<span id="members-year-label">2026</span>)</div>
                     </div>
                     <div class="stat-card warning">
                         <div class="stat-value" id="members-unpaid">0</div>
-                        <div class="stat-label">Offen</div>
+                        <div class="stat-label" data-i18n="status.open">Offen</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="members-amount">0 EUR</div>
-                        <div class="stat-label">Einnahmen Beiträge</div>
+                        <div class="stat-label" data-i18n="members.contributionTotal">Einnahmen Beiträge</div>
                     </div>
                 </div>
 
@@ -2597,7 +2605,7 @@
                 <div class="card" style="margin-bottom: 1rem;">
                     <div class="filter-row" style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Jahr</label>
+                            <label class="form-label" data-i18n="forms.year">Jahr</label>
                             <select id="members-filter-year" class="form-control" onchange="App.loadMembers()">
                                 <option value="2026">2026</option>
                                 <option value="2025">2025</option>
@@ -2605,28 +2613,28 @@
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Zahlungsstatus</label>
+                            <label class="form-label" data-i18n="forms.status">Zahlungsstatus</label>
                             <select id="members-filter-paid" class="form-control" onchange="App.filterMembers()">
-                                <option value="">Alle</option>
-                                <option value="paid">Bezahlt</option>
-                                <option value="unpaid">Offen</option>
+                                <option value="" data-i18n="forms.allStatus">Alle</option>
+                                <option value="paid" data-i18n="status.paid">Bezahlt</option>
+                                <option value="unpaid" data-i18n="status.open">Offen</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Ort</label>
+                            <label class="form-label" data-i18n="forms.city">Ort</label>
                             <select id="members-filter-city" class="form-control" onchange="App.filterMembers()">
                                 <option value="">Alle Orte</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Zahlungsart</label>
+                            <label class="form-label" data-i18n="shop.payment">Zahlungsart</label>
                             <select id="members-filter-payment-method" class="form-control" onchange="App.filterMembers()">
-                                <option value="">Alle</option>
+                                <option value="" data-i18n="forms.allStatus">Alle</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-                            <label class="form-label">Suche</label>
-                            <input type="text" id="members-filter-search" class="form-control" placeholder="Name, E-Mail, Notiz..." oninput="App.filterMembers()">
+                            <label class="form-label" data-i18n="actions.search">Suche</label>
+                            <input type="text" id="members-filter-search" class="form-control" data-i18n-placeholder="placeholders.searchMembers" placeholder="Name, E-Mail, Notiz..." oninput="App.filterMembers()">
                         </div>
                         <button class="btn btn-outline" onclick="App.showBuchungenZuweisungModal()" style="white-space: nowrap;">
                             Buchungen zuweisen
@@ -2637,25 +2645,25 @@
                 <!-- Mitglieder-Liste -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Mitgliederliste</h3>
-                        <button class="btn btn-outline btn-sm" onclick="App.exportMembersCSV()">CSV Export</button>
+                        <h3 class="card-title" data-i18n="members.title">Mitgliederliste</h3>
+                        <button class="btn btn-outline btn-sm" onclick="App.exportMembersCSV()" data-i18n="invoices.csvExport">CSV Export</button>
                     </div>
                     <div class="table-container" style="overflow-x: auto;">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Nr.</th>
+                                    <th data-i18n="members.memberNumber">Nr.</th>
                                     <th>Nachname</th>
                                     <th>Vorname</th>
-                                    <th>Ort</th>
-                                    <th>E-Mail</th>
-                                    <th style="text-align: right;">Beitrag</th>
-                                    <th style="text-align: center;">Bezahlt</th>
-                                    <th>Zahlungsdatum</th>
+                                    <th data-i18n="forms.city">Ort</th>
+                                    <th data-i18n="forms.email">E-Mail</th>
+                                    <th style="text-align: right;" data-i18n="members.contribution">Beitrag</th>
+                                    <th style="text-align: center;" data-i18n="status.paid">Bezahlt</th>
+                                    <th data-i18n="members.lastPayment">Zahlungsdatum</th>
                                     <th>DATEV-Buchung</th>
-                                    <th>Notiz</th>
-                                    <th>Geändert</th>
-                                    <th>Aktionen</th>
+                                    <th data-i18n="forms.notes">Notiz</th>
+                                    <th data-i18n="projects.modified">Geändert</th>
+                                    <th data-i18n="table.actions">Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="members-table-body">
@@ -2669,7 +2677,7 @@
             <!-- ==================== IMPORT ==================== -->
             <div id="view-import" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Import</h1>
+                    <h1 class="page-title" data-i18n="import.title">Import</h1>
                     <p style="color: #666; margin-top: 0.5rem;">DATEV-Buchungen, Lieferanten und Rechnungs-PDFs importieren</p>
                 </div>
 
@@ -2812,7 +2820,7 @@
             <!-- ==================== KONFIGURATION (Admin Only) ==================== -->
             <div id="view-konfiguration" class="view-content hidden">
                 <div class="page-header">
-                    <h1 class="page-title">Konfiguration</h1>
+                    <h1 class="page-title" data-i18n="config.title">Konfiguration</h1>
                 </div>
 
                 <div class="tabs">
@@ -6360,6 +6368,12 @@
     <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"
             crossorigin="anonymous"></script>
 
+    <!-- i18n Translations (must load before app.js) -->
+    <script src="js/translations/de.js?v=20260825"></script>
+    <script src="js/translations/en.js?v=20260825"></script>
+    <script src="js/translations/it.js?v=20260825"></script>
+    <script src="js/i18n.js?v=20260825"></script>
+
     <!-- Scripts -->
     <script src="js/config.js?v=20260820"></script>
     <script src="js/api-client.js?v=20260820"></script>
@@ -6369,6 +6383,6 @@
     <script src="js/data-adapter.js?v=20260820"></script>
     <script src="js/auth.js?v=20260820"></script>
     <script src="js/migration.js?v=20260820"></script>
-    <script src="js/app.js?v=20260820"></script>
+    <script src="js/app.js?v=20260825"></script>
 </body>
 </html>

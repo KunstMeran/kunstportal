@@ -208,6 +208,10 @@ const App = {
         // Gespeicherte Einstellungen laden
         this.loadUserSettings();
 
+        // i18n initialisieren
+        I18n.init();
+        this.setupLanguageSwitcher();
+
         // Navigation Setup
         this.setupNavigation();
 
@@ -687,6 +691,30 @@ const App = {
                 el.style.display = Auth.isAdmin() ? '' : 'none';
             });
         }
+    },
+
+    /**
+     * Language Switcher Setup
+     */
+    setupLanguageSwitcher: function() {
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const lang = btn.dataset.lang;
+                I18n.setLocale(lang);
+                // Aktuelle View neu rendern für dynamische Inhalte
+                this.refreshCurrentView();
+            });
+        });
+    },
+
+    /**
+     * Aktuelle View neu laden (für Sprachwechsel)
+     */
+    refreshCurrentView: function() {
+        // Statische Übersetzungen anwenden
+        I18n.applyTranslations();
+        // Aktuelle View neu rendern
+        this.showView(this.currentView, true);
     },
 
     /**
@@ -16454,6 +16482,19 @@ const App = {
             toast.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => toast.remove(), 300);
         }, 4000);
+    },
+
+    /**
+     * Toast mit i18n Keys anzeigen
+     * @param {string} type - success, error, warning, info
+     * @param {string} titleKey - i18n Key für den Titel (z.B. 'success.saved')
+     * @param {string} messageKey - i18n Key für die Nachricht (optional)
+     * @param {object} params - Parameter für Interpolation (optional)
+     */
+    showToastI18n: function(type, titleKey, messageKey, params = {}) {
+        const title = I18n.t(titleKey, params);
+        const message = messageKey ? I18n.t(messageKey, params) : '';
+        this.showToast(type, title, message);
     },
 
     // ==========================================
