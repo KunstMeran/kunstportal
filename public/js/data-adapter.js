@@ -1412,22 +1412,30 @@ const SupabaseDataAdapter = {
             // 5. Kombinieren und sortieren
             const combined = [...enrichedDatevBuchungen, ...unmatchedInvoices];
 
+            // 6. Filter: Keine Buchungen mit Konto 600xxx anzeigen (Ertragskonten)
+            const filteredCombined = combined.filter(buchung => {
+                const konto = buchung.konto || '';
+                // Konten die mit "600" beginnen ausfiltern
+                return !String(konto).startsWith('600');
+            });
+
             // Nach Upload-Datum bzw. Belegdatum sortieren (neueste zuerst)
-            combined.sort((a, b) => {
+            filteredCombined.sort((a, b) => {
                 const dateA = a.uploadedAt || a.belegdatum || '';
                 const dateB = b.uploadedAt || b.belegdatum || '';
                 return dateB.localeCompare(dateA);
             });
 
             const loadTime = Date.now() - startTime;
-            console.log(`📊 Rechnungen kombiniert: ${datevBuchungen.length} DATEV + ${unmatchedInvoices.length} nur Supabase = ${combined.length} gesamt (${loadTime}ms)`);
+            const filtered600Count = combined.length - filteredCombined.length;
+            console.log(`📊 Rechnungen kombiniert: ${datevBuchungen.length} DATEV + ${unmatchedInvoices.length} nur Supabase = ${combined.length} gesamt, ${filtered600Count} Ertragskonten (600xxx) gefiltert, ${filteredCombined.length} angezeigt (${loadTime}ms)`);
 
             // Cache speichern für nächste Aufrufe
-            this.rechnungenCache = combined;
+            this.rechnungenCache = filteredCombined;
             this.rechnungenCacheTime = Date.now();
             console.log('💾 Rechnungen gecached für ' + (this.CACHE_DURATION_MS / 1000) + ' Sekunden');
 
-            return combined;
+            return filteredCombined;
 
         } catch (error) {
             console.error('Fehler beim Kombinieren der Rechnungen:', error);
