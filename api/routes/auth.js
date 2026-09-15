@@ -17,9 +17,11 @@ router.post('/login', async (req, res) => {
         let user;
         if (result.rows.length === 0) {
             // User doesn't exist - create new
+            // Generate username from email (part before @)
+            const username = email.split('@')[0];
             const insertResult = await pool.query(
-                'INSERT INTO users (email, name, microsoft_id, user_type) VALUES ($1, $2, $3, $4) RETURNING *',
-                [email, name, microsoft_id, 'internal']
+                'INSERT INTO users (email, username, role, microsoft_id, user_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [email, username, 'user', microsoft_id, 'internal']
             );
             user = insertResult.rows[0];
         } else {
