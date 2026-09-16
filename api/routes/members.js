@@ -36,12 +36,10 @@ router.post('/:id/payments', requireAuth, requirePermission('mitglieder', 'write
     const finalNotes = notes || bemerkung;
 
     try {
+        // Einfacher INSERT - ein Mitglied kann mehrere Zahlungen pro Jahr haben
         const result = await pool.query(`
             INSERT INTO member_payments (member_id, year, amount, payment_date, notes, datev_buchung_id, datev_buchungstext)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (member_id, year)
-            DO UPDATE SET amount = EXCLUDED.amount, payment_date = EXCLUDED.payment_date, notes = EXCLUDED.notes,
-                          datev_buchung_id = EXCLUDED.datev_buchung_id, datev_buchungstext = EXCLUDED.datev_buchungstext
             RETURNING *`,
             [req.params.id, finalYear, finalAmount, finalDate, finalNotes, datev_buchung_id, datev_buchungstext]
         );
