@@ -13193,14 +13193,15 @@ const App = {
             document.getElementById('member-gender').value = member.gender || '';
             document.getElementById('member-language').value = member.language || '';
             // Geburtsdatum setzen (aus birth_date oder aus Steuernummer berechnen)
+            const birthDateHint = document.getElementById('birth-date-auto-hint');
             if (member.birth_date) {
                 document.getElementById('member-birth-date').value = member.birth_date;
-                document.getElementById('birth-date-auto-hint').style.display = 'none';
+                if (birthDateHint) birthDateHint.style.display = 'none';
             } else if (member.tax_number) {
                 this.extractBirthDateFromCodiceFiscale(member.tax_number);
             } else {
                 document.getElementById('member-birth-date').value = '';
-                document.getElementById('birth-date-auto-hint').style.display = 'none';
+                if (birthDateHint) birthDateHint.style.display = 'none';
             }
             document.getElementById('member-address').value = member.address || '';
             document.getElementById('member-postal-code').value = member.postal_code || '';
