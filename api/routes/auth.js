@@ -45,6 +45,7 @@ router.post('/login', async (req, res) => {
             id: user.id,
             email: user.email,
             name: user.name,
+            role: user.role,
             user_type: user.user_type,
             permissions: permResult.rows[0] || null
         };
