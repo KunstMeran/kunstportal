@@ -39,10 +39,10 @@ app.use(cors({
         : ['http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true
 }));
-// Rate Limiting
+// Rate Limiting (1000 Anfragen pro 15 Minuten pro IP)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000,
     message: { error: 'Zu viele Anfragen, bitte später versuchen' }
 });
 app.use('/api/', limiter);
@@ -63,7 +63,7 @@ app.use(session({
     cookie: {
         secure: true,
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         sameSite: 'lax'
     }
 }));
