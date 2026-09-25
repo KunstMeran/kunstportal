@@ -3003,13 +3003,23 @@ const App = {
     },
 
     editCost: async function(costId) {
-        // Kosten direkt aus der API laden (Cache kann veraltet sein)
-        let cost = DataManager.getCosts().find(c => String(c.id) === String(costId));
+        // Kosten direkt aus der API laden
+        let cost = null;
 
-        // Falls nicht im Cache, aus API laden
+        try {
+            // Zuerst versuchen direkt per ID zu laden
+            cost = await DataManager.getCostById(costId);
+        } catch (e) {
+            console.log('getCostById fehlgeschlagen, lade alle Kosten...');
+        }
+
+        // Fallback: Alle Kosten laden und durchsuchen
         if (!cost) {
             try {
-                cost = await DataManager.getCostById(costId);
+                const allCosts = await DataManager.getCosts();
+                if (Array.isArray(allCosts)) {
+                    cost = allCosts.find(c => String(c.id) === String(costId));
+                }
             } catch (e) {
                 console.error('Fehler beim Laden der Kosten:', e);
             }
