@@ -3571,7 +3571,13 @@
             </div>
             <form id="cost-form" onsubmit="App.saveCost(event)">
                 <input type="hidden" id="cost-form-id">
-                <div class="modal-body">
+                <input type="hidden" id="cost-type" value="ist">
+                <div class="modal-body" style="max-height: 65vh;">
+                    <!-- IST/Geplant Toggle -->
+                    <div class="cost-mode-toggle">
+                        <button type="button" id="cost-mode-ist" class="active" onclick="App.setCostMode('ist')">IST</button>
+                        <button type="button" id="cost-mode-geplant" onclick="App.setCostMode('geplant')">GEPLANT</button>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" data-i18n="forms.project">Projekt *</label>
@@ -3579,11 +3585,11 @@
                                 <option value="" data-i18n="modals.pleaseSelect">Bitte wählen...</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" data-i18n="modals.costType">Typ *</label>
-                            <select id="cost-type" class="form-control" required>
-                                <option value="ist" data-i18n="modals.actualCosts">IST-Kosten</option>
-                                <option value="provisorisch" data-i18n="modals.provisional">Provisorisch</option>
+                        <div class="form-group" id="cost-type-group">
+                            <label class="form-label" data-i18n="modals.costType">Kostentyp</label>
+                            <select id="cost-kostentyp" class="form-control">
+                                <option value="">-- Kein Kostentyp --</option>
+                                <!-- Wird dynamisch geladen -->
                             </select>
                         </div>
                     </div>
@@ -3619,7 +3625,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" data-i18n="modals.invoiceAmount">Rechnungsbetrag (EUR) *</label>
+                            <label class="form-label" id="cost-amount-label">Rechnungsbetrag (EUR) *</label>
                             <input type="number" id="cost-amount" class="form-control" step="0.01" min="0" required oninput="App.updateMwstPreview()" onkeyup="App.updateMwstPreview()" onchange="App.updateMwstPreview()">
                         </div>
                         <div class="form-group">
@@ -3636,11 +3642,11 @@
                         <input type="text" id="cost-description" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" data-i18n="invoices.invoiceNumber">Rechnungsnummer</label>
-                        <input type="text" id="cost-invoice" class="form-control" data-i18n-placeholder="modals.invoiceNumberPlaceholder" placeholder="z.B. RG-2026-0123">
+                        <label class="form-label" id="cost-invoice-label">Rechnungsnummer</label>
+                        <input type="text" id="cost-invoice" class="form-control" id="cost-invoice-placeholder" placeholder="z.B. RG-2026-0123">
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" data-i18n="modals.invoicePdf">Rechnung (PDF)</label>
+                    <div class="form-group" id="cost-pdf-group">
+                        <label class="form-label" id="cost-pdf-label">Rechnung (PDF)</label>
                         <div id="invoice-upload-zone" class="upload-zone">
                             <input type="file" id="invoice-file-input" accept=".pdf,application/pdf" style="display: none;">
                             <div class="upload-content">

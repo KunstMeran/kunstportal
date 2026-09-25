@@ -2863,10 +2863,44 @@ const App = {
         });
     },
 
+    /**
+     * Setzt den Kosten-Modus (IST oder Geplant) und passt Labels an
+     */
+    setCostMode: function(mode) {
+        const isGeplant = mode === 'geplant';
+
+        // Toggle-Buttons aktualisieren
+        document.getElementById('cost-mode-ist').classList.toggle('active', !isGeplant);
+        document.getElementById('cost-mode-geplant').classList.toggle('active', isGeplant);
+
+        // Hidden field setzen
+        document.getElementById('cost-type').value = isGeplant ? 'geplant' : 'ist';
+
+        // Labels anpassen
+        document.getElementById('cost-amount-label').textContent = isGeplant ? 'Angebotsbetrag (EUR) *' : 'Rechnungsbetrag (EUR) *';
+        document.getElementById('cost-invoice-label').textContent = isGeplant ? 'Angebotsnummer' : 'Rechnungsnummer';
+        document.getElementById('cost-pdf-label').textContent = isGeplant ? 'Angebot (PDF)' : 'Rechnung (PDF)';
+
+        // Placeholder anpassen
+        document.getElementById('cost-invoice').placeholder = isGeplant ? 'z.B. ANG-2026-0123' : 'z.B. RG-2026-0123';
+
+        // Kostentyp-Dropdown nur bei IST anzeigen
+        const kostentypGroup = document.getElementById('cost-type-group');
+        if (kostentypGroup) {
+            kostentypGroup.style.display = isGeplant ? 'none' : 'block';
+        }
+    },
+
     showNewCostForm: async function(preselectedProjectId) {
         document.getElementById('cost-form').reset();
         document.getElementById('cost-form-id').value = '';
         document.getElementById('cost-modal-title').textContent = 'Kosten erfassen';
+
+        // Modal sofort anzeigen für bessere UX
+        this.showModal('cost-form-modal');
+
+        // Standard-Modus: IST
+        this.setCostMode('ist');
 
         // Projekt-Dropdown befüllen (async)
         const projectSelect = document.getElementById('cost-project');
@@ -2884,6 +2918,15 @@ const App = {
         costTypes.forEach(ct => {
             categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}">${escapeHtml(ct.name)}</option>`;
         });
+
+        // Kostentyp-Dropdown befüllen
+        const kostentypSelect = document.getElementById('cost-kostentyp');
+        if (kostentypSelect) {
+            kostentypSelect.innerHTML = '<option value="">-- Kein Kostentyp --</option>';
+            costTypes.forEach(ct => {
+                kostentypSelect.innerHTML += `<option value="${escapeHtml(ct.name)}">${escapeHtml(ct.name)}</option>`;
+            });
+        }
 
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
         const supplierSelect = document.getElementById('cost-supplier');
@@ -2916,17 +2959,23 @@ const App = {
         // MwSt-Typ auf Standard setzen
         document.getElementById('cost-mwst-type').value = 'brutto_it';
 
-        this.showModal('cost-form-modal');
         this.updateMwstPreview();
     },
 
-    editCost: function(costId) {
+    editCost: async function(costId) {
         const cost = DataManager.getCosts().find(c => c.id === costId);
         if (!cost) return;
 
+        // Modal sofort anzeigen
+        this.showModal('cost-form-modal');
+
+        // Modus setzen (IST oder Geplant)
+        const mode = cost.type === 'geplant' ? 'geplant' : 'ist';
+        this.setCostMode(mode);
+
         // Projekt-Dropdown befüllen
         const projectSelect = document.getElementById('cost-project');
-        const projects = DataManager.getProjects();
+        const projects = await DataManager.getProjects();
         projectSelect.innerHTML = '';
         projects.forEach(p => {
             projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}" ${p.id === cost.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`;
@@ -2940,10 +2989,20 @@ const App = {
             categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}" ${ct.name === cost.category ? 'selected' : ''}>${escapeHtml(ct.name)}</option>`;
         });
 
+        // Kostentyp-Dropdown befüllen
+        const kostentypSelect = document.getElementById('cost-kostentyp');
+        if (kostentypSelect) {
+            kostentypSelect.innerHTML = '<option value="">-- Kein Kostentyp --</option>';
+            costTypes.forEach(ct => {
+                const selected = ct.name === cost.kostentyp ? 'selected' : '';
+                kostentypSelect.innerHTML += `<option value="${escapeHtml(ct.name)}" ${selected}>${escapeHtml(ct.name)}</option>`;
+            });
+        }
+
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
         const supplierSelect = document.getElementById('cost-supplier');
         const suppliers = DataManager.getActiveSuppliers();
-        const datevLieferanten = DataManager.getDatevLieferanten();
+        const datevLieferanten = await DataManager.getDatevLieferanten();
 
         supplierSelect.innerHTML = '<option value="">-- Kein Lieferant --</option>';
 
@@ -2976,8 +3035,7 @@ const App = {
         document.getElementById('cost-invoice').value = cost.invoice || '';
         document.getElementById('cost-mwst-type').value = cost.mwstType || 'brutto_it';
 
-        document.getElementById('cost-modal-title').textContent = 'Kosten bearbeiten';
-        this.showModal('cost-form-modal');
+        document.getElementById('cost-modal-title').textContent = mode === 'geplant' ? 'Geplante Kosten bearbeiten' : 'Kosten bearbeiten';
         this.updateMwstPreview();
     },
 

@@ -1216,6 +1216,41 @@ textarea.form-control {
     cursor: pointer;
 }
 
+/* --- Cost Mode Toggle (IST/Geplant) --- */
+.cost-mode-toggle {
+    display: flex;
+    border: 2px solid var(--c-ink);
+    border-radius: var(--r-card);
+    overflow: hidden;
+    margin-bottom: var(--s-4);
+}
+
+.cost-mode-toggle button {
+    flex: 1;
+    padding: 12px 24px;
+    border: none;
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--t-fast);
+    color: var(--c-ink);
+}
+
+.cost-mode-toggle button:first-child {
+    border-right: 1px solid var(--c-ink);
+}
+
+.cost-mode-toggle button.active {
+    background: var(--c-ink);
+    color: var(--c-paper);
+}
+
+.cost-mode-toggle button:hover:not(.active) {
+    background: var(--c-surface);
+}
+
 /* --- Hinweisbox / Callout --- */
 .callout, .alert, .read-only-banner {
     background: var(--c-surface);
