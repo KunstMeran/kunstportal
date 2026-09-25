@@ -2122,10 +2122,10 @@ const App = {
             // Edit/Delete Buttons für manuelle Kosten (nicht DATEV)
             if (!k.isDatev && k.costId) {
                 if (DataManager.hasWriteAccess && DataManager.hasWriteAccess('access_projekte')) {
-                    aktionen += `<button class="btn btn-sm btn-outline" style="margin-left: 0.25rem;" onclick="App.editCost('${k.costId}')" title="Bearbeiten">${Icons.edit}</button>`;
+                    aktionen += `<button class="btn btn-sm btn-outline" style="margin-left: 0.25rem; padding: 0.2rem 0.5rem;" onclick="App.editCost('${k.costId}')" title="Bearbeiten">${Icons.edit}</button>`;
                 }
                 if (DataManager.hasDeleteAccess && DataManager.hasDeleteAccess('access_projekte')) {
-                    aktionen += `<button class="btn btn-sm btn-danger" style="margin-left: 0.25rem; padding: 0.1rem 0.4rem;" onclick="App.deleteCost('${k.costId}')" title="Löschen">X</button>`;
+                    aktionen += `<button class="btn btn-sm" style="margin-left: 0.25rem; padding: 0.2rem 0.5rem; background: #fee; color: #c0392b; border: 1px solid #e74c3c;" onclick="App.confirmDeleteCost('${k.costId}', '${escapeHtml(k.beschreibung).replace(/'/g, "\\'")}')" title="Löschen">${Icons.delete}</button>`;
                 }
             }
 
@@ -3003,8 +3003,22 @@ const App = {
     },
 
     editCost: async function(costId) {
-        const cost = DataManager.getCosts().find(c => c.id === costId);
-        if (!cost) return;
+        // Kosten direkt aus der API laden (Cache kann veraltet sein)
+        let cost = DataManager.getCosts().find(c => String(c.id) === String(costId));
+
+        // Falls nicht im Cache, aus API laden
+        if (!cost) {
+            try {
+                cost = await DataManager.getCostById(costId);
+            } catch (e) {
+                console.error('Fehler beim Laden der Kosten:', e);
+            }
+        }
+
+        if (!cost) {
+            alert('Kosten konnten nicht gefunden werden.');
+            return;
+        }
 
         // Modal sofort anzeigen
         this.showModal('cost-form-modal');
@@ -3243,6 +3257,58 @@ const App = {
         if (confirm('Kosten wirklich löschen?')) {
             DataManager.deleteCost(costId);
             this.filterCosts();
+        }
+    },
+
+    /**
+     * Zeigt Bestätigungs-Dialog vor dem Löschen von Kosten
+     */
+    confirmDeleteCost: function(costId, beschreibung) {
+        // Schöneres Modal statt confirm()
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay active';
+        modal.id = 'delete-cost-confirm-modal';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2 class="modal-title">Kosten löschen?</h2>
+                    <button class="modal-close" onclick="App.closeDeleteCostModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Möchtest du diese Kosten wirklich löschen?</p>
+                    <p style="background: #f5f5f5; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem;">
+                        <strong>${beschreibung}</strong>
+                    </p>
+                    <p style="color: #e74c3c; font-size: 0.85rem; margin-top: 0.75rem;">
+                        Diese Aktion kann nicht rückgängig gemacht werden.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="App.closeDeleteCostModal()">Abbrechen</button>
+                    <button class="btn" style="background: #e74c3c; color: white;" onclick="App.executeDeleteCost('${costId}')">Löschen</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    closeDeleteCostModal: function() {
+        const modal = document.getElementById('delete-cost-confirm-modal');
+        if (modal) modal.remove();
+    },
+
+    executeDeleteCost: async function(costId) {
+        this.closeDeleteCostModal();
+        try {
+            await DataManager.deleteCost(costId);
+            this.showToast('Kosten gelöscht', 'success');
+            // Projekt-Ansicht neu laden
+            if (this.currentProjectId) {
+                this.openProjectFullpage(this.currentProjectId);
+            }
+        } catch (error) {
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('Fehler beim Löschen', 'error');
         }
     },
 
