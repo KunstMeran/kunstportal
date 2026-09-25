@@ -211,6 +211,11 @@ const SupabaseDataAdapter = {
         DataManager.getCurrentUserPermissions = this.getCurrentUserPermissions.bind(this);
         DataManager.getAllAuthUsers = this.getAllAuthUsers.bind(this);
 
+        // Permission-Prüfungen
+        DataManager.hasReadAccess = this.hasReadAccess.bind(this);
+        DataManager.hasWriteAccess = this.hasWriteAccess.bind(this);
+        DataManager.hasDeleteAccess = this.hasDeleteAccess.bind(this);
+
         // Cache für Berechtigungen
         this.permissionsCache = null;
 
