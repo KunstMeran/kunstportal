@@ -6395,89 +6395,79 @@
 
     <!-- Cost Link Modal - Verknüpfung von Geplant mit IST -->
     <div id="cost-link-modal" class="modal-overlay" onclick="if(event.target === this) App.hideCostLinkModal()">
-        <div class="modal" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px 8px 0 0;">
-                <h2 class="modal-title" style="color: white; display: flex; align-items: center; gap: 0.5rem;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                    Kosten verknüpfen
-                </h2>
-                <button class="modal-close" onclick="App.hideCostLinkModal()" style="color: white;">&times;</button>
+        <div class="modal" style="max-width: 550px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2 class="modal-title">Kosten verknüpfen</h2>
+                <button class="modal-close" onclick="App.hideCostLinkModal()">&times;</button>
             </div>
-            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.25rem;">
+            <div class="modal-body" style="overflow-y: auto; flex: 1;">
                 <!-- Geplante Kosten Info -->
-                <div id="cost-link-planned-info" style="background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ed 100%); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; border-left: 4px solid #667eea;">
+                <div style="background: #f8f9fa; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; border: 1px solid #e9ecef;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <div id="cost-link-description" style="font-size: 1.1rem; font-weight: 600; color: #333; margin-bottom: 0.25rem;">-</div>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <span id="cost-link-category" class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem;">-</span>
-                                <span id="cost-link-pl" class="badge" style="background: #fef3c7; color: #92400e; font-size: 0.75rem;">-</span>
+                            <div id="cost-link-description" style="font-weight: 600; color: #333; margin-bottom: 0.25rem;">-</div>
+                            <div style="font-size: 0.85rem; color: #666;">
+                                <span id="cost-link-category">-</span> · <span id="cost-link-pl">-</span>
                             </div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #667eea;" id="cost-link-amount">0,00 €</div>
-                            <div style="font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Geplant</div>
+                            <div style="font-size: 1.25rem; font-weight: 600; color: #333;" id="cost-link-amount">0,00 €</div>
+                            <div style="font-size: 0.75rem; color: #888;">Geplant</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Bereits verknüpft -->
-                <div style="margin-bottom: 1.25rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <span style="font-weight: 600; color: #555; font-size: 0.9rem;">Bereits verknüpft</span>
-                        <span id="cost-link-linked-total" style="font-weight: 700; color: #059669; font-size: 1rem;">0,00 €</span>
-                    </div>
-                    <div id="cost-link-existing" style="max-height: 140px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa;">
-                        <div style="padding: 1rem; text-align: center; color: #999; font-size: 0.9rem;">Keine Verknüpfungen</div>
+                <div class="form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Bereits verknüpft</span>
+                        <span id="cost-link-linked-total" style="font-weight: 600; color: #27ae60;">0,00 €</span>
+                    </label>
+                    <div id="cost-link-existing" style="max-height: 130px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; background: #fafafa;">
+                        <div style="padding: 0.75rem; text-align: center; color: #999; font-size: 0.875rem;">Keine Verknüpfungen</div>
                     </div>
                 </div>
 
                 <!-- Neue Verknüpfung hinzufügen -->
-                <div style="background: #f8fafc; border-radius: 10px; padding: 1rem; border: 1px dashed #cbd5e1;">
-                    <div style="font-weight: 600; color: #475569; margin-bottom: 0.75rem; font-size: 0.9rem;">+ Neue Verknüpfung</div>
+                <div class="form-group" style="margin-top: 1.25rem;">
+                    <label style="font-weight: 600;">Neue Verknüpfung</label>
 
-                    <!-- Typ-Auswahl als Tabs -->
-                    <div style="display: flex; gap: 0.25rem; margin-bottom: 1rem; background: #e2e8f0; padding: 0.25rem; border-radius: 8px;">
-                        <button type="button" class="cost-link-type-btn" data-type="datev" onclick="App.selectCostLinkType('datev')"
-                                style="flex: 1; padding: 0.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                    <!-- Typ-Auswahl -->
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <button type="button" class="btn btn-outline cost-link-type-btn" data-type="datev" onclick="App.selectCostLinkType('datev')">
                             DATEV
                         </button>
-                        <button type="button" class="cost-link-type-btn" data-type="invoice" onclick="App.selectCostLinkType('invoice')"
-                                style="flex: 1; padding: 0.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                        <button type="button" class="btn btn-outline cost-link-type-btn" data-type="invoice" onclick="App.selectCostLinkType('invoice')">
                             Rechnung
                         </button>
-                        <button type="button" class="cost-link-type-btn" data-type="cost" onclick="App.selectCostLinkType('cost')"
-                                style="flex: 1; padding: 0.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                        <button type="button" class="btn btn-outline cost-link-type-btn" data-type="cost" onclick="App.selectCostLinkType('cost')">
                             IST-Kosten
                         </button>
                     </div>
 
-                    <select id="cost-link-source-select" class="form-input" style="margin-bottom: 0.75rem; font-size: 0.9rem;">
+                    <select id="cost-link-source-select" class="form-input" style="margin-bottom: 0.75rem;">
                         <option value="">-- Bitte wählen --</option>
                     </select>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 0.75rem; align-items: end;">
-                        <div>
-                            <label style="font-size: 0.8rem; color: #64748b; display: block; margin-bottom: 0.25rem;">Betrag</label>
-                            <input type="text" id="cost-link-amount-input" class="form-input budget-input"
-                                   placeholder="0,00" oninput="App.formatBudgetInput(this)" style="font-size: 0.9rem;">
+                    <div style="display: flex; gap: 0.5rem; align-items: end;">
+                        <div style="width: 120px;">
+                            <label class="form-label">Betrag</label>
+                            <input type="text" id="cost-link-amount-input" class="form-input budget-input" placeholder="0,00" oninput="App.formatBudgetInput(this)">
                         </div>
-                        <div>
-                            <label style="font-size: 0.8rem; color: #64748b; display: block; margin-bottom: 0.25rem;">Notiz (optional)</label>
-                            <input type="text" id="cost-link-notes" class="form-input" placeholder="z.B. Teilrechnung" style="font-size: 0.9rem;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Notiz (optional)</label>
+                            <input type="text" id="cost-link-notes" class="form-input" placeholder="z.B. Teilrechnung">
                         </div>
-                        <button type="button" class="btn btn-primary" onclick="App.addCostLink()" style="padding: 0.5rem 1rem; white-space: nowrap;">
-                            + Hinzufügen
-                        </button>
+                        <button type="button" class="btn btn-primary" onclick="App.addCostLink()">Hinzufügen</button>
                     </div>
                 </div>
 
                 <!-- Restbetrag -->
-                <div id="cost-link-remaining" style="margin-top: 1rem; padding: 0.75rem 1rem; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 8px; text-align: center;">
-                    <span style="color: #065f46; font-size: 0.95rem;">Noch offen: <strong id="cost-link-remaining-amount">0,00 €</strong></span>
+                <div id="cost-link-remaining" style="margin-top: 1rem; padding: 0.6rem 1rem; background: #e8f5e9; border-radius: 4px; text-align: center;">
+                    <span style="color: #2e7d32;">Noch offen: <strong id="cost-link-remaining-amount">0,00 €</strong></span>
                 </div>
             </div>
-            <div class="modal-footer" style="border-top: 1px solid #e5e7eb; padding: 1rem 1.25rem;">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="App.hideCostLinkModal()">Schließen</button>
             </div>
         </div>
