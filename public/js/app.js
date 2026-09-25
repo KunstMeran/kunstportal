@@ -2078,8 +2078,10 @@ const App = {
                 bezahltCell = '<span style="color: #999; font-size: 0.8rem;">-</span>';
             }
 
-            // Aktionen - Mehrere PDFs anzeigen wenn vorhanden
-            let aktionen = '-';
+            // Aktionen - PDFs + Edit/Delete Buttons
+            let aktionen = '';
+
+            // PDF-Buttons
             if (k.pdfExists) {
                 const linkedInvoices = k.linkedInvoices || [];
                 if (linkedInvoices.length > 1) {
@@ -2091,9 +2093,19 @@ const App = {
                     // Einzelnes PDF
                     aktionen = `<button class="btn btn-sm btn-outline" onclick="App.openPdf('${k.filePath}')">PDF</button>`;
                 }
-            } else if (!k.isDatev && k.costId) {
-                aktionen = `<button class="btn btn-sm btn-outline" onclick="App.editCost('${k.costId}')"${Icons.edit}</button>`;
             }
+
+            // Edit/Delete Buttons für manuelle Kosten (nicht DATEV)
+            if (!k.isDatev && k.costId) {
+                if (DataManager.hasWriteAccess && DataManager.hasWriteAccess('access_projekte')) {
+                    aktionen += `<button class="btn btn-sm btn-outline" style="margin-left: 0.25rem;" onclick="App.editCost('${k.costId}')" title="Bearbeiten">${Icons.edit}</button>`;
+                }
+                if (DataManager.hasDeleteAccess && DataManager.hasDeleteAccess('access_projekte')) {
+                    aktionen += `<button class="btn btn-sm btn-danger" style="margin-left: 0.25rem; padding: 0.1rem 0.4rem;" onclick="App.deleteCost('${k.costId}')" title="Löschen">X</button>`;
+                }
+            }
+
+            if (!aktionen) aktionen = '-';
 
             row.innerHTML = `
                 <td><input type="checkbox" class="cost-checkbox" data-id="${k.id}" ${isSelected ? 'checked' : ''} onchange="App.toggleCostSelection('${k.id}')"></td>
