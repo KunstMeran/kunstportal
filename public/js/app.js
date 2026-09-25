@@ -2892,28 +2892,28 @@ const App = {
         const cursorPos = input.selectionStart;
         const oldLength = input.value.length;
 
-        // Nur Zahlen, Komma und Punkt erlauben
-        let value = input.value.replace(/[^\d.,]/g, '');
+        // Erst alle Tausender-Trennpunkte entfernen, dann nur Zahlen und Komma behalten
+        let value = input.value.replace(/\./g, ''); // Tausender-Punkte weg
+        value = value.replace(/[^\d,]/g, ''); // Nur Zahlen und Komma
 
-        // Punkt durch Komma ersetzen (für Dezimaleingabe)
-        value = value.replace(/\./g, ',');
-
-        // Nur ein Komma erlauben
+        // Nur ein Komma erlauben (Dezimaltrennzeichen)
         const parts = value.split(',');
         if (parts.length > 2) {
             value = parts[0] + ',' + parts.slice(1).join('');
         }
 
-        // Tausender-Trennpunkte hinzufügen
-        if (parts[0]) {
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        }
+        // Ganzzahl-Teil mit Tausender-Punkten formatieren
+        let integerPart = parts[0] || '';
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-        input.value = parts.length > 1 ? parts[0] + ',' + parts[1].slice(0, 2) : parts[0];
+        // Dezimalteil auf 2 Stellen begrenzen
+        const decimalPart = parts.length > 1 ? ',' + parts[1].slice(0, 2) : '';
+
+        input.value = integerPart + decimalPart;
 
         // Cursor-Position anpassen
         const newLength = input.value.length;
-        const newPos = cursorPos + (newLength - oldLength);
+        const newPos = Math.max(0, cursorPos + (newLength - oldLength));
         input.setSelectionRange(newPos, newPos);
     },
 
