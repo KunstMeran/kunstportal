@@ -2532,8 +2532,10 @@ const App = {
                         ${cost.type === 'provisorisch' ? `
                             <button class="btn btn-sm btn-convert" onclick="App.showConvertModal(${cost.id})">In IST</button>
                         ` : ''}
-                        ${Auth.isAdmin() ? `
+                        ${DataManager.hasWriteAccess('access_projekte') ? `
                             <button class="btn btn-sm btn-primary" onclick="App.editCost(${cost.id})">Edit</button>
+                        ` : ''}
+                        ${DataManager.hasDeleteAccess('access_projekte') ? `
                             <button class="btn btn-sm btn-danger" onclick="App.deleteCostFromProject(${cost.id})">X</button>
                         ` : ''}
                     </td>
@@ -2853,8 +2855,10 @@ const App = {
                     ${cost.type === 'provisorisch' ? `
                         <button class="btn btn-sm btn-convert" onclick="App.showConvertModal(${cost.id})">In IST</button>
                     ` : ''}
-                    ${Auth.isAdmin() ? `
+                    ${DataManager.hasWriteAccess('access_projekte') ? `
                         <button class="btn btn-sm btn-primary" onclick="App.editCost(${cost.id})">Edit</button>
+                    ` : ''}
+                    ${DataManager.hasDeleteAccess('access_projekte') ? `
                         <button class="btn btn-sm btn-danger" onclick="App.deleteCost(${cost.id})">X</button>
                     ` : ''}
                 </td>
