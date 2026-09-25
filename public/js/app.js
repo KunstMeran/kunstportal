@@ -690,6 +690,32 @@ const App = {
             adminElements.forEach(el => {
                 el.style.display = Auth.isAdmin() ? '' : 'none';
             });
+
+            // Berechtigungsbasierte Elemente anzeigen/verstecken
+            // Format: permission-{modul}-{level} z.B. permission-projekte-write
+            document.querySelectorAll('[class*="permission-"]').forEach(el => {
+                const classes = el.className.split(' ');
+                const permClass = classes.find(c => c.startsWith('permission-'));
+                if (permClass) {
+                    const parts = permClass.split('-'); // ['permission', 'projekte', 'write']
+                    if (parts.length >= 3) {
+                        const modul = parts[1];
+                        const level = parts[2];
+                        const permKey = `access_${modul}`;
+
+                        let hasAccess = false;
+                        if (level === 'read') {
+                            hasAccess = DataManager.hasReadAccess(permKey);
+                        } else if (level === 'write') {
+                            hasAccess = DataManager.hasWriteAccess(permKey);
+                        } else if (level === 'delete') {
+                            hasAccess = DataManager.hasDeleteAccess(permKey);
+                        }
+
+                        el.style.display = hasAccess ? '' : 'none';
+                    }
+                }
+            });
         }
     },
 
@@ -1097,8 +1123,10 @@ const App = {
                 </td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="App.openProjectFullpage('${project.id}')">Details</button>
-                    ${Auth.isAdmin() ? `
+                    ${DataManager.hasWriteAccess('access_projekte') ? `
                         <button class="btn btn-sm btn-primary" onclick="App.editProject('${project.id}')">Bearbeiten</button>
+                    ` : ''}
+                    ${DataManager.hasDeleteAccess('access_projekte') ? `
                         <button class="btn btn-sm btn-danger" onclick="App.deleteProject('${project.id}')">Löschen</button>
                     ` : ''}
                 </td>
@@ -1288,9 +1316,10 @@ const App = {
         // Budget-Balken (Platzhalter)
         document.getElementById('fp-budget-bar').innerHTML = '';
 
-        // Admin-Buttons aktualisieren
+        // Bearbeitungs-Buttons aktualisieren (basierend auf Workspace-Berechtigungen)
+        const canEditProjects = DataManager.hasWriteAccess('access_projekte');
         document.querySelectorAll('#project-fullpage .admin-only').forEach(el => {
-            el.style.display = Auth.isAdmin() ? '' : 'none';
+            el.style.display = canEditProjects ? '' : 'none';
         });
 
         // Fullpage anzeigen
