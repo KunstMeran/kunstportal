@@ -2646,8 +2646,10 @@ const SupabaseDataAdapter = {
      */
     hasReadAccess(permissionKey) {
         const perms = this.permissionsCache;
-        if (!perms) return true; // Fallback: Vollzugriff
+        if (!perms) return true; // Fallback: Vollzugriff wenn Cache leer
         const level = perms[permissionKey];
+        // Fallback: Vollzugriff wenn Key nicht existiert
+        if (level === undefined || level === null) return true;
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
         // read, write oder delete = mindestens Lesezugriff
@@ -2661,8 +2663,10 @@ const SupabaseDataAdapter = {
      */
     hasWriteAccess(permissionKey) {
         const perms = this.permissionsCache;
-        if (!perms) return true; // Fallback: Vollzugriff
+        if (!perms) return true; // Fallback: Vollzugriff wenn Cache leer
         const level = perms[permissionKey];
+        // Fallback: Vollzugriff wenn Key nicht existiert
+        if (level === undefined || level === null) return true;
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
         // write oder delete = Schreibzugriff
@@ -2676,8 +2680,10 @@ const SupabaseDataAdapter = {
      */
     hasDeleteAccess(permissionKey) {
         const perms = this.permissionsCache;
-        if (!perms) return true; // Fallback: Vollzugriff
+        if (!perms) return true; // Fallback: Vollzugriff wenn Cache leer
         const level = perms[permissionKey];
+        // Fallback: Vollzugriff wenn Key nicht existiert
+        if (level === undefined || level === null) return true;
         // Abwärtskompatibilität für boolean
         if (typeof level === 'boolean') return level;
         return level === 'delete';
