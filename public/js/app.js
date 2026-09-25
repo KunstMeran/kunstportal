@@ -3030,16 +3030,20 @@ const App = {
             return;
         }
 
-        // Modal sofort anzeigen
-        this.showModal('cost-form-modal');
+        // Modus bestimmen (IST oder Geplant/Provisorisch)
+        const isGeplant = cost.type === 'geplant' || cost.type === 'provisorisch';
+        const mode = isGeplant ? 'geplant' : 'ist';
 
-        // Modus setzen (IST oder Geplant)
-        const mode = cost.type === 'geplant' ? 'geplant' : 'ist';
-        this.setCostMode(mode);
+        // Daten parallel laden für schnelleres Öffnen
+        const [projects, datevLieferanten] = await Promise.all([
+            DataManager.getProjects(),
+            DataManager.getDatevLieferanten()
+        ]);
+        const costTypes = DataManager.getActiveCostTypes();
+        const suppliers = DataManager.getActiveSuppliers();
 
         // Projekt-Dropdown befüllen
         const projectSelect = document.getElementById('cost-project');
-        const projects = await DataManager.getProjects();
         projectSelect.innerHTML = '';
         projects.forEach(p => {
             projectSelect.innerHTML += `<option value="${escapeHtml(p.id)}" ${p.id === cost.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`;
@@ -3047,27 +3051,13 @@ const App = {
 
         // Kategorie-Dropdown befüllen
         const categorySelect = document.getElementById('cost-category');
-        const costTypes = DataManager.getActiveCostTypes();
         categorySelect.innerHTML = '';
         costTypes.forEach(ct => {
             categorySelect.innerHTML += `<option value="${escapeHtml(ct.name)}" ${ct.name === cost.category ? 'selected' : ''}>${escapeHtml(ct.name)}</option>`;
         });
 
-        // Kostentyp-Dropdown befüllen
-        const kostentypSelect = document.getElementById('cost-kostentyp');
-        if (kostentypSelect) {
-            kostentypSelect.innerHTML = '<option value="">-- Kein Kostentyp --</option>';
-            costTypes.forEach(ct => {
-                const selected = ct.name === cost.kostentyp ? 'selected' : '';
-                kostentypSelect.innerHTML += `<option value="${escapeHtml(ct.name)}" ${selected}>${escapeHtml(ct.name)}</option>`;
-            });
-        }
-
         // Lieferant-Dropdown befüllen (Manuelle + DATEV-Lieferanten)
         const supplierSelect = document.getElementById('cost-supplier');
-        const suppliers = DataManager.getActiveSuppliers();
-        const datevLieferanten = await DataManager.getDatevLieferanten();
-
         supplierSelect.innerHTML = '<option value="">-- Kein Lieferant --</option>';
 
         // DATEV-Lieferanten
@@ -3091,6 +3081,7 @@ const App = {
             supplierSelect.innerHTML += '</optgroup>';
         }
 
+        // Formular-Felder setzen
         document.getElementById('cost-form-id').value = cost.id;
         document.getElementById('cost-type').value = cost.type;
         document.getElementById('cost-description').value = cost.description;
@@ -3099,7 +3090,12 @@ const App = {
         document.getElementById('cost-invoice').value = cost.invoice || '';
         document.getElementById('cost-mwst-type').value = cost.mwstType || 'brutto_it';
 
-        document.getElementById('cost-modal-title').textContent = mode === 'geplant' ? 'Geplante Kosten bearbeiten' : 'Kosten bearbeiten';
+        // Modus setzen (NACH dem Befüllen der Felder)
+        this.setCostMode(mode);
+
+        // Titel setzen und Modal anzeigen
+        document.getElementById('cost-modal-title').textContent = isGeplant ? 'Geplante Kosten bearbeiten' : 'Kosten bearbeiten';
+        this.showModal('cost-form-modal');
         this.updateMwstPreview();
     },
 
