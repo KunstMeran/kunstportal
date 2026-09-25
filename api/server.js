@@ -91,6 +91,7 @@ app.use('/api/v1/kurse', require('./routes/kurse'));
 app.use('/api/v1/anwesenheit', require('./routes/anwesenheit'));
 app.use('/api/v1/funding-sources', require('./routes/funding-sources'));
 app.use('/api/v1/costs', require('./routes/costs'));
+app.use('/api/v1/cost-links', require('./routes/cost-links'));
 
 // Health check
 app.get('/api/v1/health', async (req, res) => {

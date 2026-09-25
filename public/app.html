@@ -6393,6 +6393,91 @@
         </div>
     </div>
 
+    <!-- Cost Link Modal - Verknüpfung von Geplant mit IST -->
+    <div id="cost-link-modal" class="modal-overlay" onclick="if(event.target === this) App.hideCostLinkModal()">
+        <div class="modal" style="max-width: 650px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2 class="modal-title">Kosten verknüpfen</h2>
+                <button class="modal-close" onclick="App.hideCostLinkModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; flex: 1;">
+                <!-- Geplante Kosten Info -->
+                <div id="cost-link-planned-info" class="card" style="background: #f8f9fa; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong id="cost-link-description">-</strong>
+                            <div style="font-size: 0.85rem; color: #666;">
+                                <span id="cost-link-category">-</span> &bull;
+                                <span id="cost-link-pl">-</span>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.2rem; font-weight: 600;" id="cost-link-amount">0,00 €</div>
+                            <div style="font-size: 0.85rem; color: #666;">Geplant</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bereits verknüpft -->
+                <div class="form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Bereits verknüpft</span>
+                        <span id="cost-link-linked-total" style="font-weight: 600; color: #27ae60;">0,00 €</span>
+                    </label>
+                    <div id="cost-link-existing" style="max-height: 150px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div style="padding: 1rem; text-align: center; color: #999;">Keine Verknüpfungen</div>
+                    </div>
+                </div>
+
+                <!-- Neue Verknüpfung hinzufügen -->
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label><strong>+ Neue Verknüpfung hinzufügen</strong></label>
+
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <button type="button" class="btn btn-outline cost-link-type-btn active" data-type="datev" onclick="App.selectCostLinkType('datev')">
+                            DATEV
+                        </button>
+                        <button type="button" class="btn btn-outline cost-link-type-btn" data-type="invoice" onclick="App.selectCostLinkType('invoice')">
+                            Rechnung
+                        </button>
+                        <button type="button" class="btn btn-outline cost-link-type-btn" data-type="cost" onclick="App.selectCostLinkType('cost')">
+                            IST-Kosten
+                        </button>
+                    </div>
+
+                    <select id="cost-link-source-select" class="form-input" style="margin-bottom: 0.75rem;">
+                        <option value="">-- Bitte wählen --</option>
+                    </select>
+
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.85rem;">Betrag</label>
+                            <input type="text" id="cost-link-amount-input" class="form-input budget-input"
+                                   placeholder="0,00" oninput="App.formatBudgetInput(this)">
+                        </div>
+                        <div style="flex: 2;">
+                            <label style="font-size: 0.85rem;">Notiz (optional)</label>
+                            <input type="text" id="cost-link-notes" class="form-input" placeholder="z.B. Teilrechnung">
+                        </div>
+                        <div style="padding-top: 1.5rem;">
+                            <button type="button" class="btn btn-primary" onclick="App.addCostLink()">
+                                Hinzufügen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Restbetrag -->
+                <div id="cost-link-remaining" style="margin-top: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 6px; text-align: center;">
+                    <span style="color: #2e7d32;">Noch offen: <strong id="cost-link-remaining-amount">0,00 €</strong></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="App.hideCostLinkModal()">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
     <div id="click-effect-container" class="click-effect-container"></div>

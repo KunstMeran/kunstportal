@@ -113,7 +113,8 @@ const Icons = {
     image: '<img src="assets/icons/13-image.svg" alt="" class="icon">',
     attachment: '<img src="assets/icons/14-attachment.svg" alt="" class="icon">',
     success: '<img src="assets/icons/15-success.svg" alt="" class="icon">',
-    error: '<img src="assets/icons/16-error.svg" alt="" class="icon">'
+    error: '<img src="assets/icons/16-error.svg" alt="" class="icon">',
+    link: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>'
 };
 
 const App = {
@@ -1812,7 +1813,7 @@ const App = {
     /**
      * Rendert die PL-Budget-Übersicht mit Verbrauch (IST/Geplant/Frei Balken)
      */
-    renderPlBudgetBreakdown(project, costs) {
+    renderPlBudgetBreakdown: async function(project, costs) {
         const container = document.getElementById('fp-pl-budget-breakdown');
         const card = document.getElementById('fp-pl-budget-card');
         if (!container) return;
@@ -1830,9 +1831,19 @@ const App = {
         }
         if (card) card.style.display = '';
 
-        // IST und Geplant pro PL berechnen
+        // Verknüpfungs-Summary laden (verknüpfte Beträge pro geplante Kosten)
+        let linkSummary = {};
+        try {
+            linkSummary = await DataAdapter.getCostLinksSummary(project.id);
+        } catch (e) {
+            console.warn('Konnte Verknüpfungs-Summary nicht laden:', e);
+        }
+
+        // IST, Geplant und Verknüpft pro PL berechnen
         const istByPl = { PL1: 0, PL2: 0, PL3: 0 };
         const geplantByPl = { PL1: 0, PL2: 0, PL3: 0 };
+        const verknuepftByPl = { PL1: 0, PL2: 0, PL3: 0 }; // Verknüpfte Beträge aus Geplant
+
         costs.forEach(c => {
             if (c.plCategory && istByPl.hasOwnProperty(c.plCategory)) {
                 if (c.type === 'ist' || c.type === 'effektiv') {
@@ -1840,6 +1851,10 @@ const App = {
                 } else {
                     // provisorisch oder geplant
                     geplantByPl[c.plCategory] += c.amount || 0;
+                    // Verknüpfte Beträge hinzufügen
+                    if (linkSummary[c.id]) {
+                        verknuepftByPl[c.plCategory] += linkSummary[c.id].total || 0;
+                    }
                 }
             }
         });
@@ -1848,9 +1863,9 @@ const App = {
         const isPlBudgetOverTotal = gesamtBudget > 0 && totalPlBudget > gesamtBudget;
 
         const plData = [
-            { name: 'PL1 - Ausstellung', key: 'PL1', budget: budgetPl1, ist: istByPl.PL1, geplant: geplantByPl.PL1, color: '#3498db' },
-            { name: 'PL2 - Kommunikation', key: 'PL2', budget: budgetPl2, ist: istByPl.PL2, geplant: geplantByPl.PL2, color: '#9b59b6' },
-            { name: 'PL3 - Vermittlung', key: 'PL3', budget: budgetPl3, ist: istByPl.PL3, geplant: geplantByPl.PL3, color: '#1abc9c' }
+            { name: 'PL1 - Ausstellung', key: 'PL1', budget: budgetPl1, ist: istByPl.PL1, geplant: geplantByPl.PL1, verknuepft: verknuepftByPl.PL1, color: '#3498db' },
+            { name: 'PL2 - Kommunikation', key: 'PL2', budget: budgetPl2, ist: istByPl.PL2, geplant: geplantByPl.PL2, verknuepft: verknuepftByPl.PL2, color: '#9b59b6' },
+            { name: 'PL3 - Vermittlung', key: 'PL3', budget: budgetPl3, ist: istByPl.PL3, geplant: geplantByPl.PL3, verknuepft: verknuepftByPl.PL3, color: '#1abc9c' }
         ].filter(pl => pl.budget > 0); // Nur PLs mit Budget anzeigen
 
         if (plData.length === 0) {
@@ -1877,16 +1892,23 @@ const App = {
         `;
 
         plData.forEach(pl => {
-            const verbraucht = pl.ist + pl.geplant;
+            // Geplant = Original-Planung, Verknüpft = davon bereits in IST gebucht
+            // Offen (nicht verknüpftes Geplant) = geplant - verknüpft
+            const offenGeplant = Math.max(0, pl.geplant - pl.verknuepft);
+            const verbraucht = pl.ist + offenGeplant; // IST + noch offene Planung
             const remaining = pl.budget - verbraucht;
             const isOverBudget = remaining < 0;
 
-            // Prozente für Balken
+            // Prozente für Balken (IST + offene Planung)
             const istProzent = pl.budget > 0 ? Math.min(Math.round((pl.ist / pl.budget) * 100), 100) : 0;
-            const geplantProzent = pl.budget > 0 ? Math.min(Math.round((pl.geplant / pl.budget) * 100), 100 - istProzent) : 0;
-            const freiProzent = Math.max(0, 100 - istProzent - geplantProzent);
+            const offenGeplantProzent = pl.budget > 0 ? Math.min(Math.round((offenGeplant / pl.budget) * 100), 100 - istProzent) : 0;
 
             const budgetColor = isOverBudget ? '#e74c3c' : '#333';
+
+            // Verknüpfungs-Info wenn vorhanden
+            const verknuepftInfo = pl.verknuepft > 0
+                ? `<span style="color: #1565c0; font-size: 0.65rem; margin-left: 0.25rem;">(${this.formatCurrency(pl.verknuepft)} verknüpft)</span>`
+                : '';
 
             html += `
                 <div style="margin-bottom: 1.25rem;">
@@ -1896,11 +1918,11 @@ const App = {
                     </div>
                     <div style="background: #e9ecef; border-radius: 4px; height: 12px; overflow: hidden; display: flex;">
                         <div style="background: #e74c3c; height: 100%; width: ${istProzent}%;" title="IST: ${istProzent}%"></div>
-                        <div style="background: #f39c12; height: 100%; width: ${geplantProzent}%;" title="Geplant: ${geplantProzent}%"></div>
+                        <div style="background: #f39c12; height: 100%; width: ${offenGeplantProzent}%;" title="Offen geplant: ${offenGeplantProzent}%"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.35rem; gap: 0.5rem;">
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.35rem; gap: 0.25rem 0.5rem;">
                         <span style="color: #e74c3c; white-space: nowrap;">IST ${this.formatCurrency(pl.ist)}</span>
-                        <span style="color: #f39c12; white-space: nowrap;">Geplant ${this.formatCurrency(pl.geplant)}</span>
+                        <span style="color: #f39c12; white-space: nowrap;">Geplant ${this.formatCurrency(pl.geplant)}${verknuepftInfo}</span>
                         <span style="color: ${isOverBudget ? '#e74c3c' : '#27ae60'}; font-weight: 500; white-space: nowrap;">
                             ${isOverBudget ? 'Über ' : 'Frei '}${this.formatCurrency(Math.abs(remaining))}
                         </span>
@@ -2232,6 +2254,12 @@ const App = {
                 }
                 if (DataManager.hasDeleteAccess && DataManager.hasDeleteAccess('access_projekte')) {
                     aktionen += `<button class="btn btn-sm" style="margin-left: 0.25rem; padding: 0.2rem 0.5rem; background: #fee; color: #c0392b; border: 1px solid #e74c3c;" onclick="App.confirmDeleteCost('${k.costId}', '${escapeHtml(k.beschreibung).replace(/'/g, "\\'")}')" title="Löschen">${Icons.delete}</button>`;
+                }
+                // Verknüpfungs-Button für geplante Kosten
+                if (k.typ === 'Geplant' && DataManager.hasWriteAccess && DataManager.hasWriteAccess('access_projekte')) {
+                    const linkCount = k.linkedCount || 0;
+                    const linkBadge = linkCount > 0 ? `<span style="font-size: 0.65rem; margin-left: 2px;">${linkCount}</span>` : '';
+                    aktionen += `<button class="btn btn-sm" style="margin-left: 0.25rem; padding: 0.2rem 0.5rem; background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;" onclick="App.openCostLinkModal('${k.costId}')" title="Mit IST verknüpfen">${Icons.link || '🔗'}${linkBadge}</button>`;
                 }
             }
 
@@ -3251,14 +3279,19 @@ const App = {
         document.getElementById('cost-form-id').value = '';
         this.showModal('cost-form-modal');
 
-        // ALLE Daten parallel laden für maximale Geschwindigkeit
-        const [cost, projects, datevLieferanten] = await Promise.all([
-            DataManager.getCostById(costId),
-            DataManager.getProjects(),
-            DataManager.getDatevLieferanten()
-        ]);
+        // Gecachte Daten nutzen wenn verfügbar, sonst parallel laden
         const costTypes = DataManager.getActiveCostTypes();
         const suppliers = DataManager.getActiveSuppliers();
+
+        // Nur Cost muss geladen werden - Projekte und Lieferanten aus Cache
+        const cost = await DataManager.getCostById(costId);
+        const projects = this.allProjectsUnfiltered || await DataManager.getProjects();
+        const datevLieferanten = this.cachedDatevLieferanten || await DataManager.getDatevLieferanten();
+
+        // Cache für nächstes Mal speichern
+        if (!this.cachedDatevLieferanten) {
+            this.cachedDatevLieferanten = datevLieferanten;
+        }
 
         if (!cost) {
             this.closeModal('cost-form-modal');
@@ -3545,6 +3578,261 @@ const App = {
         } catch (error) {
             console.error('Fehler beim Löschen:', error);
             this.showToast('Fehler beim Löschen', 'error');
+        }
+    },
+
+    // ==========================================
+    // COST LINKS - Verknüpfung Geplant mit IST
+    // ==========================================
+
+    // Aktueller Kontext für Cost-Link Modal
+    costLinkContext: {
+        plannedCostId: null,
+        projectId: null,
+        plannedAmount: 0,
+        selectedType: 'datev',
+        availableData: { costs: [], invoices: [], datev: [] },
+        existingLinks: []
+    },
+
+    openCostLinkModal: async function(costId) {
+        // Geplante Kosten laden
+        const cost = await DataManager.getCostById(costId);
+        if (!cost) {
+            this.showToast('Kosten nicht gefunden', 'error');
+            return;
+        }
+
+        // Kontext setzen
+        this.costLinkContext.plannedCostId = costId;
+        this.costLinkContext.projectId = cost.projectId || cost.project_id;
+        this.costLinkContext.plannedAmount = parseFloat(cost.amount) || 0;
+
+        // Modal-Infos befüllen
+        document.getElementById('cost-link-description').textContent = cost.description || '-';
+        document.getElementById('cost-link-category').textContent = cost.category || '-';
+        document.getElementById('cost-link-pl').textContent = cost.plCategory || cost.pl_category || '-';
+        document.getElementById('cost-link-amount').textContent = this.formatBudgetValue(this.costLinkContext.plannedAmount) + ' €';
+
+        // Modal anzeigen
+        document.getElementById('cost-link-modal').classList.add('active');
+
+        // Daten laden
+        await Promise.all([
+            this.loadCostLinks(),
+            this.loadAvailableCostsForLinking()
+        ]);
+
+        // Standard-Typ auswählen
+        this.selectCostLinkType('datev');
+    },
+
+    hideCostLinkModal: function() {
+        document.getElementById('cost-link-modal').classList.remove('active');
+        this.costLinkContext = {
+            plannedCostId: null,
+            projectId: null,
+            plannedAmount: 0,
+            selectedType: 'datev',
+            availableData: { costs: [], invoices: [], datev: [] },
+            existingLinks: []
+        };
+    },
+
+    loadCostLinks: async function() {
+        const links = await DataAdapter.getCostLinks(this.costLinkContext.plannedCostId);
+        this.costLinkContext.existingLinks = links;
+
+        const container = document.getElementById('cost-link-existing');
+        const linkedTotal = links.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
+
+        document.getElementById('cost-link-linked-total').textContent = this.formatBudgetValue(linkedTotal) + ' €';
+
+        if (links.length === 0) {
+            container.innerHTML = '<div style="padding: 1rem; text-align: center; color: #999;">Keine Verknüpfungen</div>';
+        } else {
+            container.innerHTML = links.map(link => {
+                let sourceDesc = '';
+                let sourceAmount = 0;
+
+                if (link.datev_booking_id) {
+                    sourceDesc = `DATEV: ${link.datev_text || 'Buchung'} (${link.datev_date ? new Date(link.datev_date).toLocaleDateString('de-DE') : ''})`;
+                    sourceAmount = link.datev_amount;
+                } else if (link.invoice_id) {
+                    sourceDesc = `Rechnung: ${link.invoice_number || ''} - ${link.invoice_supplier || ''}`;
+                    sourceAmount = link.invoice_amount;
+                } else if (link.actual_cost_id) {
+                    sourceDesc = `IST: ${link.actual_description || ''}`;
+                    sourceAmount = link.actual_amount;
+                }
+
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 0.9rem;">${sourceDesc}</div>
+                            ${link.notes ? `<div style="font-size: 0.75rem; color: #999;">${link.notes}</div>` : ''}
+                        </div>
+                        <div style="text-align: right; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-weight: 500;">${this.formatBudgetValue(link.amount)} €</span>
+                            <button class="btn btn-sm" style="padding: 0.25rem 0.5rem; background: #fee; color: #c00; border: none;"
+                                    onclick="App.removeCostLink('${link.id}')" title="Entfernen">×</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        this.updateCostLinkRemaining();
+    },
+
+    loadAvailableCostsForLinking: async function() {
+        const available = await DataAdapter.getAvailableCostsForLinking(this.costLinkContext.projectId);
+        this.costLinkContext.availableData = available;
+        this.updateCostLinkSourceSelect();
+    },
+
+    selectCostLinkType: function(type) {
+        this.costLinkContext.selectedType = type;
+
+        // Button-Zustand aktualisieren
+        document.querySelectorAll('.cost-link-type-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.type === type);
+            if (btn.dataset.type === type) {
+                btn.style.background = '#2563eb';
+                btn.style.color = 'white';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+            }
+        });
+
+        this.updateCostLinkSourceSelect();
+    },
+
+    updateCostLinkSourceSelect: function() {
+        const select = document.getElementById('cost-link-source-select');
+        const type = this.costLinkContext.selectedType;
+        const data = this.costLinkContext.availableData;
+
+        let options = '<option value="">-- Bitte wählen --</option>';
+
+        if (type === 'datev' && data.datev) {
+            data.datev.forEach(d => {
+                const date = d.belegdatum ? new Date(d.belegdatum).toLocaleDateString('de-DE') : '';
+                const text = d.buchungstext || d.lieferant || 'DATEV Buchung';
+                options += `<option value="${d.rechnungs_id}" data-amount="${d.betrag}">${date} - ${text} (${this.formatBudgetValue(d.betrag)} €)</option>`;
+            });
+        } else if (type === 'invoice' && data.invoices) {
+            data.invoices.forEach(i => {
+                const date = i.rechnungsdatum ? new Date(i.rechnungsdatum).toLocaleDateString('de-DE') : '';
+                options += `<option value="${i.id}" data-amount="${i.betrag}">${i.rechnungs_nummer || 'Ohne Nr.'} - ${i.lieferant || ''} (${this.formatBudgetValue(i.betrag)} €)</option>`;
+            });
+        } else if (type === 'cost' && data.costs) {
+            data.costs.forEach(c => {
+                const date = c.date ? new Date(c.date).toLocaleDateString('de-DE') : '';
+                options += `<option value="${c.id}" data-amount="${c.amount}">${date} - ${c.description || '-'} (${this.formatBudgetValue(c.amount)} €)</option>`;
+            });
+        }
+
+        select.innerHTML = options;
+
+        // Event Listener für Betrags-Autofill
+        select.onchange = () => {
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption && selectedOption.dataset.amount) {
+                const amountInput = document.getElementById('cost-link-amount-input');
+                amountInput.value = this.formatBudgetValue(selectedOption.dataset.amount);
+            }
+        };
+    },
+
+    addCostLink: async function() {
+        const select = document.getElementById('cost-link-source-select');
+        const amountInput = document.getElementById('cost-link-amount-input');
+        const notesInput = document.getElementById('cost-link-notes');
+
+        const sourceId = select.value;
+        const amount = this.parseBudgetValue(amountInput.value);
+        const notes = notesInput.value.trim();
+
+        if (!sourceId) {
+            this.showToast('Bitte eine Quelle auswählen', 'warning');
+            return;
+        }
+
+        if (!amount || amount <= 0) {
+            this.showToast('Bitte einen gültigen Betrag eingeben', 'warning');
+            return;
+        }
+
+        const type = this.costLinkContext.selectedType;
+        const data = {
+            planned_cost_id: this.costLinkContext.plannedCostId,
+            amount: amount,
+            notes: notes || null
+        };
+
+        if (type === 'datev') {
+            data.datev_booking_id = parseInt(sourceId);
+        } else if (type === 'invoice') {
+            data.invoice_id = sourceId;
+        } else if (type === 'cost') {
+            data.actual_cost_id = sourceId;
+        }
+
+        try {
+            await DataAdapter.createCostLink(data);
+            this.showToast('Verknüpfung erstellt', 'success');
+
+            // Reset Felder
+            select.value = '';
+            amountInput.value = '';
+            notesInput.value = '';
+
+            // Neu laden
+            await Promise.all([
+                this.loadCostLinks(),
+                this.loadAvailableCostsForLinking()
+            ]);
+        } catch (error) {
+            console.error('Fehler beim Erstellen der Verknüpfung:', error);
+            this.showToast('Fehler beim Erstellen', 'error');
+        }
+    },
+
+    removeCostLink: async function(linkId) {
+        if (!confirm('Verknüpfung wirklich entfernen?')) return;
+
+        try {
+            await DataAdapter.deleteCostLink(linkId);
+            this.showToast('Verknüpfung entfernt', 'success');
+
+            await Promise.all([
+                this.loadCostLinks(),
+                this.loadAvailableCostsForLinking()
+            ]);
+        } catch (error) {
+            console.error('Fehler beim Entfernen:', error);
+            this.showToast('Fehler beim Entfernen', 'error');
+        }
+    },
+
+    updateCostLinkRemaining: function() {
+        const linkedTotal = this.costLinkContext.existingLinks.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
+        const remaining = this.costLinkContext.plannedAmount - linkedTotal;
+
+        const remainingEl = document.getElementById('cost-link-remaining');
+        const amountEl = document.getElementById('cost-link-remaining-amount');
+
+        if (remaining > 0) {
+            remainingEl.style.background = '#e8f5e9';
+            remainingEl.innerHTML = `<span style="color: #2e7d32;">Noch offen: <strong>${this.formatBudgetValue(remaining)} €</strong></span>`;
+        } else if (remaining < 0) {
+            remainingEl.style.background = '#ffebee';
+            remainingEl.innerHTML = `<span style="color: #c62828;">Überbucht: <strong>${this.formatBudgetValue(Math.abs(remaining))} €</strong></span>`;
+        } else {
+            remainingEl.style.background = '#e3f2fd';
+            remainingEl.innerHTML = `<span style="color: #1565c0;"><strong>Vollständig verknüpft</strong></span>`;
         }
     },
 

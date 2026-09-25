@@ -651,6 +651,31 @@ const ApiClient = {
         return await this.request(`/costs/${id}`, { method: 'DELETE' });
     },
 
+    // ========== COST LINKS ==========
+
+    async getCostLinks(plannedCostId) {
+        return await this.request(`/cost-links/planned/${plannedCostId}`);
+    },
+
+    async getAvailableCostsForLinking(projectId) {
+        return await this.request(`/cost-links/available/${projectId}`);
+    },
+
+    async createCostLink(data) {
+        return await this.request('/cost-links', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteCostLink(id) {
+        return await this.request(`/cost-links/${id}`, { method: 'DELETE' });
+    },
+
+    async getCostLinksSummary(projectId) {
+        return await this.request(`/cost-links/project/${projectId}/summary`);
+    },
+
     // ========== TIME ENTRIES ==========
 
     async getTimeEntries(filters = {}) {

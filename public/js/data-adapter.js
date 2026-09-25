@@ -1001,6 +1001,55 @@ const SupabaseDataAdapter = {
     },
 
     /**
+     * COST LINKS: Verknüpfung von geplanten Kosten mit IST-Kosten
+     */
+
+    async getCostLinks(plannedCostId) {
+        try {
+            return await ApiClient.getCostLinks(plannedCostId);
+        } catch (error) {
+            console.error('Fehler beim Laden der Kostenverknüpfungen:', error);
+            return [];
+        }
+    },
+
+    async getAvailableCostsForLinking(projectId) {
+        try {
+            return await ApiClient.getAvailableCostsForLinking(projectId);
+        } catch (error) {
+            console.error('Fehler beim Laden verfügbarer Kosten:', error);
+            return { costs: [], invoices: [], datev: [] };
+        }
+    },
+
+    async createCostLink(data) {
+        try {
+            return await ApiClient.createCostLink(data);
+        } catch (error) {
+            console.error('Fehler beim Erstellen der Verknüpfung:', error);
+            throw error;
+        }
+    },
+
+    async deleteCostLink(linkId) {
+        try {
+            return await ApiClient.deleteCostLink(linkId);
+        } catch (error) {
+            console.error('Fehler beim Löschen der Verknüpfung:', error);
+            throw error;
+        }
+    },
+
+    async getCostLinksSummary(projectId) {
+        try {
+            return await ApiClient.getCostLinksSummary(projectId);
+        } catch (error) {
+            console.error('Fehler beim Laden der Verknüpfungs-Zusammenfassung:', error);
+            return {};
+        }
+    },
+
+    /**
      * HELPER-FUNKTIONEN: Datenkonvertierung
      */
 
