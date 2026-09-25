@@ -5754,12 +5754,16 @@ const App = {
             // Dateiname generieren
             const year = new Date().getFullYear();
             const timestamp = Date.now();
-            // Bei fehlender dokumentNr: eindeutige ID aus rechnungId oder Timestamp
-            // WICHTIG: Doppelpunkte aus rechnungId entfernen (ungültig in Dateinamen)
-            const safeRechnungId = rechnungId ? rechnungId.replace(/:/g, '-') : null;
-            const docNrPart = dokumentNr || safeRechnungId || timestamp;
-            const newFileName = `${year}_${partitaIva || 'NODOC'}_${docNrPart}_${timestamp}.pdf`;
-            const filePath = `invoices/${newFileName}`;
+
+            // WICHTIG: Ungültige Zeichen aus allen Teilen entfernen
+            // Ungültig in Dateinamen: : / \ ? * " < > |
+            const sanitize = (str) => str ? str.replace(/[:/\\?*"<>|]/g, '-').replace(/\s+/g, '_') : null;
+
+            const safePartitaIva = sanitize(partitaIva) || 'NODOC';
+            const safeRechnungId = sanitize(rechnungId);
+            const safeDokumentNr = sanitize(dokumentNr);
+            const docNrPart = safeDokumentNr || safeRechnungId || timestamp;
+            const newFileName = `${year}_${safePartitaIva}_${docNrPart}_${timestamp}.pdf`;
             console.log('📤 Generierter Dateiname:', newFileName);
 
             // Upload zu Storage via ApiClient
