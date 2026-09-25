@@ -1821,6 +1821,7 @@ const App = {
         const budgetPl2 = project.budgetPl2 || 0;
         const budgetPl3 = project.budgetPl3 || 0;
         const totalPlBudget = budgetPl1 + budgetPl2 + budgetPl3;
+        const gesamtBudget = project.budget || 0;
 
         // Wenn keine PL-Budgets definiert sind, Card ausblenden
         if (totalPlBudget === 0 && card) {
@@ -1837,6 +1838,9 @@ const App = {
             }
         });
 
+        // Prüfen ob PL-Budgets das Gesamtbudget überschreiten
+        const isPlBudgetOverTotal = gesamtBudget > 0 && totalPlBudget > gesamtBudget;
+
         const plData = [
             { name: 'PL1 - Ausstellung', budget: budgetPl1, spent: costsByPl.PL1, color: '#3498db' },
             { name: 'PL2 - Kommunikation', budget: budgetPl2, spent: costsByPl.PL2, color: '#9b59b6' },
@@ -1848,21 +1852,40 @@ const App = {
             return;
         }
 
+        // Summenzeile mit Warnung wenn über Gesamtbudget
+        const totalSpent = costsByPl.PL1 + costsByPl.PL2 + costsByPl.PL3;
+        const summeColor = isPlBudgetOverTotal ? '#e74c3c' : '#333';
+
         let html = '<div style="padding: 0.5rem;">';
+
+        // Summe PL-Budgets anzeigen
+        html += `
+            <div style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e0e0e0;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                    <span style="font-weight: 600; color: ${summeColor};">Summe PL-Budgets (Brutto)</span>
+                    <span style="font-weight: 700; color: ${summeColor};">${this.formatCurrency(totalPlBudget)}</span>
+                </div>
+                ${isPlBudgetOverTotal ? `<div style="color: #e74c3c; font-size: 0.75rem; margin-top: 0.25rem;">⚠ Überschreitet Gesamtbudget (${this.formatCurrency(gesamtBudget)})</div>` : ''}
+            </div>
+        `;
+
         plData.forEach(pl => {
             const percent = pl.budget > 0 ? Math.round((pl.spent / pl.budget) * 100) : 0;
             const remaining = pl.budget - pl.spent;
             const isOverBudget = remaining < 0;
             const barWidth = Math.min(percent, 100);
+            // Rot wenn verbraucht > Budget
+            const barColor = isOverBudget ? '#e74c3c' : pl.color;
+            const budgetColor = isOverBudget ? '#e74c3c' : '#333';
 
             html += `
                 <div style="margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
                         <span style="font-weight: 500; color: ${pl.color};">${pl.name}</span>
-                        <span style="font-weight: 600;">${this.formatCurrency(pl.budget)}</span>
+                        <span style="font-weight: 600; color: ${budgetColor};">${this.formatCurrency(pl.budget)}</span>
                     </div>
                     <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
-                        <div style="background: ${isOverBudget ? '#e74c3c' : pl.color}; height: 100%; width: ${barWidth}%;"></div>
+                        <div style="background: ${barColor}; height: 100%; width: ${barWidth}%;"></div>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
                         <span>Verbraucht: ${this.formatCurrency(pl.spent)} (${percent}%)</span>
