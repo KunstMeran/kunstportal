@@ -6095,31 +6095,40 @@ const App = {
     },
 
     /**
-     * Entfernt PDF-Verknüpfung von DATEV-Buchung (nur PDF-Seite)
+     * Löscht PDF komplett (Datei + DB-Eintrag)
      */
     unlinkPdfFromDatev: async function(invoiceId) {
-        if (!confirm('PDF-Verknüpfung trennen? Das PDF bleibt erhalten und kann neu zugewiesen werden.')) {
+        if (!confirm('PDF komplett löschen? Die Datei wird unwiderruflich entfernt.')) {
             return;
         }
 
         try {
-            const currentPage = this.currentRechnungenPage;
+            console.log('Lösche PDF komplett für Invoice:', invoiceId);
 
-            console.log('Trenne PDF-Verknüpfung für Invoice:', invoiceId);
+            // 1. Hole Invoice-Daten um file_path zu bekommen
+            const invoice = await ApiClient.getInvoiceById(invoiceId);
+            console.log('Invoice-Daten:', invoice);
 
-            await ApiClient.updateInvoice(invoiceId, {
-                partita_iva: null,
-                invoice_number: null,
-                linked_booking_id: null
-            });
+            // 2. Lösche Datei vom Storage (wenn file_path vorhanden)
+            if (invoice && invoice.file_path) {
+                try {
+                    await StorageService.deleteFile(invoice.file_path);
+                    console.log('Datei gelöscht:', invoice.file_path);
+                } catch (storageError) {
+                    console.warn('Storage-Löschung fehlgeschlagen (evtl. schon gelöscht):', storageError);
+                }
+            }
 
-            this.showToast('success', 'Getrennt', 'PDF-Verknüpfung wurde entfernt');
+            // 3. Lösche DB-Eintrag
+            await ApiClient.deleteInvoice(invoiceId);
+
+            this.showToast('success', 'Gelöscht', 'PDF wurde komplett entfernt');
 
             await this.reloadRechnungenKeepState();
 
         } catch (error) {
-            console.error('Fehler beim Trennen:', error);
-            this.showToast('error', 'Fehler', `Trennen fehlgeschlagen: ${error.message}`);
+            console.error('Fehler beim Löschen:', error);
+            this.showToast('error', 'Fehler', `Löschen fehlgeschlagen: ${error.message}`);
         }
     },
 
