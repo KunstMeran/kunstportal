@@ -1395,6 +1395,9 @@ const App = {
             // Kategorie-Zusammenfassung berechnen und anzeigen
             this.renderCategoryBreakdown(projektRechnungen);
 
+            // PL-Budget-Übersicht anzeigen
+            this.renderPlBudgetBreakdown(project, manuelleKosten);
+
             // Kosten-Tabelle befüllen (DATEV + manuelle IST + geplante Kosten)
             this.displayProjectCosts(projektRechnungen, geplanteKosten, manuelleIstKosten);
 
@@ -1799,6 +1802,74 @@ const App = {
                         <div style="background: ${barColor}; height: 100%; width: ${percent}%;"></div>
                     </div>
                     <div style="font-size: 0.7rem; color: #666;">${data.count} Buchungen · ${percent}%</div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    },
+
+    /**
+     * Rendert die PL-Budget-Übersicht mit Verbrauch
+     */
+    renderPlBudgetBreakdown(project, costs) {
+        const container = document.getElementById('fp-pl-budget-breakdown');
+        const card = document.getElementById('fp-pl-budget-card');
+        if (!container) return;
+
+        const budgetPl1 = project.budgetPl1 || 0;
+        const budgetPl2 = project.budgetPl2 || 0;
+        const budgetPl3 = project.budgetPl3 || 0;
+        const totalPlBudget = budgetPl1 + budgetPl2 + budgetPl3;
+
+        // Wenn keine PL-Budgets definiert sind, Card ausblenden
+        if (totalPlBudget === 0 && card) {
+            card.style.display = 'none';
+            return;
+        }
+        if (card) card.style.display = '';
+
+        // Verbrauch pro PL berechnen
+        const costsByPl = { PL1: 0, PL2: 0, PL3: 0 };
+        costs.forEach(c => {
+            if (c.plCategory && costsByPl.hasOwnProperty(c.plCategory)) {
+                costsByPl[c.plCategory] += c.amount || 0;
+            }
+        });
+
+        const plData = [
+            { name: 'PL1 - Ausstellung', budget: budgetPl1, spent: costsByPl.PL1, color: '#3498db' },
+            { name: 'PL2 - Kommunikation', budget: budgetPl2, spent: costsByPl.PL2, color: '#9b59b6' },
+            { name: 'PL3 - Vermittlung', budget: budgetPl3, spent: costsByPl.PL3, color: '#1abc9c' }
+        ].filter(pl => pl.budget > 0); // Nur PLs mit Budget anzeigen
+
+        if (plData.length === 0) {
+            container.innerHTML = '<div style="color: #999; font-size: 0.875rem; text-align: center;">Keine PL-Budgets definiert</div>';
+            return;
+        }
+
+        let html = '<div style="padding: 0.5rem;">';
+        plData.forEach(pl => {
+            const percent = pl.budget > 0 ? Math.round((pl.spent / pl.budget) * 100) : 0;
+            const remaining = pl.budget - pl.spent;
+            const isOverBudget = remaining < 0;
+            const barWidth = Math.min(percent, 100);
+
+            html += `
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 500; color: ${pl.color};">${pl.name}</span>
+                        <span style="font-weight: 600;">${this.formatCurrency(pl.budget)}</span>
+                    </div>
+                    <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
+                        <div style="background: ${isOverBudget ? '#e74c3c' : pl.color}; height: 100%; width: ${barWidth}%;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        <span>Verbraucht: ${this.formatCurrency(pl.spent)} (${percent}%)</span>
+                        <span style="color: ${isOverBudget ? '#e74c3c' : '#27ae60'}; font-weight: 500;">
+                            ${isOverBudget ? 'Über: ' : 'Frei: '}${this.formatCurrency(Math.abs(remaining))}
+                        </span>
+                    </div>
                 </div>
             `;
         });
@@ -2722,6 +2793,9 @@ const App = {
         document.getElementById('project-end').value = project.endDate;
         document.getElementById('project-status').value = project.status;
         document.getElementById('project-budget').value = project.budget || 0;
+        document.getElementById('project-budget-pl1').value = project.budgetPl1 || 0;
+        document.getElementById('project-budget-pl2').value = project.budgetPl2 || 0;
+        document.getElementById('project-budget-pl3').value = project.budgetPl3 || 0;
         document.getElementById('project-pl1').value = project.pl1 || '';
         document.getElementById('project-pl2').value = project.pl2 || '';
         document.getElementById('project-pl3').value = project.pl3 || '';
@@ -2769,6 +2843,9 @@ const App = {
             endDate: document.getElementById('project-end').value,
             status: document.getElementById('project-status').value,
             budget: parseFloat(document.getElementById('project-budget').value) || 0,
+            budgetPl1: parseFloat(document.getElementById('project-budget-pl1').value) || 0,
+            budgetPl2: parseFloat(document.getElementById('project-budget-pl2').value) || 0,
+            budgetPl3: parseFloat(document.getElementById('project-budget-pl3').value) || 0,
             pl1: document.getElementById('project-pl1').value || null,
             pl2: document.getElementById('project-pl2').value || null,
             pl3: document.getElementById('project-pl3').value || null,
@@ -3003,29 +3080,22 @@ const App = {
     },
 
     editCost: async function(costId) {
-        // Kosten direkt aus der API laden
-        let cost = null;
+        // Modal sofort anzeigen mit Ladeindikator
+        document.getElementById('cost-modal-title').textContent = 'Laden...';
+        document.getElementById('cost-form-id').value = '';
+        this.showModal('cost-form-modal');
 
-        try {
-            // Zuerst versuchen direkt per ID zu laden
-            cost = await DataManager.getCostById(costId);
-        } catch (e) {
-            console.log('getCostById fehlgeschlagen, lade alle Kosten...');
-        }
-
-        // Fallback: Alle Kosten laden und durchsuchen
-        if (!cost) {
-            try {
-                const allCosts = await DataManager.getCosts();
-                if (Array.isArray(allCosts)) {
-                    cost = allCosts.find(c => String(c.id) === String(costId));
-                }
-            } catch (e) {
-                console.error('Fehler beim Laden der Kosten:', e);
-            }
-        }
+        // ALLE Daten parallel laden für maximale Geschwindigkeit
+        const [cost, projects, datevLieferanten] = await Promise.all([
+            DataManager.getCostById(costId),
+            DataManager.getProjects(),
+            DataManager.getDatevLieferanten()
+        ]);
+        const costTypes = DataManager.getActiveCostTypes();
+        const suppliers = DataManager.getActiveSuppliers();
 
         if (!cost) {
+            this.closeModal('cost-form-modal');
             alert('Kosten konnten nicht gefunden werden.');
             return;
         }
@@ -3033,14 +3103,6 @@ const App = {
         // Modus bestimmen (IST oder Geplant/Provisorisch)
         const isGeplant = cost.type === 'geplant' || cost.type === 'provisorisch';
         const mode = isGeplant ? 'geplant' : 'ist';
-
-        // Daten parallel laden für schnelleres Öffnen
-        const [projects, datevLieferanten] = await Promise.all([
-            DataManager.getProjects(),
-            DataManager.getDatevLieferanten()
-        ]);
-        const costTypes = DataManager.getActiveCostTypes();
-        const suppliers = DataManager.getActiveSuppliers();
 
         // Projekt-Dropdown befüllen
         const projectSelect = document.getElementById('cost-project');
@@ -3084,6 +3146,7 @@ const App = {
         // Formular-Felder setzen
         document.getElementById('cost-form-id').value = cost.id;
         document.getElementById('cost-type').value = cost.type;
+        document.getElementById('cost-pl').value = cost.plCategory || '';
         document.getElementById('cost-description').value = cost.description;
         document.getElementById('cost-amount').value = cost.amount;
         document.getElementById('cost-date').value = cost.date;
@@ -3201,6 +3264,7 @@ const App = {
             projectId: projectIdValue, // UUID oder Zahl - nicht parseInt verwenden
             type: document.getElementById('cost-type').value,
             category: document.getElementById('cost-category').value,
+            plCategory: document.getElementById('cost-pl').value, // PL1, PL2 oder PL3
             description: document.getElementById('cost-description').value,
             amount: Math.round(gesamt * 100) / 100, // Effektive Kosten (inkl. MwSt)
             amountNetto: Math.round(netto * 100) / 100,

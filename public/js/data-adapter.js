@@ -95,6 +95,8 @@ const SupabaseDataAdapter = {
         DataManager._deleteCostOriginal = DataManager.deleteCost;
         DataManager.deleteCost = this.deleteCost.bind(this);
 
+        DataManager.getCostById = this.getCostById.bind(this);
+
         // Rechnungs-Funktionen überschreiben
         DataManager.addInvoice = this.addInvoice.bind(this);
         DataManager.updateInvoiceStatus = this.updateInvoiceStatus.bind(this);
@@ -809,6 +811,9 @@ const SupabaseDataAdapter = {
                 status: this.mapStatusToSupabase(projectData.status),
                 datev_id: projectData.datevId || null,
                 budget: projectData.budget || 0,
+                budget_pl1: projectData.budgetPl1 || 0,
+                budget_pl2: projectData.budgetPl2 || 0,
+                budget_pl3: projectData.budgetPl3 || 0,
                 pl1: projectData.pl1 || null,
                 pl2: projectData.pl2 || null,
                 pl3: projectData.pl3 || null,
@@ -847,6 +852,9 @@ const SupabaseDataAdapter = {
                 status: this.mapStatusToSupabase(updates.status),
                 datev_id: updates.datevId || null,
                 budget: updates.budget || 0,
+                budget_pl1: updates.budgetPl1 || 0,
+                budget_pl2: updates.budgetPl2 || 0,
+                budget_pl3: updates.budgetPl3 || 0,
                 pl1: updates.pl1 || null,
                 pl2: updates.pl2 || null,
                 pl3: updates.pl3 || null,
@@ -907,6 +915,16 @@ const SupabaseDataAdapter = {
         }
     },
 
+    async getCostById(costId) {
+        try {
+            const data = await ApiClient.getCostById(costId);
+            return data ? this.convertCostFromSupabase(data) : null;
+        } catch (error) {
+            console.error('Fehler beim Laden der Kosten:', error);
+            return null;
+        }
+    },
+
     async addCost(costData) {
         try {
             // public.users.id für FK (costs.created_by -> public.users)
@@ -915,6 +933,7 @@ const SupabaseDataAdapter = {
             let supabaseCost = {
                 project_id: costData.projectId,
                 category: this.mapCategoryToSupabase(costData.category),
+                pl_category: costData.plCategory || null, // PL1, PL2 oder PL3
                 description: costData.description || costData.supplier || 'Kosten',
                 amount: parseFloat(costData.amount) || 0,
                 cost_type: (costData.type === 'effektiv' || costData.type === 'ist') ? 'IST' : 'Provisorisch',
@@ -943,6 +962,7 @@ const SupabaseDataAdapter = {
         try {
             let supabaseUpdates = {
                 category: this.mapCategoryToSupabase(updates.category),
+                pl_category: updates.plCategory || null, // PL1, PL2 oder PL3
                 description: updates.description,
                 amount: parseFloat(updates.amount),
                 cost_type: (updates.type === 'effektiv' || updates.type === 'ist') ? 'IST' : 'Provisorisch',
@@ -995,6 +1015,9 @@ const SupabaseDataAdapter = {
             status: this.mapStatusFromSupabase(supabaseProject.status),
             datevId: supabaseProject.datev_id || '',
             budget: parseFloat(supabaseProject.budget) || 0,
+            budgetPl1: parseFloat(supabaseProject.budget_pl1) || 0,
+            budgetPl2: parseFloat(supabaseProject.budget_pl2) || 0,
+            budgetPl3: parseFloat(supabaseProject.budget_pl3) || 0,
             pl1: supabaseProject.pl1 || '',
             pl2: supabaseProject.pl2 || '',
             pl3: supabaseProject.pl3 || '',
@@ -1015,6 +1038,7 @@ const SupabaseDataAdapter = {
             id: supabaseCost.id,
             projectId: supabaseCost.project_id,
             category: this.mapCategoryFromSupabase(supabaseCost.category),
+            plCategory: supabaseCost.pl_category || null, // PL1, PL2 oder PL3
             description: supabaseCost.description,
             amount: parseFloat(supabaseCost.amount),
             type: supabaseCost.cost_type === 'IST' ? 'effektiv' : 'provisorisch',

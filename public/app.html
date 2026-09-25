@@ -3430,6 +3430,17 @@
                         </div>
                     </div>
 
+                    <!-- Budget pro Projektleiter -->
+                    <div class="card" id="fp-pl-budget-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Budget pro PL</h3>
+                        </div>
+                        <div id="fp-pl-budget-breakdown" style="padding: 0.5rem 0;">
+                            <!-- Wird dynamisch geladen -->
+                            <div style="color: #999; font-size: 0.875rem; text-align: center;">Keine PL-Budgets definiert</div>
+                        </div>
+                    </div>
+
                     <!-- Aufschlüsselung nach Kostentyp -->
                     <div class="card">
                         <div class="card-header">
@@ -3544,6 +3555,22 @@
                                 </select>
                             </div>
                         </div>
+                        <!-- Budget pro PL -->
+                        <h4 style="margin: 1rem 0 0.5rem 0; font-size: 0.85rem; color: #1565c0;">Budget-Aufteilung pro PL</h4>
+                        <div class="form-row" style="gap: 0.5rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">Budget PL1</label>
+                                <input type="number" id="project-budget-pl1" class="form-control" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">Budget PL2</label>
+                                <input type="number" id="project-budget-pl2" class="form-control" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 0.75rem;">Budget PL3</label>
+                                <input type="number" id="project-budget-pl3" class="form-control" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label" data-i18n="forms.description">Beschreibung</label>
@@ -3574,21 +3601,32 @@
                 <input type="hidden" id="cost-type" value="ist">
                 <div class="modal-body" style="max-height: 65vh;">
                     <!-- IST/Geplant Toggle -->
-                    <div class="cost-mode-toggle">
+                    <div class="cost-mode-toggle" style="margin-bottom: 1.5rem;">
                         <button type="button" id="cost-mode-ist" class="active" onclick="App.setCostMode('ist')">IST</button>
                         <button type="button" id="cost-mode-geplant" onclick="App.setCostMode('geplant')">GEPLANT</button>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" data-i18n="forms.project">Projekt *</label>
-                            <select id="cost-project" class="form-control" required>
-                                <option value="" data-i18n="modals.pleaseSelect">Bitte wählen...</option>
+                            <label class="form-label">Projektleiter (PL) *</label>
+                            <select id="cost-pl" class="form-control" required>
+                                <option value="">Bitte wählen...</option>
+                                <option value="PL1">PL1</option>
+                                <option value="PL2">PL2</option>
+                                <option value="PL3">PL3</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="form-label" data-i18n="forms.category">Kategorie *</label>
                             <select id="cost-category" class="form-control" required>
                                 <!-- Wird dynamisch aus Config geladen -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" data-i18n="forms.project">Projekt *</label>
+                            <select id="cost-project" class="form-control" required>
+                                <option value="" data-i18n="modals.pleaseSelect">Bitte wählen...</option>
                             </select>
                         </div>
                     </div>
