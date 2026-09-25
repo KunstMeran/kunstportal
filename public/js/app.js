@@ -1347,7 +1347,10 @@ const App = {
 
             // Manuelle/geplante Kosten laden
             const manuelleKosten = await DataManager.getCostsByProject(projectId);
-            const geplanteKosten = manuelleKosten.filter(k => k.type === 'provisorisch');
+            // Geplante Kosten = provisorisch ODER geplant (neuer Typ)
+            const geplanteKosten = manuelleKosten.filter(k => k.type === 'provisorisch' || k.type === 'geplant');
+            // Manuelle IST-Kosten
+            const manuelleIstKosten = manuelleKosten.filter(k => k.type === 'ist');
             const geplanteTotal = geplanteKosten.reduce((sum, k) => sum + (k.amount || 0), 0);
 
             // Rechnungen speichern für Filter (DATEV + manuelle)
@@ -1392,8 +1395,8 @@ const App = {
             // Kategorie-Zusammenfassung berechnen und anzeigen
             this.renderCategoryBreakdown(projektRechnungen);
 
-            // Kosten-Tabelle befüllen (DATEV + manuelle geplante Kosten)
-            this.displayProjectCosts(projektRechnungen, geplanteKosten);
+            // Kosten-Tabelle befüllen (DATEV + manuelle IST + geplante Kosten)
+            this.displayProjectCosts(projektRechnungen, geplanteKosten, manuelleIstKosten);
 
             // Rechnungen mit PDF laden und anzeigen (nur die mit verknüpften PDFs)
             const rechnungenMitPdf = projektRechnungen.filter(r => r.pdfExists || r.invoiceId);
@@ -1886,12 +1889,13 @@ const App = {
     allProjectCosts: [],
     selectedCostIds: new Set(),
 
-    displayProjectCosts(rechnungen, geplanteKosten = []) {
+    displayProjectCosts(rechnungen, geplanteKosten = [], manuelleIstKosten = []) {
         const tbody = document.getElementById('fp-costs-table');
         if (!tbody) return;
 
-        // Kombiniere DATEV-Buchungen und geplante Kosten in ein einheitliches Format
+        // Kombiniere DATEV-Buchungen, manuelle IST-Kosten und geplante Kosten in ein einheitliches Format
         this.allProjectCosts = [
+            // DATEV-Rechnungen
             ...rechnungen.map(r => ({
                 id: r.id || r.dokumentNr || `datev-${r.belegdatum}-${r.betrag}`,
                 datum: r.datum || r.belegdatum,
@@ -1918,6 +1922,26 @@ const App = {
                 updated_by: r.updated_by,
                 updated_at: r.updated_at
             })),
+            // Manuelle IST-Kosten
+            ...manuelleIstKosten.map(k => ({
+                id: k.id,
+                datum: k.date || k.created_at,
+                quelle: 'Manuell',
+                lieferant: k.supplierName || '-',
+                beschreibung: k.description || '-',
+                kostentyp: k.costTypeName || '',
+                typ: 'IST',
+                betrag: k.amount || 0,
+                pdfExists: !!k.file_path,
+                filePath: k.file_path || null,
+                isDatev: false,
+                costId: k.id,
+                created_by: k.created_by,
+                created_at: k.created_at,
+                updated_by: k.updated_by,
+                updated_at: k.updated_at
+            })),
+            // Geplante Kosten
             ...geplanteKosten.map(k => ({
                 id: k.id,
                 datum: k.date || k.created_at,
@@ -1927,8 +1951,8 @@ const App = {
                 kostentyp: k.costTypeName || '',
                 typ: 'Geplant',
                 betrag: k.amount || 0,
-                pdfExists: false,
-                filePath: null,
+                pdfExists: !!k.file_path,
+                filePath: k.file_path || null,
                 isDatev: false,
                 costId: k.id,
                 created_by: k.created_by,
