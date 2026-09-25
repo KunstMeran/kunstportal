@@ -1810,7 +1810,7 @@ const App = {
     },
 
     /**
-     * Rendert die PL-Budget-Übersicht mit Verbrauch
+     * Rendert die PL-Budget-Übersicht mit Verbrauch (IST/Geplant/Frei Balken)
      */
     renderPlBudgetBreakdown(project, costs) {
         const container = document.getElementById('fp-pl-budget-breakdown');
@@ -1830,11 +1830,17 @@ const App = {
         }
         if (card) card.style.display = '';
 
-        // Verbrauch pro PL berechnen
-        const costsByPl = { PL1: 0, PL2: 0, PL3: 0 };
+        // IST und Geplant pro PL berechnen
+        const istByPl = { PL1: 0, PL2: 0, PL3: 0 };
+        const geplantByPl = { PL1: 0, PL2: 0, PL3: 0 };
         costs.forEach(c => {
-            if (c.plCategory && costsByPl.hasOwnProperty(c.plCategory)) {
-                costsByPl[c.plCategory] += c.amount || 0;
+            if (c.plCategory && istByPl.hasOwnProperty(c.plCategory)) {
+                if (c.type === 'ist' || c.type === 'effektiv') {
+                    istByPl[c.plCategory] += c.amount || 0;
+                } else {
+                    // provisorisch oder geplant
+                    geplantByPl[c.plCategory] += c.amount || 0;
+                }
             }
         });
 
@@ -1842,9 +1848,9 @@ const App = {
         const isPlBudgetOverTotal = gesamtBudget > 0 && totalPlBudget > gesamtBudget;
 
         const plData = [
-            { name: 'PL1 - Ausstellung', budget: budgetPl1, spent: costsByPl.PL1, color: '#3498db' },
-            { name: 'PL2 - Kommunikation', budget: budgetPl2, spent: costsByPl.PL2, color: '#9b59b6' },
-            { name: 'PL3 - Vermittlung', budget: budgetPl3, spent: costsByPl.PL3, color: '#1abc9c' }
+            { name: 'PL1 - Ausstellung', key: 'PL1', budget: budgetPl1, ist: istByPl.PL1, geplant: geplantByPl.PL1, color: '#3498db' },
+            { name: 'PL2 - Kommunikation', key: 'PL2', budget: budgetPl2, ist: istByPl.PL2, geplant: geplantByPl.PL2, color: '#9b59b6' },
+            { name: 'PL3 - Vermittlung', key: 'PL3', budget: budgetPl3, ist: istByPl.PL3, geplant: geplantByPl.PL3, color: '#1abc9c' }
         ].filter(pl => pl.budget > 0); // Nur PLs mit Budget anzeigen
 
         if (plData.length === 0) {
@@ -1852,8 +1858,9 @@ const App = {
             return;
         }
 
-        // Summenzeile mit Warnung wenn über Gesamtbudget
-        const totalSpent = costsByPl.PL1 + costsByPl.PL2 + costsByPl.PL3;
+        // Summen berechnen
+        const totalIst = istByPl.PL1 + istByPl.PL2 + istByPl.PL3;
+        const totalGeplant = geplantByPl.PL1 + geplantByPl.PL2 + geplantByPl.PL3;
         const summeColor = isPlBudgetOverTotal ? '#e74c3c' : '#333';
 
         let html = '<div style="padding: 0.5rem;">';
@@ -1870,27 +1877,32 @@ const App = {
         `;
 
         plData.forEach(pl => {
-            const percent = pl.budget > 0 ? Math.round((pl.spent / pl.budget) * 100) : 0;
-            const remaining = pl.budget - pl.spent;
+            const verbraucht = pl.ist + pl.geplant;
+            const remaining = pl.budget - verbraucht;
             const isOverBudget = remaining < 0;
-            const barWidth = Math.min(percent, 100);
-            // Rot wenn verbraucht > Budget
-            const barColor = isOverBudget ? '#e74c3c' : pl.color;
+
+            // Prozente für Balken
+            const istProzent = pl.budget > 0 ? Math.min(Math.round((pl.ist / pl.budget) * 100), 100) : 0;
+            const geplantProzent = pl.budget > 0 ? Math.min(Math.round((pl.geplant / pl.budget) * 100), 100 - istProzent) : 0;
+            const freiProzent = Math.max(0, 100 - istProzent - geplantProzent);
+
             const budgetColor = isOverBudget ? '#e74c3c' : '#333';
 
             html += `
-                <div style="margin-bottom: 1rem;">
+                <div style="margin-bottom: 1.25rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
                         <span style="font-weight: 500; color: ${pl.color};">${pl.name}</span>
                         <span style="font-weight: 600; color: ${budgetColor};">${this.formatCurrency(pl.budget)}</span>
                     </div>
-                    <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
-                        <div style="background: ${barColor}; height: 100%; width: ${barWidth}%;"></div>
+                    <div style="background: #e9ecef; border-radius: 4px; height: 12px; overflow: hidden; display: flex;">
+                        <div style="background: #e74c3c; height: 100%; width: ${istProzent}%;" title="IST: ${istProzent}%"></div>
+                        <div style="background: #f39c12; height: 100%; width: ${geplantProzent}%;" title="Geplant: ${geplantProzent}%"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
-                        <span>Verbraucht: ${this.formatCurrency(pl.spent)} (${percent}%)</span>
-                        <span style="color: ${isOverBudget ? '#e74c3c' : '#27ae60'}; font-weight: 500;">
-                            ${isOverBudget ? 'Über: ' : 'Frei: '}${this.formatCurrency(Math.abs(remaining))}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-top: 0.35rem; gap: 0.5rem;">
+                        <span style="color: #e74c3c; white-space: nowrap;">IST ${this.formatCurrency(pl.ist)}</span>
+                        <span style="color: #f39c12; white-space: nowrap;">Geplant ${this.formatCurrency(pl.geplant)}</span>
+                        <span style="color: ${isOverBudget ? '#e74c3c' : '#27ae60'}; font-weight: 500; white-space: nowrap;">
+                            ${isOverBudget ? 'Über ' : 'Frei '}${this.formatCurrency(Math.abs(remaining))}
                         </span>
                     </div>
                 </div>
@@ -2126,7 +2138,7 @@ const App = {
         const totalItems = this.allProjectCosts.length;
 
         if (totalItems === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #666;">Keine Buchungen gefunden</td></tr>';
             this.updateCostsPagination(0, 0, 0);
             return;
         }
@@ -2225,6 +2237,16 @@ const App = {
 
             if (!aktionen) aktionen = '-';
 
+            // Bearbeiter-Info kompakt formatieren
+            let bearbeiterInfo = '';
+            if (k.updated_by || k.created_by) {
+                const user = k.updated_by || k.created_by;
+                const date = k.updated_at || k.created_at;
+                const shortUser = user.split('@')[0]; // Nur Vorname aus Email
+                const shortDate = date ? new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '';
+                bearbeiterInfo = `<span style="font-size: 0.7rem; color: #888;">${shortUser}<br>${shortDate}</span>`;
+            }
+
             row.innerHTML = `
                 <td><input type="checkbox" class="cost-checkbox" data-id="${k.id}" ${isSelected ? 'checked' : ''} onchange="App.toggleCostSelection('${k.id}')"></td>
                 <td style="color: #999; font-size: 0.85rem;">${globalIndex}</td>
@@ -2236,6 +2258,7 @@ const App = {
                 <td>${typBadge}</td>
                 <td>${bezahltCell}</td>
                 <td style="text-align: right; ${betragStyle}">${this.formatCurrency(k.betrag)}</td>
+                <td>${bearbeiterInfo}</td>
                 <td>${aktionen}</td>
             `;
             tbody.appendChild(row);
@@ -2254,9 +2277,9 @@ const App = {
                 const istRow = document.createElement('tr');
                 istRow.style.background = '#fef3f3';
                 istRow.innerHTML = `
-                    <td colspan="9" style="text-align: right;">IST-Summe (${istKosten.length} Buchungen):</td>
+                    <td colspan="10" style="text-align: right;">IST-Summe (${istKosten.length} Buchungen):</td>
                     <td style="text-align: right; font-weight: 600; color: #e74c3c;">${this.formatCurrency(istSumme)}</td>
-                    <td></td>
+                    <td colspan="2"></td>
                 `;
                 tbody.appendChild(istRow);
             }
@@ -2266,9 +2289,9 @@ const App = {
                 const geplantRow = document.createElement('tr');
                 geplantRow.style.background = '#fffbf0';
                 geplantRow.innerHTML = `
-                    <td colspan="9" style="text-align: right;">Geplant-Summe (${geplantKosten.length} Einträge):</td>
+                    <td colspan="10" style="text-align: right;">Geplant-Summe (${geplantKosten.length} Einträge):</td>
                     <td style="text-align: right; font-weight: 600; color: #f57f17;">${this.formatCurrency(geplantSumme)}</td>
-                    <td></td>
+                    <td colspan="2"></td>
                 `;
                 tbody.appendChild(geplantRow);
             }
@@ -2279,9 +2302,9 @@ const App = {
                 sumRow.style.background = '#f8f9fa';
                 sumRow.style.fontWeight = '600';
                 sumRow.innerHTML = `
-                    <td colspan="9" style="text-align: right;">Gesamt (IST + Geplant):</td>
+                    <td colspan="10" style="text-align: right;">Gesamt (IST + Geplant):</td>
                     <td style="text-align: right;">${this.formatCurrency(istSumme + geplantSumme)}</td>
-                    <td></td>
+                    <td colspan="2"></td>
                 `;
                 tbody.appendChild(sumRow);
             }
@@ -8351,10 +8374,14 @@ const App = {
     // ==========================================
 
     formatCurrency: function(value) {
-        return new Intl.NumberFormat('de-DE', {
+        const num = parseFloat(value) || 0;
+        // Deutsches Format mit Tausender-Punkt und Dezimal-Komma
+        return num.toLocaleString('de-DE', {
             style: 'currency',
-            currency: 'EUR'
-        }).format(value);
+            currency: 'EUR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     },
 
     formatDate: function(dateString) {
