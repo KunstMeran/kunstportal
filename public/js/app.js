@@ -2838,10 +2838,11 @@ const App = {
         document.getElementById('project-start').value = project.startDate;
         document.getElementById('project-end').value = project.endDate;
         document.getElementById('project-status').value = project.status;
-        document.getElementById('project-budget').value = project.budget || 0;
-        document.getElementById('project-budget-pl1').value = project.budgetPl1 || 0;
-        document.getElementById('project-budget-pl2').value = project.budgetPl2 || 0;
-        document.getElementById('project-budget-pl3').value = project.budgetPl3 || 0;
+        // Budget-Werte formatiert anzeigen
+        document.getElementById('project-budget').value = this.formatBudgetValue(project.budget || 0);
+        document.getElementById('project-budget-pl1').value = this.formatBudgetValue(project.budgetPl1 || 0);
+        document.getElementById('project-budget-pl2').value = this.formatBudgetValue(project.budgetPl2 || 0);
+        document.getElementById('project-budget-pl3').value = this.formatBudgetValue(project.budgetPl3 || 0);
         document.getElementById('project-pl1').value = project.pl1 || '';
         document.getElementById('project-pl2').value = project.pl2 || '';
         document.getElementById('project-pl3').value = project.pl3 || '';
@@ -2856,13 +2857,63 @@ const App = {
     },
 
     /**
+     * Formatiert Budget-Input mit Tausender-Trennzeichen (deutsches Format)
+     */
+    formatBudgetInput: function(input) {
+        // Cursor-Position merken
+        const cursorPos = input.selectionStart;
+        const oldLength = input.value.length;
+
+        // Nur Zahlen, Komma und Punkt erlauben
+        let value = input.value.replace(/[^\d.,]/g, '');
+
+        // Punkt durch Komma ersetzen (für Dezimaleingabe)
+        value = value.replace(/\./g, ',');
+
+        // Nur ein Komma erlauben
+        const parts = value.split(',');
+        if (parts.length > 2) {
+            value = parts[0] + ',' + parts.slice(1).join('');
+        }
+
+        // Tausender-Trennpunkte hinzufügen
+        if (parts[0]) {
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        input.value = parts.length > 1 ? parts[0] + ',' + parts[1].slice(0, 2) : parts[0];
+
+        // Cursor-Position anpassen
+        const newLength = input.value.length;
+        const newPos = cursorPos + (newLength - oldLength);
+        input.setSelectionRange(newPos, newPos);
+    },
+
+    /**
+     * Parst Budget-Wert aus formatiertem String (50.000,00 -> 50000)
+     */
+    parseBudgetValue: function(value) {
+        if (!value) return 0;
+        // Punkte entfernen (Tausender), Komma durch Punkt ersetzen
+        return parseFloat(value.toString().replace(/\./g, '').replace(',', '.')) || 0;
+    },
+
+    /**
+     * Formatiert Zahl für Budget-Input (50000 -> 50.000,00)
+     */
+    formatBudgetValue: function(value) {
+        const num = parseFloat(value) || 0;
+        return num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    /**
      * Berechnet und zeigt den Rest-Budget an (Gesamtbudget - PL1 - PL2 - PL3)
      */
     updatePlBudgetRest: function() {
-        const total = parseFloat(document.getElementById('project-budget')?.value) || 0;
-        const pl1 = parseFloat(document.getElementById('project-budget-pl1')?.value) || 0;
-        const pl2 = parseFloat(document.getElementById('project-budget-pl2')?.value) || 0;
-        const pl3 = parseFloat(document.getElementById('project-budget-pl3')?.value) || 0;
+        const total = this.parseBudgetValue(document.getElementById('project-budget')?.value);
+        const pl1 = this.parseBudgetValue(document.getElementById('project-budget-pl1')?.value);
+        const pl2 = this.parseBudgetValue(document.getElementById('project-budget-pl2')?.value);
+        const pl3 = this.parseBudgetValue(document.getElementById('project-budget-pl3')?.value);
 
         const sumPl = pl1 + pl2 + pl3;
         const rest = total - sumPl;
@@ -2915,10 +2966,11 @@ const App = {
             startDate: document.getElementById('project-start').value,
             endDate: document.getElementById('project-end').value,
             status: document.getElementById('project-status').value,
-            budget: parseFloat(document.getElementById('project-budget').value) || 0,
-            budgetPl1: parseFloat(document.getElementById('project-budget-pl1').value) || 0,
-            budgetPl2: parseFloat(document.getElementById('project-budget-pl2').value) || 0,
-            budgetPl3: parseFloat(document.getElementById('project-budget-pl3').value) || 0,
+            // Budget-Werte aus formatiertem String parsen (50.000,00 -> 50000)
+            budget: this.parseBudgetValue(document.getElementById('project-budget').value),
+            budgetPl1: this.parseBudgetValue(document.getElementById('project-budget-pl1').value),
+            budgetPl2: this.parseBudgetValue(document.getElementById('project-budget-pl2').value),
+            budgetPl3: this.parseBudgetValue(document.getElementById('project-budget-pl3').value),
             pl1: document.getElementById('project-pl1').value || null,
             pl2: document.getElementById('project-pl2').value || null,
             pl3: document.getElementById('project-pl3').value || null,

@@ -3513,7 +3513,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label" data-i18n="modals.budgetEur">Budget (EUR)</label>
-                            <input type="number" id="project-budget" class="form-control" step="0.01" min="0" oninput="App.updatePlBudgetRest()">
+                            <input type="text" id="project-budget" class="form-control budget-input" placeholder="0,00" oninput="App.formatBudgetInput(this); App.updatePlBudgetRest()">
                         </div>
                     </div>
                     <div class="form-row">
@@ -3561,15 +3561,15 @@
                         <div class="form-row" style="gap: 0.5rem;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label" style="font-size: 0.75rem;">Budget PL1</label>
-                                <input type="number" id="project-budget-pl1" class="form-control" step="0.01" min="0" placeholder="0.00" oninput="App.updatePlBudgetRest()">
+                                <input type="text" id="project-budget-pl1" class="form-control budget-input" placeholder="0,00" oninput="App.formatBudgetInput(this); App.updatePlBudgetRest()">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label" style="font-size: 0.75rem;">Budget PL2</label>
-                                <input type="number" id="project-budget-pl2" class="form-control" step="0.01" min="0" placeholder="0.00" oninput="App.updatePlBudgetRest()">
+                                <input type="text" id="project-budget-pl2" class="form-control budget-input" placeholder="0,00" oninput="App.formatBudgetInput(this); App.updatePlBudgetRest()">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label" style="font-size: 0.75rem;">Budget PL3</label>
-                                <input type="number" id="project-budget-pl3" class="form-control" step="0.01" min="0" placeholder="0.00" oninput="App.updatePlBudgetRest()">
+                                <input type="text" id="project-budget-pl3" class="form-control budget-input" placeholder="0,00" oninput="App.formatBudgetInput(this); App.updatePlBudgetRest()">
                             </div>
                         </div>
                         <div id="pl-budget-rest" style="margin-top: 0.5rem; font-size: 0.8rem; font-weight: 500;"></div>
