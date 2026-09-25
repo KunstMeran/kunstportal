@@ -789,11 +789,14 @@ const ApiClient = {
     async uploadFile(folder, file, filename = null) {
         const formData = new FormData();
         formData.append('file', file);
+
+        // Filename als Query-Parameter senden (nicht im Body, da Multer den Body erst nach dem Speichern parsed)
+        let url = `${this.baseUrl}/storage/${folder}`;
         if (filename) {
-            formData.append('filename', filename);
+            url += `?filename=${encodeURIComponent(filename)}`;
         }
 
-        const response = await fetch(`${this.baseUrl}/storage/${folder}`, {
+        const response = await fetch(url, {
             method: 'POST',
             credentials: 'include',
             body: formData,

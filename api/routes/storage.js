@@ -18,8 +18,9 @@ const storage = multer.diskStorage({
         cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-        // Use original filename or generate unique one
-        const filename = req.body.filename || `${Date.now()}_${file.originalname}`;
+        // WICHTIG: Bei multipart/form-data ist req.body.filename hier noch nicht verfügbar!
+        // Daher verwenden wir query parameter (?filename=...) oder generieren einen eindeutigen Namen
+        const filename = req.query.filename || `${Date.now()}_${file.originalname}`;
         cb(null, filename);
     }
 });
