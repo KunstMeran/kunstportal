@@ -2240,11 +2240,11 @@ const App = {
             // Bearbeiter-Info kompakt formatieren
             let bearbeiterInfo = '';
             if (k.updated_by || k.created_by) {
-                const user = k.updated_by || k.created_by;
+                const userId = k.updated_by || k.created_by;
                 const date = k.updated_at || k.created_at;
-                const shortUser = user.split('@')[0]; // Nur Vorname aus Email
+                const userName = resolveUserName(userId) || 'System';
                 const shortDate = date ? new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '';
-                bearbeiterInfo = `<span style="font-size: 0.7rem; color: #888;">${shortUser}<br>${shortDate}</span>`;
+                bearbeiterInfo = `<span style="font-size: 0.7rem; color: #888;">${userName}<br>${shortDate}</span>`;
             }
 
             row.innerHTML = `
@@ -2850,6 +2850,33 @@ const App = {
 
         document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
         this.showModal('project-form-modal');
+
+        // Restbudget berechnen
+        this.updatePlBudgetRest();
+    },
+
+    /**
+     * Berechnet und zeigt den Rest-Budget an (Gesamtbudget - PL1 - PL2 - PL3)
+     */
+    updatePlBudgetRest: function() {
+        const total = parseFloat(document.getElementById('project-budget')?.value) || 0;
+        const pl1 = parseFloat(document.getElementById('project-budget-pl1')?.value) || 0;
+        const pl2 = parseFloat(document.getElementById('project-budget-pl2')?.value) || 0;
+        const pl3 = parseFloat(document.getElementById('project-budget-pl3')?.value) || 0;
+
+        const sumPl = pl1 + pl2 + pl3;
+        const rest = total - sumPl;
+
+        const restEl = document.getElementById('pl-budget-rest');
+        if (restEl) {
+            if (rest < 0) {
+                restEl.innerHTML = `<span style="color: #e74c3c;">Überschritten: ${this.formatCurrency(Math.abs(rest))}</span>`;
+            } else if (rest > 0) {
+                restEl.innerHTML = `<span style="color: #2e7d32;">Noch verfügbar: ${this.formatCurrency(rest)}</span>`;
+            } else {
+                restEl.innerHTML = `<span style="color: #666;">Vollständig aufgeteilt</span>`;
+            }
+        }
     },
 
     /**
@@ -3123,6 +3150,47 @@ const App = {
         document.getElementById('cost-mwst-type').value = 'brutto_it';
 
         this.updateMwstPreview();
+
+        // PL automatisch ausfüllen basierend auf aktuellem Benutzer
+        if (preselectedProjectId) {
+            await this.autoSelectPlForCost();
+        }
+    },
+
+    /**
+     * Setzt automatisch den PL basierend auf dem aktuellen Benutzer und dem ausgewählten Projekt
+     */
+    autoSelectPlForCost: async function() {
+        const projectId = document.getElementById('cost-project')?.value;
+        if (!projectId) return;
+
+        try {
+            const project = await DataManager.getProjectById(projectId);
+            const currentUser = await Auth.getCurrentUser();
+
+            if (!project || !currentUser) return;
+
+            // Finde den Benutzernamen des aktuellen Users
+            const users = this.allUsers || await DataManager.getUsers();
+            const user = users.find(u => String(u.auth_id) === String(currentUser.id) || String(u.id) === String(currentUser.id));
+            const username = user?.username;
+
+            if (!username) return;
+
+            // Prüfe ob der Benutzer einem der PLs zugeordnet ist
+            const plSelect = document.getElementById('cost-pl');
+            if (plSelect && !plSelect.value) {  // Nur setzen wenn noch nicht ausgewählt
+                if (project.pl1 === username) {
+                    plSelect.value = 'PL1';
+                } else if (project.pl2 === username) {
+                    plSelect.value = 'PL2';
+                } else if (project.pl3 === username) {
+                    plSelect.value = 'PL3';
+                }
+            }
+        } catch (error) {
+            console.error('Fehler beim Auto-Select PL:', error);
+        }
     },
 
     editCost: async function(costId) {
