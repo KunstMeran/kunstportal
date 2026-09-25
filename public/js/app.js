@@ -3694,15 +3694,18 @@ const App = {
     selectCostLinkType: function(type) {
         this.costLinkContext.selectedType = type;
 
-        // Button-Zustand aktualisieren
+        // Button-Zustand aktualisieren (Tab-Style)
         document.querySelectorAll('.cost-link-type-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.type === type);
-            if (btn.dataset.type === type) {
-                btn.style.background = '#2563eb';
-                btn.style.color = 'white';
+            const isActive = btn.dataset.type === type;
+            btn.classList.toggle('active', isActive);
+            if (isActive) {
+                btn.style.background = 'white';
+                btn.style.color = '#667eea';
+                btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
             } else {
-                btn.style.background = '';
-                btn.style.color = '';
+                btn.style.background = 'transparent';
+                btn.style.color = '#64748b';
+                btn.style.boxShadow = 'none';
             }
         });
 

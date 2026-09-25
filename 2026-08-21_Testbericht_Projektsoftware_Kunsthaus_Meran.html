@@ -1,0 +1,802 @@
+<title>Portal Kunst Meran — Prüfprotokoll</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root{
+    --paper:#F6F6F3;
+    --surface:#FFFFFF;
+    --ink:#15191B;
+    --ink-2:#3D4548;
+    --muted:#6D7578;
+    --rule:#DEDFD9;
+    --rule-strong:#C4C6BF;
+    --accent:#0E6E62;
+    --accent-soft:#DCEBE7;
+    --sev-block:#A32B21;
+    --sev-block-bg:#F5E2DF;
+    --sev-high:#8E5B0C;
+    --sev-high-bg:#F5EADA;
+    --sev-mid:#3A5F8C;
+    --sev-mid-bg:#E2E9F2;
+    --sev-cos:#5F676A;
+    --sev-cos-bg:#E7E8E4;
+    --ok:#2C6A43;
+    --ok-bg:#E0EDE4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1113;
+      --surface:#161A1C;
+      --ink:#E8EBE9;
+      --ink-2:#BAC1C0;
+      --muted:#8A9395;
+      --rule:#262C2F;
+      --rule-strong:#3A4245;
+      --accent:#5BC7B4;
+      --accent-soft:#16302C;
+      --sev-block:#EB8074;
+      --sev-block-bg:#331916;
+      --sev-high:#DFA850;
+      --sev-high-bg:#2E2413;
+      --sev-mid:#87ABD8;
+      --sev-mid-bg:#182231;
+      --sev-cos:#98A1A3;
+      --sev-cos-bg:#1E2325;
+      --ok:#73C290;
+      --ok-bg:#16281D;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1113;
+    --surface:#161A1C;
+    --ink:#E8EBE9;
+    --ink-2:#BAC1C0;
+    --muted:#8A9395;
+    --rule:#262C2F;
+    --rule-strong:#3A4245;
+    --accent:#5BC7B4;
+    --accent-soft:#16302C;
+    --sev-block:#EB8074;
+    --sev-block-bg:#331916;
+    --sev-high:#DFA850;
+    --sev-high-bg:#2E2413;
+    --sev-mid:#87ABD8;
+    --sev-mid-bg:#182231;
+    --sev-cos:#98A1A3;
+    --sev-cos-bg:#1E2325;
+    --ok:#73C290;
+    --ok-bg:#16281D;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size:17px;
+    line-height:1.6;
+    margin:0;
+    padding:0 20px 96px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{max-width:880px;margin:0 auto;}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    padding:56px 0 28px;
+    border-bottom:2px solid var(--ink);
+  }
+  .eyebrow{
+    font-family:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:11.5px;
+    font-weight:500;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:"Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight:700;
+    font-size:clamp(2.1rem, 5.2vw, 3.1rem);
+    line-height:1.04;
+    letter-spacing:-0.025em;
+    text-wrap:balance;
+    margin:0 0 18px;
+  }
+  .standfirst{
+    font-size:1.06rem;
+    color:var(--ink-2);
+    max-width:60ch;
+    margin:0;
+  }
+
+  /* ---------- run metadata ---------- */
+  .meta{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:2px;
+    background:var(--rule);
+    border-bottom:1px solid var(--rule);
+    margin:0 0 44px;
+  }
+  .meta div{
+    background:var(--paper);
+    padding:14px 0 16px;
+  }
+  .meta dt{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 5px;
+  }
+  .meta dd{
+    margin:0;
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:13px;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------- tally ---------- */
+  .tally{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+    gap:1px;
+    background:var(--rule);
+    border:1px solid var(--rule);
+    margin:0 0 12px;
+  }
+  .tally a{
+    background:var(--surface);
+    padding:18px 16px 16px;
+    text-decoration:none;
+    color:inherit;
+    display:block;
+    transition:background .15s ease;
+  }
+  .tally a:hover,.tally a:focus-visible{background:var(--accent-soft);}
+  .tally .n{
+    display:block;
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:2rem;
+    font-weight:700;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+    margin-bottom:8px;
+  }
+  .tally .l{
+    font-family:"Archivo", Arial, sans-serif;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .n-block{color:var(--sev-block);}
+  .n-high{color:var(--sev-high);}
+  .n-mid{color:var(--sev-mid);}
+  .n-cos{color:var(--sev-cos);}
+  .tally-note{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    margin:0 0 52px;
+  }
+
+  /* ---------- sections ---------- */
+  section{margin:0 0 56px;}
+  h2{
+    font-family:"Archivo", Arial, sans-serif;
+    font-weight:700;
+    font-size:1.5rem;
+    letter-spacing:-0.015em;
+    margin:0 0 6px;
+    padding-bottom:10px;
+    border-bottom:2px solid var(--ink);
+    scroll-margin-top:20px;
+  }
+  .sec-note{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    letter-spacing:0.04em;
+    color:var(--muted);
+    margin:10px 0 4px;
+  }
+
+  /* ---------- findings ---------- */
+  .finding{
+    display:grid;
+    grid-template-columns:104px 1fr;
+    gap:0 24px;
+    padding:24px 0 22px;
+    border-bottom:1px solid var(--rule);
+    align-items:start;
+  }
+  .finding:last-child{border-bottom:none;}
+  .gutter{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:flex-start;
+  }
+  .fid{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    color:var(--ink);
+  }
+  .chip{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    padding:3px 7px;
+    white-space:nowrap;
+  }
+  .chip-block{background:var(--sev-block-bg);color:var(--sev-block);}
+  .chip-high{background:var(--sev-high-bg);color:var(--sev-high);}
+  .chip-mid{background:var(--sev-mid-bg);color:var(--sev-mid);}
+  .chip-cos{background:var(--sev-cos-bg);color:var(--sev-cos);}
+  .chip-ok{background:var(--ok-bg);color:var(--ok);}
+
+  .finding h3{
+    font-family:"Archivo", Arial, sans-serif;
+    font-weight:600;
+    font-size:1.06rem;
+    line-height:1.32;
+    letter-spacing:-0.005em;
+    margin:0 0 8px;
+    text-wrap:balance;
+  }
+  .finding p{margin:0 0 8px;color:var(--ink-2);}
+  .finding p:last-child{margin-bottom:0;}
+  .where{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    letter-spacing:0.02em;
+  }
+  code{
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:0.86em;
+    background:var(--sev-cos-bg);
+    padding:1px 5px;
+    color:var(--ink);
+    word-break:break-word;
+  }
+
+  /* ---------- plain lists ---------- */
+  ul.plain{
+    list-style:none;
+    margin:16px 0 0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  ul.plain li{
+    padding:11px 0 11px 26px;
+    border-bottom:1px solid var(--rule);
+    position:relative;
+    color:var(--ink-2);
+  }
+  ul.plain li:last-child{border-bottom:none;}
+  ul.plain li::before{
+    content:"";
+    position:absolute;
+    left:4px;
+    top:1.05em;
+    width:9px;
+    height:1px;
+    background:var(--rule-strong);
+  }
+  ul.plain li.yes::before{
+    background:var(--ok);
+    height:2px;
+  }
+  strong{font-weight:600;color:var(--ink);}
+
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-top:2px solid var(--sev-block);
+    padding:20px 22px;
+    margin:18px 0 0;
+  }
+  .callout h3{
+    font-family:"Archivo", Arial, sans-serif;
+    font-size:0.95rem;
+    font-weight:600;
+    margin:0 0 10px;
+    letter-spacing:-0.005em;
+  }
+  .callout p{margin:0 0 10px;color:var(--ink-2);font-size:0.97rem;}
+  .callout p:last-child{margin-bottom:0;}
+
+  footer{
+    margin-top:64px;
+    padding-top:20px;
+    border-top:1px solid var(--rule);
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    line-height:1.7;
+  }
+
+  a{color:var(--accent);}
+  a:focus-visible,.tally a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  @media (max-width:620px){
+    body{font-size:16px;}
+    .finding{grid-template-columns:1fr;gap:10px;}
+    .gutter{flex-direction:row;align-items:center;gap:10px;}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Funktionstest · portal.kunstmeranoarte.org</p>
+    <h1>Prüfprotokoll Projektsoftware Kunst Meran</h1>
+    <p class="standfirst">Vollständiger Klick-Durchlauf aller 13 Module inklusive Schreibtests mit markierten Testdaten. 40 Befunde, davon 5 Blocker — der Schwerpunkt liegt auf Kasse, Kostenerfassung und Reporting.</p>
+  </header>
+
+  <dl class="meta">
+    <div><dt>Datum</dt><dd>21.08.2026</dd></div>
+    <div><dt>Build</dt><dd>v=20260820</dd></div>
+    <div><dt>Benutzer</dt><dd>info · Mitarbeiter</dd></div>
+    <div><dt>Browser</dt><dd>Chrome 1131×845</dd></div>
+    <div><dt>Datenbestand</dt><dd>7.010 Buchungen</dd></div>
+  </dl>
+
+  <nav class="tally" aria-label="Befunde nach Schweregrad">
+    <a href="#blocker"><span class="n n-block">5</span><span class="l">Blocker</span></a>
+    <a href="#hoch"><span class="n n-high">11</span><span class="l">Hoch</span></a>
+    <a href="#mittel"><span class="n n-mid">15</span><span class="l">Mittel</span></a>
+    <a href="#kosmetik"><span class="n n-cos">9</span><span class="l">Kosmetik</span></a>
+    <a href="#ok"><span class="n" style="color:var(--ok)">21</span><span class="l">Geprüft&nbsp;OK</span></a>
+  </nav>
+  <p class="tally-note">Alle Befunde wurden mindestens zweimal reproduziert; Konsolen- und Netzwerkbelege sind je Eintrag angegeben.</p>
+
+  <section id="blocker">
+    <h2>Blocker</h2>
+    <p class="sec-note">Kernfunktionen, die im Alltag nicht benutzbar sind oder falsche Zahlen liefern.</p>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">B-1</span><span class="chip chip-block">Blocker</span></div>
+      <div>
+        <h3>Kassenführung zeigt 0,00 € trotz Bar-Einnahmen</h3>
+        <p>Nach einem Barverkauf über 23,23 € meldet die Kachel korrekt „Kassensaldo Bar 23,23 €“, der Reiter <strong>Kasse</strong> darunter aber „+ Einnahmen Bar: 0,00 EUR“ und „= Kassensaldo (Soll): 0,00 EUR“. Die MwSt-Aufschlüsselung bleibt komplett leer. Ein Kassenabschluss auf dieser Basis wäre falsch.</p>
+        <p>Ursache: <code>getMwstAufschluesselung</code> erwartet ein Array, bekommt aber ein Objekt — <code>TypeError: verkaeufe.forEach is not a function</code>. Der Fehler bricht das Laden der gesamten Kassenansicht ab.</p>
+        <p class="where">Shop &amp; Kasse › Kasse · data.js:3403 ← app.js:17611 loadShopKasse</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">B-2</span><span class="chip chip-block">Blocker</span></div>
+      <div>
+        <h3>Projektkosten lassen sich nicht speichern</h3>
+        <p>Im Projektdetail „+ Kosten hinzufügen“ ausfüllen und speichern: Der Dialog bleibt offen, es erscheint keine Meldung, und nach Neuladen existiert kein Datensatz. Fünfmal reproduziert, auch nach Reload.</p>
+        <p>Der Request <code>POST /api/v1/costs</code> wird abgesetzt — und <strong>antwortet nie</strong>. Das Promise bleibt dauerhaft offen, deshalb schließt sich der Dialog nicht. Zusätzlich wird der Request pro Klick zweimal gesendet; sollte das Backend später wieder antworten, drohen Doppelbuchungen.</p>
+        <p class="where">Projekte › Detail › Kosten erfassen · Formular <code>cost-form</code> → App.saveCost</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">B-3</span><span class="chip chip-block">Blocker</span></div>
+      <div>
+        <h3>Neue Einnahme lässt sich nicht speichern</h3>
+        <p>Identisches Verhalten wie B-2: <code>POST /api/v1/funding-sources</code> geht raus (ebenfalls doppelt) und bleibt ohne Antwort. Konsole protokolliert noch <code>addFundingSource - year: 2026</code>, danach passiert nichts mehr. Kein Datensatz, keine Fehlermeldung.</p>
+        <p class="where">Einnahmenplanung › + Neue Einnahme · App.saveEinnahme</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">B-4</span><span class="chip chip-block">Blocker</span></div>
+      <div>
+        <h3>Shop-Verkauf kann weder storniert noch bearbeitet werden</h3>
+        <p>Beide Aktionsbuttons in der Verkaufsliste sind funktionslos. <code>App.stornoShopVerkauf(1)</code> löst ausschließlich ein <code>GET /shop/verkaeufe</code> aus — es geht kein Lösch- oder Änderungsrequest raus, der Verkauf bleibt in der Liste. <code>App.editShopVerkauf(1)</code> öffnet kein Modal und tut sichtbar nichts.</p>
+        <p>Praktische Folge: Eine Fehlbuchung an der Kasse ist über die Oberfläche nicht mehr korrigierbar. Genau daran ist auch das Aufräumen meiner Testbuchung gescheitert (siehe unten).</p>
+        <p class="where">Shop &amp; Kasse › Verkäufe · Buttons „Bearbeiten“ / „Stornieren“</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">B-5</span><span class="chip chip-block">Blocker</span></div>
+      <div>
+        <h3>Deckungsbeiträge pro Projekt sind für alle Projekte identisch</h3>
+        <p>Reporting Seite 2 zeigt für Rahmenprogramm, Menschenbilder, Wanderausstellung, Stadtraum Meran, Animacies und Complice jeweils dieselben Werte: 365 Tage, 16,7 % Anteil, Umsatz 85.633,81 €, DB1 85.633,81 €, Struktur 23.597,42 €, DB2 62.036,39 €. Die Summe (513.802,86 €) ist exakt das Sechsfache.</p>
+        <p>Der Umsatz wird offensichtlich nicht projektbezogen zugeordnet, sondern jedem Projekt in voller Höhe zugewiesen. Zusätzlich stehen die direkten Kosten durchgängig auf 0,00 €, obwohl Complice allein 76.200,59 € IST-Kosten trägt — dadurch ist DB1 = Umsatz und die ganze Auswertung unbrauchbar.</p>
+        <p class="where">Reporting › 2. Deckungsbeiträge</p>
+      </div>
+    </article>
+  </section>
+
+  <section id="hoch">
+    <h2>Hoch</h2>
+    <p class="sec-note">Funktionen, die stillschweigend falsche oder leere Ergebnisse liefern — plus ein Berechtigungsthema.</p>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-1</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Drei Backend-Endpunkte greifen auf nicht existierende Spalten zu</h3>
+        <p>Die API antwortet jeweils mit einem SQL-Fehler, die Oberfläche fängt ihn ab und zeigt einfach nichts an:</p>
+        <p><code>/budget/konto-bezeichnungen</code> → <code>column "konto" does not exist</code> · <code>/funding-sources/{id}/expenses</code> → <code>column "betrag_brutto" does not exist</code> · <code>/kurse/1/termine</code> → <code>column "startzeit" does not exist</code></p>
+        <p>Das sieht nach Schema-Drift zwischen Datenbank und API aus und ist vermutlich in einem Rutsch zu beheben.</p>
+        <p class="where">api-client.js:56 · betrifft H-2, H-3, H-4</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-2</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Kontenplan-Report ohne Kontenbezeichnungen</h3>
+        <p>In „5. Kontenplan – Nicht zugewiesene Kosten“ bleiben die Spalten <strong>Bezeichnung (DE)</strong> und <strong>Bezeichnung (IT)</strong> für jede Zeile leer („-“). Man sieht nur nackte Kontonummern wie 60010101550 mit 22.140,00 €. Folge von H-1.</p>
+        <p class="where">Reporting › 5. Kontenplan</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-3</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Einnahmenplanung: Spalte „Ausgaben“ bleibt immer leer</h3>
+        <p>Für jede Förderquelle wird <code>/funding-sources/{id}/expenses</code> aufgerufen und schlägt fehl. Die Kachel „Ausgaben“ steht deshalb dauerhaft auf 0,00 €, „Verfügbar“ entspricht immer dem vollen Budget. Der eigentliche Zweck der Ansicht — Mittelabruf gegen Förderzusage — funktioniert nicht.</p>
+        <p class="where">Einnahmenplanung · data-adapter.js:2161</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-4</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Kurse: Termine fehlen, zwei Funktionen nicht implementiert</h3>
+        <p>„Geplante Termine“ zeigt 0, weil der Termin-Endpunkt fehlschlägt. Die Konsole meldet zusätzlich ausdrücklich: <code>getKursTeilnehmer global noch nicht implementiert</code> und <code>getAblaufendeZertifikate noch nicht via API implementiert</code> — die Kachel „Ablaufend (90 Tage)“ ist also nur ein Platzhalter.</p>
+        <p class="where">Personal &amp; Stunden › Kurse · app.js:19092 loadKurse</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-5</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Besucherstatistik lädt nie fertig</h3>
+        <p>Reporting Seite 7 bleibt dauerhaft auf „Lade Daten…“ stehen, alle Kennzahlen auf 0. Ursache ist dasselbe Muster wie bei der Kasse: <code>TypeError: kategorien.forEach is not a function</code> — ein Objekt wird als Array behandelt.</p>
+        <p class="where">Reporting › 7. Besucher · app.js:9656 loadBesucherStatistik</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-6</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Gesamt-Deckungsbeitragsrechnung zeigt durchgehend „NaN“</h3>
+        <p>In den Spalten PLAN, ABW. € und ABW. % steht in fast jeder Zeile <code>NaN €</code> bzw. <code>NaN%</code>, inklusive der Summenzeilen. Der Plan-Wert kommt offenbar als <code>undefined</code> an und wird ungeprüft weitergerechnet.</p>
+        <p>Zusätzlich ist die Vorjahresspalte betragsgleich mit IST (jede Zeile „+0.0%“) — der Vorjahresvergleich liefert also keine echten Werte.</p>
+        <p class="where">Reporting › 3. Gesamt-DB</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-7</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Rolle „Mitarbeiter“ hat vollen Zugriff auf die Konfiguration</h3>
+        <p>Der angemeldete Benutzer <code>info</code> ist als Mitarbeiter geführt. Der Button „+ Neues Projekt“ ist für ihn per <code>display:none</code> ausgeblendet — gleichzeitig steht ihm der gesamte Konfigurationsbereich offen: Workspaces (inkl. „Löschen“ der Berechtigungsgruppe Admin), Mitarbeiterliste mit E-Mail-Adressen und Stundensätzen zum Bearbeiten, sowie „Löschen“ an jedem Kostentyp.</p>
+        <p>Da die Sichtbarkeit rein clientseitig gesteuert wird, sollte zusätzlich geprüft werden, ob die API diese Aktionen serverseitig blockiert.</p>
+        <p class="where">Konfiguration › Workspaces / Mitarbeiter / Kostentypen</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-8</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Änderungsprotokoll wird nie geschrieben</h3>
+        <p><code>Auth.getCurrentUserId is not a function</code> — die Funktion existiert nicht, deshalb bricht <code>addAuditMetadata</code> ab und setzt weder <code>created_by</code> noch <code>updated_by</code>. Sichtbare Folge: Die Spalte „Geändert“ bleibt bei neu angelegten Datensätzen leer, während ältere Einträge korrekt „oberprantacher“ ausweisen.</p>
+        <p class="where">app.js:13 addAuditMetadata</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-9</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Speichern-Buttons in drei Dialogen nicht erreichbar</h3>
+        <p>Bei „Eintritt verkaufen“ ist der Modal-Inhalt 800 px hoch, der sichtbare Bereich 704 px, und der Container steht auf <code>overflow:hidden</code> — die Buttons „Abbrechen“ und „Eintritt speichern“ liegen unterhalb des Fensterrands und lassen sich weder scrollen noch anklicken. Der Eintrittsverkauf ist bei Fensterhöhen unter ca. 900 px damit gar nicht durchführbar.</p>
+        <p>Gleiches Muster: „Neue Einnahme“ (841 px Inhalt / 665 px sichtbar) und „Neuer Lieferant“ (Footer halb abgeschnitten).</p>
+        <p class="where">shop-verkauf-eintritt-modal · einnahme-form-modal · supplier-form-modal</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-10</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Verkauf reduziert den Lagerbestand nicht</h3>
+        <p>Vor dem Verkauf von 1 Stück SHOP-0001: Bestand 12. Nach gespeichertem Verkauf und nach Neuladen: weiterhin Bestand 12. Der Artikelbestand wird beim Verkauf nicht fortgeschrieben.</p>
+        <p class="where">Shop &amp; Kasse › Inventar</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">H-11</span><span class="chip chip-high">Hoch</span></div>
+      <div>
+        <h3>Ungültige Partita IVA wird kommentarlos verschluckt</h3>
+        <p>Der Hinweis unter dem Feld lautet „Pflichtfeld – Format: IT + 11 Ziffern“. Gibt man <code>TESTCLAUDE0001</code> ein und speichert, passiert schlicht nichts: kein Request, keine Fehlermeldung, der Dialog bleibt offen. Mit <code>IT99999999999</code> wird korrekt gespeichert. Die Validierung greift also, meldet sich aber nicht.</p>
+        <p>Ergänzend: <code>App.deleteSupplier</code> existiert im Code, ist aber an keiner Stelle der Oberfläche verlinkt — Lieferanten lassen sich anlegen, aber nicht löschen. Der direkte Aufruf bleibt ebenfalls ohne Request hängen.</p>
+        <p class="where">Lieferanten › + Neuer Lieferant</p>
+      </div>
+    </article>
+  </section>
+
+  <section id="mittel">
+    <h2>Mittel</h2>
+    <p class="sec-note">Widersprüchliche Zahlen, tote Bedienelemente und Ansichten, die erst auf Umwegen laden.</p>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-1</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Zwei Module öffnen sich als leere Seite</h3>
+        <p><strong>Personal &amp; Stunden</strong> und <strong>Budgetplanung</strong> zeigen nach dem Aufruf nur die Reiterleiste und darunter weiße Fläche — kein Reiter ist vorausgewählt. Erst ein Klick auf „Zeiteinträge“ bzw. „Nach Bilanzkonten“ lädt Inhalte. Es erscheint keine Fehlermeldung, die Seite wirkt schlicht kaputt.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-2</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Reporting-Seiten 5 und 6 laden nicht automatisch</h3>
+        <p>„Kontenplan“ zeigt „Klicken Sie auf Aktualisieren“, „Bilanz/GuV“ zeigt zunächst überall 0 EUR — inklusive Jahresergebnis. Erst nach manuellem Klick auf „Aktualisieren“ erscheinen die echten Werte (497.410 EUR Gesamtleistung, 43.743 EUR Jahresergebnis). Eine 0 wirkt hier wie eine Aussage, nicht wie ein Ladezustand.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-3</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>„IST-Kosten“ bedeutet an zwei Stellen Unterschiedliches</h3>
+        <p>Dashboard und Projektliste weisen 131.962,49 € aus, das Reporting unter identischer Spaltenbezeichnung 158.107,13 € — der Faktor ist bei vier von fünf Projekten exakt 1,22. Die eine Ansicht rechnet netto, die andere brutto. Für Auswertungen, die nebeneinander gelesen werden, ist das eine Fehlerquelle; zumindest sollten die Spalten unterschiedlich heißen.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-4</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>„Verfügbar“ ignoriert geplante Kosten — außer im Projektdetail</h3>
+        <p>Complice: Projektliste und Dashboard zeigen 33.327,98 € verfügbar (Budget minus IST). Das Projektdetail zeigt 3.827,98 € (Budget minus IST minus 29.500 € geplant). Beide Zahlen sind für sich korrekt, tragen aber dasselbe Label.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-5</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Dashboard zählt zwei Projekte nicht mit</h3>
+        <p>Das Dashboard nennt 6 aktive Projekte und 451.496,00 € Gesamtbudget. Die Projektliste führt 8 laufende Projekte — „Kunsthaus Wartungen“ (12.500 € Budget) und „Shop“ fehlen in Dashboard und Reporting, tauchen in der Budgetplanung aber wieder auf. Falls das Absicht ist, sollte die Kachel entsprechend beschriftet sein.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-6</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Zeiteintrag bearbeiten: Datum ist leer</h3>
+        <p>Beim Öffnen eines bestehenden Eintrags sind Projekt, Mitarbeiter, Stunden und Beschreibung korrekt vorbelegt — das Pflichtfeld <strong>Datum</strong> jedoch leer (<code>tt.mm.jjjj</code>), obwohl der Eintrag auf den 21.8.2026 datiert ist. Speichern wird blockiert, bis man das Datum neu eintippt; wer schnell arbeitet, setzt dabei leicht ein falsches.</p>
+        <p class="where">Personal &amp; Stunden › Zeiteinträge › Edit · Feld <code>time-date</code></p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-7</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Verkaufsliste zeigt „Artikel #1“ statt des Artikelnamens</h3>
+        <p>In der Spalte Beschreibung steht die interne ID. Die Einkäufe-Liste löst denselben Artikel korrekt als „Franz Wanner. Eingestellte Gegenwarten“ auf. Die beim Verkauf erfasste Notiz wird nirgends angezeigt.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-8</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Ø EK und Marge werden nicht berechnet</h3>
+        <p>Im Artikelbestand bleiben beide Spalten auf „-“, obwohl ein Wareneinkauf über 2 Stück zu 20,50 € erfasst ist. Der Deckungsbeitrag pro Artikel ist damit nicht ablesbar.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-9</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Import-Statistik zeigt Platzhalter statt echter Zahlen</h3>
+        <p>„1000+ Buchungen gesamt“, „500+ Lieferanten“, „Verknüpfte PDFs: -“. Tatsächlich sind 7.010 Buchungen und 598 Lieferanten geladen. Der Button „Statistik aktualisieren“ ändert nichts.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-10</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Filter „Nur Konten mit Buchungen“ greift nicht</h3>
+        <p>Die Checkbox ist aktiv, trotzdem erscheint z. B. Konto 600101051 mit Anzahl 0 in der Liste.</p>
+        <p class="where">Reporting › 5. Kontenplan</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-11</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Zwei Icon-Dateien fehlen auf dem Server</h3>
+        <p><code>icons/12-delete.svg</code> und <code>icons/08-check.svg</code> antworten mit Status 200, liefern aber HTML (2.484 Byte, offenbar der SPA-Fallback) statt SVG. Ergebnis sind kaputte Bild-Platzhalter überall dort, wo gelöscht wird: Verkäufe, Einkäufe, Kurskategorien, Kontenplan.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-12</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Reporting zeigt keine DATEV-ID</h3>
+        <p>In der Projektübersicht steht in der Spalte DATEV-ID bei jedem Projekt „-“. Im Projektdetail ist sie vorhanden (Complice: 2601).</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-13</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Zeitraum-Label „YTD (bis heute)“ meint bis Vormonat</h3>
+        <p>Am 21.08.2026 zeigt Seite 3 den Zusatz „(01.01. – Juli 2026, 7 Monate)“. Seite 6 nennt denselben Zeitraum ehrlich „YTD (bis Vormonat)“. Vor dem Aktualisieren stehen bei Bilanz/GuV zudem die Spaltenköpfe 2025 und 2024, obwohl 2026 gewählt ist.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-14</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Anwesenheitsplanung erlaubt vergangene Tage</h3>
+        <p>Der 17.8. lässt sich anklicken und als „Büro + Mittagessen“ speichern. Für eine Essensplanung sollten vergangene Tage gesperrt sein.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">M-15</span><span class="chip chip-mid">Mittel</span></div>
+      <div>
+        <h3>Leere Listen ohne Leerzustand</h3>
+        <p>„Meine Zeiteinträge“ zeigt ohne Einträge eine weiße Karte mit Überschrift und Trennlinie — weder Tabellenkopf noch ein Hinweistext. In „Kurse“ ist es mit „Keine Kursteilnahmen vorhanden“ richtig gelöst; das sollte überall so sein.</p>
+      </div>
+    </article>
+  </section>
+
+  <section id="kosmetik">
+    <h2>Kosmetik</h2>
+    <p class="sec-note">Kleinigkeiten, die in Summe unfertig wirken.</p>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-1</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Umlaute als ae/oe/ue geschrieben</h3>
+        <p>„Buero + Mittagessen“, „Zuruecksetzen“, „Ausgewaehlt“, „Fuehrungskompetenz“ — und einmal „Filter zurucksetzen“ ganz ohne u-Ersatz.</p>
+        <p class="where">Personal › Anwesenheit / Externe · Konfiguration › Kurse</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-2</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Stunden mit Punkt, Beträge mit Komma</h3>
+        <p>„3.5 Stunden diese Woche“, „2.0 Externe Stunden“, „6.0 Stunden gesamt“ stehen neben korrekt formatierten „23,23 €“. Innerhalb einer Ansicht sollte dasselbe Dezimaltrennzeichen gelten.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-3</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>„1 Rechnungen“</h3>
+        <p>Auf dem Dashboard fehlt die Singularform (Wanderausstellung).</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-4</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Kalender zeigt den Login statt des Namens</h3>
+        <p>Im Wartungskalender erscheint der Eintrag als „info“, im Projektdetail derselbe Eintrag als „Sophie Gamper“.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-5</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Tableiste und Tabellen laufen über</h3>
+        <p>Bei 1131 px Breite ist der Konfigurations-Reiter „Datenexport“ zu „Datenexp…“ abgeschnitten, und Projekt-, Lieferanten- und Inventarliste brauchen horizontales Scrollen, um die Aktionsspalte zu erreichen.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-6</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Schließen-Kreuz ist ein Submit-Button</h3>
+        <p>Im Kostendialog hat das „×“ <code>type="submit"</code> statt <code>type="button"</code>. Aktuell fällt das nicht auf, weil das Speichern ohnehin hängt (B-2) — nach dessen Behebung könnte das Kreuz jedoch absenden.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-7</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Lieferanten-Auswahl listet 598 Einträge ohne Suche</h3>
+        <p>Das Dropdown „Lieferant“ im Kostendialog rendert den kompletten Stamm als <code>&lt;option&gt;</code>-Liste. Ein Suchfeld wie in der Lieferantenübersicht wäre hier deutlich schneller.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-8</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Zwei verschiedene Modal-Konventionen</h3>
+        <p>Die meisten Dialoge nutzen <code>.modal-overlay</code>, die Shop-Dialoge <code>.modal-backdrop</code>. Zwei Systeme mit identischer Aufgabe erschweren spätere Korrekturen wie H-9.</p>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="gutter"><span class="fid">K-9</span><span class="chip chip-cos">Kosmetik</span></div>
+      <div>
+        <h3>Über 5.000 Konsolenausgaben pro Sitzung</h3>
+        <p>Für jede der 7.010 DATEV-Buchungen wird eine Zeile geloggt („📎 Buchung 206930: 1 PDFs …“). Außerdem werden API-Client und Data-Adapter mehrfach initialisiert („🔌 API Client initialisiert“ dreimal in vier Minuten), was auf doppelt eingebundene Skripte hindeutet. In Produktion sollte das Logging aus sein — echte Fehler gehen im Rauschen unter.</p>
+      </div>
+    </article>
+  </section>
+
+  <section id="ok">
+    <h2>Geprüft und in Ordnung</h2>
+    <p class="sec-note">Positiv verifiziert, teils mit Gegenrechnung.</p>
+    <ul class="plain">
+      <li class="yes">Anmeldung, Navigation über alle 13 Module, Seitenzustand bleibt nach Reload erhalten</li>
+      <li class="yes">Dashboard-Arithmetik: Summe der Projektbudgets = 451.496,00 €, Budget − IST = Verfügbar (319.533,51 €) — auf den Cent korrekt</li>
+      <li class="yes">Rechnungs-Kennzahlen: 46 Neu + 15 Kontrolliert + 1197 Bezahlt = 1258; Netto + MwSt = Offen + Bezahlt = 1.170.070,35 €</li>
+      <li class="yes">Rechnungsfilter Jahr und Status (Status „Neu“ liefert 46 Treffer, passend zur Kachel), Pagination 126 Seiten</li>
+      <li class="yes">Zeiterfassung: anlegen, bearbeiten, löschen — jeweils sofort in den Kacheln sichtbar</li>
+      <li class="yes">Zeiteintrag erscheint korrekt im Wartungskalender und in den Projekt-Arbeitsstunden (4 Std.)</li>
+      <li class="yes">Pflichtfeldprüfung in Zeit- und Kostenformular blockiert leeres Speichern zuverlässig</li>
+      <li class="yes">Inventar: anlegen mit automatischer Nummer (INV-0002), Suche, löschen</li>
+      <li class="yes">Shop: Artikelverkauf wird gespeichert, Preis und MwSt-Satz werden aus dem Artikel vorbelegt</li>
+      <li class="yes">MwSt-Rechner im Kostendialog: 122 € brutto → 100,00 / 22,00 / 122,00 € — korrekt</li>
+      <li class="yes">Reverse Charge: 122 € netto → 26,84 € MwSt → 148,84 € effektive Kosten — korrekt gerechnet und klar erklärt</li>
+      <li class="yes">Lieferant anlegen mit gültiger Partita IVA (Zähler 598 → 599), Volltextsuche über Name, P.IVA und Adresse</li>
+      <li class="yes">Projektdetail: Kostenliste, Filter, Budget-Übersicht (98.154 − 64.826,02 − 29.500 = 3.827,98 € — korrekt)</li>
+      <li class="yes">Budgetplanung nach Bilanzkonten mit Monatsverteilung und IST-Gegenüberstellung</li>
+      <li class="yes">Budgetplanung nach Projekten inkl. Fortschrittsbalken; Verfügbar = 673.484,82 € stimmt</li>
+      <li class="yes">Mitglieder: Liste, Kennzahlen (147 = 26 bezahlt + 121 offen), Suche über Name und E-Mail</li>
+      <li class="yes">Einnahmenplanung: Liste, Jahres-, Typ- und Statusfilter, automatische Codevergabe (2026-03)</li>
+      <li class="yes">Konfiguration: Kostentypen, Kontenplan mit DB-Zuordnung, MwSt-Sätze (IT/DE/AT), Workspaces, Mitarbeiter, Kurskategorien, Datenexport-Ansicht</li>
+      <li class="yes">Reporting-Navigation über alle 7 Seiten inkl. Vor/Zurück</li>
+      <li class="yes">Gesamt-DB-Arithmetik dort, wo Werte vorhanden sind: DB1 1.029.724,25 − Struktur 259.659,04 = DB2 770.065,21 €</li>
+      <li class="yes">Inventar- und Lieferantensuche filtern korrekt und setzen sich sauber zurück</li>
+    </ul>
+  </section>
+
+  <section id="testdaten">
+    <h2>Testdaten</h2>
+    <p class="sec-note">Angelegt mit Präfix „TEST Claude“, soweit möglich wieder entfernt.</p>
+    <ul class="plain">
+      <li class="yes"><strong>Entfernt:</strong> Zeiteintrag „TEST Claude – Funktionstest“, Complice, 4 Std., 20.8.2026</li>
+      <li class="yes"><strong>Entfernt:</strong> Inventargegenstand INV-0002 „TEST Claude Inventar“, 250,00 €</li>
+      <li><strong>Nicht angelegt</strong> (Speichern hängt, B-2/B-3): Projektkosten 122,00 € auf Complice, Einnahme 2026-03 über 5.000 € — beide Male ohne Datensatz geblieben. Bitte trotzdem gegenprüfen, falls das Backend die offenen Requests nachträglich verarbeitet.</li>
+    </ul>
+
+    <div class="callout">
+      <h3>Zwei Testdatensätze bleiben zurück — Löschung nur in der Datenbank möglich</h3>
+      <p><strong>Shop-Verkauf</strong> vom 21.8.2026, 18:21 Uhr, „Artikel #1“, 1 Stück, 23,23 € bar (ID 1). Storno und Bearbeiten sind funktionslos (B-4). Dieser Verkauf steht aktuell im Kassensaldo Bar.</p>
+      <p><strong>Lieferant</strong> „TEST Claude Lieferant (bitte loeschen)“, Partita IVA <code>IT99999999999</code>. Die Oberfläche bietet keine Löschfunktion an (H-11).</p>
+    </div>
+  </section>
+
+  <section id="offen">
+    <h2>Bewusst nicht getestet</h2>
+    <p class="sec-note">Ausgelassen, weil es echte Daten verändert oder Downloads auslöst.</p>
+    <ul class="plain">
+      <li>Excel-Import für DATEV-Buchungen, Lieferanten und Mitglieder sowie der Rechnungs-PDF-Import — jeweils Massenschreibvorgänge auf Echtdaten</li>
+      <li>CSV- und Excel-Exporte (Datenexport, Deckungsbeiträge, Kontenplan, Mitglieder, Inventar) — nicht ausgeführt, um keine Downloads zu starten</li>
+      <li>Bearbeiten, Statuswechsel und Löschen bestehender Rechnungen, Lieferanten, Projekte und Mitglieder</li>
+      <li>„PDF verknüpfen“ und „Lieferanten sync“ in der Rechnungsansicht</li>
+      <li>Projekt anlegen — der Button ist für die Rolle Mitarbeiter ausgeblendet</li>
+      <li>Kassenabschluss sowie Speichern von Eintritt und Mitgliedsbeitrag — Buttons nicht erreichbar (H-9)</li>
+      <li>Mobile Darstellung und Tastaturbedienung</li>
+    </ul>
+  </section>
+
+  <footer>
+    Getestet am 21.08.2026 · Build v=20260820 · Benutzer info (Mitarbeiter) · Chrome, Viewport 1131×845 und 1332×922<br>
+    Belege: Browser-Konsole, Netzwerk-Mitschnitt und Screenshots je Befund · 40 Befunde, 21 positiv verifizierte Funktionen
+  </footer>
+
+</div>
