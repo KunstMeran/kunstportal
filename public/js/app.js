@@ -5766,6 +5766,12 @@ const App = {
             const uploadResult = await ApiClient.uploadFile('invoices', file, newFileName);
             console.log('📤 Storage Upload Ergebnis:', uploadResult);
 
+            // WICHTIG: Verwende den tatsächlichen Pfad vom Server (nicht den lokal generierten)
+            // weil Multer das filename-Feld bei multipart/form-data nicht immer korrekt empfängt
+            const actualFilePath = uploadResult.path || `invoices/${uploadResult.filename}`;
+            const actualFileName = uploadResult.filename || newFileName;
+            console.log('📤 Tatsächlicher Dateipfad vom Server:', actualFilePath);
+
             // Booking-ID extrahieren wenn vorhanden (für linked_booking_id)
             let bookingId = null;
             if (rechnungId && rechnungId.startsWith('id:')) {
@@ -5780,9 +5786,10 @@ const App = {
             }
 
             // Invoice-Eintrag in Datenbank erstellen (mit linked_booking_id wenn vorhanden)
+            // WICHTIG: Verwende actualFilePath/actualFileName vom Server, nicht die lokal generierten Werte
             const insertData = {
-                file_name: newFileName,
-                file_path: filePath,
+                file_name: actualFileName,
+                file_path: actualFilePath,
                 partita_iva: partitaIva || null,
                 invoice_number: dokumentNr || null,
                 status: 'uploaded'
